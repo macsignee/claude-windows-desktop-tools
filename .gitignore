@@ -1,0 +1,12 @@
+# このツールを使うプロジェクトで生成されるファイル (誤ってコピーしてもコミットしない)
+.claude-logs/
+trigger_build.flag
+trigger_test.flag
+build_result.txt
+build_error.log
+test_result.txt
+test_error.log
+
+# 個人設定
+.claude/settings.local.json
+.claude/.cc-writes/

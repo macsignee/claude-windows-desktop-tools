@@ -1,0 +1,16 @@
+# 文字コードと改行は、動作に直結する。git の自動変換 (core.autocrlf など) を、すべて無効にして、
+# コミットしたバイト列のまま、すべての環境に配る。形式は tools/check-formats.sh で検証する。
+
+# Windows 用のバッチ: CP932 (Shift_JIS) + CRLF。変換しない。
+*.cmd   -text diff=cp932
+
+# PowerShell: BOM 付き UTF-8 + CRLF。変換しない (BOM を落とさない)。
+*.ps1   -text
+
+# WSL/Linux で動くもの: LF。CRLF になると bash で動かない。
+*.sh    text eol=lf
+
+# 文書
+*.md    text eol=lf
+*.json  text eol=lf
+VERSION text eol=lf
