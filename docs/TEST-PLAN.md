@@ -54,6 +54,8 @@
 | R2 | 末尾に `\` を付けて渡す | 同じく起動する (引数が壊れない) | ✗ |
 | R3 | フォルダをドラッグ&ドロップ | 起動する | ✗ |
 | R4 | スペースを含むパス | 起動する | ✗ |
+| R5 | **引数なし**で `run_watcher.cmd` を起動 (`.sln` がない場所に、cmd を置いた場合) | `ERROR: no .sln / .slnx found in ...`、`NOTE: no ProjectDir argument was given ...`、`Usage` と `Example` が出て、キー入力待ち → 終了コード 2 | ✗ (v1.0.1 で追加。実機未確認) |
+| R6 | 存在しないフォルダを渡す | `ERROR: project folder not found: ...` と `Usage` が出る | ✗ |
 
 ## 2. Skill 経由 (Claude Code)
 

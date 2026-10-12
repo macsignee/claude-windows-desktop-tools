@@ -8,7 +8,7 @@ rem 使い方:
 rem   run_watcher.cmd [ProjectDir] [Solution] [Platform] [Configuration]
 rem   （プロジェクトフォルダをこのファイルにドラッグ＆ドロップしても起動できる）
 rem
-rem   ProjectDir     : 省略時は、このファイルがあるフォルダ
+rem   ProjectDir     : 省略時は、このファイルがあるフォルダ（通常は、プロジェクトのフォルダを指定する）
 rem   Solution       : 省略時は、ProjectDir 内の .slnx、なければ .sln を自動検出する
 rem   Platform       : 省略時は x64   (x64 / Win32 / x86 / ARM64)
 rem   Configuration  : 省略時は Debug
@@ -22,10 +22,13 @@ rem setlocal: 以降の変数の変更を、このバッチの中だけに閉じ込める（呼び出し元の環
 setlocal EnableExtensions
 
 rem --- プロジェクトフォルダを決める。第1引数があれば、そのフルパス。なければ、このファイルのフォルダ ---
+rem 引数なしのときは、DEFAULT_DIR に印を付ける（エラー時に、引数の指定を案内するため）。
+set "DEFAULT_DIR="
 if not "%~1"=="" (
     set "PROJECT_DIR=%~f1"
 ) else (
     set "PROJECT_DIR=%~dp0"
+    set "DEFAULT_DIR=1"
 )
 rem 末尾の円記号を取り除く。残すと、PowerShell -File に渡す引数が、引用符のエスケープと解釈されて壊れる。
 if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
@@ -33,7 +36,7 @@ if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 rem フォルダが存在しなければ、メッセージを出して、:fail で終了する。
 if not exist "%PROJECT_DIR%\" (
     echo ERROR: project folder not found: %PROJECT_DIR%
-    goto :fail
+    goto :fail_usage
 )
 
 rem --- ソリューションを決める。第2引数があれば、それを使う（自動検出しない） ---
@@ -62,7 +65,8 @@ rem --- ここまでで、ソリューションが決まっていなければ終了する ---
 :sln_ready
 if not defined SLN_FILE (
     echo ERROR: no .sln / .slnx found in %PROJECT_DIR%
-    goto :fail
+    if defined DEFAULT_DIR echo NOTE: no ProjectDir argument was given, so the folder of this cmd was used.
+    goto :fail_usage
 )
 
 rem --- ビルド構成。省略時は、Platform=x64、Configuration=Debug ---
@@ -95,6 +99,12 @@ rem 終了メッセージを読めるよう、キー入力まで待つ。
 pause
 exit /b %ERRORLEVEL%
 
+rem --- 使い方を表示してから、:fail に続く（引数の指定ミスのとき） ---
+:fail_usage
+echo.
+echo Usage  : run_watcher.cmd ^<ProjectDir^> [Solution] [Platform] [Configuration]
+echo Example : run_watcher.cmd C:\path\to\MyApp
+echo          run_watcher.cmd .          ^(the current folder^)
 rem --- エラー終了。メッセージを読めるよう、キー入力まで待ち、終了コード 2 で終わる ---
 :fail
 echo.

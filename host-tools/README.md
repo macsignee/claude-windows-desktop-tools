@@ -134,6 +134,7 @@ test_error.log
 | 症状 | 原因と対処 |
 |---|---|
 | ビルド/テストが途中で止まる。ウィンドウのタイトルに `選択` と出る | コンソールをクリックすると出力が一時停止する (クイック編集)。Enter か Esc で再開。起動時のヘッダーが `QuickEdit : disabled` なら発生しない (`not changed` なら Windows Terminal などで無効化できていない。従来のコンソールで起動する) |
+| `ERROR: no .sln / .slnx found in <cmd のあるフォルダ>` | 引数なしで起動したため、`run_watcher.cmd` のあるフォルダが対象になった。プロジェクトのフォルダを、引数で渡す (例: `run_watcher.cmd C:\path\to\MyApp`、またはプロジェクトのフォルダから `run_watcher.cmd .`) |
 | `パラメーター 'SolutionPath' の引数が指定されていません` | ソリューションが空で渡っている。フォルダに `.sln` / `.slnx` があるか、`run_watcher.cmd` の第2引数で指定する |
 | `ParserError` や、ps1 の日本語の文字化け | `.ps1` の BOM が落ちている。BOM 付き UTF-8 で保存し直す |
 | `.cmd` のコメントが文字化けする、`'xxx' は、内部コマンドまたは外部コマンド...` のようなエラーが出る | `.cmd` が UTF-8 などで保存し直された。CP932 (Shift_JIS) で保存し直す |
