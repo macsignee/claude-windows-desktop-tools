@@ -78,11 +78,22 @@ python3 "$SCRIPT" "$S" DataLayer >"$WORK/out1.txt" 2>&1; rc=$?
 python3 "$SCRIPT" "$S" LogicLayer --uses DataLayer >"$WORK/out2.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "LogicLayer (--uses DataLayer) の追加が成功" || { ng "LogicLayer の追加が成功 (rc=$rc)"; cat "$WORK/out2.txt"; }
 
-for f in DataLayer/DataLayer.vcxproj DataLayer/DataLayerApi.h DataLayer/DataLayerModuleInfo.h DataLayer/DataLayerModuleInfo.cpp \
-         DataLayerTest/DataLayerTest.vcxproj DataLayerTest/packages.config DataLayerTest/TestDataLayerModuleInfo.cpp \
+for f in DataLayer/DataLayer.vcxproj DataLayer/DataLayer.vcxproj.filters DataLayer/DataLayerApi.h DataLayer/DataLayerModuleInfo.h DataLayer/DataLayerModuleInfo.cpp \
+         DataLayerTest/DataLayerTest.vcxproj DataLayerTest/DataLayerTest.vcxproj.filters DataLayerTest/packages.config DataLayerTest/TestDataLayerModuleInfo.cpp \
          LogicLayer/LogicLayer.vcxproj LogicLayerTest/LogicLayerTest.vcxproj; do
     [ -f "$S/$f" ] && ok "生成: $f" || ng "生成: $f"
 done
+check ".filters が XML として正しい" python3 -c "
+import glob, xml.dom.minidom as m
+fs = glob.glob('$S/*/*.vcxproj.filters')
+assert len(fs) == 4, fs
+[m.parse(f) for f in fs]"
+check ".h が「ヘッダー ファイル」フィルターに入る" grep -q '<ClInclude Include="DataLayerApi.h">' "$S/DataLayer/DataLayer.vcxproj.filters"
+check "「ヘッダー ファイル」のフィルター定義がある" grep -q '<Filter Include="ヘッダー ファイル">' "$S/DataLayer/DataLayer.vcxproj.filters"
+check ".cpp が「ソース ファイル」フィルターに入る" grep -q '<ClCompile Include="DataLayerModuleInfo.cpp">' "$S/DataLayer/DataLayer.vcxproj.filters"
+check "「ソース ファイル」のフィルター定義がある" grep -q '<Filter Include="ソース ファイル">' "$S/DataLayer/DataLayer.vcxproj.filters"
+check "packages.config は、フィルターに入らない (None のまま)" bash -c "! grep -q 'packages.config' '$S/DataLayerTest/DataLayerTest.vcxproj.filters'"
+check ".filters が BOM + CRLF" bash -c "head -c3 '$S/DataLayer/DataLayer.vcxproj.filters' | xxd -p | grep -q efbbbf && grep -q \$'\\r' '$S/DataLayer/DataLayer.vcxproj.filters'"
 check "vcxproj が XML として正しい" python3 -c "
 import glob, xml.dom.minidom as m
 fs = glob.glob('$S/*/*.vcxproj')

@@ -31,6 +31,27 @@ GTEST_ID = 'Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn'
 GTEST_VER = '1.8.1.8'
 GTEST_TARGETS = f'..\\packages\\{GTEST_ID}.{GTEST_VER}\\build\\native\\{GTEST_ID}.targets'
 
+# 日本語版 Visual Studio のウィザードが生成するものと同じフィルター名・GUID・拡張子リスト。
+# (フィルター名は、ロケールごとに異なる。ここを英語にすると、日本語版 VS で開いたときに
+#  「ヘッダー ファイル」と「Header Files」が別物として扱われ、二重のフィルターができる)
+FILTER_SOURCE = ('ソース ファイル', '{4FC737F1-C7A5-4376-A066-2A32D752A2FF}',
+                  'cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx')
+FILTER_HEADER = ('ヘッダー ファイル', '{93995380-89BD-4b04-88EB-625FBE52EBFB}',
+                  'h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd')
+FILTER_RESOURCE = ('リソース ファイル', '{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}',
+                    'rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms')
+
+
+def filter_name_for(path):
+    ext = path.rsplit('.', 1)[-1].lower() if '.' in path else ''
+    if ext in ('h', 'hh', 'hpp', 'hxx'):
+        return FILTER_HEADER[0]
+    if ext in ('cpp', 'c', 'cc', 'cxx'):
+        return FILTER_SOURCE[0]
+    if ext == 'rc':
+        return FILTER_RESOURCE[0]
+    return None
+
 
 def die(msg, code=2):
     print(f'ERROR: {msg}')
@@ -149,8 +170,11 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
 ''' + defs_group('Debug', True) + defs_group('Release', False)
     hd = [i for i in items if i.endswith('.h')]
     cl = [i for i in items if i.endswith('.cpp')]
+    rc = [i for i in items if i.endswith('.rc')]
     out += '  <ItemGroup>\n' + ''.join(f'    <ClInclude Include="{h}" />\n' for h in hd) + '  </ItemGroup>\n'
     out += '  <ItemGroup>\n' + ''.join(f'    <ClCompile Include="{c}" />\n' for c in cl) + '  </ItemGroup>\n'
+    if rc:
+        out += '  <ItemGroup>\n' + ''.join(f'    <ResourceCompile Include="{r}" />\n' for r in rc) + '  </ItemGroup>\n'
     if 'packages.config' in items:
         out += '  <ItemGroup>\n    <None Include="packages.config" />\n  </ItemGroup>\n'
     if refs:
@@ -158,6 +182,31 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
             f'    <ProjectReference Include="..\\{n}\\{n}.vcxproj">\n      <Project>{g}</Project>\n    </ProjectReference>\n'
             for n, g in refs) + '  </ItemGroup>\n'
     out += '  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n' + tail + '</Project>\n'
+    return out
+
+
+def vcxproj_filters(items):
+    hd = [i for i in items if filter_name_for(i) == FILTER_HEADER[0]]
+    cl = [i for i in items if filter_name_for(i) == FILTER_SOURCE[0]]
+    rc = [i for i in items if filter_name_for(i) == FILTER_RESOURCE[0]]
+    defs = [d for d, present in ((FILTER_SOURCE, cl), (FILTER_HEADER, hd), (FILTER_RESOURCE, rc)) if present]
+
+    out = '<?xml version="1.0" encoding="utf-8"?>\n'
+    out += '<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n'
+    out += '  <ItemGroup>\n' + ''.join(
+        f'    <Filter Include="{n}">\n      <UniqueIdentifier>{g}</UniqueIdentifier>\n      <Extensions>{e}</Extensions>\n    </Filter>\n'
+        for n, g, e in defs) + '  </ItemGroup>\n'
+
+    def group(tag, paths, filt):
+        if not paths:
+            return ''
+        return '  <ItemGroup>\n' + ''.join(
+            f'    <{tag} Include="{p}">\n      <Filter>{filt}</Filter>\n    </{tag}>\n' for p in paths) + '  </ItemGroup>\n'
+
+    out += group('ClInclude', hd, FILTER_HEADER[0])
+    out += group('ClCompile', cl, FILTER_SOURCE[0])
+    out += group('ResourceCompile', rc, FILTER_RESOURCE[0])
+    out += '</Project>\n'
     return out
 
 
@@ -190,6 +239,7 @@ def build_files(name, ns, uses, toolset):
     files[f'{name}/{name}.vcxproj'] = vcxproj(
         name, dg, 'DynamicLibrary', toolset, [api, info_h, info_cpp], [], use_inc,
         f'{up}_EXPORTS;_WINDOWS;_USRDLL;', 'Windows')
+    files[f'{name}/{name}.vcxproj.filters'] = vcxproj_filters([api, info_h, info_cpp])
     files[f'{name}/{api}'] = f'''#pragma once
 
 // DLL の公開 (エクスポート) マクロ。{name} 自身をビルドするときだけ {up}_EXPORTS が定義される。
@@ -226,6 +276,7 @@ namespace {ns}
     files[f'{test}/{test}.vcxproj'] = vcxproj(
         test, tg, 'Application', toolset, [test_cpp, 'packages.config'], [(name, dg)],
         [f'$(ProjectDir)..\\{name}'] + use_inc, '_CONSOLE;', 'Console', tail=nuget_tail())
+    files[f'{test}/{test}.vcxproj.filters'] = vcxproj_filters([test_cpp])
     files[f'{test}/packages.config'] = f'''<?xml version="1.0" encoding="utf-8"?>
 <packages>
   <package id="{GTEST_ID}" version="{GTEST_VER}" targetFramework="native" />
