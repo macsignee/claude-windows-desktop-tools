@@ -144,9 +144,11 @@ echo [BUILD] target=%TARGET%
 echo [BUILD] Configuration=%CONFIG% Platform=%MSPLATFORM% MSBuildTarget=%MSTARGET%
 echo [BUILD] logs=%LOGDIR%
 
+chcp 65001 >nul
 MSBuild.exe "%TARGET%" /nologo /m /t:%MSTARGET% /p:Configuration=%CONFIG% /p:Platform=%MSPLATFORM% /verbosity:minimal /fl1 "/flp1:logfile=%LOGDIR%\build.log;verbosity=normal;encoding=UTF-8" /fl2 "/flp2:logfile=%LOGDIR%\errors.log;errorsonly;encoding=UTF-8" /fl3 "/flp3:logfile=%LOGDIR%\warnings.log;warningsonly;encoding=UTF-8"
-rem MSBuild の終了コードを保存する。0 以外ならビルド失敗として、このバッチは終了コード 1 で終わる。
 set "RC=%ERRORLEVEL%"
+chcp 932 >nul
+rem MSBuild の終了コードを保存する。0 以外ならビルド失敗として、このバッチは終了コード 1 で終わる。
 echo [BUILD] MSBuild exit code: %RC%
 if not "%RC%"=="0" exit /b 1
 exit /b 0

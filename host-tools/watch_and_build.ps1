@@ -65,6 +65,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# build-windows.cmd が MSBuild 呼び出しの前後だけ chcp 65001 にするため、
+# パイプで受け取るネイティブプロセスの出力も UTF-8 として解釈する (PS 5.1)。
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 # param 内の既定値では $PSScriptRoot が空になる環境があるため、ここで解決する
 if (-not $BuildScript) {
     $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }

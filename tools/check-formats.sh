@@ -9,6 +9,7 @@
 #   *.ps1  : UTF-8、BOM あり、CRLF
 #   *.sh   : UTF-8、LF、BOM なし (bash -n で構文も確認)
 #   *.md   : UTF-8、LF、BOM なし
+#   *.py   : UTF-8、LF、BOM なし (python3 で構文も確認)
 set -u
 
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -47,6 +48,13 @@ while IFS= read -r -d '' f; do
             iconv -f utf-8 -t utf-8 "$f" >/dev/null 2>&1 || ng "$rel" "UTF-8 として読めない"
             bash -n "$f" 2>/dev/null || ng "$rel" "bash の構文エラー"
             ;;
+        *.py)
+            checked=$((checked + 1))
+            has_bom "$f"   && ng "$rel" "BOM がある"
+            has_cr "$f"    && ng "$rel" "CR (CRLF) が含まれる"
+            iconv -f utf-8 -t utf-8 "$f" >/dev/null 2>&1 || ng "$rel" "UTF-8 として読めない"
+            python3 -c "import ast,sys; ast.parse(open(sys.argv[1], encoding='utf-8').read())" "$f" 2>/dev/null || ng "$rel" "python の構文エラー"
+            ;;
         *.md)
             checked=$((checked + 1))
             has_bom "$f"   && ng "$rel" "BOM がある"
@@ -54,7 +62,7 @@ while IFS= read -r -d '' f; do
             iconv -f utf-8 -t utf-8 "$f" >/dev/null 2>&1 || ng "$rel" "UTF-8 として読めない"
             ;;
     esac
-done < <(find "$ROOT" -type f \( -name '*.cmd' -o -name '*.ps1' -o -name '*.sh' -o -name '*.md' \) \
+done < <(find "$ROOT" -type f \( -name '*.cmd' -o -name '*.ps1' -o -name '*.sh' -o -name '*.md' -o -name '*.py' \) \
             -not -path '*/.git/*' -print0 | sort -z)
 
 if [ "$fail" -eq 0 ]; then
