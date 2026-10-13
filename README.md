@@ -16,7 +16,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 |---|---|---|
 | [`host-tools/`](host-tools/) | ウォッチャー (`watch_and_build.ps1`)、起動用 (`run_watcher.cmd`)、ビルド用 (`build-windows.cmd`)。**3 ファイルは同じフォルダに置く** | Windows 側の任意のフォルダ (例: `C:\tools\cpp-watcher\`) |
 | [`skills/`](skills/) | Claude Code の Skill: `cpp-auto-build` (ビルドのみ)、`cpp-build-test-loop` (ビルド + テスト) | `~/.claude/skills/` (WSL) |
-| [`docs/`](docs/) | [設計メモ](docs/DESIGN.md) (契約・設計判断・取り下げた案)、[テスト手順書](docs/TEST-PLAN.md) | |
+| [`docs/`](docs/) | [設計メモ](docs/DESIGN.md) (契約・設計判断・取り下げた案)、[テスト手順書](docs/TEST-PLAN.md)、[推奨する Claude Code の設定](docs/RECOMMENDED-SETTINGS.md) (テストファイルの編集と `git commit` に、確認を付ける) | |
 | [`tools/`](tools/) | `check-formats.sh`: 文字コード・改行・BOM の検証 | |
 | [`tests/`](tests/) | `fake_watcher_test.sh`: Skill のスクリプトを、疑似ウォッチャーで検証 (Windows 不要) | |
 | [`install/`](install/) | `install.sh`: 配布先へコピーする (バイトを変えない) | |

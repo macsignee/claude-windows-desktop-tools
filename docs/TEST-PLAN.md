@@ -61,8 +61,8 @@
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| M1 | ウォッチャーを起動したまま、**同じフォルダ**で、もう 1 つ `run_watcher.cmd` を起動 | 2 つ目のウィンドウに `ERROR: a watcher is already running for this folder: ...` と `Use that window, or close it first.` が出て、`Watcher exited with code 3.` で、キー入力待ち。1 つ目は動き続け、フラグを処理できる | ✗ |
-| M2 | 1 つ目のウィンドウを閉じてから、もう一度起動 | 二重起動と判定されず、起動できる (ミューテックスが解放されている) | ✗ |
+| M1 | ウォッチャーを起動したまま、**同じフォルダ**で、もう 1 つ `run_watcher.cmd` を起動 | 2 つ目のウィンドウに `ERROR: a watcher is already running for this folder: ...` と `Use that window, or close it first.` が出て、`Watcher exited with code 3.` で、キー入力待ち。1 つ目は動き続け、フラグを処理できる | ✔ |
+| M2 | 1 つ目のウィンドウを閉じてから、もう一度起動 | 二重起動と判定されず、起動できる (ミューテックスが解放されている) | ✔ |
 | M3 | 1 つ目を、タスクマネージャーなどで、強制終了してから、起動 | 同上 (異常終了しても、古いロックが残らない) | ✗ |
 | M4 | **別のフォルダ**のウォッチャーが動いている状態で、このフォルダのウォッチャーを起動 | 干渉せずに、起動できる (ミューテックスは、フォルダごと) | ✗ |
 | M5 | ps1 を直接起動し、`-TargetDir` の、大文字小文字や、末尾の `\` だけを変える | 同じフォルダとして扱われ、2 つ目は拒否される | ✗ |
@@ -84,6 +84,8 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 | S6 | `-TestExePattern 'NoSuch\.exe$'` でウォッチャーを起動 | `ENV_ERROR`。ソースもテストも触らず、環境の問題として報告して止まる | ✔ |
 | S7 | `-TestTimeoutSec` を、全体の実行時間より短くする | `TEST_TIMEOUT`。直前にソースを変えていなければ、直さず報告して止まる (制限時間の確認を依頼) | ✗ (ホスト側 T4 のみ) |
 | S8 | ユーザー Skill (`~/.claude/skills`) のみ配置 (プロジェクト側は退避) | S1 と同じ動き (ユーザー Skill が使われる) | ✔ (S1 のみ) |
+| S9 | プロジェクトの `.claude/settings.json` に `permissions.ask` (`docs/RECOMMENDED-SETTINGS.md`) を設定し、Claude に、**テストファイルを編集**させる (例: S4 の流れ) | 編集の前に、**権限の確認ダイアログ**が出る。拒否すると、Claude が、別の方法 (別のツールやコマンド) で、同じ編集を、行わない | ✗ |
+| S10 | S2 (ソースのバグを直す) を実行する | 完了時の報告に、**変更ファイルの一覧**と、「テストファイルの変更なし」が、含まれる。`git commit` / `git push` は、実行されない。変更がない場合 (S1) は、「変更なし」で、`git status` を実行しない | ✗ |
 
 **観察する点 (すべての Skill 経由のテスト共通):**
 - `build_test_once.sh` を、探し回らずに、`run_in_background: true` (または `timeout` 付き) で実行している。
