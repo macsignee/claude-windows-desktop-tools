@@ -54,8 +54,18 @@
 | R2 | 末尾に `\` を付けて渡す | 同じく起動する (引数が壊れない) | ✗ |
 | R3 | フォルダをドラッグ&ドロップ | 起動する | ✗ |
 | R4 | スペースを含むパス | 起動する | ✗ |
-| R5 | **引数なし**で `run_watcher.cmd` を起動 (`.sln` がない場所に、cmd を置いた場合) | `ERROR: no .sln / .slnx found in ...`、`NOTE: no ProjectDir argument was given ...`、`Usage` と `Example` が出て、キー入力待ち → 終了コード 2 | ✗ (v1.0.1 で追加。実機未確認) |
+| R5 | **引数なし**で `run_watcher.cmd` を起動 (`.sln` がない場所に、cmd を置いた場合) | `ERROR: no .sln / .slnx found in ...`、`NOTE: no ProjectDir argument was given ...`、`Usage` と `Example` が出て、キー入力待ち → 終了コード 2 | ✔ (v1.0.1) |
 | R6 | 存在しないフォルダを渡す | `ERROR: project folder not found: ...` と `Usage` が出る | ✗ |
+
+### 1-4. 二重起動の防止 (`watch_and_build.ps1`)
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| M1 | ウォッチャーを起動したまま、**同じフォルダ**で、もう 1 つ `run_watcher.cmd` を起動 | 2 つ目のウィンドウに `ERROR: a watcher is already running for this folder: ...` と `Use that window, or close it first.` が出て、`Watcher exited with code 3.` で、キー入力待ち。1 つ目は動き続け、フラグを処理できる | ✗ |
+| M2 | 1 つ目のウィンドウを閉じてから、もう一度起動 | 二重起動と判定されず、起動できる (ミューテックスが解放されている) | ✗ |
+| M3 | 1 つ目を、タスクマネージャーなどで、強制終了してから、起動 | 同上 (異常終了しても、古いロックが残らない) | ✗ |
+| M4 | **別のフォルダ**のウォッチャーが動いている状態で、このフォルダのウォッチャーを起動 | 干渉せずに、起動できる (ミューテックスは、フォルダごと) | ✗ |
+| M5 | ps1 を直接起動し、`-TargetDir` の、大文字小文字や、末尾の `\` だけを変える | 同じフォルダとして扱われ、2 つ目は拒否される | ✗ |
 
 ## 2. Skill 経由 (Claude Code)
 
@@ -96,7 +106,7 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | 変更したもの | 最低限、やること |
 |---|---|
 | `build_once.sh` / `build_test_once.sh` | `tools/check-formats.sh`、`tests/fake_watcher_test.sh` |
-| `watch_and_build.ps1` | 1-2 の T1 / T2 / T4 を、実機で |
+| `watch_and_build.ps1` | 1-2 の T1 / T2 / T4 を、実機で。二重起動の防止を変えたときは 1-4 の M1 / M2 も |
 | `build-windows.cmd` / `run_watcher.cmd` | 1-1 の H1 と、R1 を、実機で。CP932 のまま保存されているか (`check-formats.sh`) |
 | `SKILL.md` | 新しいセッションで、2 の S1 と、変更に関係する項目 (例: 方針を変えたなら S4) |
 | 契約 (ファイル名・結果の値・終了コード) | ホスト側ツールと Skill の両方、1-2 と 2 の全項目 |

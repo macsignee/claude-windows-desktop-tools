@@ -47,6 +47,7 @@ run_watcher.cmd <プロジェクトフォルダ> [ソリューション] [Platfo
 - ソリューション省略時は、フォルダ内の `.slnx`、なければ `.sln` を自動検出します (両方ある場合は `.slnx` を使い、メッセージを出します)。
 - Platform: `x64` (既定) / `Win32` / `x86` / `ARM64`。Configuration: `Debug` (既定) / `Release` など。
 - **1つのウォッチャーは、1つのプロジェクトフォルダ・1つの Platform/Configuration 専用です。** 別のプロジェクトは、別のウィンドウで起動します。
+- **同じプロジェクトフォルダで、ウォッチャーを二重には起動できません。** 2つ目は、`ERROR: a watcher is already running for this folder` と出て、終了コード 3 で終了します (1つ目が、そのまま使われます)。
 - 起動時に、ヘッダー (VS、ビルド構成、`QuickEdit : disabled` など) が出ます。
 
 ### 停止
@@ -135,6 +136,7 @@ test_error.log
 |---|---|
 | ビルド/テストが途中で止まる。ウィンドウのタイトルに `選択` と出る | コンソールをクリックすると出力が一時停止する (クイック編集)。Enter か Esc で再開。起動時のヘッダーが `QuickEdit : disabled` なら発生しない (`not changed` なら Windows Terminal などで無効化できていない。従来のコンソールで起動する) |
 | `ERROR: no .sln / .slnx found in <cmd のあるフォルダ>` | 引数なしで起動したため、`run_watcher.cmd` のあるフォルダが対象になった。プロジェクトのフォルダを、引数で渡す (例: `run_watcher.cmd C:\path\to\MyApp`、またはプロジェクトのフォルダから `run_watcher.cmd .`) |
+| `ERROR: a watcher is already running for this folder` (終了コード 3) | 同じプロジェクトフォルダで、すでに別のウォッチャーが動いている。そのウィンドウを使うか、閉じてから、起動し直す。見当たらない場合は、最小化されたウィンドウや、別のユーザーのセッションを、確認する |
 | `パラメーター 'SolutionPath' の引数が指定されていません` | ソリューションが空で渡っている。フォルダに `.sln` / `.slnx` があるか、`run_watcher.cmd` の第2引数で指定する |
 | `ParserError` や、ps1 の日本語の文字化け | `.ps1` の BOM が落ちている。BOM 付き UTF-8 で保存し直す |
 | `.cmd` のコメントが文字化けする、`'xxx' は、内部コマンドまたは外部コマンド...` のようなエラーが出る | `.cmd` が UTF-8 などで保存し直された。CP932 (Shift_JIS) で保存し直す |

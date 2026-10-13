@@ -22,6 +22,10 @@
     - テスト exe は <ソリューションフォルダ>\<x64|Win32|ARM64>\<Configuration>\ から、
       名前が -TestExePattern に一致するものを実行する
 
+  このスクリプトの終了コード:
+    2 引数不正 (ソリューションや build-windows.cmd が見つからない)
+    3 同じプロジェクトフォルダで、すでに別のウォッチャーが動いている (二重起動の拒否)
+
   build-windows.cmd の終了コード:
     0 成功 / 1 ビルド失敗 / 2 引数不正 / 10 vswhere なし / 11 VS(C++)なし
     12 VsDevCmd なし / 13 VsDevCmd 失敗 / 14 cl.exe or MSBuild.exe が PATH にない
@@ -83,6 +87,21 @@ if (-not (Test-Path -LiteralPath $BuildScript)) {
 if (-not $LogDir) { $LogDir = Join-Path $TargetDir ".claude-logs" }
 $LogDir = $LogDir.TrimEnd('\')
 $SolutionDir = Split-Path -Parent $SolutionPath
+
+# ---------- 二重起動の防止 ----------
+# 同じプロジェクトフォルダで、ウォッチャーが2つ動くと、同じフラグを奪い合い、結果が混ざる。
+# 名前付きミューテックスで、先に起動したものだけを残す。プロセスが終了すれば、自動で解放される
+# (ロックファイルと違い、異常終了しても、古いロックが残らない)。
+$sha1 = [System.Security.Cryptography.SHA1]::Create()
+$pathHash = (($sha1.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($TargetDir.ToLowerInvariant())) |
+    ForEach-Object { $_.ToString("x2") }) -join "")
+$createdNew = $false
+$WatcherMutex = New-Object System.Threading.Mutex($true, "Local\cpp-claude-build-tools-watcher-$pathHash", [ref]$createdNew)
+if (-not $createdNew) {
+    Write-Host "ERROR: a watcher is already running for this folder: $TargetDir" -ForegroundColor Red
+    Write-Host "       Use that window, or close it first." -ForegroundColor Red
+    exit 3
+}
 
 $TriggerFile     = Join-Path $TargetDir "trigger_build.flag"
 $TestTriggerFile = Join-Path $TargetDir "trigger_test.flag"
