@@ -16,10 +16,10 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 | フォルダ | 内容 | 配布先 |
 |---|---|---|
 | [`host-tools/`](host-tools/) | ウォッチャー (`watch_and_build.ps1`)、起動用 (`run_watcher.cmd`)、ビルド用 (`build-windows.cmd`)。**3 ファイルは同じフォルダに置く** | Windows 側の任意のフォルダ (例: `C:\tools\cpp-watcher\`) |
-| [`skills/`](skills/) | Claude Code の Skill: `cpp-auto-build` (ビルドのみ)、`cpp-build-test-loop` (ビルド + テスト、Green)、`cpp-test-first` (テストを先に書き、Red を確認)、`brainstorm` (`/brainstorm`: 壁打ちで仕様を固める)、`add-feature` (`/add-feature`: 計画 → 承認 → テスト先行 → 実装 → 検証)、`update-from-ideas` (`/update-from-ideas`: アイデアを正式な仕様書へ反映) | `~/.claude/skills/` (WSL) |
+| [`skills/`](skills/) | Claude Code の Skill: `cpp-auto-build` (ビルドのみ)、`cpp-build-test-loop` (ビルド + テスト、Green)、`cpp-test-first` (テストを先に書き、Red を確認)、`brainstorm` (`/brainstorm`: 壁打ちで仕様を固める)、`add-feature` (`/add-feature`: 計画 → 承認 → テスト先行 → 実装 → 検証)、`update-from-ideas` (`/update-from-ideas`: アイデアを正式な仕様書へ反映)、`new-solution` (`/new-solution`: フォルダ名と同名の `.slnx` + メイン + 層 + テストの有無を指定して作成) | `~/.claude/skills/` (WSL) |
 | [`docs/`](docs/) | [設計メモ](docs/DESIGN.md) (契約・設計判断・取り下げた案)、[テスト手順書](docs/TEST-PLAN.md)、[推奨する Claude Code の設定](docs/RECOMMENDED-SETTINGS.md) (テストファイルの編集と `git commit` に、確認を付ける) | |
 | [`tools/`](tools/) | `check-formats.sh`: 文字コード・改行・BOM の検証 | |
-| [`tests/`](tests/) | `fake_watcher_test.sh`: Skill のスクリプトを、疑似ウォッチャーで検証。`add_layer_test.sh`: `cpp-test-first` のプロジェクト生成を、疑似ソリューションで検証 (どちらも Windows 不要) | |
+| [`tests/`](tests/) | `fake_watcher_test.sh`: Skill のスクリプトを、疑似ウォッチャーで検証。`add_layer_test.sh` / `new_solution_test.sh`: `cpp-test-first` と `/new-solution` のプロジェクト生成を、疑似フォルダで検証。`gtest_once_test.sh`: GoogleTest 取得の、結果の分岐を、疑似ウォッチャーで検証 (どちらも Windows 不要) | |
 | [`install/`](install/) | `install.sh`: 配布先へコピーする (バイトを変えない) | |
 
 使い方 (ウォッチャーの起動、引数、トラブルシューティング) は、[`host-tools/README.md`](host-tools/README.md)。

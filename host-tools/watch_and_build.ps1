@@ -22,6 +22,15 @@
     - テスト exe は <ソリューションフォルダ>\<x64|Win32|ARM64>\<Configuration>\ から、
       名前が -TestExePattern に一致するものを実行する
 
+  [GoogleTest のソース取得]  <TargetDir>\trigger_gtest.flag  (ビルド・テストとは独立)
+    - GitHub から GoogleTest (固定タグ) を取得して、<TargetDir>\ThirdParty\googletest\ (include\, src\, LICENSE, VERSION.txt) に置く。
+      git があれば git clone --depth 1、なければ zip のダウンロード (Windows 側が、GitHub に届く必要がある)。
+    - フラグの 1 行目に、タグを書ける (例: v1.17.0)。空なら -GtestTag (既定 v1.17.0)。
+      許可する形: v1.17.0 / release-1.12.1 (英数字だけの、決まった形。コマンドへ渡るため)
+    - 同じタグが、すでに置かれていれば、何もせずに OK (冪等)
+    - 完了マーカーは <TargetDir>\gtest_result.txt (最後に書く): OK / FAILED (詳細は gtest_error.log。環境の問題として扱う)
+    - ソリューションに含める静的ライブラリ (gtest.vcxproj) は、Claude 側が作る。ここは、取得だけ
+
   このスクリプトの終了コード:
     2 引数不正 (ソリューションや build-windows.cmd が見つからない)
     3 同じプロジェクトフォルダで、すでに別のウォッチャーが動いている (二重起動の拒否)
@@ -60,7 +69,10 @@ param(
     [int]$TestTimeoutSec = 120,
 
     # テスト実行時の作業フォルダ。省略時は exe のあるフォルダ
-    [string]$TestWorkingDir
+    [string]$TestWorkingDir,
+
+    # trigger_gtest.flag の 1 行目が空のときに取得する、GoogleTest のタグ
+    [string]$GtestTag = "v1.17.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -117,6 +129,152 @@ $BuildLog        = Join-Path $LogDir "build.log"
 $ErrorsOnly      = Join-Path $LogDir "errors.log"
 $WarnsOnly       = Join-Path $LogDir "warnings.log"
 $TestLog         = Join-Path $LogDir "test.log"
+$GtestTriggerFile = Join-Path $TargetDir "trigger_gtest.flag"
+$GtestResultFile  = Join-Path $TargetDir "gtest_result.txt"
+$GtestErrorLog    = Join-Path $TargetDir "gtest_error.log"
+$GtestRepoUrl     = "https://github.com/google/googletest"
+
+# ---------- GoogleTest のソース取得 (trigger_gtest.flag) ----------
+function Write-GtestMarker($value) {
+    try {
+        [System.IO.File]::WriteAllText($GtestResultFile, $value)
+        Write-Host "[MARKER] $value -> $GtestResultFile" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "[MARKER] FAILED to write $GtestResultFile : $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+# 失敗を記録する。gtest_error.log を書いたあとに、完了マーカー (FAILED) を書く。
+function Write-GtestFailure([string[]]$lines) {
+    Write-Host "[GTEST] FAILED" -ForegroundColor Red
+    $lines | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+    (@("[ENVIRONMENT ERROR - not a source code problem]") + @($lines)) | Out-File $GtestErrorLog -Encoding utf8
+    Write-GtestMarker "FAILED"
+}
+
+# 取得して <TargetDir>\ThirdParty\googletest に置く。成功したら OK、失敗したら FAILED をマーカーに書く。
+function Invoke-GtestFetch([string]$tagLine) {
+    $tag = "$tagLine".Trim()
+    if (-not $tag) { $tag = $GtestTag }
+    # タグは、コマンドの引数や URL に渡るので、決まった形だけを許可する
+    if ($tag -notmatch '^(v|release-)\d+\.\d+(\.\d+)?$') {
+        Write-GtestFailure @("ERROR: invalid GoogleTest tag: '$tag' (allowed: v1.17.0 / release-1.12.1)")
+        return
+    }
+    $dest    = Join-Path $TargetDir "ThirdParty\googletest"
+    $verFile = Join-Path $dest "VERSION.txt"
+    $headerP = Join-Path $dest "include\gtest\gtest.h"
+    # すでに同じタグが置かれていれば、取得しない (冪等)。判定の材料は、毎回、表示する (実機での原因調べのため)。
+    $haveHeader = Test-Path -LiteralPath $headerP
+    $haveVer = "<none>"
+    if (Test-Path -LiteralPath $verFile) {
+        $haveVer = ("" + (Get-Content -LiteralPath $verFile -Raw)).Trim([char]0xFEFF, [char]32, [char]9, [char]13, [char]10)
+    }
+    Write-Host "[GTEST] check: wanted='$tag' / VERSION.txt='$haveVer' / gtest.h exists=$haveHeader" -ForegroundColor DarkGray
+    if ($haveHeader -and ($haveVer -ieq $tag)) {
+        Write-Host "[GTEST] $tag is already in $dest" -ForegroundColor Green
+        Write-GtestMarker "OK"
+        return
+    }
+
+    Write-Host "[GTEST] Fetching GoogleTest $tag ..." -ForegroundColor Yellow
+    $tmp = Join-Path $LogDir "gtest_tmp"
+    Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    $log = @()
+    $src = $null
+
+    # PS 5.1 は Stop 下でネイティブの stderr を例外にするため、ここでは Continue にする
+    $ErrorActionPreference = "Continue"
+    try {
+        # 1. git
+        if (Get-Command git -ErrorAction SilentlyContinue) {
+            $cloneDir = Join-Path $tmp "clone"
+            $out = & git clone --depth 1 --branch $tag "$GtestRepoUrl.git" $cloneDir 2>&1
+            $code = $LASTEXITCODE
+            $log += @($out | ForEach-Object { "$_" })
+            if ($code -eq 0 -and (Test-Path -LiteralPath (Join-Path $cloneDir "googletest\include\gtest\gtest.h"))) {
+                $src = Join-Path $cloneDir "googletest"
+            } else {
+                $log += "git clone failed (exit code $code). Trying the zip download."
+            }
+        } else {
+            $log += "git was not found. Using the zip download."
+        }
+        # 2. zip
+        if (-not $src) {
+            try {
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                $zip = Join-Path $tmp "googletest.zip"
+                Invoke-WebRequest -Uri "$GtestRepoUrl/archive/refs/tags/$tag.zip" -OutFile $zip -UseBasicParsing -ErrorAction Stop
+                Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $tmp "zip") -Force -ErrorAction Stop
+                $root = Get-ChildItem -LiteralPath (Join-Path $tmp "zip") -Directory | Select-Object -First 1
+                if ($root -and (Test-Path -LiteralPath (Join-Path $root.FullName "googletest\include\gtest\gtest.h"))) {
+                    $src = Join-Path $root.FullName "googletest"
+                } else {
+                    $log += "The zip was downloaded, but googletest\include\gtest\gtest.h was not found in it."
+                }
+            } catch {
+                $log += "zip download failed: $($_.Exception.Message)"
+            }
+        }
+    } finally {
+        $ErrorActionPreference = "Stop"
+    }
+
+    if (-not $src) {
+        Write-GtestFailure (@("ERROR: could not get GoogleTest $tag from $GtestRepoUrl (check the network / proxy / the tag name).") + $log)
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        return
+    }
+    foreach ($need in @("include\gtest\gtest.h", "src\gtest-all.cc", "src\gtest_main.cc")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $src $need))) {
+            Write-GtestFailure @("ERROR: the fetched GoogleTest has no googletest\$need (unexpected layout).")
+            Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            return
+        }
+    }
+
+    # include / src / LICENSE だけを置く (サイズを小さく。ビルドに要るものだけ)
+    Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $src "include") -Destination $dest -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $src "src") -Destination $dest -Recurse -Force
+    $license = Join-Path (Split-Path $src -Parent) "LICENSE"
+    if (Test-Path -LiteralPath $license) { Copy-Item -LiteralPath $license -Destination $dest -Force }
+    [System.IO.File]::WriteAllText($verFile, $tag)
+    Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+
+    Write-Host "[GTEST] GoogleTest $tag -> $dest" -ForegroundColor Green
+    Write-GtestMarker "OK"
+}
+
+# ---------- ビルドの実行 (build-windows.cmd) ----------
+# build-windows.cmd を、専用の「表示しない」コンソールで実行し、出力をパイプで受け取って、このウィンドウに、1 行ずつ流す。
+#   - ビルド用の、別のコンソール (ウィンドウ / タブ) が開かない。出力は、このウィンドウ (テストの出力と同じ画面) だけに出る。
+#   - バッチの chcp 65001 / chcp 932 が、このウィンドウの文字コードを、変えない (表示が乱れない)。
+# 戻り値: @{ Lines = 出力の行 (標準エラーを含む); ExitCode = バッチの終了コード }
+function Invoke-BuildScript {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    # cmd /c の引用符の規則: 全体を、もう一度、引用符で囲む (先頭の " と、最後の " が、取り除かれる)。
+    # 2>&1 で標準エラーも標準出力にまとめて、読み取りを 1 本にする (パイプが詰まって止まるのを避ける)。
+    $psi.Arguments = '/c ""' + $BuildScript + '" "' + $SolutionPath + '" "' + $Platform + '" "' + $Configuration +
+        '" "' + $MSBuildTarget + '" "' + $LogDir + '" 2>&1"'
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.CreateNoWindow = $true
+    # build-windows.cmd が、MSBuild の前後だけ chcp 65001 にするので、出力は UTF-8
+    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $lines = New-Object System.Collections.Generic.List[string]
+    while ($null -ne ($line = $p.StandardOutput.ReadLine())) {
+        Write-Host $line
+        $lines.Add($line)
+    }
+    $p.WaitForExit()
+    return @{ Lines = @($lines); ExitCode = $p.ExitCode }
+}
 
 # ---------- テスト関連の関数 ----------
 function Find-TestExes {
@@ -301,13 +459,29 @@ Write-Host " Target       : $SolutionPath" -ForegroundColor Cyan
 Write-Host " Build        : $Configuration|$Platform  /t:$MSBuildTarget" -ForegroundColor Cyan
 Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
 Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
-Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test)" -ForegroundColor Cyan
+Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_gtest.flag (fetch GoogleTest)" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
 Write-Host " QuickEdit    : $QuickEditStatus" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
 # ---------- 監視ループ ----------
 while ($true) {
+    # GoogleTest のソース取得 (ビルドの前提になるので、先に処理する)
+    if (Test-Path -LiteralPath $GtestTriggerFile) {
+        Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (gtest fetch)!" -ForegroundColor Yellow
+        Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
+        $gtestTagLine = ""
+        try { $gtestTagLine = "$(Get-Content -LiteralPath $GtestTriggerFile -TotalCount 1 -ErrorAction Stop)" } catch { }
+        Remove-Item -LiteralPath $GtestTriggerFile, $GtestResultFile, $GtestErrorLog -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+        try {
+            Invoke-GtestFetch $gtestTagLine
+        } catch {
+            Write-GtestFailure @("ERROR: gtest fetch failed: $($_.Exception.Message)")
+        }
+        Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
+    }
+
     $runTests = Test-Path -LiteralPath $TestTriggerFile
     if ($runTests -or (Test-Path -LiteralPath $TriggerFile)) {
         $mode = if ($runTests) { "build + test" } else { "build" }
@@ -321,9 +495,9 @@ while ($true) {
         # PS 5.1 は Stop 下でネイティブの stderr を例外にするため、ここだけ Continue にする
         $ErrorActionPreference = "Continue"
         try {
-            $console = & $BuildScript $SolutionPath $Platform $Configuration $MSBuildTarget $LogDir 2>&1 |
-                ForEach-Object { Write-Host $_; $_ }
-            $exitCode = $LASTEXITCODE
+            $build = Invoke-BuildScript
+            $console = $build.Lines
+            $exitCode = $build.ExitCode
         } catch {
             $console = @("ERROR: $($_.Exception.Message)")
             $exitCode = 99

@@ -1,6 +1,6 @@
 ---
 name: cpp-test-first
-description: C++ (Visual Studio) の、MFC アプリ + ロジック DLL + データ DLL + DLL ごとの GoogleTest (xxxTest.exe) のソリューションで、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は cpp-build-test-loop で行う。既存のテストを通すだけなら、このスキルは使わない。
+description: C++ (Visual Studio) の、メイン + ロジック DLL + データ DLL + DLL ごとの GoogleTest (xxxTest.exe) のソリューション (`CLAUDE.md` が「テスト: あり」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は cpp-build-test-loop で行う。既存のテストを通すだけなら、このスキルは使わない。
 ---
 
 # C++ テストファースト (Red を作る)
@@ -37,28 +37,32 @@ description: C++ (Visual Studio) の、MFC アプリ + ロジック DLL + デー
   - ただし、対応は、ユーザーに「この exe (Console) もテストしますか」と確認してから行う (構成によっては、exe 本体ではなく、やはりロジック/データ DLL に切り出す設計を、ユーザーが選ぶこともある)。
 - 対応する DLL やテスト exe が、まだない場合は、下記「セットアップ」で作る (**ユーザーの了承を得てから**)。
 
-## セットアップ (DLL とテスト exe がまだない場合。1 回だけ)
+## セットアップ (層やテストを、あとから足すとき)
 
-想定する出発点: ユーザーが、Visual Studio で、**ソリューションと、ベースの MFC アプリ**を作成済みで、Claude Code を**ソリューションフォルダ (`.sln` / `.slnx` があるフォルダ) をカレントにして**起動している。
-ここから、データ層・ロジック層の DLL と、それぞれのテスト exe を、**この順に**作る。ソリューションは、作らない・作り直さない。
+**最初のソリューション・メインのプロジェクト・層・テストは、`/new-solution` が作る** (層 `--layers` と、テスト `--tests` を、別々に指定できる)。
+この Skill が、セットアップに関わるのは、**作ったあとで、足りないものが分かったとき**だけ。
 
-1. **状況を確認する (読み取りだけ):** カレントに `.sln` / `.slnx` が **1 つだけ**あること、既存のプロジェクト (フォルダ名)、`packages/` の有無を、見る。
-2. **案を示して、了承を得る:** 作るプロジェクトの名前 (既定: `DataLayer` / `DataLayerTest`、`LogicLayer` / `LogicLayerTest`)、名前空間 (既定: ソリューション名の頭文字。例: `ThreeLayerSample` → `tls`)。
-   - ソリューションが複数ある、同名のフォルダがすでにある、などの場合は、止まって確認する。
-3. **同梱のスクリプトで作る。** 自分で `.vcxproj` や `.sln` を手書きしない。データ層を先に、ロジック層は `--uses DataLayer` を付けて、あとに。
+1. **設定を読む:** カレントの `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*Test` プロジェクトと GoogleTest の有無)。
+   - **`テスト: なし` の場合、この Skill (テスト先行) は、使えない。** 「テストが、導入されていません。`/new-solution --tests gtest` で、後付けできます」と案内して止まる (ユーザーが望めば、そのコマンドへ)。
+2. **足りないものを確認する (読み取りだけ):** 対象の層の DLL と、`<DLL名>Test` が、あるか。
+   - **DLL はあるが、テスト exe がない:** `/new-solution --tests gtest` (後付け) の対象。案内する。
+   - **対象の層の DLL がない** (例: `層: logic` で、データ層が必要になった): 次の 3. で、層を足す。
+3. **案を示して、了承を得て、同梱のスクリプトで足す。** 自分で `.vcxproj` や `.sln` を手書きしない。
    ```bash
-   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer
-   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --uses DataLayer
+   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer --tests gtest
+   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --tests gtest --uses DataLayer
    ```
-   - 作るもの: DLL (公開マクロのヘッダ、ビルド確認用の小さな公開関数)、テスト exe (GoogleTest の NuGet、ベースライン用の 1 件のテスト)、ソリューションへの登録。x64 の Debug / Release だけ。
-   - 終了コード 3 (すでに存在) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
-   - 出力の `GTEST_PACKAGE: missing` は、`packages\` に GoogleTest がないこと。**ウォッチャーの MSBuild は、NuGet を復元しない**ので、ユーザーに、Visual Studio でソリューションを開いて、NuGet の復元 (またはビルド 1 回) を、依頼する。
-4. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`cpp-build-test-loop` のスクリプトを使う):** ベースの MFC アプリを含めて、**ビルドが通り、`PASSED`** になること。
-   - `BUILD_FAILED`: エラーを読んで直す (`.vcxproj` の設定の不備など)。ベースの MFC アプリ自体の、もともとのエラーなら、直さずに、報告する。
-   - `ENV_ERROR` (テスト exe が見つからない、など): 出力先 (`x64\Debug\`)、GoogleTest の復元を確認して、ユーザーに報告する。
+   - `--tests gtest` (既定): DLL と、`<Name>Test` を足す。`--kind lib`: 静的ライブラリ。`--tests-only`: すでにある DLL に、テストだけを足す。
+   - GoogleTest は、**すでにあるソリューションと、同じ方式**で足される (`--gtest auto`。`gtest` プロジェクトがあれば、source 方式)。nuget 方式で `packages\` になければ、既存のものを、コピーする。
+   - 名前の既定は `DataLayer` / `LogicLayer`。終了コード 3 (すでに存在) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
+   - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。
+   - 出力の `GTEST_PACKAGE: missing` (nuget 方式): **ウォッチャーの MSBuild は、NuGet を復元しない。** コピー元の `packages\` のパスを教えてもらうか、Visual Studio での NuGet の復元 (ビルド 1 回) を依頼する。
+   - 出力の `GTEST_SOURCE: to-fetch` (source 方式): ウォッチャー経由で、取得する (`new-solution` Skill の `scripts/gtest_once.sh`。手順は、`/new-solution` の「GoogleTest の仕上げ」と同じ)。
+4. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`cpp-build-test-loop` のスクリプトを使う):** ビルドが通り、**`PASSED`** になること。
+   - `BUILD_FAILED`: エラーを読んで直す。ベースのアプリ自体の、もともとのエラーなら、直さずに、報告する。
+   - `ENV_ERROR`: 出力先 (`x64\Debug\`)、GoogleTest の復元を確認して、ユーザーに報告する。
    - **ベースラインが緑になる前に、本物のテストを書かない。**
-5. **MFC アプリから DLL を使う配線 (ProjectReference、インクルード) は、ここでは、しない。** UI が、実際に必要になったときに、ユーザーの了承を得て行う。
-6. 報告して、ユーザーに、Visual Studio でソリューションを開いて、問題がないか確認してもらう。続けて、下記の手順 (Red) に進んでよいか、確認する。
+5. **メインから DLL を使う配線 (ProjectReference、インクルード) は、ここでは、しない。** 必要になったときに、ユーザーの了承を得て行う。
 
 ## 手順
 
@@ -75,7 +79,7 @@ description: C++ (Visual Studio) の、MFC アプリ + ロジック DLL + デー
 
 ### 1. 仕様を、テストケースの一覧にする (コードを書く前)
 **入力は、確定済みの仕様。** ユーザーが、先に、ブレインストーミング (`/brainstorm` など) で仕様を固めている場合は、その成果物 (仕様書のファイル、または、会話に出ている確定事項) を、読んで使う。
-`/brainstorm` の成果物は、`docs/specs/<機能名>.md` (`状態: 確定`)。ユーザーが、仕様書のパスを示した場合と、`docs/specs/` に仕様書がある場合は、**それが、今回の依頼のものか、ユーザーに確認してから**使う。
+仕様書は、`/brainstorm` のメモ (`docs/ideas/`) を、`/update-from-ideas` が整理して作る、`docs/specs/<機能名>.md` (`状態: 確定`)。メモだけで、仕様書がなければ、`/update-from-ideas` を勧める。ユーザーが、仕様書のパスを示した場合と、`docs/specs/` に仕様書がある場合は、**それが、今回の依頼のものか、ユーザーに確認してから**使う。
 仕様が固まっていない (`下書き`、`変更あり (要再確定)`、未決事項が残っている) 場合は、テストを書かずに、`/brainstorm` か `/update-from-ideas` を勧めて止まる。
 (`/add-feature` から呼ばれた場合は、仕様書と計画は、すでに確認・承認済み。計画のテストケースを使う。)
 

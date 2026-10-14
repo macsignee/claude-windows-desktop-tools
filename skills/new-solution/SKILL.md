@@ -1,0 +1,166 @@
+---
+name: new-solution
+description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC / Win32 / コンソール / DLL / 静的ライブラリ) を作る。層 (ロジック・データの DLL または静的ライブラリ) を作るか、テスト (GoogleTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
+argument-hint: "[--type mfc|win32|console|dll|lib] [--layers none|logic|data|logic,data] [--tests none|gtest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--spec <仕様書>]"
+disable-model-invocation: true
+---
+
+# 新しいソリューションを作る (/new-solution)
+
+**新規プロジェクトでは、仕様が先でもよい:** `/brainstorm` → `/update-from-ideas` で、仕様書を固めると、`/update-from-ideas` が、**構成案** (メインの種類・層・テスト・名前空間) を、仕様書に書き、このコマンドの引数を、提案する。
+**`--spec <仕様書>` で、その構成案を読み込める。** 器が先でも、よい。
+
+カレントのフォルダを、ソリューションにする。**フォルダ名が、ソリューション名・メインのプロジェクト名**になる (例: `MFCTDDTest` → `MFCTDDTest.slnx`、`MFCTDDTest/MFCTDDTest.vcxproj`)。
+
+**軸を、別々に決める。**
+
+| 軸 | 引数 | 値 |
+|---|---|---|
+| メインの種類 | `--type` | `mfc` (MFC SDI) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
+| 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる |
+| 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし)。全部の層に、同じ種類 |
+| テスト | `--tests` | `none` / `gtest` (作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) |
+| GoogleTest の入れ方 | `--gtest` | `auto` (既定) / `nuget` / `source` (下の「GoogleTest」) |
+
+- 層とテストは、独立。`--layers logic,data --tests none` (層だけ、テストなし)、`--layers none --tests none` (メインだけ)、などができる。
+- **`--tests gtest` は、テスト対象 (DLL / 静的ライブラリ) が必要。** メインが exe で `--layers none` の組み合わせは、エラー (層を作るか、`--tests none` にする)。メインが dll / lib なら、メイン自身がテスト対象になる。
+- **層の名前は、既定のままでよい** (変更は、作成後にもできる。`DLL-LAYOUT.md` の「層の名前を、あとから変えるとき」)。作成時に指定するのは、ユーザーが望んだときだけ。
+
+引数 (`$ARGUMENTS`) で指定された項目は、質問しない。**省略した項目は、質問する。特に `--tests` は、省略されたら、必ず質問する (黙って既定にしない)。**
+
+## GoogleTest (`--tests gtest` のとき)
+
+| 方式 | 内容 | 要るもの |
+|---|---|---|
+| **nuget** | NuGet のパッケージ (1.8.1.8) を、`packages\` に**コピー** (兄弟フォルダの `../*/packages/`、または `--gtest-from`)。オフライン。実績あり | コピー元 |
+| **source** | **ソース** (`ThirdParty\googletest\`) を、ソリューション内の静的ライブラリ `gtest` としてビルド。新しい GoogleTest。NuGet 不要 | **ウォッチャー (Windows 側) が、GitHub に届くこと** |
+
+- **`auto` (既定):** 既存の `gtest` プロジェクトがある → source / パッケージをコピーできる → **nuget** / ソースがある → source / どれもない → **source (取得が必要)**。コピーを優先する。
+- 方式は、ユーザーが指定してもよい。迷っていたら、`auto` で進める (案の提示で、どちらになるかを、見せる)。
+
+## 前提
+- **カレントが、対象のフォルダ。** このコマンドは、カレントにしか書き込まない (サンドボックスの制限。フォルダを作るのは、Claude Code を起動する前に、ユーザーが行う)。
+  書き込みに失敗したら、回避せず、「作成先のフォルダで、Claude Code を、起動し直してください」と依頼して止まる。
+- フォルダ名は、英数字と `_` のみ、先頭は英字か `_`。使えない名前なら、止まって、フォルダ名の変更を依頼する。
+- 配布された `cpp-test-first` Skill の `scripts/add_layer.py` を、このコマンドのスクリプトが使う (両方とも、配布されていること)。
+
+## モードの判定
+カレントに `.sln` / `.slnx` が、あるか。
+
+| 状態 | モード |
+|---|---|
+| ない | **A. 新規作成** |
+| 1 つある + `--tests gtest` | **B. テストの後付け** |
+| 1 つある + それ以外 | 「すでにソリューションがあります。できるのは、テストの後付け (`--tests gtest`) だけです」と伝えて、止まる |
+| 複数ある | 止まって、ユーザーに確認する |
+
+## A. 新規作成
+
+1. **引数を読み、省略した項目を質問する** (AskUserQuestion が使えるなら、選択肢で)。
+   - **`--spec <仕様書>` があれば、まず、構成案を読む** (`--dry-run` の出力の先頭に、「構成案から読み取った: ...」が出る)。**読み取れなかった項目 (未定) と、明示されていない項目だけ、質問する。** 引数で明示した項目は、構成案より優先される。
+   - `--type`: MFC (SDI、推奨) / Win32 / コンソール / DLL / 静的ライブラリ。
+   - `--layers`: `logic,data` (推奨) / `logic` / `data` / `none`。
+   - `--tests`: `gtest` / `none`。**必ず、質問する** (構成案が「未定」のときも)。(`gtest`: TDD の練習向き。`none`: ビルド確認だけの 3 層分離。)
+   - **矛盾する組み合わせ** (exe + `--layers none` + `--tests gtest`) は、その場で指摘して、どちらかを変えてもらう。
+2. **名前空間を決める** (層・DLL があるときだけ)。既定は、フォルダ名の大文字の頭文字 (例: `MFCTDDTest` → `mfctddt`)。読みにくいことがあるので、**案を示して、短い名前 (例: `tdd`) に変えるか、確認する。** 変える場合は、`--namespace` で渡す。
+3. **案を示して、了承を得る (必ず止まる)。** 次の dry-run の出力を、要約して見せる。
+   ```bash
+   python3 <このSkillのフォルダ>/scripts/new_solution.py "$PWD" --type <..> --layers <..> --tests <..> [--layer-kind <..>] [--gtest <..>] [--namespace <..>] [--spec <..>] --dry-run
+   ```
+   ソリューション名、メイン、作る層 (名前・種類)、テスト、作るファイル、**GoogleTest の方式と状態** (`GTEST_MODE` / `GTEST_PACKAGE` / `GTEST_SOURCE`)、`MAIN_EXE_TARGETNAME` の予定 (あれば) を示す。
+4. **作成する** (`--dry-run` を外して、同じ引数で実行)。**自分で、`.vcxproj` や `.slnx` を手書きしない。**
+   - 終了コード 3 (すでにある) は、何も書かれていない。**既存のものを、上書きしない。**
+   - 終了コード 2 は、組み合わせや入力の問題。内容をユーザーに伝える。
+   - 出力の `MAIN_EXE_TARGETNAME: <名前> -> <名前>_Main` は、メインが exe で、名前が `Test` で終わるため、出力名を変えたという意味 (ウォッチャーが、アプリを、テストとして起動しないように)。**報告に明記する。**
+5. **GoogleTest の仕上げ (`--tests gtest` のとき)。** 出力の `GTEST_MODE` で分かれる。
+   - **`GTEST_MODE: nuget`**
+     - `GTEST_PACKAGE: present` / `copied from ...`: 次へ。
+     - `GTEST_PACKAGE: missing`: **ウォッチャーの MSBuild は、NuGet を復元しない。** ユーザーに、次のどちらかを依頼して、待つ。
+       - **コピー元を教えてもらう:** GoogleTest (NuGet `Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn` 1.8.1.8) が入った、既存のソリューションの `packages\` のパス。教えてもらったら、そのパッケージのフォルダを、カレントの `packages/` に、コピーする (カレントへの書き込みなので、可能)。
+       - **または、Visual Studio で、ソリューションを開き、ビルドを 1 回** (NuGet の復元が走る)。
+   - **`GTEST_MODE: source`**
+     - `GTEST_SOURCE: present`: 次へ。
+     - `GTEST_SOURCE: to-fetch`: **ソースを、ウォッチャー経由で取得する。**
+       1. **ウォッチャーが、起動していること** (起動していなければ、ここで依頼する。**ウォッチャーは、ソリューション (`.slnx`) ができたあとでないと、起動できない**)。
+       2. 同梱のスクリプトで、取得する (**自分でフラグを置かない**)。`run_in_background: true` で実行し、完了通知が来るまで、ほかのコマンドを実行しない。
+          ```bash
+          bash <このSkillのフォルダ>/scripts/gtest_once.sh "$PWD" [タグ] 180
+          ```
+          | 1行目 | rc | 次の行動 |
+          |---|---|---|
+          | `OK` | 0 | 次へ |
+          | `FAILED` | 1 | **環境の問題** (ネットワーク、プロキシ、タグ名、git)。ログの要点を報告して、止まる。選択肢を示す: (a) ネットワークを直して、もう一度 (b) `ThirdParty/googletest/{include,src}` に、ソースを手でコピー (c) NuGet 方式に切り替える (**`gtest/` と `*Test/` を消して、`--gtest nuget` で作り直すので、ユーザーの了承を得てから**) |
+          | `WATCHER_NOT_RUNNING` | 3 | 起動を依頼して、止まる |
+          | `TIMEOUT` | 5 | 報告して止まる (長いネットワークなら、制限時間を延ばして、1 回だけ再試行してよい) |
+          | `BAD_ARGS` | 2 | タグの形などを直す |
+6. **ベースラインを確認する (ウォッチャーが起動していること):**
+   - テストなし → `cpp-auto-build` の手順で、ビルドが成功すること (`SUCCESS`)。
+   - テストあり → `cpp-build-test-loop` の手順で、ビルドとテストが、`PASSED` になること (各 DLL のベースライン用の 1 件のテスト)。**source 方式の初回は、`gtest` のコンパイルで、少し長い。**
+   - 失敗したら、それぞれの Skill の規則で直す。**手書きのプロジェクトの、最初のビルド**なので、設定の不備が出る可能性がある。環境の問題 (`ENV_ERROR`、ウォッチャー未起動) は、直さずに、報告する。
+7. **報告して、終わる。** 作ったもの、モード (層・テスト・GoogleTest の方式)、確認の結果、`CLAUDE.md` に設定が書かれたこと、次の行動 (仕様書がすでにあれば **`/add-feature`**。なければ **`/brainstorm` (メモ) → `/update-from-ideas` (正式な仕様書)**) を、短く示す。自動で、次に進まない。
+   - ユーザーに、Visual Studio で `.slnx` を開いて、問題がないか確認してもらうとよい、と添える。
+
+## B. テストの後付け (`--tests gtest`、すでにソリューションがある)
+
+1. **何が足されるかを、確認する:** dry-run で、テストのない DLL (層 / メイン DLL) の一覧と、作るファイル、GoogleTest の方式を、見せて、了承を得る。
+   ```bash
+   python3 <このSkillのフォルダ>/scripts/new_solution.py "$PWD" --tests gtest [--gtest <..>] --dry-run
+   ```
+   - テストを足せる DLL がない場合 (層がない、すべての DLL にテストがある) は、止まる。メインが exe で層がないなら、先に、層を作る (`/add-feature` の計画に含めるか、`cpp-test-first` の `add_layer.py`)。
+2. **実行する** (`--dry-run` を外す)。既存の DLL の名前空間・参照は、スクリプトが、ファイルから読み取る。
+3. **A の 5. と 6. と同じ** (GoogleTest の仕上げ、ベースラインの確認)。**`cpp-build-test-loop` で、`PASSED`。**
+4. `CLAUDE.md` の `テスト:` の行が、`あり (GoogleTest)` に更新されたことを報告する。以降、`/add-feature` は、テスト先行で進む。
+
+## C. 改行コードの規則 (`.gitattributes`) の確認と追加 (すでにあるプロジェクト)
+
+**提案だけ。作るのは、ユーザーの了承を得てから。** 既存のリポジトリに足すと、保存が CRLF のファイルが、一斉に「変更あり」に見える (`git add --renormalize .` と、1 回のコミットが要る) ため。
+
+1. **読み取りだけで、確認する:**
+   ```bash
+   python3 <このSkillのフォルダ>/scripts/new_solution.py "$PWD" --check-git
+   ```
+   1 行目の状態で、分かれる。
+
+   | 状態 | 意味 | 次の行動 |
+   |---|---|---|
+   | `ok` | 規則がある | 何もしない |
+   | `propose` | 規則がなく、CRLF のファイルがある | **提案する** (下の 2.) |
+   | `lf-only` | 規則はないが、CRLF のファイルがない | 提案しない |
+   | `declined` | `CLAUDE.md` に「- 改行コードの提案: 見送り」がある | 提案しない |
+   | `not-a-repo` | git のリポジトリではない | 提案しない |
+   | `unknown` | git の確認に失敗 (safe.directory の警告など) | 内容を報告するだけ。提案しない |
+
+2. **`propose` のとき: 短く提案する (1 回だけ。作業を止めない)。** 件数、提案する最小版 (出力のとおり)、導入の手順を示して、選んでもらう:
+   - **追加する:** `--add-gitattributes` で作る。**git の操作 (ステージ・コミット) は、しない。** ユーザーに、`git add --renormalize .` → `git status` で、改行だけの変更であることを確認 → 1 回コミット、を依頼する。
+     それまでは、`git diff` に、改行だけの差分が、大量に出ることを、伝える。
+     ```bash
+     python3 <このSkillのフォルダ>/scripts/new_solution.py "$PWD" --add-gitattributes
+     ```
+   - **今回は見送る:** 何もしない (次回、また提案してよい)。
+   - **今後も見送る:** `CLAUDE.md` に、`- 改行コードの提案: 見送り` の 1 行を足す (`## このソリューションの設定` の節の末尾)。以降、`declined` になり、提案しない。
+3. 提案は、**作業の邪魔をしない**。選んでもらったあと、元の作業 (`/add-feature` など) に戻る。
+
+この確認は、`/add-feature` の最初の読み取り確認でも、行われる。
+
+## 設定の記録
+作成時に、`CLAUDE.md` に、次の 3 行が書かれる。**`/brainstorm` / `/add-feature` / `/update-from-ideas` が、これを読んで、動きを切り替える。**
+```
+- メイン: <名前> (<種類>)
+- 層: data,logic | なし      (既定でない名前は、data:OrderData,logic:OrderLogic のように記録)
+- テスト: あり (GoogleTest) | なし
+```
+`CLAUDE.md` が、すでにあれば、上書きしない (後付けのときは、`テスト:` の行だけを更新する)。
+
+## 新規作成で、一緒に作るファイル
+`CLAUDE.md` / `.gitignore` / **`.gitattributes`**。どれも、**すでにあれば、上書きしない。** 後付け (すでにソリューションがある) では、作らない。
+- **`.gitattributes` (改行コードの規則):** `* text=auto eol=crlf` を中心にした、**最小版** (拡張子を列挙しない)。保存 (リポジトリ内) は LF に正規化、作業フォルダは CRLF (Visual Studio の既定)。`*.sh` だけ LF の例外。
+  WSL の git と Windows の Git の、どちらで操作しても、同じ結果になる。変換したくないファイルは、末尾に 1 行足す (`*.xyz -text`)。
+- **すでにあるソリューション (リポジトリ) に、`.gitattributes` がない場合は、自動では、作らない。** 追加すると、既存の CRLF のファイルが、一斉に「変更あり」に見えるため (`git add --renormalize .` と、1 回のコミットが要る)。
+  必要なら、ユーザーに、提案する (内容と、導入の手順を示す。作るのは、了承を得てから)。
+
+## しないこと
+- カレントの外への書き込み。既存のソリューション・プロジェクトの上書き。
+- ユーザーの了承なしの作成。`--tests` の、黙った既定値の採用。
+- 自分で、フラグファイルを置く (取得は、`gtest_once.sh`)。
+- 機能のコード、仕様書の作成 (`/brainstorm` / `/update-from-ideas` / `/add-feature` の仕事)。
+- `git commit` / `git push` / `git init`。

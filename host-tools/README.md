@@ -7,6 +7,7 @@ Claude Code は、フラグを置いて、結果ファイルを読むだけで�
 ```
 Claude Code (WSL/サンドボックス)            Windows (このツール)
   trigger_build.flag / trigger_test.flag ─▶  watch_and_build.ps1 が検知して削除
+  trigger_gtest.flag (GoogleTest の取得)
                                              └─ build-windows.cmd ─▶ MSBuild
                                              └─ (テスト時) xxxTest.exe (GoogleTest)
   build_result.txt / test_result.txt   ◀───  結果を書く (完了マーカー)
@@ -18,7 +19,7 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
 | ファイル | 役割 |
 |---|---|
 | `run_watcher.cmd` | 入口。プロジェクトフォルダを指定して ps1 を起動する (ダブルクリック/ドラッグ&ドロップ可) |
-| `watch_and_build.ps1` | **ウォッチャー本体。** フラグ監視、ビルド/テスト実行、結果ファイルの書き出し |
+| `watch_and_build.ps1` | **ウォッチャー本体。** フラグ監視、ビルド/テスト実行、GoogleTest のソース取得、結果ファイルの書き出し |
 | `build-windows.cmd` | VS (C++) の環境を読み込んで MSBuild を実行する。単体でも使える |
 
 置き場所は任意です (例: `C:\tools\cpp-watcher\`)。**1つでも欠けると動きません。**
@@ -49,6 +50,18 @@ run_watcher.cmd <プロジェクトフォルダ> [ソリューション] [Platfo
 - **1つのウォッチャーは、1つのプロジェクトフォルダ・1つの Platform/Configuration 専用です。** 別のプロジェクトは、別のウィンドウで起動します。
 - **同じプロジェクトフォルダで、ウォッチャーを二重には起動できません。** 2つ目は、`ERROR: a watcher is already running for this folder` と出て、終了コード 3 で終了します (1つ目が、そのまま使われます)。
 - 起動時に、ヘッダー (VS、ビルド構成、`QuickEdit : disabled` など) が出ます。
+
+### GoogleTest のソースを取得する (`trigger_gtest.flag`)
+ビルド・テストとは独立の、3 つ目のフラグ。**Windows 側が GitHub に届く**必要がある (git があれば `git clone --depth 1`、なければ zip のダウンロード)。
+```
+Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空なら -GtestTag の既定)
+ホスト: <プロジェクトフォルダ>\ThirdParty\googletest\ に、include\ src\ LICENSE VERSION.txt を置く
+        gtest_result.txt = OK / FAILED (最後に書く)。FAILED のときは、gtest_error.log
+```
+- 同じタグが、すでに置かれていれば、何もせずに `OK`。
+- タグは、`v1.17.0` / `release-1.12.1` の形だけ許可する。
+- 手動でも、フラグ (空のファイル) を、プロジェクトフォルダに置けば、取得できる。ソースは、手でコピーしてもよい (`ThirdParty\googletest\include` と `src`)。
+- ソリューション内の静的ライブラリ (`gtest.vcxproj`) は、Claude 側 (`add_layer.py` / `/new-solution`) が作る。ウォッチャーは、取得だけ。
 
 ### 停止
 ウィンドウを閉じるか、Ctrl+C。

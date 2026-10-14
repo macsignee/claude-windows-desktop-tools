@@ -32,6 +32,14 @@
 | H3 | エラーを直して、同上 | 開始時に、前回の `build_result.txt` / `build_error.log` が消え、`SUCCESS` になる | ✔ |
 | H4 | `build-windows.cmd` を一時的に別名にして、同上 | `FAILED`。`build_error.log` の先頭が `[ENVIRONMENT ERROR - not a source code problem]` | ✗ |
 
+### 1-1b. ビルドの出力の表示 (`Invoke-BuildScript`)
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| H6 | ウォッチャーを起動して、`trigger_build.flag` を置く | **別のコンソール (ウィンドウ / タブ) が、開かない。** `[VS]` `[MSBuild]` `[BUILD]` と、MSBuild の出力が、**ウォッチャーの画面に**、ビルド中に、1 行ずつ流れる | ✗ |
+| H7 | 日本語のエラーを含むビルド (構文エラーを 1 行入れる) | エラーメッセージの日本語が、文字化けせずに、ウォッチャーの画面に出る。ビルド後も、ウォッチャーの画面の表示が、乱れない (`chcp` の影響なし) | ✗ |
+| H8 | H6 の結果 | `build_result.txt` (`SUCCESS` / `FAILED`)、`build_error.log` が、従来どおり (H1〜H3 と同じ)。終了コードが、環境エラー (10〜14) のときも、`[ENVIRONMENT ERROR ...]` が付く | ✗ |
+
 ### 1-2. ビルド + テスト (`trigger_test.flag`)
 
 | # | 手順 | 期待結果 | 状況 |
@@ -45,6 +53,21 @@
 | T7 | ビルド中に、ウォッチャーのウィンドウをクリック/選択 | ビルドが止まらない。タイトルバーに `選択` と出ない | ✔ |
 | T8 | 別のウォッチャーを、`.slnx` のソリューションで起動し、同上 | `.slnx` を自動検出して、ビルドが通る | ✗ |
 | T9 | `-Platform Win32` / `-Configuration Release` で起動し、同上 | exe を `Win32\` / `Release\` から探して、実行する | ✗ |
+
+### 1-2b. GoogleTest のソース取得 (`trigger_gtest.flag`)
+
+Windows 側が GitHub に届く環境で行う。**手書きの PowerShell なので、最初の実機確認が必要。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| G1 | ウォッチャーを起動し、`New-Item trigger_gtest.flag -ItemType File` | フラグが消える。`ThirdParty\googletest\` に `include\gtest\gtest.h`、`src\gtest-all.cc`、`src\gtest_main.cc`、`LICENSE`、`VERSION.txt` (`v1.17.0`)。`gtest_result.txt` = `OK`。`gtest_error.log` なし | ✗ |
+| G2 | G1 の直後に、もう一度、フラグを置く | **何も再取得せず**、すぐ `OK` (冪等。画面に `is already in`) | ✗ |
+| G3 | フラグの 1 行目に、別のタグ (`release-1.12.1`) を書いて置く | そのタグのソースに、置き換わる。`VERSION.txt` が変わる | ✗ |
+| G4 | フラグの 1 行目に、不正なタグ (`v1;calc`) | `FAILED`。`gtest_error.log` の先頭が `[ENVIRONMENT ERROR ...]`、`invalid GoogleTest tag`。**コマンドは、実行されない** | ✗ |
+| G5 | 存在しないタグ (`v9.99.9`) | `FAILED`。git の失敗と、zip の失敗が、ログに残る | ✗ |
+| G6 | ネットワークを切って (またはプロキシで遮断して) G1 | `FAILED`。ネットワークの失敗が、ログに残る。ウォッチャーは、止まらない | ✗ |
+| G7 | git を PATH から外して G1 | zip のダウンロードで、取得できる | ✗ |
+| G8 | G1 のあと、`trigger_test.flag` と同時に置く | gtest が先に処理され、そのあと、ビルド + テスト | ✗ |
 
 ### 1-3. 起動まわり (`run_watcher.cmd`)
 
@@ -97,11 +120,11 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 
 | # | 準備 | 期待する動き | 状況 |
 |---|---|---|---|
-| B1 | `/brainstorm 注文の税込み合計` | 質問が、**1 回に 1 つ**。具体例を先に聞く。コード・テスト・プロジェクトを、作らない。確定の合図まで `下書き` | ✗ |
-| B2 | B1 で、確定と伝える | `docs/specs/<名前>.md` が、`状態: 確定` で保存される。`/add-feature docs/specs/<名前>.md` を案内して、自動では、進まない | ✗ |
-| B3 | 未決事項を残したまま、確定したいと言う | 状態を `確定` にしない (未決事項の解消を、促す) | ✗ |
+| B1 | `/brainstorm 注文の税込み合計` | 質問が、**1 回に 1 つ**。具体例を先に聞く。コード・テスト・プロジェクト・**仕様書**を、作らない。決まらない項目は、「未決」として残す | ✗ |
+| B2 | B1 で、メモに残してよいと伝える | `docs/ideas/<名前>.md` (`整理: 未`) が保存される。未決の件数が示され、`/update-from-ideas docs/ideas/<名前>.md` を案内して、自動では、進まない | ✗ |
+| B3 | 未決を残したまま、`/update-from-ideas` で、確定したいと言う | 状態を `確定` にしない (未決事項の解消を、促す) | ✗ |
 | A1 | `/add-feature` (引数なし) で、`確定` の仕様書が 1 つ | 「これでよいか」を確認する | ✗ |
-| A2 | `下書き` の仕様書を渡す | 実装に進まず、`/brainstorm` を案内して止まる | ✗ |
+| A2 | `下書き` の仕様書を渡す / メモだけで、仕様書がない | 実装に進まず、`/update-from-ideas` (メモだけなら、それで整理) を案内して止まる | ✗ |
 | A3 | 確定した仕様書を渡す | 計画 (タスク、テストケースと仕様の対応、やらないこと) を示し、**承認を待つ。承認前に、ファイルを、何も作らない** | ✗ |
 | A4 | A3 で、計画の修正を依頼 | 計画を直して、再び見せる | ✗ |
 | A5 | 承認後、DLL / テスト exe がない状態 | セットアップ → ベースラインが緑 → タスク 1 へ | ✗ |
@@ -110,7 +133,48 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 | A8 | 完了 | 全体のビルド + 全テスト `PASSED`、**仕様書の例・境界値・異常系と、テストの対応表**、未確認のこと、テストファイルの一覧が、報告される。`git commit` は、しない | ✗ |
 | A9 | 実装中に、仕様の変更を依頼する | 実装を止めて、仕様書を直す (`/brainstorm`) ことを促す | ✗ |
 
+### 2-0c. `/new-solution`
+
+空のフォルダ (例: `C:\...\MFCTDDTest`) を作り、そこで Claude Code を起動して試す。**手書きのプロジェクトが、Visual Studio / ウォッチャーでビルドできるかの、最初の実機確認。**
+
+| # | 指定 | 期待する動き | 状況 |
+|---|---|---|---|
+| N0 | `/new-solution` (引数なし) | メインの種類、層、テストを**質問する** (`--tests` は、必ず質問)。案 (dry-run の内容) を示して了承を求める | ✗ |
+| N1 | `--type mfc --layers none --tests none` | `MFCTDDTest.slnx` と `MFCTDDTest/` (MFC SDI) だけ。テストなし。**ビルドが `SUCCESS`** (`cpp-auto-build`) | ✗ |
+| N2 | `--type mfc --layers logic,data --tests none` | メイン + `DataLayer` + `LogicLayer` (DLL)。テストなし。ビルドが `SUCCESS` | ✗ |
+| N3 | `--type mfc --layers logic,data --tests gtest` | N2 + `DataLayerTest` / `LogicLayerTest`。GoogleTest が `packages\` にコピーされる。**ビルドとテストが `PASSED`** (2 つのテスト exe) | ✗ |
+| N4 | N3 で、フォルダ名が `MFCTDDTest` (`Test` で終わる) | メインに `_Main` の `TargetName` が付く。**`MFCTDDTest_Main.exe` が、テストとして起動されない** (`PASSED`) | ✗ |
+| N5 | `--type dll --layers none --tests gtest` | メイン DLL + `<名前>Test`。`PASSED` | ✗ |
+| N6 | `--type win32 ...` / `--type console ...` | それぞれ、ビルドが通る | ✗ |
+| N3s | N3 の `--gtest source` 版 (`/new-solution --type mfc --layers logic,data --tests gtest --gtest source`) | `gtest` プロジェクトが入る。作成後、ウォッチャーを起動して、`gtest_once.sh` で取得 → `PASSED`。**初回は、`gtest` のコンパイルで、少し長い** | ✗ |
+| N3a | コピー元のない環境で `--gtest auto` | `GTEST_MODE: source` / `to-fetch`。ウォッチャーの起動後に、取得 → ベースライン → `PASSED` | ✗ |
+| N3b | 取得が `FAILED` (ネットワーク遮断) | 報告して止まり、手動のコピーか、`nuget` 方式への切り替えを案内する | ✗ |
+| N13 | `--layer-kind lib` (層を静的ライブラリ) | 層が静的ライブラリ。テストが、リンクできて、`PASSED` | ✗ |
+| N14 | `--layers logic:OrderLogic,data:OrderData` | 指定した名前で作成される。ビルドとテストが通る | ✗ |
+| N15 | `/new-solution --spec docs/specs/<名前>.md` (構成案あり) | 構成案の内容が、案に反映される (未定の項目は、質問する)。案を見せて、了承を得てから作成 | ✗ |
+| N16 | 新規作成のあと、`.gitattributes` を確認し、`git init` → Visual Studio でファイルを編集・保存 → `git status` / `git diff` (WSL の git と Windows の Git の、両方で) | `.gitattributes` ができている (最小版)。**どちらの git でも、改行だけの差分が出ない**。`git ls-files --eol` で、保存が `i/lf` | ✗ |
+| N17 | **既存の** C++ ソリューション (`.gitattributes` なし、CRLF のファイルあり) のフォルダで、`/add-feature` を開始 | 最初の読み取り確認で、**1 回だけ**、提案が出る (件数、最小版、導入の手順)。作業は止まらない。「追加する」→ ファイルができ、**git のステージ・コミットはされない**。`git add --renormalize .` を、自分で実行して、改行だけの変更であることを確認 | ✗ |
+| N18 | N17 で「今後も見送る」 | `CLAUDE.md` に `- 改行コードの提案: 見送り` が足される。次の `/add-feature` では、提案が出ない | ✗ |
+| N19 | LF のみのリポジトリ / git でないフォルダ / `.gitattributes` のあるリポジトリで `/add-feature` | 提案は、出ない (`lf-only` / `not-a-repo` / `ok`) | ✗ |
+| N6b | `--type lib --layers none --tests gtest` | 静的ライブラリ + `<名前>Test`。**ビルドとテストが `PASSED`** (テスト exe が、`.lib` をリンクできる) | ✗ |
+| N7 | `--type console --layers none --tests gtest` | 矛盾として、エラー (何も書かれない) | ✗ |
+| N8 | N2 の後、`/new-solution --tests gtest` (後付け) | `DataLayerTest` / `LogicLayerTest` が増える。`CLAUDE.md` が `テスト: あり` に更新される。`PASSED` | ✗ |
+| N9 | すでにソリューションがあるフォルダで、`--tests gtest` なしの `/new-solution` | 何も書かずに、「後付けだけできる」と案内して止まる | ✗ |
+| N10 | GoogleTest のコピー元がない環境で、`--tests gtest` | `GTEST_PACKAGE: missing`。コピー元の指定か、Visual Studio での復元を依頼して待つ | ✗ |
+| N11 | 作成した `.slnx` を、Visual Studio 2026 で開く | エラーなく開く。プロジェクト構成 (x64 の Debug / Release) が正しい | ✗ |
+| N12 | N1〜N2 (テストなし) のあと `/brainstorm` → `/update-from-ideas` → `/add-feature` | テストなしの流れ (計画 → 承認 → 実装 → ビルド確認 → 手動確認)。Red / Green は、出てこない | ✗ |
+
 ### 2-0b. `/update-from-ideas`
+
+| # | 準備 | 期待する動き | 状況 |
+|---|---|---|---|
+| U8 | **メモ** (B2 の出力) を渡す: `/update-from-ideas docs/ideas/<名前>.md` | メモを仕分け (取り込む / 保留 / 別機能 / 却下)、**仕様書の草案の全文**と、「テストに落とせる具体さか」の点検結果を示す。**承認前に、ファイルを作らない** | ✗ |
+| U9 | U8 を承認 | `docs/specs/<名前>.md` ができる (未決が 0 件で、「確定」と言えば `確定`。残れば `下書き`)。メモの `整理:` が `済 (→ ...)` になる。メモは、残る | ✗ |
+| U10 | U8 で、メモの内容が矛盾している / 足りない | 推測で埋めず、**1 回に 1 つ**質問する | ✗ |
+| U11 | ソリューションがない状態で U9 | **構成案** (メインの種類・層・テスト・名前空間と根拠) と、`/new-solution ...` のコマンドを示す。テストは、ユーザーに確認する (`gtest` を勧める)。**自動で、作成しない** | ✗ |
+| U12 | ソリューションがある状態で U9 | 構成案は、出さない。`/add-feature docs/specs/<名前>.md` を案内する | ✗ |
+| U13 | `整理: 済` のメモを渡す | 対象にしない (ユーザーが明示した場合を除く) | ✗ |
+
 
 | # | 準備 | 期待する動き | 状況 |
 |---|---|---|---|
@@ -153,6 +217,8 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 `tests/fake_watcher_test.sh` が、`build_test_once.sh` の結果の分岐を、ファイルを書くだけの偽のウォッチャーで検証する。
 Skill のスクリプトを変えたときは、Windows に配る前に、これを実行する。
 
+`tests/gtest_once_test.sh` が、`gtest_once.sh` (GoogleTest の取得) の結果の分岐を、同様に検証する。
+
 期待する結果 (rc): `PASSED` 0 / `FAILED` 1 (失敗テスト名が先頭) / `BUILD_FAILED` 6 / ビルド環境エラー `ENV_ERROR` 4 /
 `TEST_TIMEOUT` 7 / テスト環境エラー `ENV_ERROR` 4 / 失敗が多数 1 (名前 50 件 + `and N more`、詳細は上限あり) /
 古いマーカーが消される 0 / `WATCHER_NOT_RUNNING` 3 / `TIMEOUT` 5 / `BAD_ARGS` 2。
@@ -162,6 +228,8 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | 変更したもの | 最低限、やること |
 |---|---|
 | `build_once.sh` / `build_test_once.sh` | `tools/check-formats.sh`、`tests/fake_watcher_test.sh` |
+| `gtest_once.sh` / `watch_and_build.ps1` の gtest 部分 | `tools/check-formats.sh`、`tests/gtest_once_test.sh`。ps1 は、1-2b の G1 / G2 / G4 を、実機で |
+| `new_solution.py` | `tools/check-formats.sh`、`tests/new_solution_test.sh`。生成するプロジェクトを変えたら、2-0c の N1〜N3 を、実機で |
 | `add_layer.py` | `tools/check-formats.sh`、`tests/add_layer_test.sh`。生成する `.vcxproj` を変えたら、2-1 の F0 を、実機で |
 | `watch_and_build.ps1` | 1-2 の T1 / T2 / T4 を、実機で。二重起動の防止を変えたときは 1-4 の M1 / M2 も |
 | `build-windows.cmd` / `run_watcher.cmd` | 1-1 の H1 と、R1 を、実機で。CP932 のまま保存されているか (`check-formats.sh`) |

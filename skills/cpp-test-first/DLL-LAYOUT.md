@@ -71,7 +71,20 @@ MFC を使わない、純粋な計算・ロジックだけの DLL を作る場�
 ```bash
 python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer
 python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --uses DataLayer
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer --tests none        # DLL だけ (テストなし)
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer --tests-only        # すでにある DLL に、テストだけを足す
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" CoreLib --kind lib            # 静的ライブラリ (公開マクロなし)
 ```
+
+- **`--tests none|gtest`** (既定 `gtest`): 層とテストは、独立した軸。`none` は、DLL だけ (テスト・GoogleTest は、作らない)。
+- **`--tests-only`**: すでにある DLL (または静的ライブラリ) `<Name>` に、`<Name>Test` だけを足す。名前空間と参照は、既存のファイルから読む。
+- **`--kind dll|lib`** (既定 `dll`): `lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
+- **GoogleTest:** テストを作るとき、`packages\` になければ、兄弟フォルダ (`../*/packages/`) か `--gtest-from` の既存のものを、**コピー**する (ネットワークは使わない)。出力: `GTEST_PACKAGE`。
+- **メインの exe を、保護する:** テストを作るとき、exe で、名前が `Test` / `Tests` で終わるメインのプロジェクト (GoogleTest を使わないもの) に、`<TargetName>$(ProjectName)_Main</TargetName>` を足す。ウォッチャーが、`*Test.exe` を、テストとして実行するため。
+- **`--gtest auto|nuget|source`** (既定 `auto`): GoogleTest の入れ方。`nuget`: NuGet のパッケージを、コピーして使う (オフライン)。`source`: `ThirdParty/googletest` のソースを、ソリューション内の静的ライブラリ `gtest` としてビルドする
+  (NuGet 不要。ソースは、ウォッチャー経由で取得する: `/new-solution` の `gtest_once.sh`)。`auto`: すでに `gtest` プロジェクトがあれば `source`、パッケージをコピーできれば `nuget`、どちらもなければ `source` (取得が必要)。
+  層を足すときは、**すでにあるソリューションと同じ方式**になる (`gtest` プロジェクトの有無で、判定される)。
+- 最初のソリューション作成と、この組み合わせの指定は、`/new-solution` (`new_solution.py`) が行う。層の名前・種類 (`--layers logic:OrderLogic` / `--layer-kind lib`) も、そちらで指定できる。
 
 - DLL (`<Name>`) と、テスト exe (`<Name>Test`) を作り、`.sln` / `.slnx` に追加する。`--dry-run` で、内容だけを見られる。
 - `.vcxproj.filters` も、あわせて生成する。`.h` は「ヘッダー ファイル」、`.cpp` は「ソース ファイル」、`.rc` は「リソース ファイル」フィルターに入れる (フィルター名・GUID は、日本語版 Visual Studio のウィザードが生成するものと同じ)。
@@ -87,6 +100,22 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --us
 2. **ベースライン (ビルドと、ベースライン用の 1 件のテストが通ること) を確認する。** 通らなければ、環境や構成の問題を、先に直す。**この状態を作る前に、本物のテストを書かない。**
 3. ビルド確認用の `<Name>ModuleInfo` とそのテストは、本物の機能とテストが入ったら、削除してよい (ユーザーに伝える)。
 4. 通ったら、`cpp-test-first` の手順 (Red) に進む。
+
+## 層の名前を、あとから変えるとき
+層の名前は、既定 (`LogicLayer` / `DataLayer`) で作られる。変えるときは、**ユーザーの了承を得て**、次の箇所を、そろえて直す (一部だけ直すと、ビルドが通らなくなる)。
+
+| 箇所 | 例 |
+|---|---|
+| フォルダ名、`.vcxproj` / `.vcxproj.filters` のファイル名 | `LogicLayer/LogicLayer.vcxproj` → `OrderLogic/OrderLogic.vcxproj` |
+| `.sln` / `.slnx` の、プロジェクトのパスと名前 | `<Project Path="...">` |
+| `.vcxproj` の `RootNamespace`、`<NAME>_EXPORTS` の定義 | `LOGICLAYER_EXPORTS` → `ORDERLOGIC_EXPORTS` |
+| 公開マクロのヘッダと、マクロ名 | `LogicLayerApi.h` / `LOGICLAYER_API` → `OrderLogicApi.h` / `ORDERLOGIC_API` (使っている全ファイル) |
+| ビルド確認用の `<Name>ModuleInfo.h/.cpp` と、関数名 | `LogicLayerModuleName` (あれば。本物の機能が入ったら、削除してよい) |
+| テストのプロジェクト (`<Name>Test`) の、名前・フォルダ・`.vcxproj` | `LogicLayerTest` → `OrderLogicTest` (**名前は、`Test` で終わらせる**) |
+| テストの `ProjectReference`、`AdditionalIncludeDirectories` (`$(ProjectDir)..\<Name>`) | ほかの DLL の、`--uses` 相当の参照も |
+| `CLAUDE.md` の `- 層:` と、層の記述 | |
+
+変更後は、必ず、ビルドと (テストありなら) 全テストが、通ることを確認する。
 
 ## よくある失敗
 

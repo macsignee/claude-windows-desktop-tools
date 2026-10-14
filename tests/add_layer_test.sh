@@ -7,6 +7,9 @@ set -u
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$REPO/skills/cpp-test-first/scripts/add_layer.py"
+# 既定の auto は、パッケージがなければ source (ThirdParty をビルド) になる。NuGet 方式の検証は、明示する
+run_al() { python3 "$SCRIPT" "$@" --gtest nuget; }
+run_al_auto() { python3 "$SCRIPT" "$@"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/add_layer_test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 fail=0
@@ -72,10 +75,10 @@ make_slnx "$WORK/slnx"
 
 echo "== .sln"
 S="$WORK/sln"
-python3 "$SCRIPT" "$S" DataLayer --dry-run >/dev/null 2>&1 && [ ! -e "$S/DataLayer" ] && ok "dry-run は、何も書かない" || ng "dry-run は、何も書かない"
-python3 "$SCRIPT" "$S" DataLayer >"$WORK/out1.txt" 2>&1; rc=$?
+run_al "$S" DataLayer --dry-run >/dev/null 2>&1 && [ ! -e "$S/DataLayer" ] && ok "dry-run は、何も書かない" || ng "dry-run は、何も書かない"
+run_al "$S" DataLayer >"$WORK/out1.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "DataLayer の追加が成功" || { ng "DataLayer の追加が成功 (rc=$rc)"; cat "$WORK/out1.txt"; }
-python3 "$SCRIPT" "$S" LogicLayer --uses DataLayer >"$WORK/out2.txt" 2>&1; rc=$?
+run_al "$S" LogicLayer --uses DataLayer >"$WORK/out2.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "LogicLayer (--uses DataLayer) の追加が成功" || { ng "LogicLayer の追加が成功 (rc=$rc)"; cat "$WORK/out2.txt"; }
 
 for f in DataLayer/DataLayer.vcxproj DataLayer/DataLayer.vcxproj.filters DataLayer/DataLayerApi.h DataLayer/DataLayerModuleInfo.h DataLayer/DataLayerModuleInfo.cpp \
@@ -119,18 +122,52 @@ check ".sln: x86 構成には対応付けない (プロジェクトに Win32 が
 check ".sln: 既存の行が壊れていない" grep -q 'EndGlobal' "$S/ThreeLayerSample.sln"
 
 echo "== 重複・不正"
-python3 "$SCRIPT" "$S" DataLayer >/dev/null 2>&1; [ $? -eq 3 ] && ok "すでに存在 -> rc 3" || ng "すでに存在 -> rc 3"
-python3 "$SCRIPT" "$S" 'bad name' >/dev/null 2>&1; [ $? -eq 2 ] && ok "不正な名前 -> rc 2" || ng "不正な名前 -> rc 2"
-python3 "$SCRIPT" "$WORK/none" X >/dev/null 2>&1; [ $? -eq 2 ] && ok "フォルダなし -> rc 2" || ng "フォルダなし -> rc 2"
-python3 "$SCRIPT" "$S" Other --uses NoSuch >/dev/null 2>&1; [ $? -eq 2 ] && ok "--uses のフォルダなし -> rc 2" || ng "--uses のフォルダなし -> rc 2"
+run_al "$S" DataLayer >/dev/null 2>&1; [ $? -eq 3 ] && ok "すでに存在 -> rc 3" || ng "すでに存在 -> rc 3"
+run_al "$S" 'bad name' >/dev/null 2>&1; [ $? -eq 2 ] && ok "不正な名前 -> rc 2" || ng "不正な名前 -> rc 2"
+run_al "$WORK/none" X >/dev/null 2>&1; [ $? -eq 2 ] && ok "フォルダなし -> rc 2" || ng "フォルダなし -> rc 2"
+run_al "$S" Other --uses NoSuch >/dev/null 2>&1; [ $? -eq 2 ] && ok "--uses のフォルダなし -> rc 2" || ng "--uses のフォルダなし -> rc 2"
 
 echo "== .slnx"
 X="$WORK/slnx"
-python3 "$SCRIPT" "$X" DataLayer >"$WORK/out3.txt" 2>&1; rc=$?
+run_al "$X" DataLayer >"$WORK/out3.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "slnx への追加が成功" || { ng "slnx への追加が成功 (rc=$rc)"; cat "$WORK/out3.txt"; }
 check ".slnx が XML として正しい" python3 -c "import xml.dom.minidom as m; m.parse('$X/ThreeLayerSample.slnx')"
 check ".slnx: 2 プロジェクトが追加された" bash -c "[ \$(grep -c '<Project Path=' '$X/ThreeLayerSample.slnx') -eq 3 ]"
 check ".slnx: DataLayerTest が登録された" grep -q 'DataLayerTest/DataLayerTest.vcxproj' "$X/ThreeLayerSample.slnx"
+
+echo "== --tests none / --tests-only"
+S2="$WORK/sln2"; make_sln "$S2"
+run_al "$S2" DataLayer --tests none >/dev/null 2>&1; [ $? -eq 0 ] && ok "--tests none の追加が成功" || ng "--tests none の追加が成功"
+check "DLL だけができ、テストはできない" bash -c "[ -f '$S2/DataLayer/DataLayer.vcxproj' ] && [ ! -e '$S2/DataLayerTest' ] && [ ! -e '$S2/packages' ]"
+check "--tests none: .sln に、プロジェクトが 1 つ増えた (計 2)" bash -c "[ \$(grep -c '^Project(' '$S2/ThreeLayerSample.sln') -eq 2 ]"
+run_al "$S2" DataLayer --tests-only >/dev/null 2>&1; [ $? -eq 0 ] && ok "--tests-only: 既存の DLL にテストを足せる" || ng "--tests-only: 既存の DLL にテストを足せる"
+check "--tests-only: DataLayerTest ができ、DLL を参照する" grep -q 'ProjectReference Include="..\\DataLayer\\DataLayer.vcxproj"' "$S2/DataLayerTest/DataLayerTest.vcxproj"
+check "--tests-only: .sln のプロジェクトが計 3" bash -c "[ \$(grep -c '^Project(' '$S2/ThreeLayerSample.sln') -eq 3 ]"
+run_al "$S2" DataLayer --tests-only >/dev/null 2>&1; [ $? -eq 3 ] && ok "--tests-only: すでにテストがある -> rc 3" || ng "--tests-only: すでにテストがある -> rc 3"
+run_al "$S2" DataLayer --tests none --tests-only >/dev/null 2>&1; [ $? -eq 2 ] && ok "--tests none と --tests-only の同時指定 -> rc 2" || ng "--tests none と --tests-only の同時指定 -> rc 2"
+run_al "$S2" NoSuchDll --tests-only >/dev/null 2>&1; [ $? -eq 2 ] && ok "--tests-only: DLL がない -> rc 2" || ng "--tests-only: DLL がない -> rc 2"
+
+echo "== --kind lib"
+S3="$WORK/sln3"; make_sln "$S3"
+run_al "$S3" CoreLib --kind lib >/dev/null 2>&1; [ $? -eq 0 ] && ok "--kind lib (テストあり) の追加が成功" || ng "--kind lib (テストあり) の追加が成功"
+check "静的ライブラリで、<Link> がなく、公開マクロもない" bash -c "grep -q StaticLibrary '$S3/CoreLib/CoreLib.vcxproj' && ! grep -q '<Link>' '$S3/CoreLib/CoreLib.vcxproj' && [ ! -e '$S3/CoreLib/CoreLibApi.h' ]"
+check "テストが、ライブラリをプロジェクト参照" grep -q 'ProjectReference Include="..\\CoreLib\\CoreLib.vcxproj"' "$S3/CoreLibTest/CoreLibTest.vcxproj"
+
+echo "== GoogleTest のソース方式 (--gtest auto: コピーできるパッケージがなければ source)"
+S4="$WORK/sln4"; make_sln "$S4"
+run_al_auto "$S4" CoreLib >"$WORK/out_src.txt" 2>&1; [ $? -eq 0 ] && ok "auto: パッケージがなければ、source で追加できる" || ng "auto: パッケージがなければ、source で追加できる"
+check "出力: GTEST_MODE: source と to-fetch" bash -c "grep -q 'GTEST_MODE: source' '$WORK/out_src.txt' && grep -q 'to-fetch' '$WORK/out_src.txt'"
+check "gtest プロジェクトができる (静的ライブラリ、警告オフ、ThirdParty のソース)" bash -c "grep -q StaticLibrary '$S4/gtest/gtest.vcxproj' && grep -q TurnOffAllWarnings '$S4/gtest/gtest.vcxproj' && grep -q 'ThirdParty\\\\googletest\\\\src\\\\gtest-all.cc' '$S4/gtest/gtest.vcxproj'"
+check "テストは gtest をプロジェクト参照し、packages.config も NuGet もない" bash -c "grep -q 'ProjectReference Include=\"..\\\\gtest\\\\gtest.vcxproj\"' '$S4/CoreLibTest/CoreLibTest.vcxproj' && [ ! -e '$S4/CoreLibTest/packages.config' ] && ! grep -qi nuget '$S4/CoreLibTest/CoreLibTest.vcxproj'"
+check "テストの include に、ThirdParty の include がある" grep -q 'ThirdParty\\googletest\\include' "$S4/CoreLibTest/CoreLibTest.vcxproj"
+check ".sln: App + CoreLib + CoreLibTest + gtest = 4" bash -c "[ \$(grep -c '^Project(' '$S4/ThreeLayerSample.sln') -eq 4 ]"
+check "XML が正しい" bash -c "python3 -c \"import glob,xml.dom.minidom as m; [m.parse(f) for f in glob.glob('$S4/*/*.vcxproj')+glob.glob('$S4/*/*.filters')]\""
+run_al_auto "$S4" OtherLib --kind lib >/dev/null 2>&1; [ $? -eq 0 ] && ok "2 つ目の層: 既存の gtest を再利用する" || ng "2 つ目の層: 既存の gtest を再利用する"
+check ".sln: gtest は 1 つだけ (計 6 プロジェクト)" bash -c "[ \$(grep -c '^Project(' '$S4/ThreeLayerSample.sln') -eq 6 ] && [ \$(grep -c '\"gtest\"' '$S4/ThreeLayerSample.sln') -eq 1 ]"
+mkdir -p "$S4/ThirdParty/googletest/include/gtest" "$S4/ThirdParty/googletest/src"
+touch "$S4/ThirdParty/googletest/include/gtest/gtest.h" "$S4/ThirdParty/googletest/src/gtest-all.cc" "$S4/ThirdParty/googletest/src/gtest_main.cc"
+check "ソースがあれば、GTEST_SOURCE: present" bash -c "python3 '$SCRIPT' '$S4' ThirdLib --dry-run | grep -q 'GTEST_SOURCE: present'"
+run_al "$S4" NuLib --dry-run >/dev/null 2>&1; [ $? -eq 0 ] && ok "--gtest nuget の明示は、source の解決より優先される" || ng "--gtest nuget の明示"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
