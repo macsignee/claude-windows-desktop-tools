@@ -58,6 +58,15 @@ show_build_summary() {  # $1=build_error.log
     show_log "$1"
 }
 
+# テスト失敗の要約 (同じメッセージの失敗の集約・場所)。成功したら 0、解釈できない/python3 がなければ 1 (従来の表示に切り替える)
+show_test_summary() {  # $1=test_error.log
+    local here
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    [ -f "$1" ] && command -v python3 >/dev/null 2>&1 || return 1
+    mkdir -p "$DIR/.claude-logs" 2>/dev/null
+    python3 -I "$here/summarize_test_log.py" "$1" --json "$DIR/.claude-logs/test_summary.json"
+}
+
 first_line_is_env_error() {  # $1=file
     [ -f "$1" ] && head -n 1 "$1" | sed 's/^\xEF\xBB\xBF//' | grep -q '^\[ENVIRONMENT ERROR'
 }
@@ -118,6 +127,9 @@ case "$STATUS" in
         ;;
     FAILED)
         echo "FAILED"
+        if show_test_summary "$TEST_ERR"; then
+            exit 1
+        fi
         if [ -f "$TEST_ERR" ]; then
             # 失敗したテスト名の一覧を先頭に出す (詳細が長くても切り捨てられない)
             names=$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$TEST_ERR" \

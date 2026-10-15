@@ -58,6 +58,7 @@ Platform や Configuration を変えても環境が汚れない (起動時に1�
 | `ThirdParty\googletest\` | ウォッチャー | 取得した GoogleTest (`include\` `src\` `LICENSE` `VERSION.txt`)。ソリューション内の静的ライブラリ `gtest` が、これをビルドする |
 | `.claude-logs/` | ウォッチャー | `build.log` `errors.log` `warnings.log` `test.log` (フルパスのまま) |
 | `.claude-logs/build_summary.json` | Skill のスクリプト | ビルド失敗の要約 (4.22)。ウォッチャーではなく、WSL 側の `summarize_build_log.py` が書く |
+| `.claude-logs/test_summary.json` | Skill のスクリプト | テスト失敗の要約 (4.22)。WSL 側の `summarize_test_log.py` が書く |
 
 ### `test_result.txt` の値
 
@@ -327,7 +328,12 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **フォールバック:** `python3` がない、または、解釈できるエラー行が 1 つもない (スクリプトが rc=3 で、何も出さない) ときは、従来の生ログ表示 (`show_log`) に戻る。`ENV_ERROR` は、要約せず、生ログのまま (環境の問題は、文面そのものが手がかり)。
 - **ウォッチャーではなく、WSL 側で行う理由:** 契約 (ファイル名・結果の値・終了コード) を変えず、ホスト側の再配布が要らない。ウォッチャーは、手書きの PowerShell で、実機での確認が重い。要約の規則は、Linux 上で、ログのサンプルだけで、検証できる。`build_error.log` は、従来どおり、生のエラー行 (ウォッチャーが、重複の除去と相対パス化をしたもの) のまま残る。
 - **スクリプトは、2 つの Skill (`cpp-auto-build` / `cpp-build-test-loop`) に、同一のコピーを置く** (Skill ごとに配布され、片方だけが入っている環境があるため)。`tests/summarize_build_log_test.sh` が、一致を確認する。
-- **対象外 (今回):** テスト失敗 (GoogleTest) の要約と、警告 (`warnings.log`) の要約。
+- **テスト失敗 (GoogleTest) の要約も、同じ方針** (`summarize_test_log.py`。`cpp-build-test-loop` のみ)。`FAILED` で、`test_error.log` を、**同じメッセージの失敗ごとにまとめる** (`xN`、テスト名は最大 5、場所は最大 3)。
+  「同じ原因の不具合は、1 つ直すと複数が通る」(`SKILL.md` の方針 6) を、出力の形で後押しする。**まとめる鍵はメッセージ (`Expected` / `Which is` の値を含む) で、場所は含めない** (同じ原因の失敗は、場所が違う)。値が違えば、別の組になる (誤ってまとめるより、まとめ漏れのほうが安全)。
+  - **解釈の規則:** 失敗の詳細は、その後の `[  FAILED  ] 名前 (N ms)` の行の**前**にある (gtest の出力順)。`listed below` の再掲と、`[==========]` などの集計行は、数えない。MSVC 形式 (`file(line): error:`) と、Linux 形式 (`file:line: Failure`) の両方。
+  - **フォールバック:** 失敗したテスト名を 1 つも解釈できない (クラッシュ。名前のない `exit code` だけの報告など)、または `python3` がないときは、従来の表示 (`Failed tests (N):` の一覧と詳細 60 行)。`TEST_TIMEOUT` / `ENV_ERROR` は、要約しない (`Hung test` などが、そのまま手がかり)。
+  - **`.claude-logs/test_summary.json`:** 全テスト名・テストごとの場所とメッセージ。標準出力は、名前を省略するため、全名が要るときは、これを読む。
+- **対象外 (今回):** 警告 (`warnings.log`) の要約。
 - 検証: `tests/summarize_build_log_test.sh` (集約・件数・並び・重複・上限・JSON・フォールバック)、`tests/fake_watcher_test.sh` (`BUILD_FAILED` の経路)。
 
 ## 5. ファイル形式
@@ -359,7 +365,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 **検証済み** (実機): VS 2026 Enterprise、x64 / Debug、GoogleTest、`.sln`。
 どの項目を実機で確認し、どれが未確認かは、`docs/TEST-PLAN.md` の「状況」列を参照。
 
-**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。実機の MSBuild / リンカのログでの、ビルドエラー要約 (4.22。サンプルのログのみ)。
+**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。実機の MSBuild / リンカ / GoogleTest のログでの、ビルドエラーとテスト失敗の要約 (4.22。サンプルのログのみ)。
 **未対応:** MSTest、複数プロジェクトの同時監視 (別ウィンドウで、別のウォッチャーを起動する)。
 **未対策:** Claude 側の再実行が重なったときの、古い結果の誤読 (4.4)。
 

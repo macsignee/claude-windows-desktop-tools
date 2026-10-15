@@ -83,7 +83,7 @@ run_case "BUILD_FAILED (expect rc=6)"           h_buildfail
 run_case "BUILD env -> ENV_ERROR (expect rc=4)" h_buildenv
 run_case "TEST_TIMEOUT (expect rc=7)"           h_testtimeout
 run_case "ENV_ERROR (expect rc=4)"              h_testenv
-run_case "many failures (expect rc=1, 50 names + and 30 more, details capped)" h_manyfail
+run_case "many failures (expect rc=1, 80 same-message failures grouped as x80, names/locations capped)" h_manyfail
 
 echo "=== stale marker removed before wait (expect rc=0 after ~2s, not instant)"
 printf PASSED > "$T/test_result.txt"; printf SUCCESS > "$T/build_result.txt"

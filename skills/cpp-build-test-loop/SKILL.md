@@ -44,7 +44,7 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 |---|---|---|---|
 | `PASSED` | 0 | ビルド成功・全テスト成功 | ループ終了。1〜2行で報告 |
 | `BUILD_FAILED` | 6 | ビルドエラー | 2行目以降のエラー要約を読んで修正し、再実行 (読み方は下記) |
-| `FAILED` | 1 | テスト失敗 | 「Failed tests」の一覧と詳細を読み、下記の方針で修正し、再実行 |
+| `FAILED` | 1 | テスト失敗 | テスト失敗の要約 (読み方は下記) を読み、下記の方針で修正し、再実行 |
 | `TEST_TIMEOUT` | 7 | テストが制限時間内に終わらない | 下記「`TEST_TIMEOUT` の扱い」に従う。テストの待ち時間を延ばして誤魔化さない |
 | `ENV_ERROR` | 4 | 環境エラー (VS/テスト exe が見つからない等) | **ソースもテストも直さず**、内容を報告して停止 |
 | `WATCHER_NOT_RUNNING` | 3 | フラグが回収されない | 停止し、`run_watcher.cmd` の起動をユーザーに依頼 |
@@ -65,8 +65,24 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 - 同じ内容は `.claude-logs/build_summary.json` にもある。ログの再読ではなく、必要なら、これを読む。
 - 要約が出ない (生ログのまま) 場合は、`python3` がないか、エラー行を解釈できなかった。生ログのとおりに読む。
 
+## テスト失敗の要約の読み方
+`FAILED` の2行目以降は、`test_error.log` を集約した要約。
+```
+3 failed tests in 2 suites: TestPointD 2, TestLineD 1
+[1] x2  Expected equality of these values: | 25.0 | Which is: 28
+    tests: TestPointD.DistX, TestPointD.DistY
+    at: App/TestGeo.cpp(49)  App/TestGeo.cpp(60)
+```
+- 見出し: 失敗数と、スイートごとの件数。
+- `[n]` は**同じメッセージの失敗をまとめたもの** (`xN` は件数)。`tests:` はテスト名 (最大5)、`at:` は失敗の場所 (最大3)。`(+N more)` は省略分。
+- **同じ組の失敗は、同じ原因であることが多い。** 組の数だけ原因を探し、1つ直したら再実行して、残りを確認する。
+- `Expected` / `Which is` の値は、`|` で区切って1行に並べてある。期待値と実際の値の対応は、`test_error.log` のとおり (必要なときだけ読む)。
+- `other:` は解釈できなかった行 (クラッシュの報告など。そのまま)。
+- 全テスト名と、テストごとの場所・メッセージは、`.claude-logs/test_summary.json` にある。
+- 要約が出ない (従来の「Failed tests」の一覧と詳細) 場合は、`python3` がないか、失敗したテスト名を解釈できなかった (クラッシュなど)。そのまま読む。
+
 ## テスト失敗 (`FAILED`) の扱い
-1. 失敗ごとに、期待値 (`Expected`) と実際の値 (`Which is`)、ファイル・行を読む。
+1. 失敗ごとに (または、組ごとに)、期待値 (`Expected`) と実際の値 (`Which is`)、ファイル・行を読む。
 2. 該当テストと、テスト対象のソース (xxx 側) を、必要な範囲だけ読む。
 3. **原則として、ソース (xxx) 側を直す。** テストは仕様の表明として扱う。
 4. テストの期待値のほうが誤っている可能性がある場合 (仕様・他のテスト・コメントと矛盾するなど) は、
