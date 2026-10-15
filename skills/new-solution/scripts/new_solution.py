@@ -249,6 +249,15 @@ obj/
 # GoogleTest: NuGet 方式のパッケージ (packages\\ にコピーしたもの) と、ソース方式のソース (ウォッチャーが取得したもの)
 packages/
 ThirdParty/googletest/
+# ウォッチャーと Claude (Skill) が、ソリューションのフォルダに作る一時ファイル
+.claude-logs/
+trigger_*.flag
+build_result.txt
+build_error.log
+test_result.txt
+test_error.log
+gtest_result.txt
+gtest_error.log
 '''
 
 

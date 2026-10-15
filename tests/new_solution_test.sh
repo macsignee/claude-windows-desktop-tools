@@ -157,6 +157,7 @@ check "テストは、gtest を参照し、NuGet を使わない" bash -c "grep 
 check "出力に GTEST_SOURCE: to-fetch" grep -q 'GTEST_SOURCE: to-fetch' "$WORK/out9.txt"
 check "CLAUDE.md に、ソース方式の説明" grep -q 'ThirdParty' "$D/CLAUDE.md"
 check ".gitignore に ThirdParty/googletest/" grep -q 'ThirdParty/googletest/' "$D/.gitignore"
+check ".gitignore に、ウォッチャーの一時ファイル (.claude-logs/ と *_result.txt など)" bash -c "grep -q '^\.claude-logs/$' '$D/.gitignore' && grep -q '^test_result.txt$' '$D/.gitignore' && grep -q '^trigger_\*.flag$' '$D/.gitignore'"
 check "XML が正しい" xml_ok "$D"
 D="$WORK/Q/SrcLate"; mkdir -p "$D"
 python3 "$NEW" "$D" --type console --layers logic --tests none >/dev/null 2>&1
