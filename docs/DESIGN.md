@@ -57,6 +57,7 @@ Platform や Configuration を変えても環境が汚れない (起動時に1�
 | `gtest_error.log` | ウォッチャー | `FAILED` のときのみ。先頭は `[ENVIRONMENT ERROR - not a source code problem]` |
 | `ThirdParty\googletest\` | ウォッチャー | 取得した GoogleTest (`include\` `src\` `LICENSE` `VERSION.txt`)。ソリューション内の静的ライブラリ `gtest` が、これをビルドする |
 | `.claude-logs/` | ウォッチャー | `build.log` `errors.log` `warnings.log` `test.log` (フルパスのまま) |
+| `.claude-logs/build_summary.json` | Skill のスクリプト | ビルド失敗の要約 (4.22)。ウォッチャーではなく、WSL 側の `summarize_build_log.py` が書く |
 
 ### `test_result.txt` の値
 
@@ -312,6 +313,23 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
   - **自動では、作らない:** 既存のリポジトリへの追加は、保存が CRLF のファイルを、一斉に「変更あり」に見せるため。
 - **このリポジトリ (cpp-claude-build-tools) は、別の規則のまま:** `.cmd` / `.ps1` は、CP932 と BOM のバイトを守るため `-text` (4.x 参照)。
 
+### 4.22 ビルドエラーは、集約した要約で渡す (`summarize_build_log.py`)
+**問題:** `build_once.sh` は、`build_error.log` の先頭 40 行を、そのまま出していた。同じエラー (ヘッダの宣言漏れなど) が、多数のファイルで繰り返されると、40 行が同じエラーで埋まり、別の原因が見えない。件数や、コンパイルとリンクの区別も、分からない。
+**採った方針:** Skill のスクリプト (WSL 側) が、`build_error.log` を読んで、**同じ (コード, メッセージ) を 1 つにまとめた要約**を出す。
+```
+7 errors (4 unique) in 4 files; compile 5 / link 2
+[1] C2065 'cnt': undeclared identifier  x4
+    MyApp/Foo.cpp(49,5)  MyApp/Foo.cpp(50,9)  MyApp/Bar.cpp(12,3)  (+1 more)
+```
+- **最初に出た順に並べる。** 連鎖エラーの原因は、たいてい先頭側にある。Skill には、「上の `[n]` から直し、再ビルドで確認する」と書く (`SKILL.md`)。重要度のスコアや、連鎖の推定はしない (外れたときに、誤った順で直させるため)。
+- **情報を落とさない:** 解釈できない行は、最大 5 行を `other:` として残す。同じ場所の重複は 1 つにする。出力は、最大 40 行・1 行 400 文字 (従来と同じ上限)。
+- **`.claude-logs/build_summary.json` にも、同じ内容を書く** (コード・種類 `compile` / `link`・メッセージ・件数・場所・プロジェクト)。ログの再読ではなく、必要なら、これを読む。`.claude-logs/` は `.gitignore` 済み。
+- **フォールバック:** `python3` がない、または、解釈できるエラー行が 1 つもない (スクリプトが rc=3 で、何も出さない) ときは、従来の生ログ表示 (`show_log`) に戻る。`ENV_ERROR` は、要約せず、生ログのまま (環境の問題は、文面そのものが手がかり)。
+- **ウォッチャーではなく、WSL 側で行う理由:** 契約 (ファイル名・結果の値・終了コード) を変えず、ホスト側の再配布が要らない。ウォッチャーは、手書きの PowerShell で、実機での確認が重い。要約の規則は、Linux 上で、ログのサンプルだけで、検証できる。`build_error.log` は、従来どおり、生のエラー行 (ウォッチャーが、重複の除去と相対パス化をしたもの) のまま残る。
+- **スクリプトは、2 つの Skill (`cpp-auto-build` / `cpp-build-test-loop`) に、同一のコピーを置く** (Skill ごとに配布され、片方だけが入っている環境があるため)。`tests/summarize_build_log_test.sh` が、一致を確認する。
+- **対象外 (今回):** テスト失敗 (GoogleTest) の要約と、警告 (`warnings.log`) の要約。
+- 検証: `tests/summarize_build_log_test.sh` (集約・件数・並び・重複・上限・JSON・フォールバック)、`tests/fake_watcher_test.sh` (`BUILD_FAILED` の経路)。
+
 ## 5. ファイル形式
 
 | ファイル | 文字コード | 改行 | 理由 |
@@ -341,7 +359,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 **検証済み** (実機): VS 2026 Enterprise、x64 / Debug、GoogleTest、`.sln`。
 どの項目を実機で確認し、どれが未確認かは、`docs/TEST-PLAN.md` の「状況」列を参照。
 
-**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。
+**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。実機の MSBuild / リンカのログでの、ビルドエラー要約 (4.22。サンプルのログのみ)。
 **未対応:** MSTest、複数プロジェクトの同時監視 (別ウィンドウで、別のウォッチャーを起動する)。
 **未対策:** Claude 側の再実行が重なったときの、古い結果の誤読 (4.4)。
 

@@ -115,6 +115,10 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 | S9e | **本体のソース** (`DoubleBufferSample/` 配下) を、編集させる (例: S2) | **確認は、出ない。** テストプロジェクト以外の編集は、影響を受けない | ✗ |
 | S9f | ビルドエラーの修正で、テストプロジェクトの `.vcxproj` を、編集させる | 確認が出る (`**/*Test/**` に一致するため)。ビルドの設定の修正でも、出ることを、把握しておく | ✗ |
 | S10 | S2 (ソースのバグを直す) を実行する | 完了時の報告に、**変更ファイルの一覧**と、「テストファイルの変更なし」が、含まれる。`git commit` / `git push` は、実行されない。変更がない場合 (S1) は、「変更なし」で、`git status` を実行しない | ✗ |
+| S11 | **同じ未宣言の識別子を、複数のファイルで使う** (例: ヘッダの宣言を消す)。`cpp-auto-build` で、ビルドさせる | `FAILED` の出力が、**要約形式**: 見出し `N errors (M unique) in K files`、同じエラーが `[1] ... xN` の 1 つにまとまり、場所が最大 3 つ。`build_error.log` は、生のまま残る。`.claude-logs/build_summary.json` ができる。Claude は、`[1]` から直し、1 回の再ビルドで、`SUCCESS` | ✗ |
+| S12 | **リンクエラー**を起こす (例: 宣言だけで、定義がない関数を呼ぶ)。`cpp-auto-build` で、ビルドさせる | 見出しの内訳に `link N`。`LNK2019` と、続く `LNK1120` が、別の `[n]` として出る。場所が `Foo.obj` などの形でも、要約が崩れない。Claude は、宣言ではなく、定義 / ライブラリ指定を直す | ✗ |
+| S13 | S3 の構文エラーを、`cpp-build-test-loop` で起こす | `BUILD_FAILED` の 2 行目以降が、S11 と同じ要約形式。直したあと、テストの段階 (`FAILED` / `PASSED`) に進む | ✗ |
+| S14 | S11 の状態で、`PATH` から `python3` を外して (または、`summarize_build_log.py` を退避して) 実行する (WSL 側のみ) | 要約ではなく、**従来の生ログ** (最大 40 行) が出る。1 行目は `FAILED` のまま、rc=1 | ✗ |
 
 ### 2-0. `/brainstorm` と `/add-feature`
 
@@ -219,6 +223,8 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 `tests/gtest_once_test.sh` が、`gtest_once.sh` (GoogleTest の取得) の結果の分岐を、同様に検証する。
 
+`tests/summarize_build_log_test.sh` が、`summarize_build_log.py` (ビルドエラーの要約) を検証する (11 項目)。同じエラーの集約と件数、最初に出た順、重複する場所の除去、BOM / CR / `N>` の除去、JSON、100 件でも最大 40 行、解釈できないログは rc=3 で何も出さない (生ログへの切り替え)、2 つの Skill のコピーが同一。実機の MSBuild のログでは、S11 / S12 で確認する。
+
 期待する結果 (rc): `PASSED` 0 / `FAILED` 1 (失敗テスト名が先頭) / `BUILD_FAILED` 6 / ビルド環境エラー `ENV_ERROR` 4 /
 `TEST_TIMEOUT` 7 / テスト環境エラー `ENV_ERROR` 4 / 失敗が多数 1 (名前 50 件 + `and N more`、詳細は上限あり) /
 古いマーカーが消される 0 / `WATCHER_NOT_RUNNING` 3 / `TIMEOUT` 5 / `BAD_ARGS` 2。
@@ -228,6 +234,7 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | 変更したもの | 最低限、やること |
 |---|---|
 | `build_once.sh` / `build_test_once.sh` | `tools/check-formats.sh`、`tests/fake_watcher_test.sh` |
+| `summarize_build_log.py` | 2 つの Skill のコピーを、同一にして、`tests/summarize_build_log_test.sh`、`tests/fake_watcher_test.sh`。出力の形式を変えたら、2 の S11 / S12 を、実機で (`SKILL.md` の読み方も) |
 | `gtest_once.sh` / `watch_and_build.ps1` の gtest 部分 | `tools/check-formats.sh`、`tests/gtest_once_test.sh`。ps1 は、1-2b の G1 / G2 / G4 を、実機で |
 | `new_solution.py` | `tools/check-formats.sh`、`tests/new_solution_test.sh`。生成するプロジェクトを変えたら、2-0c の N1〜N3 を、実機で |
 | `add_layer.py` | `tools/check-formats.sh`、`tests/add_layer_test.sh`。生成する `.vcxproj` を変えたら、2-1 の F0 を、実機で |

@@ -47,6 +47,17 @@ show_log() {  # $1=file $2=max_lines
     return 0
 }
 
+# コンパイル/リンクエラーの要約。解釈できない/python3 がなければ生ログ (show_log)
+show_build_summary() {  # $1=build_error.log
+    local here
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$1" ] && command -v python3 >/dev/null 2>&1; then
+        mkdir -p "$DIR/.claude-logs" 2>/dev/null
+        python3 -I "$here/summarize_build_log.py" "$1" --json "$DIR/.claude-logs/build_summary.json" && return 0
+    fi
+    show_log "$1"
+}
+
 first_line_is_env_error() {  # $1=file
     [ -f "$1" ] && head -n 1 "$1" | sed 's/^\xEF\xBB\xBF//' | grep -q '^\[ENVIRONMENT ERROR'
 }
@@ -92,7 +103,7 @@ case "$STATUS" in
             exit 4
         fi
         echo "BUILD_FAILED"
-        show_log "$BUILD_ERR"
+        show_build_summary "$BUILD_ERR"
         exit 6
         ;;
     ENV_ERROR)

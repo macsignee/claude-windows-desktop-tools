@@ -39,6 +39,17 @@ show_log() {
     return 0
 }
 
+# コンパイル/リンクエラーの要約 (同じエラーの集約・件数・代表の場所)。解釈できない/python3 がなければ生ログ (show_log)
+show_summary() {
+    local here
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$ERRLOG" ] && command -v python3 >/dev/null 2>&1; then
+        mkdir -p "$DIR/.claude-logs" 2>/dev/null
+        python3 -I "$here/summarize_build_log.py" "$ERRLOG" --json "$DIR/.claude-logs/build_summary.json" && return 0
+    fi
+    show_log
+}
+
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
 rm -f "$RESULT" "$ERRLOG"
 touch "$FLAG"
@@ -80,5 +91,5 @@ if [ -f "$ERRLOG" ] && head -n 1 "$ERRLOG" | sed 's/^\xEF\xBB\xBF//' | grep -q '
 fi
 
 echo "FAILED"
-show_log
+show_summary
 exit 1
