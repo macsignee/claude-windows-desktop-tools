@@ -59,6 +59,7 @@ Platform や Configuration を変えても環境が汚れない (起動時に1�
 | `.claude-logs/` | ウォッチャー | `build.log` `errors.log` `warnings.log` `test.log` (フルパスのまま) |
 | `.claude-logs/build_summary.json` | Skill のスクリプト | ビルド失敗の要約 (4.22)。ウォッチャーではなく、WSL 側の `summarize_build_log.py` が書く |
 | `.claude-logs/test_summary.json` | Skill のスクリプト | テスト失敗の要約 (4.22)。WSL 側の `summarize_test_log.py` が書く |
+| `.claude-logs/warnings_summary.json` | Skill のスクリプト | 成功時の警告の要約 (4.22)。`summarize_build_log.py --severity warning` が書く |
 
 ### `test_result.txt` の値
 
@@ -333,7 +334,12 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
   - **解釈の規則:** 失敗の詳細は、その後の `[  FAILED  ] 名前 (N ms)` の行の**前**にある (gtest の出力順)。`listed below` の再掲と、`[==========]` などの集計行は、数えない。MSVC 形式 (`file(line): error:`) と、Linux 形式 (`file:line: Failure`) の両方。
   - **フォールバック:** 失敗したテスト名を 1 つも解釈できない (クラッシュ。名前のない `exit code` だけの報告など)、または `python3` がないときは、従来の表示 (`Failed tests (N):` の一覧と詳細 60 行)。`TEST_TIMEOUT` / `ENV_ERROR` は、要約しない (`Hung test` などが、そのまま手がかり)。
   - **`.claude-logs/test_summary.json`:** 全テスト名・テストごとの場所とメッセージ。標準出力は、名前を省略するため、全名が要るときは、これを読む。
-- **対象外 (今回):** 警告 (`warnings.log`) の要約。
+- **警告は、成功時に、件数の 1 行だけを出す** (`summarize_build_log.py --severity warning --oneline`)。
+  - **なぜ、1 行か:** 警告は、結果を変えない。ビルドのたびに、一覧を出すと、トークンを消費し、ループで、無関係な警告を直し始める (「無関係なリファクタリングはしない」に反する)。件数と上位のコードだけで、「気づく」には足りる。詳細は、必要なときだけ、同じスクリプトで読む (`SKILL.md`)。
+  - **失敗時は出さない:** エラーに集中させる。**`ENV_ERROR` / `TEST_TIMEOUT` / `FAILED` でも出さない。**
+  - **相対パス化は、WSL 側 (`--root`)。** `errors.log` は、ウォッチャーが相対化するが、`warnings.log` (MSBuild のファイルロガー) は、フルパスのまま `.claude-logs/` に残る。ウォッチャーを変えない (再配布が要らない) ため、Windows のパス (`C:\...`) を、`/mnt/c/...` に直して、ソリューションからの相対にする。ドライブ文字と、フォルダの大文字・小文字は、区別しない。フォルダの外 (VS の標準ヘッダなど) は、`/` 区切りのフルパスのまま。
+  - **限界:** MSBuild は、**再コンパイルされたファイルの警告だけ**を出す。差分ビルドで、何も再コンパイルされなければ、件数は出ない (警告がないという意味ではない)。`-LogDir` で、ログの場所を変えると、読めない (何も出ない)。
+  - `.claude-logs/warnings_summary.json` に、同じ内容 (キーは `warnings`) を書く。
 - 検証: `tests/summarize_build_log_test.sh` (集約・件数・並び・重複・上限・JSON・フォールバック)、`tests/fake_watcher_test.sh` (`BUILD_FAILED` の経路)。
 
 ## 5. ファイル形式

@@ -24,6 +24,14 @@ fake_watcher() {
 }
 
 h_passed()  { printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"; }
+h_passedwarn() {   # 成功でも警告があれば、PASSED の次の行に 1 行だけ件数が出るか
+    mkdir -p "$T/.claude-logs"
+    {
+        printf 'C:\\w\\a.cpp(1,1): warning C4244: conv [C:\\w\\a.vcxproj]%s\n' "$CR"
+        printf 'C:\\w\\b.cpp(2,1): warning C4244: conv [C:\\w\\a.vcxproj]%s\n' "$CR"
+    } > "$T/.claude-logs/warnings.log"
+    printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"
+}
 h_failed()  {
     printf SUCCESS > "$T/build_result.txt"
     {
@@ -73,11 +81,12 @@ run_case() {  # $1=名前 $2=ハンドラ $3=timeout
     bash "$SCRIPT" "$T" "${3:-20}"
     echo "rc=$?"
     kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
-    rm -f "$T"/*.txt "$T"/*.log "$T"/*.flag
+    rm -rf "$T"/*.txt "$T"/*.log "$T"/*.flag "$T"/.claude-logs
 }
 
 bash -n "$SCRIPT" && echo "syntax-ok"
 run_case "PASSED (expect rc=0)"                 h_passed
+run_case "PASSED with warnings (expect rc=0, 2nd line: warnings: 2 (1 unique): C4244 x2)" h_passedwarn
 run_case "FAILED (expect rc=1, names first)"    h_failed
 run_case "BUILD_FAILED (expect rc=6)"           h_buildfail
 run_case "BUILD env -> ENV_ERROR (expect rc=4)" h_buildenv

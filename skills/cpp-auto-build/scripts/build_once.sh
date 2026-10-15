@@ -50,6 +50,17 @@ show_summary() {
     show_log
 }
 
+# 成功時の警告の件数 (1 行だけ。警告がなければ何も出さない。失敗しても、結果には影響しない)
+show_warnings_line() {
+    local here w
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    w="$DIR/.claude-logs/warnings.log"
+    [ -s "$w" ] && command -v python3 >/dev/null 2>&1 || return 0
+    python3 -I "$here/summarize_build_log.py" "$w" --severity warning --root "$DIR" --oneline \
+        --json "$DIR/.claude-logs/warnings_summary.json" 2>/dev/null || true
+    return 0
+}
+
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
 rm -f "$RESULT" "$ERRLOG"
 touch "$FLAG"
@@ -81,6 +92,7 @@ STATUS="$(tr -d '\r\n ' < "$RESULT")"
 
 if [ "$STATUS" = "SUCCESS" ]; then
     echo "SUCCESS"
+    show_warnings_line
     exit 0
 fi
 

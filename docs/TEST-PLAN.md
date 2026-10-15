@@ -123,6 +123,10 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 | S16 | **値の違う失敗**を、2 種類以上 (例: 別の関数のバグも入れる) | 値 / メッセージの違う失敗が、別の `[n]` に分かれる。組の数だけ原因を探す動き | ✗ |
 | S17 | テストの中で、**クラッシュ** (例: nullptr 参照) させる | 失敗したテスト名がなければ、要約ではなく**従来の表示** (`other` ではなく、生の報告) で、クラッシュが分かる。`Hung test` / `TEST_TIMEOUT` は、従来どおり | ✗ |
 | S18 | S15 の状態で、`summarize_test_log.py` を退避して実行する (WSL 側のみ) | 従来の `Failed tests (N):` の一覧と詳細 (最大 60 行) が出る。1 行目は `FAILED`、rc=1 のまま | ✗ |
+| S19 | **警告が出るコード** (例: `int x = 1.5;` の型の縮小 C4244) を、新しく足して、`cpp-auto-build` でビルドする (**全体を再ビルド**: `Rebuild` か、その `.cpp` を触る) | `SUCCESS` の次の行に、**1 行だけ** `warnings: N (M unique): C4244 xK ...`。Claude は、警告を直さず、報告に 1 行添え、自分が足した行由来なら、直すかを尋ねる。`.claude-logs/warnings_summary.json` ができ、場所が**相対パス** | ✗ |
+| S20 | S19 の直後に、ソースを触らず、もう一度ビルド (差分ビルド) | `SUCCESS` だけ (警告の行は出ない。再コンパイルがないため)。Claude は「警告がない」と報告しない | ✗ |
+| S21 | 警告がないコードで、`cpp-build-test-loop` を実行 | `PASSED` だけ (警告の行なし)。S1 と同じ動き | ✗ |
+| S22 | ビルドエラーと警告が、同時に出るコードで実行 | `FAILED` のエラー要約だけ (警告の行は出ない。`warnings.log` は、エラーの出たビルドの分でも、`.claude-logs/` に残る) | ✗ |
 
 ### 2-0. `/brainstorm` と `/add-feature`
 
@@ -231,6 +235,8 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 `tests/summarize_test_log_test.sh` が、`summarize_test_log.py` (テスト失敗の要約) を検証する (15 項目)。同じメッセージの集約、場所、パラメータ化テスト名、Linux 形式、`listed below` の再掲の除外、上限と JSON、クラッシュ時のフォールバック (rc=3)。実機の GoogleTest の出力では、S15〜S17 で確認する。
 
+警告の項目 (`--severity warning` / `--root` / `--oneline`) は、`tests/summarize_build_log_test.sh` (計 20 項目) と、`tests/fake_watcher_test.sh` の「PASSED with warnings」が検証する。実機の `warnings.log` (フルパス) では、S19〜S22 で確認する。
+
 期待する結果 (rc): `PASSED` 0 / `FAILED` 1 (失敗テスト名が先頭) / `BUILD_FAILED` 6 / ビルド環境エラー `ENV_ERROR` 4 /
 `TEST_TIMEOUT` 7 / テスト環境エラー `ENV_ERROR` 4 / 失敗が多数 1 (名前 50 件 + `and N more`、詳細は上限あり) /
 古いマーカーが消される 0 / `WATCHER_NOT_RUNNING` 3 / `TIMEOUT` 5 / `BAD_ARGS` 2。
@@ -240,6 +246,7 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | 変更したもの | 最低限、やること |
 |---|---|
 | `build_once.sh` / `build_test_once.sh` | `tools/check-formats.sh`、`tests/fake_watcher_test.sh` |
+| `summarize_build_log.py` の警告 (`--severity warning`) / `show_warnings_line` | `tests/summarize_build_log_test.sh`、`tests/fake_watcher_test.sh`。実機の `warnings.log` で、2 の S19〜S22 |
 | `summarize_test_log.py` | `tests/summarize_test_log_test.sh`、`tests/fake_watcher_test.sh`。出力の形式を変えたら、2 の S15〜S17 を、実機で (`SKILL.md` の読み方も) |
 | `summarize_build_log.py` | 2 つの Skill のコピーを、同一にして、`tests/summarize_build_log_test.sh`、`tests/fake_watcher_test.sh`。出力の形式を変えたら、2 の S11 / S12 を、実機で (`SKILL.md` の読み方も) |
 | `gtest_once.sh` / `watch_and_build.ps1` の gtest 部分 | `tools/check-formats.sh`、`tests/gtest_once_test.sh`。ps1 は、1-2b の G1 / G2 / G4 を、実機で |

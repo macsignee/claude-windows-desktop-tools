@@ -67,6 +67,17 @@ show_test_summary() {  # $1=test_error.log
     python3 -I "$here/summarize_test_log.py" "$1" --json "$DIR/.claude-logs/test_summary.json"
 }
 
+# 成功時の警告の件数 (1 行だけ。警告がなければ何も出さない。失敗しても、結果には影響しない)
+show_warnings_line() {
+    local here w
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    w="$DIR/.claude-logs/warnings.log"
+    [ -s "$w" ] && command -v python3 >/dev/null 2>&1 || return 0
+    python3 -I "$here/summarize_build_log.py" "$w" --severity warning --root "$DIR" --oneline \
+        --json "$DIR/.claude-logs/warnings_summary.json" 2>/dev/null || true
+    return 0
+}
+
 first_line_is_env_error() {  # $1=file
     [ -f "$1" ] && head -n 1 "$1" | sed 's/^\xEF\xBB\xBF//' | grep -q '^\[ENVIRONMENT ERROR'
 }
@@ -103,6 +114,7 @@ STATUS="$(tr -d '\r\n ' < "$TEST_RESULT")"
 case "$STATUS" in
     PASSED)
         echo "PASSED"
+        show_warnings_line
         exit 0
         ;;
     BUILD_FAILED)

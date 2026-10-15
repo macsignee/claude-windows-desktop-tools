@@ -43,6 +43,29 @@ printf 'nothing parsable\n' > "$T/j.log"
 out="$(python3 -I "$S" "$T/j.log")"; rc=$?
 ok "unparsable -> rc=3, no output" $([ $rc = 3 ] && [ -z "$out" ] && echo 1 || echo 0)
 
+# --- 警告 (--severity warning / --root / --oneline) ---
+mkdir -p "$T/w/proj"
+{
+    printf '%sC:\\work\\proj\\MyApp\\Foo.cpp(12,5): warning C4244: conv [C:\\work\\proj\\MyApp\\MyApp.vcxproj]%s\n' "$BOM" "$CR"
+    printf 'C:\\work\\proj\\MyApp\\Bar.cpp(7,1): warning C4244: conv [C:\\work\\proj\\MyApp\\MyApp.vcxproj]%s\n' "$CR"
+    printf 'c:\\WORK\\proj\\MyApp\\Bar.cpp(9,3): warning C4996: unsafe [C:\\work\\proj\\MyApp\\MyApp.vcxproj]%s\n' "$CR"
+    printf 'C:\\Program Files\\VS\\include\\x.h(1): warning C4005: redefined [C:\\work\\proj\\MyApp\\MyApp.vcxproj]%s\n' "$CR"
+    printf 'Foo.cpp(1): error C2065: x [C:\\work\\proj\\MyApp\\MyApp.vcxproj]%s\n' "$CR"
+} > "$T/w.log"
+out="$(python3 -I "$S" "$T/w.log" --severity warning --root /mnt/c/work/proj --json "$T/w.json")"; rc=$?
+ok "warnings: rc=0" $([ $rc = 0 ] && echo 1 || echo 0)
+ok "warnings: header (4 warnings, 3 unique; errors not counted)" "$(has "$out" '4 warnings (3 unique) in 3 files')"
+ok "warnings: grouped x2" "$(has "$out" "C4244 conv  x2")"
+ok "warnings: paths made relative (case-insensitive drive/dir)" "$(has "$out" 'MyApp/Foo.cpp(12,5)  MyApp/Bar.cpp(7,1)')"
+ok "warnings: path outside root kept (/ separated)" "$(has "$out" 'C:/Program Files/VS/include/x.h(1)')"
+ok "warnings: no 'other:' section for unparsed/error lines" "$([ "$(grep -c 'other:' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+ok "warnings: json key is 'warnings'" "$(python3 -c "import json,sys; d=json.load(open('$T/w.json')); sys.exit(0 if d['warnings']==4 and 'errors' not in d else 1)" && echo 1 || echo 0)"
+one="$(python3 -I "$S" "$T/w.log" --severity warning --root /mnt/c/work/proj --oneline)"
+ok "warnings: --oneline is one line with top codes" "$([ "$(wc -l <<<"$one")" = 1 ] && [ "$(has "$one" 'warnings: 4 (3 unique): C4244 x2, C4996 x1, C4005 x1')" = 1 ] && echo 1 || echo 0)"
+printf 'Foo.cpp(1): error C2065: x\n' > "$T/nowarn.log"
+out="$(python3 -I "$S" "$T/nowarn.log" --severity warning)"; rc=$?
+ok "warnings: none -> rc=3, no output" $([ $rc = 3 ] && [ -z "$out" ] && echo 1 || echo 0)
+
 # 2 つの Skill のコピーが同一であること
 ok "skill copies identical" $(cmp -s "$S" "$ROOT/skills/cpp-build-test-loop/scripts/summarize_build_log.py" && echo 1 || echo 0)
 
