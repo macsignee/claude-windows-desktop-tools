@@ -224,6 +224,21 @@ cpp-build-test-loop のSkillを使って、テストが通るまで直してく�
 - 報告が短い (成功: 1〜2行)。経過の説明が、少ない。
 - 実行後の `git status` / `git diff` で、意図しない変更がない。
 
+### 2-2. `mfc-check` (MFC の静的検査。ウォッチャー不要)
+
+| # | 準備 | 期待する動き | 状況 |
+|---|---|---|---|
+| K1 | 実プロジェクト (MFC の SDI 等) で、`python3 -I <Skill>/scripts/mfc_check.py <フォルダ>` を実行 | クラッシュしない。ウィザード生成の素のプロジェクトでは、error が出ない。出た指摘は、実際の不整合か、誤検出かを、記録する | ✔ (`cppsamples` の 4 プロジェクトと `DoubleBufferSample`。最初は、誤検出で error が 7 件出たが、4 種類を修正し、error 0 になった。残った指摘は、本物: `IDR_HELP_MENU` の名前付きリソース、`OnFilePrintPreview` の宣言の残骸、`IDD_LINESTYLE` の `&W` の重複) |
+| K2 | `DoubleBufferSample` の `DrawingStylesDialog.h` で、`afx_msg void OnUpdatePenWidth();` を消して、実行 | MAP001 (error)。VS でビルドすると、`DrawingStylesDialog.cpp` の定義が、コンパイルエラーになることも、確認する | ✗ |
+| K3 | `Resource.h` の `IDC_PENWIDTH` (1002) を、`1001` (`IDC_PENSTYLE` と同じ) にして、実行 | RES003 (error)。ダイアログを開いて、線種と線幅の欄が、正しく動かないことを、確認する | ✗ |
+| K4 | ロジックの DLL に、`#include <afxwin.h>` と `CWnd` の使用を足して、実行 (`DoubleBufferSample` にはライブラリがないので、`/new-solution` で作った層の構成 `NewClaudeProject` で行う) | LAY001 (error) と LAY002 (warning) | ✗ |
+| K5 | Claude Code で、`mfc-check` を起動する依頼 (「ボタンが反応しない原因を調べて」) | Skill が起動し、`mfc_check.py` を実行し、error から直し、再実行して、error が減ることを確認する。warning は、自分が触った箇所だけ。3 回で、止まる | ✗ |
+| K6 | ウィザード生成の `.rc` (UTF-16) を、Skill の手順 (Python のバイト列) で編集 | 文字化けせず、保存後も、UTF-16 (BOM 付き) のまま。VS で、リソースビューが開く | ✗ |
+| K7 | `DrawingStylesDialog.cpp` の `LineStyleDialog::DoDataExchange` に、`DDX_Control(pDX, IDC_UNDERLINE2, boldStyle);` を足して実行 (`IDC_UNDERLINE2` は、`Resource.h` にあるが、`IDD_LINESTYLE` にない) | DLG001 (error)。Debug で、図形の描画設定のダイアログを開くと、出力ウィンドウに `Error: no data exchange control with ID 0x....` が出て、ASSERT になる | ✗ |
+| K8 | `DrawingStylesDialog.h` の `CEdit penWidthEdit;` を `CListCtrl penWidthEdit;` にして実行 (`IDC_PENWIDTH` は `EDITTEXT`) | DLG003 (error)。コンパイルが通れば、Debug でダイアログを開き、**症状を観察して、ここに記録する** (アサートか、欄が動かないか。種類による)。`CEdit` 固有の呼び出しで、コンパイルエラーになる場合は、検出の確認だけで、よい | ✗ |
+| K9 | `LineStyleDialog::OnInitDialog` の `CDialogEx::OnInitDialog();` を、コメントアウトして実行 | DLG006 (warning)。Debug でダイアログを開くと、基底の `OnInitDialog` が `DoDataExchange` を呼ばないため、`DDX_Control` の接続が行われず、コントロールのメンバーが未接続のまま (最初の使用でアサート) になることを確認する | ✗ |
+| K10 | VS のリソースエディタで、`IDD_LINESTYLE` にボタン (`IDC_BUTTON1`) を足し、ハンドラを付けずに、実行。次に、ボタンをダブルクリックして、ハンドラを足し、再実行 | 1 回目は DLG004 (warning)。ハンドラを足すと、消える。`.rc` (UTF-16) と `Resource.h` の更新は、VS に任せる | ✗ |
+
 ## 3. 疑似ウォッチャー (Windows 不要)
 
 `tests/fake_watcher_test.sh` が、`build_test_once.sh` の結果の分岐を、ファイルを書くだけの偽のウォッチャーで検証する。
@@ -245,6 +260,7 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | 変更したもの | 最低限、やること |
 |---|---|
+| `mfc_check.py` | `tools/check-formats.sh`、`tests/mfc_check_test.sh`。検査を足したら、疑似プロジェクトに、そのケースを足す。実プロジェクトで、誤検出が増えていないかも、見る (2-2 の K1) |
 | `build_once.sh` / `build_test_once.sh` | `tools/check-formats.sh`、`tests/fake_watcher_test.sh` |
 | `summarize_build_log.py` の警告 (`--severity warning`) / `show_warnings_line` | `tests/summarize_build_log_test.sh`、`tests/fake_watcher_test.sh`。実機の `warnings.log` で、2 の S19〜S22 |
 | `summarize_test_log.py` | `tests/summarize_test_log_test.sh`、`tests/fake_watcher_test.sh`。出力の形式を変えたら、2 の S15〜S17 を、実機で (`SKILL.md` の読み方も) |
