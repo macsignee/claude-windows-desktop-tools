@@ -33,6 +33,7 @@ Usage: mfc_check.py <dir> [--json <out.json>] [--max-lines 40] [--all]
   DLG007 warning DoDataExchange が、基底クラスの DoDataExchange を呼んでいない
   DLG008 info    同じダイアログに、同じニーモニック (&X) が重複
   DLG009 info    AFX_DIALOG_LAYOUT が、存在しないダイアログのもの (VS が残した、不要な定義)
+  DLG010 warning 同じメンバーを、複数の DDX_Control に渡している (2 回目以降は、MFC が何もしない)
   LAY001 error   ライブラリ (DLL / lib) で、GUI のクラスを使っている
   LAY002 warning ライブラリで、GUI のヘッダーを include している (pch / framework は info)
   LAY003 error   プロジェクト参照の方向が、層 (UI → ロジック → データ) に反する
@@ -737,10 +738,13 @@ def check_dialogs(p, codes, rcinfo, classes, used_outside_maps):
             if not re.search(r"\b\w+\s*::\s*DoDataExchange\s*\(", body):
                 p.add("DLG007", "warning", f"{cname}::DoDataExchange が、基底クラスの DoDataExchange を呼んでいない",
                       p.rel(path), lineno(code, o))
+            binds = {}          # DDX_Control のメンバー -> [(ID, 開始, 終了, 行)]
             for dm in re.finditer(r"\b(DD[XV]_\w+)\s*\(\s*\w+\s*,\s*(ID\w+)\s*(?:,\s*([\w.\[\]>\-]+))?", body):
                 line = lineno(code, o + dm.start())
                 handled.add((path, line))
                 macro, cid, member = dm.group(1), dm.group(2), dm.group(3)
+                if macro == "DDX_Control" and member:
+                    binds.setdefault(member, []).append((cid, dm.start(), dm.end(), line))
                 if idd_ctrls is None or is_standard(cid):
                     if idd_ctrls is None and idd is None:
                         handled.discard((path, line))      # ダイアログが分からない: UI003 に任せる
@@ -755,6 +759,14 @@ def check_dialogs(p, codes, rcinfo, classes, used_outside_maps):
                     if want and have and want != have:
                         p.add("DLG003", "error", f"{cname}: DDX_Control({cid}, {member}) の型 {mtype} が、ダイアログ {idd} の"
                               f"コントロール ({ctrl['kw']}{' ' + ctrl['cls'] if ctrl['cls'] else ''}) と合わない", p.rel(path), line)
+            # DLG010: MFC の DDX_Control は、メンバーが接続済みなら、コントロールを探さない。
+            # 同じメンバーを別の ID に渡すと、2 回目以降は、何も起きない (コピー&ペーストの誤りに多い)
+            for member, lst in binds.items():
+                for (id1, s1, e1, _), (id2, s2, e2, line2) in zip(lst, lst[1:]):
+                    if re.search(r"\b(?:else|case|default)\b", body[e1:s2]):
+                        continue            # 分岐ごとに、別の ID を渡す書き方は、正当
+                    p.add("DLG010", "warning", f"{cname}: DDX_Control のメンバー {member} が、{id1} と {id2} の両方に渡されている "
+                          "(2 回目以降は、MFC が、接続済みのメンバーを探さないので、何も起きない)", p.rel(path), line2)
         # OnInitDialog (CFormView を除く)
         if kind not in NO_INITDIALOG:
             for path, code, o, body in func_bodies(codes, cname, "OnInitDialog"):

@@ -61,7 +61,7 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | UI001 | warning | `ON_COMMAND` の ID が、`.rc` のメニュー・アクセラレータ・ツールバーにない | メニューなどに項目を足す。コードから送る (`PostMessage`) 場合は、そのまま。 |
 | UI002 | warning | コントロール通知の ID が、`.rc` のダイアログにない | ダイアログにコントロールを足す。コードで作る場合は、そのまま。 |
 | UI003 | warning | `DDX_*` / `DDV_*` の ID が、`.rc` のどのダイアログにもない (ダイアログクラスと分からない場合) | ダイアログに足す。 |
-| DLG001 | error | `DDX_*` / `DDV_*` の ID が、**そのクラスのダイアログ** (`IDD`) にない | ダイアログにコントロールを足す (または、DDX の ID を直す)。実行時に、アサートや例外になる。 |
+| DLG001 | error | `DDX_*` / `DDV_*` の ID が、**そのクラスのダイアログ** (`IDD`) にない | ダイアログにコントロールを足す (または、DDX の ID を直す)。実行時に、アサート (`Error: no data exchange control with ID 0x....`) や例外になる。**ただし、`DDX_Control` は、メンバーが接続済みなら、コントロールを探さないので、その場合は、何も起きない (参照は、誤りのまま)。** |
 | DLG002 | error | ダイアログクラスの `IDD` が、`.rc` に DIALOG として存在しない (別の種類のリソースの場合も) | `.rc` にダイアログを足す (または、`IDD` を直す)。`DoModal` / `Create` が失敗する。 |
 | DLG003 | error | `DDX_Control` のメンバーの型が、コントロールの種類と合わない (例: `EDITTEXT` に `CListCtrl`) | メンバーの型を、コントロールに合わせる (または、`.rc` のコントロールを直す)。実行時に、コントロールが期待どおりに動かない (症状は、コントロールの種類による)。 |
 | DLG004 | warning | ダイアログのボタンに、ハンドラがない (押しても何も起きない) | `ON_BN_CLICKED` を足す。`IDOK` / `IDCANCEL` と、コードで使っている ID は、対象外。 |
@@ -69,6 +69,7 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | DLG006 | warning | `OnInitDialog` が、基底クラスの `OnInitDialog` を呼んでいない | `CDialogEx::OnInitDialog();` を、先頭で呼ぶ (コントロールの初期化と DDX が、行われなくなる)。 |
 | DLG007 | warning | `DoDataExchange` が、基底クラスの `DoDataExchange` を呼んでいない | `CDialogEx::DoDataExchange(pDX);` を、先頭で呼ぶ。 |
 | DLG008 | info | 同じダイアログに、同じニーモニック (`&X`) が重複 | 動作に影響しない (キー操作が、混乱する)。 |
+| DLG010 | warning | 同じメンバーを、別の ID に対して、複数の `DDX_Control` に渡している | メンバーを、ID ごとに分ける (コピー&ペーストの誤りに多い)。**2 回目以降は、実行時に何も起きず、警告も出ない** (MFC は、接続済みのメンバーを探さない)。`if` / `else` の分岐ごとに渡す書き方は、指摘しない。 |
 | DLG009 | info | `AFX_DIALOG_LAYOUT` が、存在しないダイアログのもの | VS が残した不要な定義。消してよい (`.rc` を編集する注意に従う)。 |
 | LAY001 | error | ライブラリ (DLL / lib) で、GUI のクラス (`CWnd` `CDialog` `AfxMessageBox` など) を使っている | UI の処理を、メイン側に移す。ロジックは、GUI に依存させない (`CLAUDE.md` の層の規則)。 |
 | LAY002 | warning | ライブラリで、GUI のヘッダー (`afxwin.h` など) を include している (`pch.h` / `framework.h` は info) | 必要か確認する。MFC 拡張 DLL の `framework.h` なら、そのままでよいことが多い。 |
@@ -84,6 +85,8 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 - **ウィザード生成の `.rc` は、UTF-16 (BOM 付き) のことが多い。** 文字列一致のエディタ (Edit ツールなど) は、UTF-16 を正しく扱えないことがある。`.rc` を編集するときは、Python で `open(path, 'rb').read().decode('utf-16')` を試し、バイト列として読み書きし、`utf-16` (BOM 付き) で書き戻す。
 - `resource.h` の `_APS_NEXT_*` (次に割り当てる値) を、手で ID を足したあとに、更新する (VS のリソースエディタは、これを使って、次の ID を決める)。
 - ウィザード生成のクラスのメッセージマップは、書式を直さない。
+- **VS のウィザード (「イベント ハンドラーの追加」など) で足した直後は、未保存のファイルがある。** ウィザードは、編集を、エディタ上で行い、保存するまで、ディスクに書かない。チェッカーは、**ディスク**を読むので、保存前は、「マップにあるが、宣言がない」(MAP001) など、一時的な不整合が出る。**ユーザーに、「すべて保存」(Ctrl+Shift+S) を頼んでから、再実行する。** 保存後も残る場合に、初めて、本物の不整合として、扱う。
+- **VS は、`Resource.h` を `resource.h` (小文字) として、保存し直すことがある。** Windows では、同じファイルだが、git は、別の名前として扱い、`git status` に、`M Resource.h` と `?? resource.h` が、同時に出る。**ファイル名の大文字小文字は、AI が、勝手に直さず、ユーザーに伝える** (`git restore` では、名前が戻らないことがある)。
 
 ## 誤検出と限界
 - **静的解析**。実行はしない。マクロで生成した ID や、複雑な `#ifdef` は、解釈できないことがある (誤検出のときは、報告に書く)。
@@ -95,6 +98,7 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 - `ON_WM_xxx` は、代表的なもの (`ON_WM_SIZE` など) だけ、引数の数を検査する。ほかは、名前の一致だけを見る。
 - コードで、動的に作るダイアログやコントロールは、UI001〜UI003 と DLG004 の、誤検出になりうる (その ID を、マップの外で使っていれば、除く)。
 - **ダイアログクラスの判定:** 基底が `CDialog` / `CDialogEx` / `CPropertyPage` / `CFormView` / `CDHtmlDialog` (派生の派生も含む)。ダイアログの ID は、`enum { IDD = ... }` か、コンストラクタの基底の初期化 (`CDialogEx(IDD_X)`) から読む。どちらもなければ、そのクラスのダイアログ検査 (DLG001〜DLG004) は、行わない。
+- **DLG010 (同じメンバーの、複数の `DDX_Control`):** `DoDataExchange` の中で、`else` / `case` / `default` をまたぐ 2 つの呼び出しは、分岐ごとの書き方として、除く。
 - **`DDX_Control` の型の検査 (DLG003) は、MFC 標準のコントロールクラス** (`CEdit` `CListCtrl` `CComboBox` など) **だけ。** 自作の派生クラスは、判定しない。
 - **DLG004 (ボタンのハンドラ) は、`ON_*_RANGE` があるクラスでは、行わない。** 親ウィンドウがコマンドを受ける設計 (モードレスなど) は、誤検出になりうる。
 - 層の判定は、プロジェクト名 (`Logic` / `Data`) と、`.vcxproj` の種類による。テストプロジェクト (名前が `Test` で終わる) は、対象外。
