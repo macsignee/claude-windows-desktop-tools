@@ -523,6 +523,9 @@ UI / メイン → ロジック → データ (のインターフェース)
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`cpp-auto-build` / `cpp-build-test-loop`) が行う。出力先: `x64\Debug\`。
 - 新しい `.cpp` / `.h` は、`.vcxproj` (と `.filters`) に追加する。
 """
+    if layers and kind not in (KIND['dll'], KIND['lib']):
+        out += f"""- Visual Studio で実行 (F5) するときは、メインの `{name}` を、**スタートアッププロジェクトに設定する** (層は DLL / ライブラリなので、単体では起動できない)。`{name}.slnx` の `DefaultStartup="true"` で、最初に開くときは、メインが選ばれる。ただし、`.vs/` の個人の設定 (`.suo`) が、すでにあれば、そちらが優先される (DLL が選ばれていたら、メインを、右クリックの「スタートアップ プロジェクトに設定」で選び直す)。
+"""
     if tests:
         out += r"""
 ## テスト (GoogleTest)
@@ -688,10 +691,12 @@ def existing_solutions(folder):
     return [f for f in sorted(os.listdir(folder)) if f.lower().endswith(('.sln', '.slnx'))]
 
 
-def slnx_text(projects):
+def slnx_text(projects, startup=None):
+    """startup: 最初に開くときの、スタートアッププロジェクトの名前 (DefaultStartup="true")。個人の設定 (.suo) が、あれば、そちらが優先される"""
     out = '<Solution>\n  <Configurations>\n    <BuildType Name="Debug" />\n    <BuildType Name="Release" />\n    <Platform Name="x64" />\n  </Configurations>\n'
     for n, g in projects:
-        out += f'  <Project Path="{n}/{n}.vcxproj" Id="{g.strip("{}").lower()}" />\n'
+        mark = ' DefaultStartup="true"' if n == startup else ''
+        out += f'  <Project Path="{n}/{n}.vcxproj" Id="{g.strip("{}").lower()}"{mark} />\n'
     return out + '</Solution>\n'
 
 
@@ -806,7 +811,7 @@ def create_mode(a, folder, name):
     AL.write_files(folder, {k: v for k, v in files.items() if k not in plain})
     for rel in plain:
         write_plain(folder, rel, files[rel], crlf=True)
-    write_plain(folder, f'{name}.slnx', slnx_text(projects), crlf=True)
+    write_plain(folder, f'{name}.slnx', slnx_text(projects, name if a.type in EXE_TYPES else None), crlf=True)
     if 'CLAUDE.md' in extras:
         write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'nuget'))
     if '.gitignore' in extras:

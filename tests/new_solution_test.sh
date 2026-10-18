@@ -310,12 +310,17 @@ for t in mfc mfc-mdi mfc-dialog; do
     check "$t: CLAUDE.md の種類の表記" bash -c "grep -q '^- メイン: V_${t//-/_} (MFC' '$D/CLAUDE.md'"
     check "$t: mfc-check が、error / warning 0" bash -c "python3 '$MFC_CHK' '$D' --all | grep -q 'error 0 / warning 0'"
 done
+check "exe のメイン: .slnx で、メインだけに DefaultStartup" bash -c "[ \$(grep -c 'DefaultStartup=\"true\"' '$WORK/R/V_mfc_mdi/V_mfc_mdi.slnx') -eq 1 ] && grep 'V_mfc_mdi/V_mfc_mdi.vcxproj' '$WORK/R/V_mfc_mdi/V_mfc_mdi.slnx' | grep -q DefaultStartup"
+D="$WORK/R/V_dllmain"; mkdir -p "$D"; python3 "$NEW" "$D" --type dll --layers none --tests none >/dev/null 2>&1
+check "DLL がメイン: DefaultStartup は付けない" bash -c "! grep -q DefaultStartup '$D/V_dllmain.slnx'"
+check "層がある exe: CLAUDE.md に、スタートアッププロジェクトの注意" bash -c "grep -q 'スタートアッププロジェクト' '$WORK/R/V_mfc_mdi/CLAUDE.md'"
 check "mfc-mdi: CMultiDocTemplate と、MDI の枠" bash -c "grep -q CMultiDocTemplate '$WORK/R/V_mfc_mdi/V_mfc_mdi/SampleApp.cpp' && grep -q CMDIFrameWnd '$WORK/R/V_mfc_mdi/V_mfc_mdi/MainFrame.h' && grep -q CMDIChildWnd '$WORK/R/V_mfc_mdi/V_mfc_mdi/ChildFrame.h'"
 check "mfc-dialog: ダイアログ (IDD) と、DoModal" bash -c "grep -q 'IDD_SAMPLE_DIALOG' '$WORK/R/V_mfc_dialog/V_mfc_dialog/V_mfc_dialog.rc' && grep -q DoModal '$WORK/R/V_mfc_dialog/V_mfc_dialog/SampleApp.cpp'"
 check "mfc-dialog: ドキュメント・ビューは、作らない" bash -c "[ ! -e '$WORK/R/V_mfc_dialog/V_mfc_dialog/SampleDoc.h' ]"
 mkdir -p "$WORK/R/V_Bad"; rc_is 2 "不明な種類 -> rc 2" python3 "$NEW" "$WORK/R/V_Bad" --type mfc-wizard --layers none --tests none
 mkdir -p "$WORK/R/V_Spec"; printf '## 構成案\n- メインの種類: mfc-mdi\n- 層: none\n- テスト: none\n' > "$WORK/R/V_Spec/x.md"
 rc_is 0 "--spec で mfc-mdi を読める" python3 "$NEW" "$WORK/R/V_Spec" --spec "$WORK/R/V_Spec/x.md"
+check "層がない exe: 注意は書かない" bash -c "! grep -q 'スタートアッププロジェクト' '$WORK/R/V_Spec/CLAUDE.md'"
 D="$WORK/R/V_dlgtests"; mkdir -p "$D"
 python3 "$NEW" "$D" --type mfc-dialog --layers logic --tests gtest --gtest nuget >/dev/null 2>&1
 check "mfc-dialog + テスト: テストのプロジェクトができる" test -f "$D/LogicLayerTest/LogicLayerTest.vcxproj"
