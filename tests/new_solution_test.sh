@@ -299,6 +299,27 @@ else
     echo "SKIP  git がないので、検出の確認は、省略"
 fi
 
+echo "== MFC の種類 (SDI / MDI / ダイアログベース)"
+MFC_CHK="$REPO/skills/mfc-check/scripts/mfc_check.py"
+for t in mfc mfc-mdi mfc-dialog; do
+    D="$WORK/R/V_${t//-/_}"; mkdir -p "$D"
+    rc_is 0 "$t: 作成が成功" python3 "$NEW" "$D" --type "$t" --layers logic,data --tests none
+    check "$t: XML が正しい" xml_ok "$D"
+    check "$t: .vcxproj は MFC (UseOfMfc) と、.rc を持つ" bash -c "grep -q UseOfMfc '$D/V_${t//-/_}/V_${t//-/_}.vcxproj' && grep -q 'V_${t//-/_}.rc' '$D/V_${t//-/_}/V_${t//-/_}.vcxproj'"
+    check "$t: .rc は、BOM なし・CRLF" bash -c "f='$D/V_${t//-/_}/V_${t//-/_}.rc'; ! head -c3 \"\$f\" | grep -q \$'\\xef\\xbb\\xbf' && grep -q \$'\\r' \"\$f\""
+    check "$t: CLAUDE.md の種類の表記" bash -c "grep -q '^- メイン: V_${t//-/_} (MFC' '$D/CLAUDE.md'"
+    check "$t: mfc-check が、error / warning 0" bash -c "python3 '$MFC_CHK' '$D' --all | grep -q 'error 0 / warning 0'"
+done
+check "mfc-mdi: CMultiDocTemplate と、MDI の枠" bash -c "grep -q CMultiDocTemplate '$WORK/R/V_mfc_mdi/V_mfc_mdi/SampleApp.cpp' && grep -q CMDIFrameWnd '$WORK/R/V_mfc_mdi/V_mfc_mdi/MainFrame.h' && grep -q CMDIChildWnd '$WORK/R/V_mfc_mdi/V_mfc_mdi/ChildFrame.h'"
+check "mfc-dialog: ダイアログ (IDD) と、DoModal" bash -c "grep -q 'IDD_SAMPLE_DIALOG' '$WORK/R/V_mfc_dialog/V_mfc_dialog/V_mfc_dialog.rc' && grep -q DoModal '$WORK/R/V_mfc_dialog/V_mfc_dialog/SampleApp.cpp'"
+check "mfc-dialog: ドキュメント・ビューは、作らない" bash -c "[ ! -e '$WORK/R/V_mfc_dialog/V_mfc_dialog/SampleDoc.h' ]"
+mkdir -p "$WORK/R/V_Bad"; rc_is 2 "不明な種類 -> rc 2" python3 "$NEW" "$WORK/R/V_Bad" --type mfc-wizard --layers none --tests none
+mkdir -p "$WORK/R/V_Spec"; printf '## 構成案\n- メインの種類: mfc-mdi\n- 層: none\n- テスト: none\n' > "$WORK/R/V_Spec/x.md"
+rc_is 0 "--spec で mfc-mdi を読める" python3 "$NEW" "$WORK/R/V_Spec" --spec "$WORK/R/V_Spec/x.md"
+D="$WORK/R/V_dlgtests"; mkdir -p "$D"
+python3 "$NEW" "$D" --type mfc-dialog --layers logic --tests gtest --gtest nuget >/dev/null 2>&1
+check "mfc-dialog + テスト: テストのプロジェクトができる" test -f "$D/LogicLayerTest/LogicLayerTest.vcxproj"
+
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
 exit "$fail"

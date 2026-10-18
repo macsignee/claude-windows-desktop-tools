@@ -1,7 +1,7 @@
 ---
 name: new-solution
-description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC / Win32 / コンソール / DLL / 静的ライブラリ) を作る。層 (ロジック・データの DLL または静的ライブラリ) を作るか、テスト (GoogleTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
-argument-hint: "[--type mfc|win32|console|dll|lib] [--layers none|logic|data|logic,data] [--tests none|gtest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--spec <仕様書>]"
+description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ) を作る。層 (ロジック・データの DLL または静的ライブラリ) を作るか、テスト (GoogleTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
+argument-hint: "[--type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data] [--tests none|gtest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--spec <仕様書>]"
 disable-model-invocation: true
 ---
 
@@ -16,7 +16,7 @@ disable-model-invocation: true
 
 | 軸 | 引数 | 値 |
 |---|---|---|
-| メインの種類 | `--type` | `mfc` (MFC SDI) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
+| メインの種類 | `--type` | `mfc` (MFC SDI) / `mfc-mdi` (MFC MDI) / `mfc-dialog` (MFC ダイアログベース) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
 | 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる |
 | 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし)。全部の層に、同じ種類 |
 | テスト | `--tests` | `none` / `gtest` (作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) |
@@ -58,7 +58,7 @@ disable-model-invocation: true
 
 1. **引数を読み、省略した項目を質問する** (AskUserQuestion が使えるなら、選択肢で)。
    - **`--spec <仕様書>` があれば、まず、構成案を読む** (`--dry-run` の出力の先頭に、「構成案から読み取った: ...」が出る)。**読み取れなかった項目 (未定) と、明示されていない項目だけ、質問する。** 引数で明示した項目は、構成案より優先される。
-   - `--type`: MFC (SDI、推奨) / Win32 / コンソール / DLL / 静的ライブラリ。
+   - `--type`: MFC (SDI、推奨) / MFC MDI / MFC ダイアログベース / Win32 / コンソール / DLL / 静的ライブラリ。MFC は、**ドキュメントを扱うか**で選ぶ (1 つ: SDI、複数を同時に開く: MDI、ドキュメントなしの、設定・ツール型: ダイアログベース)。
    - `--layers`: `logic,data` (推奨) / `logic` / `data` / `none`。
    - `--tests`: `gtest` / `none`。**必ず、質問する** (構成案が「未定」のときも)。(`gtest`: TDD の練習向き。`none`: ビルド確認だけの 3 層分離。)
    - **矛盾する組み合わせ** (exe + `--layers none` + `--tests gtest`) は、その場で指摘して、どちらかを変えてもらう。

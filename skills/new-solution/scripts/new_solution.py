@@ -2,7 +2,7 @@
 """new_solution.py - フォルダの中に、「フォルダ名と同名の .slnx」と、メインのプロジェクト (と、必要なら層・テスト) を作る。
 
 Usage:
-  新規:        python3 new_solution.py <FOLDER> --type mfc|win32|console|dll|lib --layers none|logic|data|logic,data
+  新規:        python3 new_solution.py <FOLDER> --type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib --layers none|logic|data|logic,data
                                        --tests none|gtest [--layer-kind dll|lib] [--namespace NS] [--toolset v145]
                                        [--gtest auto|nuget|source] [--gtest-from DIR] [--dry-run]
                または、--spec <仕様書> で、仕様書の「構成案」から、省略した項目を読み取る (明示した引数が優先)
@@ -14,7 +14,7 @@ Usage:
 
   FOLDER   ソリューションを作るフォルダ。**フォルダ名が、ソリューション名・メインのプロジェクト名になる**
            (例: .../MFCTDDTest -> MFCTDDTest.slnx と、MFCTDDTest/MFCTDDTest.vcxproj)
-  --type   メインの種類: mfc (MFC SDI) / win32 (Win32 デスクトップ) / console / dll / lib (静的ライブラリ)
+  --type   メインの種類: mfc (MFC SDI) / mfc-mdi (MFC MDI) / mfc-dialog (MFC ダイアログベース) / win32 (Win32 デスクトップ) / console / dll / lib (静的ライブラリ)
   --layers 作る層: logic -> LogicLayer、data -> DataLayer。none は、層を作らない。
            名前を変えるなら logic:OrderLogic,data:OrderData のように指定する (省略時の既定の名前は、作成後に変更もできる)
   --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ)。全部の層に、同じ種類を使う
@@ -47,7 +47,9 @@ except ImportError:
     sys.exit(2)
 
 die = AL.die
-KIND = {'mfc': 'MFC SDI', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
+KIND = {'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
+MFC_TYPES = ('mfc', 'mfc-mdi', 'mfc-dialog')   # MFC の exe (mfc は SDI)
+EXE_TYPES = ('console', 'win32') + MFC_TYPES    # exe の種類 (名前が Test で終わると、出力名を変える)
 LIBRARY_TYPES = ('dll', 'lib')   # メイン自身が、テストの対象になる種類
 LAYER_NAMES = {'data': 'DataLayer', 'logic': 'LogicLayer'}   # 作る順 (依存される側から)
 
@@ -241,6 +243,215 @@ BEGIN
     IDR_MAINFRAME           "@@NAME@@\\n\\n@@NAME@@\\n\\n\\n@@NAME@@.Document\\n@@NAME@@ Document"
 END
 '''
+
+# ---- MFC MDI ----
+MFC_MDI_FILES = {
+    'pch.h': MFC_FILES['pch.h'],
+    'Resource.h': '''#pragma once
+#define IDR_MAINFRAME           128
+#define IDR_SAMPLETYPE          129
+''',
+    'SampleApp.h': MFC_FILES['SampleApp.h'],
+    'SampleApp.cpp': '''#include "pch.h"
+#include "SampleApp.h"
+#include "MainFrame.h"
+#include "ChildFrame.h"
+#include "SampleDoc.h"
+#include "SampleView.h"
+#include "Resource.h"
+
+CSampleApp theApp;
+
+BOOL CSampleApp::InitInstance()
+{
+    CWinApp::InitInstance();
+
+    auto* pDocTemplate = new CMultiDocTemplate(
+        IDR_SAMPLETYPE,
+        RUNTIME_CLASS(CSampleDoc),
+        RUNTIME_CLASS(CChildFrame),
+        RUNTIME_CLASS(CSampleView));
+    AddDocTemplate(pDocTemplate);
+
+    auto* pMainFrame = new CMainFrame;
+    if (!pMainFrame->LoadFrame(IDR_MAINFRAME))
+    {
+        delete pMainFrame;
+        return FALSE;
+    }
+    m_pMainWnd = pMainFrame;
+
+    CCommandLineInfo cmdInfo;
+    cmdInfo.m_nShellCommand = CCommandLineInfo::FileNew;
+    if (!ProcessShellCommand(cmdInfo))
+    {
+        return FALSE;
+    }
+
+    m_pMainWnd->ShowWindow(SW_SHOW);
+    m_pMainWnd->UpdateWindow();
+    return TRUE;
+}
+''',
+    'MainFrame.h': '''#pragma once
+#include "pch.h"
+
+class CMainFrame : public CMDIFrameWnd
+{
+    DECLARE_DYNAMIC(CMainFrame)
+};
+''',
+    'MainFrame.cpp': '''#include "pch.h"
+#include "MainFrame.h"
+
+IMPLEMENT_DYNAMIC(CMainFrame, CMDIFrameWnd)
+''',
+    'ChildFrame.h': '''#pragma once
+#include "pch.h"
+
+class CChildFrame : public CMDIChildWnd
+{
+    DECLARE_DYNCREATE(CChildFrame)
+};
+''',
+    'ChildFrame.cpp': '''#include "pch.h"
+#include "ChildFrame.h"
+
+IMPLEMENT_DYNCREATE(CChildFrame, CMDIChildWnd)
+''',
+    'SampleDoc.h': MFC_FILES['SampleDoc.h'],
+    'SampleDoc.cpp': MFC_FILES['SampleDoc.cpp'],
+    'SampleView.h': MFC_FILES['SampleView.h'],
+    'SampleView.cpp': MFC_FILES['SampleView.cpp'],
+}
+
+MFC_MDI_RC = '''#include "Resource.h"
+#include "afxres.h"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDR_MAINFRAME MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "E&xit",                   ID_APP_EXIT
+    END
+END
+
+IDR_SAMPLETYPE MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New\\tCtrl+N",            ID_FILE_NEW
+        MENUITEM "&Close",                  ID_FILE_CLOSE
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                   ID_APP_EXIT
+    END
+    POPUP "&Window"
+    BEGIN
+        MENUITEM "&New Window",             ID_WINDOW_NEW
+        MENUITEM "&Cascade",                ID_WINDOW_CASCADE
+        MENUITEM "&Tile",                   ID_WINDOW_TILE_HORZ
+        MENUITEM "&Arrange Icons",          ID_WINDOW_ARRANGE
+    END
+END
+
+STRINGTABLE
+BEGIN
+    IDR_MAINFRAME           "@@NAME@@"
+    IDR_SAMPLETYPE          "\\n@@NAME@@\\n@@NAME@@\\n\\n\\n@@NAME@@.Document\\n@@NAME@@ Document"
+END
+'''
+
+# ---- MFC ダイアログベース ----
+MFC_DIALOG_FILES = {
+    'pch.h': MFC_FILES['pch.h'],
+    'Resource.h': '''#pragma once
+#define IDD_SAMPLE_DIALOG       101
+''',
+    'SampleApp.h': MFC_FILES['SampleApp.h'],
+    'SampleApp.cpp': '''#include "pch.h"
+#include "SampleApp.h"
+#include "SampleDlg.h"
+
+CSampleApp theApp;
+
+BOOL CSampleApp::InitInstance()
+{
+    CWinApp::InitInstance();
+
+    CSampleDlg dlg;
+    m_pMainWnd = &dlg;
+    dlg.DoModal();
+
+    // ダイアログを閉じたら、メッセージループに入らずに、アプリケーションを終える。
+    return FALSE;
+}
+''',
+    'SampleDlg.h': '''#pragma once
+#include "pch.h"
+#include "Resource.h"
+
+class CSampleDlg : public CDialog
+{
+public:
+    enum { IDD = IDD_SAMPLE_DIALOG };
+
+    explicit CSampleDlg(CWnd* pParent = nullptr);
+
+protected:
+    void DoDataExchange(CDataExchange* pDX) override;
+    BOOL OnInitDialog() override;
+
+    DECLARE_MESSAGE_MAP()
+};
+''',
+    'SampleDlg.cpp': '''#include "pch.h"
+#include "SampleDlg.h"
+
+CSampleDlg::CSampleDlg(CWnd* pParent)
+    : CDialog(IDD, pParent)
+{
+}
+
+void CSampleDlg::DoDataExchange(CDataExchange* pDX)
+{
+    CDialog::DoDataExchange(pDX);
+}
+
+BOOL CSampleDlg::OnInitDialog()
+{
+    CDialog::OnInitDialog();
+    return TRUE;
+}
+
+BEGIN_MESSAGE_MAP(CSampleDlg, CDialog)
+END_MESSAGE_MAP()
+''',
+}
+
+MFC_DIALOG_RC = '''#include "Resource.h"
+#include "afxres.h"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDD_SAMPLE_DIALOG DIALOGEX 0, 0, 240, 100
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "@@NAME@@"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,183,79,50,14
+    LTEXT           "@@NAME@@",IDC_STATIC,7,7,226,8
+END
+'''
+
+# --type -> (ソースの一式, .rc)
+MFC_VARIANTS = {
+    'mfc': (MFC_FILES, MFC_RC),
+    'mfc-mdi': (MFC_MDI_FILES, MFC_MDI_RC),
+    'mfc-dialog': (MFC_DIALOG_FILES, MFC_DIALOG_RC),
+}
 
 GITIGNORE = '''.vs/
 x64/
@@ -508,12 +719,13 @@ def main_files(name, mtype, ns, toolset, guid):
         files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, ['main.cpp'], [], [], '_WINDOWS;', 'Windows')
         files[f'{name}/{name}.vcxproj.filters'] = AL.vcxproj_filters(['main.cpp'])
     else:
-        for fn, body in MFC_FILES.items():
+        mfc_files, mfc_rc = MFC_VARIANTS[mtype]
+        for fn, body in mfc_files.items():
             files[f'{name}/{fn}'] = body.replace('@@NAME@@', name)
         rc = f'{name}.rc'
-        files[f'{name}/{rc}'] = MFC_RC.replace('@@NAME@@', name)
+        files[f'{name}/{rc}'] = mfc_rc.replace('@@NAME@@', name)
         plain.add(f'{name}/{rc}')
-        items = list(MFC_FILES) + [rc]
+        items = list(mfc_files) + [rc]
         files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, items, [], [], '_WINDOWS;', 'Windows', mfc=True)
         files[f'{name}/{name}.vcxproj.filters'] = AL.vcxproj_filters(items)
     return files, plain
@@ -585,7 +797,7 @@ def create_mode(a, folder, name):
     if a.dry_run:
         if tests:
             print(AL.describe_gtest(gmode, gstat))
-            if a.type in ('mfc', 'win32', 'console') and re.search(r'(Test|Tests)$', name):
+            if a.type in EXE_TYPES and re.search(r'(Test|Tests)$', name):
                 print(f'MAIN_EXE_TARGETNAME: {name} -> {name}_Main (予定)')
         print('(dry-run: 何も書いていない)')
         return
@@ -665,7 +877,7 @@ def add_tests_mode(a, folder, name, sln_name):
 
 
 SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace'}
-SPEC_ALLOWED = {'type': ('mfc', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib'), 'tests': ('none', 'gtest')}
+SPEC_ALLOWED = {'type': ('mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib'), 'tests': ('none', 'gtest')}
 
 
 def read_spec_config(path):
@@ -707,7 +919,7 @@ def apply_spec(a):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('folder')
-    ap.add_argument('--type', choices=['mfc', 'win32', 'console', 'dll', 'lib'])
+    ap.add_argument('--type', choices=['mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'])
     ap.add_argument('--layers')
     ap.add_argument('--tests', choices=['none', 'gtest'])
     ap.add_argument('--namespace')
