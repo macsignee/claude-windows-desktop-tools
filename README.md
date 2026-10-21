@@ -1,7 +1,7 @@
 # cpp-claude-build-tools
 
-Claude Code (WSL) が、Windows 側の Visual Studio (C++) で、**ビルドと GoogleTest を実行し、エラーや失敗を自分で直す**ためのツール一式。
-テストを先に書いて Red を確認し (`cpp-test-first`)、実装して Green にする (`cpp-build-test-loop`) という、TDD の流れにも使える。
+Claude Code (WSL) が、Windows 側の Visual Studio で、**C++ (GoogleTest) と .NET / WPF (MSTest) の、ビルドとテストを実行し、エラーや失敗を自分で直す**ためのツール一式。C++ のみ、.NET のみ、混在のソリューションのどれでも、同じ Skill と同じウォッチャーで使う (ソリューションの中身から、自動で判定する。[設計メモ 4.24](docs/DESIGN.md))。
+テストを先に書いて Red を確認し (`cpp-test-first`)、実装して Green にする (`build-test-loop`) という、TDD の流れにも使える。
 
 Claude Code のサンドボックスからは、Windows 側の MSBuild やテスト exe を直接実行できない。
 そこで、Windows 側にウォッチャーを常駐させ、Claude は、フラグファイルを置いて結果ファイルを読むだけにしている。
@@ -16,10 +16,11 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 | フォルダ | 内容 | 配布先 |
 |---|---|---|
 | [`host-tools/`](host-tools/) | ウォッチャー (`watch_and_build.ps1`)、起動用 (`run_watcher.cmd`)、ビルド用 (`build-windows.cmd`)。**3 ファイルは同じフォルダに置く** | Windows 側の任意のフォルダ (例: `C:\tools\cpp-watcher\`) |
-| [`skills/`](skills/) | Claude Code の Skill: `cpp-auto-build` (ビルドのみ)、`cpp-build-test-loop` (ビルド + テスト、Green)、`cpp-test-first` (テストを先に書き、Red を確認)、`mfc-check` (MFC のリソース ID・メッセージマップ・層の依存の静的検査。Windows 不要)、`brainstorm` (`/brainstorm`: 壁打ちで仕様を固める)、`add-feature` (`/add-feature`: 計画 → 承認 → テスト先行 → 実装 → 検証)、`update-from-ideas` (`/update-from-ideas`: アイデアを正式な仕様書へ反映)、`new-solution` (`/new-solution`: フォルダ名と同名の `.slnx` + メイン + 層 + テストの有無を指定して作成) | `~/.claude/skills/` (WSL) |
+| [`skills/`](skills/) | Claude Code の Skill: `auto-build` (ビルドのみ。C++ / .NET 共通)、`build-test-loop` (ビルド + テスト、Green。**Green のあとに、UI テスト (FlaUI。WPF・MFC などの画面の操作を自動テスト) を、追加で実行**。別のデスクトップで実行され、ユーザーの作業を止めない。失敗時のスクリーンショットを、Claude が読める。GoogleTest / MSTest 共通。失敗の要約は、同じ形)、`cpp-test-first` (テストを先に書き、Red を確認)、`mfc-check` (MFC のリソース ID・メッセージマップ・層の依存の静的検査。Windows 不要)、`wpf-check` (WPF のバインディング・リソース・`InitializeComponent`・層の依存の静的検査。Windows 不要)、`add-package` (NuGet / vcpkg / ソースの取り込みによる、パッケージの追加。ホスト側に実行させる)、`wpf-test-first` (WPF のテスト先行。MSTest。プロジェクト生成 `add_project.py`)、`brainstorm` (`/brainstorm`: 壁打ちで仕様を固める)、`add-feature` (`/add-feature`: 計画 → 承認 → テスト先行 → 実装 → 検証)、`update-from-ideas` (`/update-from-ideas`: アイデアを正式な仕様書へ反映)、`new-solution` (`/new-solution`: フォルダ名と同名の `.slnx` + メイン + 層 + テストの有無を指定して作成) | `~/.claude/skills/` (WSL)。**旧名 `cpp-auto-build` / `cpp-build-test-loop` が残っていたら削除する** |
 | [`docs/`](docs/) | [設計メモ](docs/DESIGN.md) (契約・設計判断・取り下げた案)、[テスト手順書](docs/TEST-PLAN.md)、[推奨する Claude Code の設定](docs/RECOMMENDED-SETTINGS.md) (テストファイルの編集と `git commit` に、確認を付ける) | |
+| [`rules/`](rules/) `templates/` | ユーザー共通の規約 (`wpf-csharp.md`。C# / XAML を扱うときに、自動で読み込まれる) と、ひな形 (`templates/dotnet/`: `.editorconfig` / `Directory.Build.props`) | `~/.claude/rules/` `~/.claude/templates/` (WSL。**手で直した既存のファイルは、番号付きのバックアップを残す**) |
 | [`tools/`](tools/) | `check-formats.sh`: 文字コード・改行・BOM の検証 | |
-| [`tests/`](tests/) | `fake_watcher_test.sh`: Skill のスクリプトを、疑似ウォッチャーで検証。`mfc_check_test.sh`: `mfc-check` の各ルール、`add_layer_test.sh` / `new_solution_test.sh`: `cpp-test-first` と `/new-solution` のプロジェクト生成を、疑似フォルダで検証。`gtest_once_test.sh`: GoogleTest 取得の、結果の分岐を、疑似ウォッチャーで検証 (どちらも Windows 不要) | |
+| [`tests/`](tests/) | `fake_watcher_test.sh`: Skill のスクリプトを、疑似ウォッチャーで検証。`mfc_check_test.sh`: `mfc-check` の各ルール、`wpf_check_test.sh`: `wpf-check` の各ルール (疑似の WPF プロジェクト)、`package_once_test.sh` / `cpp_pkg_test.sh`: `add-package` の操作の検証・結果の分岐と、`vcpkg.json` / `.vcxproj` の編集、`add_project_test.sh` / `new_solution_wpf_test.sh`: WPF のプロジェクト生成 (生成物を `wpf-check` にかけて、指摘 0 件を確認)、`add_layer_test.sh` / `new_solution_test.sh`: `cpp-test-first` と `/new-solution` のプロジェクト生成を、疑似フォルダで検証。`gtest_once_test.sh`: GoogleTest 取得の、結果の分岐を、疑似ウォッチャーで検証 (どちらも Windows 不要) | |
 | [`install/`](install/) | `install.sh`: 配布先へコピーする (バイトを変えない) | |
 
 使い方 (ウォッチャーの起動、引数、トラブルシューティング) は、[`host-tools/README.md`](host-tools/README.md)。
@@ -64,6 +65,6 @@ install/install.sh                  # Skill -> ~/.claude/skills、ホスト側�
 
 ## 対応範囲
 
-- テスト: **GoogleTest のみ** (MSTest などは未対応)。
-- 検証済み: VS 2026 Enterprise、x64 / Debug。詳細は [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md) の「状況」列。
+- テスト: C++ は **GoogleTest**、.NET は **MSTest (v3 以降、VSTest モード)**。xUnit / NUnit は動く見込みだが未検証。C++ の `CppUnitTestFramework` は対象外 ([理由](docs/DESIGN.md))。
+- 検証済み: VS 2026 Enterprise、x64 / Debug、C++ のみ (v1.6.0 まで)。**.NET / 混在 / 統合後のウォッチャーは、Windows 側で未検証** ([`docs/TEST-PLAN.md`](docs/TEST-PLAN.md) の 1-5)。Skill 側のスクリプトと結果の変換は、疑似ウォッチャーで検証済み。詳細は、同じ手順書の「状況」列。
 - 1 つのウォッチャーは、1 つのプロジェクトと 1 つの Platform/Configuration 専用。

@@ -5,7 +5,7 @@
 
 ## 1. 目的と前提
 
-**目的:** Claude Code (WSL) が、C++ (Visual Studio / MSBuild) のコードを修正し、ビルドとテストを行い、
+**目的:** Claude Code (WSL) が、C++ (Visual Studio / MSBuild) と .NET (WPF など) のコードを修正し、ビルドとテストを行い、
 エラーや失敗を読んで自分で直す、というループを、人手を介さずに回せるようにする。
 
 **制約:** Claude Code は、サンドボックスで動いており、Windows 側の `msbuild.exe` やテスト exe、
@@ -18,7 +18,7 @@ Claude は、ファイルを置いて、ファイルを読むだけ。ファイ�
 Claude Code (WSL)                              Windows
   trigger_build.flag / trigger_test.flag  ──▶  watch_and_build.ps1 (ウォッチャー)
                                                ├─ build-windows.cmd ─▶ MSBuild
-                                               └─ (テスト時) xxxTest.exe (GoogleTest)
+                                               └─ (テスト時) xxxTest.exe (GoogleTest) / dotnet test (MSTest)
   build_result.txt / test_result.txt      ◀──  完了マーカー (最後に書く)
   build_error.log  / test_error.log       ◀──  失敗時のみ
 ```
@@ -29,10 +29,13 @@ Claude Code (WSL)                              Windows
 |---|---|---|
 | `run_watcher.cmd` | host-tools | 入口。引数を整え、ps1 を起動する |
 | `watch_and_build.ps1` | host-tools | フラグ監視、ビルド/テスト実行、結果ファイルの書き出し |
-| `build-windows.cmd` | host-tools | VS (C++) の環境を読み込み、MSBuild を実行する (単体でも使える) |
-| `cpp-auto-build` | skills | ビルドのみのループ (`trigger_build.flag`) |
-| `cpp-build-test-loop` | skills | ビルド + GoogleTest のループ (`trigger_test.flag`) |
-| `cpp-test-first` | skills | テストを先に書き、スタブで Red (正しい理由での失敗) を確認する。実行は `cpp-build-test-loop` のスクリプトを使う (スクリプトは持たない) |
+| `build-windows.cmd` | host-tools | VS の環境を読み込み、MSBuild を実行する (単体でも使える)。C++ ツールの要求と NuGet の復元は、第 6 引数 (`Features`) で切り替える (4.24) |
+| `auto-build` | skills | ビルドのみのループ (`trigger_build.flag`)。C++ / .NET 共通 (4.24) |
+| `build-test-loop` | skills | ビルド + テスト (GoogleTest / MSTest) のループ (`trigger_test.flag`)。C++ / .NET 共通 (4.24) |
+| `wpf-test-first` | skills | WPF のテスト先行 (Red)。`PROJECT-LAYOUT.md` と、プロジェクト生成 `add_project.py` (`new-solution` も使う) (4.27) |
+| `add-package` | skills | パッケージの追加 (NuGet / vcpkg / ソースの取り込み)。ホスト側に、`trigger_package.flag` で実行させる (4.26) |
+| `wpf-check` | skills | WPF の静的検査 (バインディング・リソース・`InitializeComponent`・層)。読み取りだけ。Windows 不要 (4.25) |
+| `cpp-test-first` | skills | テストを先に書き、スタブで Red (正しい理由での失敗) を確認する。実行は `build-test-loop` のスクリプトを使う (スクリプトは持たない) |
 | `build_once.sh` / `build_test_once.sh` | skills/*/scripts | フラグを置き、完了マーカーを待ち、結果を1行目と終了コードで返す |
 
 ウォッチャーは、`build-windows.cmd` を**毎回別プロセスで**呼ぶ。VS の環境変数が持ち越されず、
@@ -56,9 +59,12 @@ Platform や Configuration を変えても環境が汚れない (起動時に1�
 | `gtest_result.txt` | ウォッチャー | 取得の完了マーカー: `OK` / `FAILED` (最後に書く) |
 | `gtest_error.log` | ウォッチャー | `FAILED` のときのみ。先頭は `[ENVIRONMENT ERROR - not a source code problem]` |
 | `ThirdParty\googletest\` | ウォッチャー | 取得した GoogleTest (`include\` `src\` `LICENSE` `VERSION.txt`)。ソリューション内の静的ライブラリ `gtest` が、これをビルドする |
+| `trigger_package.flag` | Claude | **パッケージの操作を依頼** (NuGet / vcpkg / ソースの取り込み。ビルド・テストとは独立)。各行が 1 操作 (4.26) |
+| `package_output.txt` / `package_error.log` / `package_result.txt` | ウォッチャー | 操作の出力 / 失敗時のみ (環境の問題は先頭が `[ENVIRONMENT ERROR ...]`) / 完了マーカー `OK` / `FAILED` (最後に書く) |
 | `.claude-logs/` | ウォッチャー | `build.log` `errors.log` `warnings.log` `test.log` (フルパスのまま) |
+| `.claude-logs/test-results/` | ウォッチャー | **テストランナーの、機械可読な結果 (4.24)。** `<exe名>.xml` (GoogleTest の `--gtest_output=xml`)、`<プロジェクト名>.trx` (`dotnet test --logger trx`)。テストの開始時に、前回分を消す。`test_result.txt` より前に書かれる |
 | `.claude-logs/build_summary.json` | Skill のスクリプト | ビルド失敗の要約 (4.22)。ウォッチャーではなく、WSL 側の `summarize_build_log.py` が書く |
-| `.claude-logs/test_summary.json` | Skill のスクリプト | テスト失敗の要約 (4.22)。WSL 側の `summarize_test_log.py` が書く |
+| `.claude-logs/test_summary.json` | Skill のスクリプト | テスト失敗の要約 (4.22、4.24)。WSL 側の `summarize_test_log.py` が、`test-results/` の XML / trx を、共通の形式 (schema 2) に変換して書く |
 | `.claude-logs/warnings_summary.json` | Skill のスクリプト | 成功時の警告の要約 (4.22)。`summarize_build_log.py --severity warning` が書く |
 
 ### `test_result.txt` の値
@@ -69,7 +75,7 @@ Platform や Configuration を変えても環境が汚れない (起動時に1�
 | `FAILED` | テスト失敗 (または異常終了) | `test_error.log` |
 | `TIMEOUT` | テストが制限時間内に終わらない | `test_error.log` (`Hung test ...`) |
 | `BUILD_FAILED` | ビルド失敗でテスト未実行 | `build_error.log` |
-| `ENV_ERROR` | テスト exe が見つからない、`[  PASSED  ]` が出力にない等 | `test_error.log` |
+| `ENV_ERROR` | テストが見つからない (GoogleTest の exe も、.NET のテストプロジェクトもない)、`[  PASSED  ]` が出力にない、`dotnet` がない、.NET のテストが 1 件も実行されない (trx がない / `executed=0`) 等 | `test_error.log` |
 
 環境エラーのログの先頭は、必ず `[ENVIRONMENT ERROR - not a source code problem]`。
 Skill は、これを見て「ソースもテストも直さずに、報告して止まる」。
@@ -88,8 +94,11 @@ Skill は、これを見て「ソースもテストも直さずに、報告し�
 | `TEST_TIMEOUT` | 7 | ホスト側のテストの制限時間超過 (`build_test_once.sh` のみ) |
 
 ### `build-windows.cmd` の終了コード
-`0` 成功 / `1` ビルド失敗 / `2` 引数不正 / `10` vswhere なし / `11` VS (C++) なし /
-`12` VsDevCmd なし / `13` VsDevCmd 失敗 / `14` cl.exe か MSBuild.exe が PATH にない
+`0` 成功 / `1` ビルド失敗 / `2` 引数不正 / `10` vswhere なし / `11` 必要な構成要素入りの VS なし (`cpp` なら C++ ツール、そうでなければ MSBuild) /
+`12` VsDevCmd なし / `13` VsDevCmd 失敗 / `14` MSBuild.exe (`cpp` なら cl.exe も) が PATH にない
+
+引数: `<target> <Platform> [Configuration] [MSBuildTarget] [LogDir] [Features]`。`Platform` は `x64` / `Win32` / `x86` / `ARM64` / `AnyCPU`。
+`Features` は、カンマ区切りで `cpp` (C++ ツールを要求し、cl.exe を確認する。**省略時の既定**) と `restore` (`/restore`。`Clean` では付けない)。**省略時は、従来と同じ動作。**
 
 ## 4. 設計判断とその理由
 
@@ -153,10 +162,10 @@ Skill は、「直前にソースを変更していない場合、または2回�
 `xxxTest` が `xxx` をプロジェクト参照していれば、ソリューションのビルドで、MSBuild が依存順に解決する。
 Skill は、順序を指定しない。参照がない構成は、対象外。
 
-### 4.11 GoogleTest のみ対応
-MSTest (C++ ネイティブ) は、テストが DLL で、`vstest.console.exe` で実行する別方式になる。
-ホスト側の、実行 (`Invoke-TestExe`) と抽出 (`Select-TestFailureLines`) が関数に分かれているので、
-将来、追加できる構造にしてあるが、現在は未対応。
+### 4.11 テストの対応範囲: GoogleTest (C++) と MSTest (.NET)
+C++ のネイティブテストは、GoogleTest のみ。**C++ の `CppUnitTestFramework` (VS 付属。DLL を `vstest.console.exe` が読み込む方式) は、対象外のまま**にしている (4.24 の、検討と、採らなかった理由)。
+.NET のテストは、MSTest (v3 以降、VSTest モード = `Microsoft.NET.Test.Sdk`) を、標準とする。ウォッチャーは、`dotnet test` を、`--logger trx` で実行するので、xUnit / NUnit も、同じ経路で動く見込みだが、**検証するのは、MSTest だけ。**
+ホスト側の実行 (`Invoke-TestExe` / `Invoke-DotnetTest`) は、関数に分かれている。
 
 ### 4.12 プレビュー版 VS は、対象外
 `vswhere` に `-prerelease` を付けない。リリース版の最新だけを使う。
@@ -185,15 +194,15 @@ Claude が編集したコードは、ウォッチャーによって、Windows �
 - **最後の砦は、人:** コミットの前に、`git diff` で、変更 (特にテストファイル) を、確認する。権限の `ask` は、許可すれば編集されるため、禁止ではない。
 
 ### 4.16 `cpp-test-first`: テストを先に書く Skill を、別にした理由と、設計判断
-`cpp-build-test-loop` は「既存のテストを通す」(Green) ループで、テストは仕様として、変えない。
+`build-test-loop` は「既存のテストを通す」(Green) ループで、テストは仕様として、変えない。
 「先にテストを書く」(Red) は、**テストを新しく作る工程**で、規則が逆になる (テストを書いてよい)。同じ Skill に入れると、規則が衝突するため、別にした。
 - **Red の定義を、「アサーションで失敗」にした。** テストが、本体の関数を呼ぶので、宣言がないと、ビルドで落ちる (`BUILD_FAILED`)。これは、仕様の失敗ではない。
   そこで、**最小のスタブ** (期待値と異なる値を返すだけ) を、本体に置き、ビルドを通した上で、`FAILED` を見る。
 - **`PASSED` を、異常として扱う。** 実装なしで通るテストは、空振りしている (期待値がスタブと同じ、アサーションがない) か、機能がすでにある。Green に進まない。
 - **正しい Red の条件** (新しいテストが、すべて、アサーションで落ちる / クラッシュしない / 既存のテストを壊さない) を、Skill に明記した。
-- **実行は、`cpp-build-test-loop` の `build_test_once.sh` を使う。** 契約を、1 か所に保つため、スクリプトを複製しない。契約を変えるときの、直す場所が増えない。
+- **実行は、`build-test-loop` の `build_test_once.sh` を使う。** 契約を、1 か所に保つため、スクリプトを複製しない。契約を変えるときの、直す場所が増えない。
 - **Red のあと、テストを確定する前に、人が確かめる。** テストは仕様の表明で、間違ったテストは、間違った実装を、正しく見せる。ユーザーが「実装まで続けて」と依頼した場合だけ、待たずに進む。
-- **Green に入ったら、テストを凍結する。** `cpp-build-test-loop` の規則 (許可なしに、テストを変えない) が、そのまま適用される。
+- **Green に入ったら、テストを凍結する。** `build-test-loop` の規則 (許可なしに、テストを変えない) が、そのまま適用される。
 - **対象は、MFC 非依存のロジック DLL とデータ DLL だけ。** UI 層のコードが対象の場合は、書かずに止まり、切り出しの案を示す (3 層分離が前提)。
 - **テストは、DLL 単位 (`<DLL名>Test.exe`)。** 想定する構成は、MFC アプリ (UI) + ロジック DLL + データ DLL + 各 DLL のテスト exe。構成と規約は、Skill 同梱の `DLL-LAYOUT.md` に分けた (SKILL.md を、手順に絞るため)。
   - 層ごとに、テストの書き方が違う: ロジックは、データ層を**フェイク**に差し替える。データは、**一時フォルダの実ファイル**を使い、`TearDown` で必ず消す。
@@ -219,7 +228,7 @@ Claude が編集したコードは、ウォッチャーによって、Windows �
 - **流れは 3 段: `/brainstorm` (メモ) → `/update-from-ideas` (整理して、正式な仕様書) → `/add-feature` (実装)。** 新規プロジェクトでは、`/update-from-ideas` のあとに、`/new-solution` (構成案から) が入る (**仕様が先**)。
 - **`brainstorm` (`/brainstorm`):** 壁打ちで考えを広げ、**メモ** (`docs/ideas/<機能名>.md`) に残す。**正式な仕様書は、作らない。コードもテストも書かない。** 質問は 1 回に 1 つ、具体例を先に (例が、そのままテストケースの種になる)。**決まらない項目は、無理に決めず、「未決」として残す。**
   役割を分けた理由: 「考えを出す」ことと、「正式な仕様にする (矛盾の点検、テストに落とせる具体さの点検、承認)」ことは、別の作業。前者に、確定の重さを持ち込むと、発想が止まる。
-- **`add-feature` (`/add-feature`):** 確定した仕様書から、計画 → 承認 → (セットアップ) → タスクごとに Red → テスト確認 → Green → 検証 → 報告。**司令塔で、手順の中身は、`cpp-test-first` と `cpp-build-test-loop` に任せる** (重複して書かない)。
+- **`add-feature` (`/add-feature`):** 確定した仕様書から、計画 → 承認 → (セットアップ) → タスクごとに Red → テスト確認 → Green → 検証 → 報告。**司令塔で、手順の中身は、`cpp-test-first` と `build-test-loop` に任せる** (重複して書かない)。
 - **ゲートは 2 つ:** 計画の承認と、テストの確認。計画の承認だけでは、テストの中身までは、承認されない (テストは仕様の表明。間違いに気づける、最後の機会のため)。
 - **どちらも `disable-model-invocation: true`:** ユーザーが `/` で呼んだときだけ動く。承認のゲートを持つ、重いワークフローが、会話の流れで、勝手に始まらないように。
 - **仕様書は、`状態: 確定` でなければ使わない。** 未決事項が残っている仕様で、実装を始めない。仕様が変わるときは、実装を止めて、仕様書を直す。
@@ -328,8 +337,8 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **`.claude-logs/build_summary.json` にも、同じ内容を書く** (コード・種類 `compile` / `link`・メッセージ・件数・場所・プロジェクト)。ログの再読ではなく、必要なら、これを読む。`.claude-logs/` は `.gitignore` 済み。
 - **フォールバック:** `python3` がない、または、解釈できるエラー行が 1 つもない (スクリプトが rc=3 で、何も出さない) ときは、従来の生ログ表示 (`show_log`) に戻る。`ENV_ERROR` は、要約せず、生ログのまま (環境の問題は、文面そのものが手がかり)。
 - **ウォッチャーではなく、WSL 側で行う理由:** 契約 (ファイル名・結果の値・終了コード) を変えず、ホスト側の再配布が要らない。ウォッチャーは、手書きの PowerShell で、実機での確認が重い。要約の規則は、Linux 上で、ログのサンプルだけで、検証できる。`build_error.log` は、従来どおり、生のエラー行 (ウォッチャーが、重複の除去と相対パス化をしたもの) のまま残る。
-- **スクリプトは、2 つの Skill (`cpp-auto-build` / `cpp-build-test-loop`) に、同一のコピーを置く** (Skill ごとに配布され、片方だけが入っている環境があるため)。`tests/summarize_build_log_test.sh` が、一致を確認する。
-- **テスト失敗 (GoogleTest) の要約も、同じ方針** (`summarize_test_log.py`。`cpp-build-test-loop` のみ)。`FAILED` で、`test_error.log` を、**同じメッセージの失敗ごとにまとめる** (`xN`、テスト名は最大 5、場所は最大 3)。
+- **スクリプトは、2 つの Skill (`auto-build` / `build-test-loop`) に、同一のコピーを置く** (Skill ごとに配布され、片方だけが入っている環境があるため)。`tests/summarize_build_log_test.sh` が、一致を確認する。
+- **テスト失敗 (GoogleTest) の要約も、同じ方針** (`summarize_test_log.py`。`build-test-loop` のみ)。`FAILED` で、`test_error.log` を、**同じメッセージの失敗ごとにまとめる** (`xN`、テスト名は最大 5、場所は最大 3)。
   「同じ原因の不具合は、1 つ直すと複数が通る」(`SKILL.md` の方針 6) を、出力の形で後押しする。**まとめる鍵はメッセージ (`Expected` / `Which is` の値を含む) で、場所は含めない** (同じ原因の失敗は、場所が違う)。値が違えば、別の組になる (誤ってまとめるより、まとめ漏れのほうが安全)。
   - **解釈の規則:** 失敗の詳細は、その後の `[  FAILED  ] 名前 (N ms)` の行の**前**にある (gtest の出力順)。`listed below` の再掲と、`[==========]` などの集計行は、数えない。MSVC 形式 (`file(line): error:`) と、Linux 形式 (`file:line: Failure`) の両方。
   - **フォールバック:** 失敗したテスト名を 1 つも解釈できない (クラッシュ。名前のない `exit code` だけの報告など)、または `python3` がないときは、従来の表示 (`Failed tests (N):` の一覧と詳細 60 行)。`TEST_TIMEOUT` / `ENV_ERROR` は、要約しない (`Hung test` などが、そのまま手がかり)。
@@ -362,6 +371,232 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **対象外 (今回):** ダイアログの、レイアウト (重なり・はみ出し・タブ順)、フォント、DPI。見た目は、スクリーンショットで観測する。起動スモークとスクリーンショット (ウォッチャー側の変更が要る)、UI Automation の操作、ミニダンプの解析。いずれも、実行の観測が必要で、Windows 側の実装になる。
 - 検証: `tests/mfc_check_test.sh` (疑似プロジェクト)。実プロジェクト (`cppsamples` の 4 つの MFC プロジェクト) では、`IDR_HELP_MENU` (名前付きリソース) と、削られたウィザードのコードの残り (宣言だけで、マップにも定義にもないハンドラ) を、検出した。
 
+### 4.24 C++ と .NET (WPF) の統合: 1 つのウォッチャー、1 組の Skill、共通のテスト結果の形式
+**きっかけ:** WPF 用に、同じ仕組み (ビルドとテストのループ) が欲しくなった。`cpp-*` と `wpf-*` を別に作る案、設定で切り替える案、統合する案を、比べた。
+**採った方針:** **ウォッチャーも Skill も 1 つにし、ソリューションの中身から、自動で判定する。** 理由:
+- 契約 (フラグ・結果ファイル・rc・ループの規則・完了報告) は、C++ でも .NET でも同一。違うのは、「ビルドとテストの実行方法」と「ログの解釈」だけ。別の Skill にすると、同じ本文を 2 つ保守することになる。
+- Skill を分けると、description が似た Skill が並び、モデルが取り違える余地が出る。**混在のソリューション** (C++ の DLL + WPF のアプリ、MFC + WPF) では、どちらを使うか、決められない。
+- **`dotnet build` は、`.vcxproj` をビルドできない。** 一方、VS の MSBuild は、SDK 形式の `.csproj` を、`/restore` を付ければ、ビルドできる。ビルドの経路を MSBuild に一本化すれば、C++ のみ、.NET のみ、混在を、同じ経路で扱える。
+
+**名前の変更 (契約ではなく、配布物の名前):** `cpp-auto-build` → `auto-build`、`cpp-build-test-loop` → `build-test-loop`。技術名を外した。**旧名の Skill が、配布先に残っていると、description が重なるので、削除する** (`install.sh` が、残っていれば知らせる)。`cpp-test-first` / `mfc-check` / `new-solution` は、技術に固有なので、名前を変えない。
+
+**ウォッチャーの判定 (`watch_and_build.ps1`):**
+- `.sln` / `.slnx` から、プロジェクトのパスを、正規表現で集める (`.vcxproj` / `.csproj` / `.vbproj` / `.fsproj`。`.slnx` は `Path="..."`、`.sln` は `Project("{...}") = "名前", "パス", ...`)。単独のプロジェクトファイルを、`-SolutionPath` に渡してもよい。
+- **`-Platform auto` (新しい既定):** C++ があれば `x64`、.NET だけなら `AnyCPU`。明示した値は、そのまま使う。**混在のソリューションは、`x64` で、ソリューション構成が、.NET 側を `Any CPU` に対応づける前提。**
+- **ビルドの特徴 (`build-windows.cmd` の第 6 引数 `Features`):** C++ があれば `cpp`、.NET があれば `restore`。**中身が判定できないときは、従来どおり `cpp`** (回帰を避ける)。`cpp` がなければ、VS の要求は、MSBuild だけになり、C++ ワークロードのない VS でも動く。
+- **C++ だけのソリューションの MSBuild の呼び出しは、従来と実質同じ** (`/p:Platform` を、引用符で囲む点だけが違う。値は同じ)。`/restore` は、.NET があるときだけ付ける (C++ の経路に、新しい動作を持ち込まない)。
+- **.NET の環境エラー:** SDK が見つからない・古い (`MSB4236` `NETSDK1045` `NETSDK1141`)、NuGet のソースに届かない (`NU1301`) は、`[ENVIRONMENT ERROR ...]` にする。**`NU1101` (パッケージが見つからない) は、環境エラーにしない** (パッケージ名の誤りは、ソースの問題で、Claude が直せるため)。
+- **採らなかった案: `dotnet build` へのフォールバック (`-Builder dotnet`)。** VS のない環境の救済になるが、手書きの PowerShell が増え、実機で確かめられない分岐が増える。必要になったら、足す。
+
+**テストの実行 (ウォッチャー):**
+- **C++:** 従来どおり、`<ソリューション>\<x64|Win32|ARM64>\<Configuration>\` の `-TestExePattern` に合う exe を実行する。**`--gtest_output=xml:<test-results>\<exe名>.xml` を、引数に足す。** C++ のプロジェクトがなければ、探さない。
+- **.NET:** ソリューションの `.csproj` / `.vbproj` / `.fsproj` のうち、`Microsoft.NET.Test.Sdk` / `MSTest` を参照する、`IsTestProject` が `true`、または名前が `Test` / `Tests` で終わるものを、`dotnet test <プロジェクト> --no-build -c <Configuration> --results-directory <test-results> --logger "trx;LogFileName=<名前>.trx"` で実行する。**ビルドは、ソリューションのビルドで済んでいる** (`--no-build`)。`-DotnetTestArgs` で、引数を足せる (プロジェクトの出力先が、プラットフォーム別のとき、`-p:Platform=x64` など)。
+- **両方ある場合は、両方を実行する。** どちらかが落ちれば `FAILED`、どちらかがタイムアウトなら `TIMEOUT` (それ以降は実行しない)。**どちらの種類も、1 つも見つからなければ `ENV_ERROR`** (従来の「テスト exe が見つからない」を、一般化した)。C++ のプロジェクトがあっても、テスト exe がなく、.NET のテストがあれば、.NET だけを実行する。
+- **「実行されなかった」を成功にしない (4.5 の、.NET 版):** `dotnet test` が終了コード 0 でも、**trx がない、または `executed` が 0** なら、`ENV_ERROR` (テスト 0 件、アダプタ未検出など)。
+- `test_error.log` は、従来どおり人が読める形で書く (.NET の失敗は、trx から、`FAILED <名前>` + メッセージ + 最初のファイル行)。**構造化された解釈は、`test_error.log` ではなく、`test-results/` の XML / trx から行う** (下記)。
+
+**テスト結果の共通の形式 (WSL 側 `summarize_test_log.py`):**
+- ウォッチャーは、ランナーの機械可読な出力 (GoogleTest の XML、MSTest の trx) を、**そのまま** `.claude-logs/test-results/` に残す。**共通の形式への変換は、WSL 側のスクリプトが行う。** 4.22 と同じ理由: 契約を変えず、ホスト側の再配布が要らず、変換の規則を、Linux 上で、サンプルのファイルだけで、検証できる (手書きの PowerShell で、XML の変換を書くと、実機でしか確かめられない)。
+- **共通の形式 `TestResult`:** `name` (`Suite.Case` / `完全なクラス名.メソッド名`)、`source` (exe 名 / プロジェクト名)、`framework` (`gtest` / `mstest`)、`outcome` (`passed` / `failed` / `skipped`)、`ms`、`failures` (場所とメッセージ)。
+  - GoogleTest XML: `classname.name`。失敗の先頭行 `file:line` から場所を取る。`skipped` は、成功にも失敗にも数えない。
+  - trx: `TestDefinitions` の `className` (`, アセンブリ名` を除く) + `name`。データ行つきのテストは、`(1,2)` を残す。場所は、スタックトレースの、**最後の ` in <パス>:line N` (日本語 OS は `場所 <パス>:行 N`)**。`NotExecuted` は、`skipped`。
+  - Windows のフルパスは、`--root` で、ソリューションからの相対パスにする。
+- **`test_summary.json` は schema 2:** `schema` / `structured` / `totals` (実行・成功・失敗・スキップ) / `sources` (exe・プロジェクトごとの件数と `framework`) に加え、**従来のキー (`failed` / `groups` / `tests` / `other`) を、そのまま残す** (読む側を壊さない)。
+- **同じメッセージの集約は、フレームワークをまたぐ** (4.22 の方針のまま)。要約の見出しに、`[ran N: passed / failed / skipped]` が付く (構造化された結果があるとき)。
+- **構造化された結果がない・読めないときは、従来のテキスト解釈 (GoogleTest の失敗行) に戻る。** クラッシュの報告 (`(no gtest failure lines ...)`、`Hung test`) は、構造化された結果があっても、`other:` に残す (クラッシュした exe には、XML がないため)。壊れた XML は、`other:` に「読めなかった」と残し、読めるものは使う。
+- **古い結果の誤読を防ぐ:** ウォッチャーが、実行の開始時に `test-results/` を消す。`build_test_once.sh` も、フラグを置く前に消す (4.4 と同じ二重の防止)。
+
+**実機で見つかった 2 つの不具合 (v2.4.1)。** WPF + MSTest の最初の実行で、`test_error.log` が、**文字化け**し、**テストが 1 件も実行されなかった**。原因は、別々だった。
+- **文字化け:** `dotnet test` の出力は **UTF-8** (UTF-16 でも、CP65001 のコンソールの設定でもない。ファイルを、バイト列で調べて確認した)。ウォッチャーが、すべてのテストランナーの出力を、`Get-Content -Encoding Default` (ANSI = CP932) で読んでいたため、UTF-8 の日本語が、CP932 として解釈され、**さらに UTF-8 で書き出された** (`縺ｮ繝・せ繝・` の形。一部のバイトは、解釈できず、復元できない)。GoogleTest の exe (MSVC でビルドしたもの) は、ANSI で出すことが多いので、C++ の経路では、顕在化しなかった。**対策:** `Read-ProcessOutput` が、出力を**バイト列で読み、UTF-8 として厳密に解釈し、できなければ (不正なバイト列)、ANSI として解釈する** (BOM は除く)。**ランナーごとの決め打ちにしなかった:** GoogleTest の出力が、UTF-8 の場合も、dotnet が ANSI の場合も、動くため。CP932 の日本語は、ほぼ、UTF-8 として不正なので、判定は、実用上、曖昧にならない。構造化された結果 (trx / XML) は、XML なので、この問題の影響を受けない (WSL 側の要約は、正しいまま)。
+- **テストが実行されなかった:** 出力先が `bin\auto\Debug\...` になり、`dotnet test --no-build` が、テストの DLL を、見つけられなかった。原因は、**環境変数 `Platform`**: MSBuild は、環境変数を、プロパティとして読む。`run_watcher.cmd` が、cmd の変数 `PLATFORM` (= `auto`) を作ると、大文字小文字を区別しない Windows では、環境変数 `Platform` になり、子プロセスに、継承される。ビルド (`build-windows.cmd`) は、`/p:Platform` を明示するので、影響を受けなかった (U1 の C++ は、通った)。`dotnet test --no-build` だけが、明示しないので、`Platform=auto` で、プロジェクトを評価した。**対策 (二重):** (1) `watch_and_build.ps1` が、起動時に、環境変数 `Platform` を、削除する。(2) `run_watcher.cmd` の変数名を `WATCH_PLATFORM` / `WATCH_CONFIG` に変え、環境変数として、漏れないようにする。**教訓:** 子プロセスに、MSBuild のプロパティ名と同じ環境変数 (`Platform` / `Configuration` など) を、渡さない。
+- **この 2 つは、疑似ウォッチャーでは、見つからない種類の不具合** (WSL では、PowerShell も、Windows の環境変数の継承も、再現できない)。実機の確認 (U6 / U7 / WS3) の価値を示した。
+
+**C++ のテストを `CppUnitTestFramework` (VS 付属の「MSTest」) に移して、共通化する案は、採らなかった。**
+- 名前は MSTest だが、.NET の MSTest とは別物で、**ランナーが共通にならない** (`vstest.console.exe` と `dotnet test`)。共通化したかったのは、ランナーではなく、結果の形式で、それは、XML / trx の変換で、足りる。
+- gmock、パラメータ化テスト、DeathTest が使えなくなる。ウォッチャーの、exe を強制終了して `Hung test` を特定する仕組みも、DLL をホストが読み込む方式では、難しくなる。
+- `cpp-test-first` / `new-solution` (GoogleTest の取得) / `add_layer.py` / `summarize_test_log.py` / テストの書き直しが必要で、得るものが、少ない。
+
+**検証の範囲 (誤解しないために):**
+- **WSL 側 (検証済み):** `summarize_test_log.py` の XML / trx の変換と集約 (`tests/summarize_test_log_test.sh`、`tests/fixtures/`)、`summarize_build_log.py` の .NET の診断コード (`tests/summarize_build_log_test.sh`)、疑似ウォッチャーでの、構造化された結果の経路 (`tests/fake_watcher_test.sh`)。
+- **Windows 側 (未検証):** `watch_and_build.ps1` と `build-windows.cmd` の、今回の変更は、**実機で、まだ実行していない** (WSL のサンドボックスから、PowerShell を実行できない。括弧の対応と、CP932 の `rem` 行の確認だけ、した)。C++ のソリューションで回帰がないこと、.NET (WPF + MSTest) のビルドとテストが動くことは、`docs/TEST-PLAN.md` の N 系の手順で、実機で確認する。
+- **サンプルの trx / XML は、仕様から書いたもの。** 実機の `dotnet test` / GoogleTest の出力と、形が違えば、`tests/fixtures/` を、実物に差し替えて、変換を直す。
+
+### 4.25 `wpf-check`: WPF の「見えない部分」を、静的に検査する
+**問題:** WPF は、XAML と C# が、**文字列 (バインディングのパス、リソースのキー、`Source` の URI) で結ばれている**。崩れても、**コンパイルは通る**。バインディングの誤りは、例外にもならず、出力ウィンドウにログが出るだけ。AI は、実行時の画面を見られない。ビルドの要約 (4.22) では、見えない。`mfc-check` (4.23) と、同じ種類の問題。
+**採った方針:** `mfc-check` と同じ形の、**静的な検査の Skill** (`wpf-check`)。読み取りだけ・WSL で完結・Windows 不要・ウォッチャーの契約は変えない。出力の形式、`--all` / `--json` / `--max-lines`、終了コード (0 / 1 / 2 / 3)、重大度の 3 段階も、同じ。
+
+- **対象は、「コンパイルは通るが、実行時に壊れる」ものだけ。** イベントハンドラの不足、`x:Name` の重複、XAML の文法の誤り、未定義の型は、**WPF のビルドが、`MC` / `XDG` / `CS` のエラーにする**ので、検査しない (二重にしない)。取り下げた候補: イベントハンドラの検査 (EVT)、`x:Name` と code-behind の対応 (NAM)、`x:Class` と code-behind の不一致 (CLS)。いずれも、ビルドで分かる。
+- **バインディングの検査 (BND) が、中心。** DataContext の型を、XAML・`DataTemplate` の `DataType`・code-behind の代入・ウィンドウを作るコードから推定し、パスの先頭 (と、辿れる限りの、入れ子) を、型のメンバーと突き合わせる。
+  - **確実なときだけ error:** 型を、複数の根拠で決められ、基底クラスまで、すべて、プロジェクト内か、「プロパティを足さない」と知っている外部クラス (`ObservableObject` など) のとき。**基底が、`Window` や未知の外部クラスのときは、「ない」と言わない** (BND900 の info)。誤検出が、この Skill の信用を、最も傷つけるため。
+  - **`d:DataContext` (デザイン時) だけが根拠なら、warning。** 実行時の DataContext は、別のところで決まるかもしれない。
+  - **検査しない形を、明確にした:** `Source` / `ElementName` / `RelativeSource` つき、`ControlTemplate` / `Style` の中、`DataType` のない `DataTemplate` の中 (文脈が変わる)。
+  - **WPF の実際の動作に合わせた:** public な**インスタンスの、プロパティ**だけがバインドされる。フィールド (BND002)・メソッド・非 public・static は、黙って失敗する。TwoWay で setter がないと、実行時に例外 (BND003)。ただし `init` は、リフレクションで設定できるので、読み取り専用に数えない。setter が public でない場合は、挙動の確信が弱いので、warning にとどめた。
+  - **ソースジェネレーター (CommunityToolkit.Mvvm) を知っている:** `[ObservableProperty]` のフィールド `_name` / `m_name` / `name` → `Name`、`[RelayCommand]` のメソッド `Save` / `LoadAsync` → `SaveCommand` / `LoadCommand`。**知らないジェネレーターのメンバーは、「ない」と誤判定しうる** (ReactiveUI.Fody など。基底が外部なら、検査しないので、通常は、安全側に倒れる)。
+  - **INPC の検査 (BND004):** バインドされ、setter が public で、`OneTime` でないプロパティを持つ ViewModel が、`INotifyPropertyChanged` を実装していない (継承・属性・`PropertyChanged` イベントを含めて確認) → warning。値を変えても、画面が更新されない、という、気づきにくい不具合。
+- **リソースの検査 (RES) は、見える範囲を、厳密に辿る。** 祖先の `Resources` → `App.xaml` の辞書 (結合した辞書を、再帰的に)。プロジェクトの外 (NuGet のテーマなど) の辞書が混ざると、確実に言えないので、**error を warning に下げる** (誤検出より、見逃しを選ぶ)。ライブラリ (`OutputType` が `Library`) の XAML も、アプリ側の辞書で解決されうるので、同様。コードで足されるキー (`Resources["X"] = ...`) は、知っている。
+  - **RES002 (前方参照) は、warning:** 辞書の項目は、遅延して読まれるので、実行時の結果が、環境で変わりうる (公式の記述を、確認できていない)。定義順を直せば、確実なので、直す価値はある。
+- **`InitializeComponent()` の呼び忘れ (UI001)** は、実際に起きやすく、**例外も出ず、画面が空になる**ので、error。ただし、`this(...)` で委譲するコンストラクターがあるので、「どれか 1 つでも呼んでいれば」指摘しない。
+- **層の検査 (LAY) は、`mfc-check` の LAY001〜003 と同じ考え方。** 層は、名前 (`Logic` / `Domain` / `Core`、`Data`、`ViewModels`) と、`.csproj` の `UseWPF` / `OutputType` で推定し、`--logic` / `--data` / `--viewmodel` で、上書きできる。ViewModel が `MessageBox` / `Application.Current` を使うのは、warning (動くが、テストしにくい。MSTest は、STA スレッドも `Application` もない。これは、`build-test-loop` の、.NET のテストで、実際にぶつかる)。
+- **XAML は、expat で、自前で読む。** `xml.etree` は、行番号と、属性の順序を保てない。名前空間の対応 (`clr-namespace:` と `assembly=`) と、要素の開始位置 (属性の行を求めるため) を、自前で持つ。**属性の行は、開始タグの、引用符を考慮した範囲から、探す** (複数行にまたがる要素で、行が、ずれないように)。
+- **C# は、軽い字句解析。** コメントと文字列 (`@"..."`、`$"..."`、raw 文字列を含む) を空白にし、深さ 0 の宣言を切り出して、型・メンバー・基底クラス・コンストラクターの本体を、取り出す。完全な構文解析 (Roslyn) は、WSL に .NET を要求するので、採らなかった。**限界:** プリプロセッサ (`#if`) で、宣言が分岐するコード、ソースジェネレーターが作る型は、見えない。
+- **検証の範囲 (誤解しないために):** `tests/wpf_check_test.sh` (疑似プロジェクト) で、正常なプロジェクトに指摘が出ないこと (CommunityToolkit.Mvvm・`DataTemplate`・外部の辞書・結合した辞書・`d:DataContext`・BOM + CRLF を含む)、不具合を 1 か所ずつ入れて、狙いのコードが出ることを確認した。**実プロジェクトでは、まだ検証していない。** `mfc-check` の経験 (実プロジェクトで、誤検出を 4 種類見つけた) からすると、**実プロジェクトで、誤検出が見つかる可能性が高い**。TEST-PLAN の W1 で、実機の WPF プロジェクトに、実行して、確かめる。
+- **自動では、走らせない (今回):** ビルドの成功後に、自動で走らせる案は、誤検出の量を、実プロジェクトで見てから決める (4.23 と同じ)。
+
+### 4.26 パッケージの追加 (`add-package`): NuGet / vcpkg / ソースの取り込みを、1 つのフラグで
+**問題:** Claude (WSL) は、NuGet も vcpkg も、実行できない (サンドボックスのネットワークと、Windows 側のツールに、届かない)。`.csproj` を手で編集して `PackageReference` を足す案は、**名前とバージョンを推測で書く**ことになり、実在しない名前や、紛らわしい名前 (似た名前の別のパッケージ) を入れてしまう。C++ には、そもそも、標準の手段がなかった (GoogleTest だけ、個別の方式 (4.19))。
+**採った方針:** GoogleTest のソース取得 (4.19) と同じ、**フラグの契約を、4 つ目として足す。** Claude は、ファイルを置いて、ファイルを読むだけ。ビルド・テスト・gtest 取得とは、独立 (ビルドの前に処理される)。
+
+| ファイル | 作る人 | 内容 |
+|---|---|---|
+| `trigger_package.flag` | Claude | 各行が 1 つの操作 (空行と `#` 行は無視)。上から順に実行し、**最初の失敗で止まる** |
+| `package_output.txt` | ウォッチャー | 各操作の出力 (`## <操作>` の見出し付き)。1 操作 60 行まで (全文は `.claude-logs\package.log`) |
+| `package_error.log` | ウォッチャー | 失敗時のみ。環境の問題 (ネットワーク、`dotnet` / `vcpkg` がない) は、先頭が `[ENVIRONMENT ERROR - not a source code problem]` |
+| `package_result.txt` | ウォッチャー | 完了マーカー: `OK` / `FAILED` (**最後に書く**。4.2 と同じ) |
+
+**操作 (決まった形だけ):** `nuget search <語>` / `nuget versions <ID>` / `nuget add <プロジェクト> <ID> [<バージョン>]` / `nuget remove <プロジェクト> <ID>` / `vcpkg search <語>` / `vcpkg baseline` / `vcpkg install` / `fetch <owner/repo> <タグ> <名前> [<サブフォルダ>]`。Skill 側のスクリプトは `package_once.sh`。
+
+- **引数は、コマンドに渡るので、決まった文字だけを許可し、WSL 側 (`package_once.sh`) とウォッチャーの、両方で、同じ規則で検証する** (4.19 のタグの検証と同じ考え方。**多重の防御**。WSL 側で拒否すれば、フラグを置かないので、ホストに届かない)。ID・語・リポジトリ・タグ・名前・バージョンは、英数字と `.` `_` `-` (`+`) だけ、先頭は英数字 (**`-` で始まるものは、オプションとして解釈されるので、拒否する**)。プロジェクトは、ソリューションのフォルダの下の `.csproj` / `.vbproj` / `.fsproj` で、`..` と絶対パスを拒否する (ホスト側は、さらに、正規化したパスが、ソリューションの下にあることと、存在することを、確認する)。サブフォルダは、セグメントごとに検証し、`.` と `..` を拒否する。`vcpkg install` / `baseline` は、引数を取らない (トリプレットは、ウォッチャーが、Platform から決める)。
+- **取り違えへの対策 (サプライチェーン):** (1) **検索で、ID・バージョン・ダウンロード数・発行元の確認済み (`verified`) を出す**。(2) Skill の規則で、「追加する前に、実在とバージョンを確認する」「ユーザーが名指しした名前だけを追加する」「バージョンを明示して固定する」。(3) **`package_once.sh` の実行に、`permissions.ask` を付ける** (`docs/RECOMMENDED-SETTINGS.md`)。**確認は、設定でしか強制できない** (4.15 と同じ理由)。(4) 取り込んだバージョンを、報告に含め、`git diff` で、人が確認する。
+- **`search` / `versions` は、nuget.org の REST API を、直接引く** (PowerShell の `Invoke-RestMethod`)。`dotnet package search` (SDK の版に依存し、出力の形式も揺れる) は、採らなかった。ダウンロード数と `verified` を出せる。**限界: 社内フィードは見えない** (`add` は、ホストの NuGet の設定どおりに動く)。
+- **NuGet の `add` / `remove` は、`dotnet add/remove package` に任せる。** ID の実在、バージョンの解決、`.csproj` の書き換え (中央管理 `Directory.Packages.props` を含む) を、`dotnet` が行う。結果のバージョンは、`.csproj` (なければ、上位の `Directory.Packages.props`) から読み、`added <ID> <バージョン> -> <プロジェクト>` と返す。**失敗の分類:** ネットワーク・フィードに届かない (`NU1301` など) は環境エラー。**`NU1101` (パッケージが見つからない) は、ソースの問題** (名前の誤りは、Claude が直せる。4.24 と同じ)。
+- **C++ は、vcpkg のマニフェストモードを、標準にした。**
+  - **Visual Studio 同梱の vcpkg を使う** (VS 2026 Enterprise の `VC\vcpkg\vcpkg.exe` を実機のファイルで確認。2022 にも、同じ構成がある。`VsDevCmd` の `ext\vcpkg.bat` が、`VC\vcpkg` を PATH に足す)。ウォッチャーは、`-VcpkgExe` → 環境変数 `VCPKG_ROOT` → `vswhere` で見つけた VS の `VC\vcpkg\vcpkg.exe` の順に探す。なければ、環境エラー (VS の「vcpkg パッケージ マネージャー」コンポーネントの追加を案内する)。
+  - **トリプレットの既定は `x64-windows-static-md`** (静的ライブラリ + 動的 CRT `/MD`)。GoogleTest のソース方式 (4.19、`/MD`) と同じ CRT なので、**ランタイムの不一致が起きない**。Win32 は `x86-...`、ARM64 は `arm64-...`。`setup --linkage dynamic|static` と、ウォッチャーの `-VcpkgTriplet` で変えられる (**両者を、同じにする責任は、ユーザー側**)。
+  - **MSBuild との連携は、各 `.vcxproj` の `<PropertyGroup Label="Vcpkg">` (`VcpkgEnableManifest` と、プラットフォーム別の `VcpkgTriplet`) で行う。** `vcpkg.json` は、ソリューションのフォルダに置く (MSBuild の連携は、プロジェクトのフォルダから、上へ探す。**実機で未確認**)。ビルドで、自動の `vcpkg install` が走る。**`gtest` (ThirdParty のソースの静的ライブラリ) は、除く。**
+  - **ファイルの編集は、WSL 側のスクリプト (`cpp_pkg.py`) で行う (ホストの PowerShell に、`.vcxproj` や JSON の編集を、持たせない)。** 理由: 4.22 / 4.24 と同じ。Linux 上で、疑似プロジェクトだけで、決定的に検証できる (`tests/cpp_pkg_test.sh`)。ホストの仕事は、**ネットワークとビルドが要るもの** (`search` / `baseline` / `install`) だけ。`.vcxproj` の編集は、**文字コード (BOM)・改行・インデントを保つ** (差分を最小にする)。
+  - **`vcpkg add port` は、使わない** (`cpp_pkg.py add` が、`vcpkg.json` を直接編集する)。ポートの実在は、`search` と `install` が確認する。**`builtin-baseline` (バージョンの固定) は、`vcpkg x-update-baseline --add-initial-baseline` (`vcpkg baseline`) が書く**。
+  - **`vcpkg install` を、ビルドの前に、別の操作として行う:** (1) 初回は、ポートのビルドで、数分〜数十分かかり、`auto-build` の待機 (既定 180 秒) では足りない。(2) **複数のプロジェクトが、同じ `vcpkg.json` に対して、並列に `vcpkg install` を走らせると、競合しうる** (`/m`)。先に済ませておけば、ビルド中の `install` は、何もしない。制限時間は、`-PackageTimeoutSec` (既定 1800)。タイムアウトしても、**終わったポートは、キャッシュされる** (再実行で、続きから)。
+  - **取り下げた案:** `vcpkg integrate install` (ユーザー単位の設定を、変える。ウォッチャーが、勝手にしてはいけない)。NuGet のネイティブパッケージ (`packages.config`) を、標準にする案 (ネイティブ向けが少なく、更新が止まりがち)。Conan (導入と運用の負担)。
+- **`fetch` (ソースの取り込み):** GitHub のタグのソースを、`ThirdParty\<名前>\` に置く (サブフォルダがあれば、その中身だけ。ライセンスは残す)。ヘッダーのみ・単一ファイルのライブラリ向け。**GoogleTest の取得 (4.19) と、同じ構造** (`git clone --depth 1 --branch` → なければ zip。同じ内容があれば、何もしない (`VERSION.txt` の `repo@tag#subfolder`))。**GoogleTest の取得は、そのまま残した** (動作確認済みのコードを、触らない)。
+  - **タグだけ** (ブランチは不可)。**ホストが `github.com` だけに接続する** (URL を、引数に取らない)。
+  - **再現性:** `ThirdParty/<名前>/` は、`.gitignore` に入れる (取得し直せる) ので、**何を取得したかを、コミットされる `ThirdParty.manifest` に記録する** (`cpp_pkg.py record-fetch`)。別の PC では、`package_once.sh --file ThirdParty.manifest` で、再現する。(GoogleTest の取得には、この記録がなく、クローンし直すと、取得し直しが要る。既知の弱点)
+  - **インクルードパスは、`cpp_pkg.py include-dir` が、すべての構成に足す** (`$(SolutionDir)ThirdParty\<名前>`)。ビルドが必要なライブラリ (`.cpp` が多い) は、`fetch` だけでは、ビルドされない (静的ライブラリのプロジェクトを足す必要がある。ユーザーに確認してから)。vcpkg にあれば、vcpkg。
+- **ビルドの `ENV_ERROR` の扱いとの整合:** 失敗の分類は、4.24 と同じ (環境 = ソースを直さず、報告して止まる / それ以外 = ソースの問題)。`auto-build` の規則に、「ライブラリの不足が原因のエラー (`C1083` / 外部の `LNK2019` / `CS0246` / `NU1101`) は、`.csproj` や `.vcxproj` を、自分で書き換えず、`add-package` を使う」を足した。
+- **検証の範囲 (誤解しないために):**
+  - **WSL 側 (検証済み):** `package_once.sh` の操作の検証 (注入・`..`・絶対パス・`-` 始まりなど 17 種類の拒否と、正しい形の受理)、結果の分岐、古い結果の除去、`--file`、出力の上限 (`tests/package_once_test.sh`)。`cpp_pkg.py` の `setup` / `add` / `remove` / `list` / `include-dir` / `record-fetch` (BOM・CRLF の保持、冪等、XML の整合。`tests/cpp_pkg_test.sh`)。
+  - **Windows 側 (未検証):** ウォッチャーの、パッケージの操作 (`Invoke-PackageOps` 以下) と、vcpkg のマニフェストモードの、MSBuild との連携 (`vcpkg.json` を、プロジェクトの上のフォルダから探すか、`Label="Vcpkg"` の位置で効くか、`VcpkgTriplet` が効くか)。**実機で、まだ実行していない。** `docs/TEST-PLAN.md` の P 系を、最初に確認する。
+
+- **VS 2026 の調査メモ (2026-10-19。ユーザーが示した「VS 2026 18.7 以降は、C++ でも PackageReference が使える (Experimental)」を、手元の VS で、読み取りで、裏取りした):**
+  - **この PC の VS 2026 は 18.8.1** (18.7 以上)。VS 2022 は 17.14.35。
+  - **確認できたこと (VS 2026 の MSBuild のターゲットファイル `MSBuild\Microsoft\VC\v180\` に、`EnableNativePackageReferenceSupport` がある。VS 2022 の v143 には、ない = VS 2026 で追加された機能):** `true` のとき、`ProjectCapability` に `PackageReferences` が入り、`RestoreProjectStyle` が `PackageReference`、`TargetFrameworkMoniker` が `native,Version=v0.0` になり、packages.config 用の NuGet のビルドターゲットの取り込みを、省く。**既定値は、未定義 (= 無効)**。C++/CLI (`CLRSupport`) では、強制的に無効。これは、「Experimental (利用者が有効にする)」という説明と、合う。
+  - **公式の記事で確認できたこと (https://devblogs.microsoft.com/cppblog/nuget-packagereference-for-c-projects-in-visual-studio/ 、2026-05-19 公開。ユーザーが示した):** (1) **VS の設定画面での有効化は、記事に、ない。有効にする方法は、MSBuild プロパティ `EnableNativePackageReferenceSupport` を `true` にすること**: プロジェクトの `<PropertyGroup Label="Globals">` か、リポジトリ全体なら `Directory.Build.props`。(2) 対象は `.vcxproj` だけ。**Experimental で、18.7 では、既定でオフ** (公開時は、18.7 の Insiders Channel)。(3) 書き方は、.NET と同じ: `.vcxproj` の `ItemGroup` に `<PackageReference Include="Microsoft.Windows.CppWinRT" Version="2.0.240405.15" />`。`RestoreProjectStyle` / `TargetFramework` は、書かない。(4) 「IDE でも、コマンドラインでも、.NET プロジェクトと同じ体験」とある (`msbuild /restore` / `nuget restore` の、具体的な記述は、ない)。(5) **制限:** C++ のプロジェクトから、C++/CLI や C# のプロジェクトを参照する場合は、未対応 (回避策: `ProjectReference` に `ReferenceOutputAssembly=false` と `SkipGetTargetFrameworkProperties=true`、`AssetTargetFallback`。18.7 の GA までには、直らない見込み)。旧 .NET Framework の C++/CLI も、未対応。(6) 最初に PackageReference を足したとき、キャッシュのウォームアップで、一度だけ遅い。**手元の VS 2026 (18.8.1) の MSBuild のターゲットの定義 (上) と、一致する。**
+  - **ユーザーが最初に示した説明の、訂正 (「VS 2026 側の、Experimental の設定を、有効にする」):** 公式の記事では、**VS の設定画面ではなく、MSBuild のプロパティ**で有効にする。ウォッチャー (コマンラインの MSBuild) でも、**プロパティを `.vcxproj` か `Directory.Build.props` に書けば、IDE の設定に、依らない** (自動化に、都合がよい)。
+  - **まだ確認できていないこと:** (1) **ウォッチャー (`build-windows.cmd`、`/restore` つき) で、復元とビルドが、期待どおり動くか**。(3) `PackageReference` の復元と、パッケージの `build\native` の props / targets の、自動の取り込みが、C++ で期待どおり動くか。(4) `dotnet add package` が `.vcxproj` を編集できるか (`package_once.sh` は、`.vcxproj` を、検証で拒否している)。
+  - **参考にした記事 (https://uyamae.hatenablog.com/entry/2024/08/11/140057、2024-08):** 「C++ では PackageReference が使えず、packages.config しかない」「`nuget.exe` / `dotnet` CLI で入れても、`.vcxproj` の `Import` が、追加されない」と書いている。**VS 2026 の機能より前の記事で、VS 2026 の機能の裏付けにはならない**が、**PackageReference の利点 (ビルドの資産 (props / targets) が、復元で、自動で取り込まれ、`Import` を手で書かなくてよい)** が、WSL からの自動化に向く理由を、示している。vcpkg には、触れていない。
+  - **vcpkg の方針は、変えない。** 理由: (1) PackageReference は、**NuGet のパッケージ**の仕組み。fmt や spdlog のような、C++ の OSS は、ほとんど、NuGet の `build\native` 形式のパッケージが、ない (または、古い)。(2) 一方、WIL (`Microsoft.Windows.ImplementationLibrary`)、WebView2、C++/WinRT など、**Microsoft の、ネイティブの NuGet パッケージ**は、PackageReference で、扱いが楽になる。**両方を、用途で、使い分ける**案。(3) VS 2026 に同梱の vcpkg の MSBuild の連携 (`vcpkg.props` / `vcpkg.targets`) を読み、**このツール群の前提と、一致する**ことを確認した: `VcpkgEnableManifest` (既定 false。true でマニフェストモード)、**`VcpkgManifestRoot` が、プロジェクトのフォルダから、上へ `vcpkg.json` を探す** (P11 の (b) は、ソースの上では、確認できた)、インストール先が `vcpkg_installed\$(VcpkgTriplet)\`、`vcpkg.exe` が `$(VcpkgRoot)` の下。
+  - **VS 2026 の新しい仕組み (`vcpkg-configuration.json` による artifacts の活性化、`EnableVcpkgArtifactsIntegration`):** コンパイラやツールを、取得する仕組み。**パッケージ (ライブラリ) の取得とは、別**。このツール群は、使っていない。
+  - **決定 (2026-10-19、ユーザー): C++ の NuGet の PackageReference への対応は、見送る。** 理由: **Experimental** (18.7 では、既定でオフ。公式の記事に、制限と、「GA までには直らない」問題が、ある)。実験的な機能を、標準の手順に入れると、仕様の変更や、不具合の影響を、受ける。**C++ のパッケージ追加は、vcpkg (4.26) だけを、標準とする。** 既存の GoogleTest の packages.config (nuget 方式のコピー) は、そのまま。
+  - **見送りの範囲:** `cpp_pkg.py` への `PackageReference` の追加、ウォッチャーの C++ での `restore`、`add-package` への C++ の NuGet の手順、P23 / P24 の実機の確認。**どれも、作らない・実施しない。** `package_once.sh` は、`nuget add` の対象を `.csproj` / `.vbproj` / `.fsproj` に限る (`.vcxproj` は、拒否する)。この動作は、変えない。
+  - **再開の条件 (目安):** (a) この機能が、**GA** (Experimental でなくなる。既定で有効) になる。(b) C++ のプロジェクトから、C++/CLI / C# のプロジェクトを参照する場合の制限が、解消する。(c) Microsoft のネイティブの NuGet パッケージ (WIL、WebView2、C++/WinRT) を、このツール群で、頻繁に追加する必要が、出る。再開するときは、**TEST-PLAN の P23 / P24 の手順を、最初に、実機で行い**、そのあとで、(a) `cpp_pkg.py`、(b) ウォッチャーの `restore`、(c) `add-package` の順に、足す (上の「次の一手」の案)。
+  - **(見送る前の) 次の一手の案:** 実機で、(2) と (3) を、確かめる (TEST-PLAN の P22 / P23)。**確認できてから**、(a) `cpp_pkg.py` に、`PackageReference` の追加 (`.vcxproj` の `ItemGroup` と、有効化のプロパティ) を足す、(b) ウォッチャーの `Features` に、C++ でも、`PackageReference` があるときの `restore` を足す、(c) `add-package` に、「C++ の NuGet (PackageReference)」の手順を足す、を行う。**確認できる前に、足さない** (動かない仕組みを、配ってしまうため)。
+
+### 4.27 WPF のソリューションの生成 (`new-solution --type wpf`) と、テスト先行 (`wpf-test-first`)、規約 (`rules/wpf-csharp.md`)
+**きっかけ:** C++ / MFC で作った一式 (`/new-solution` → `cpp-test-first` → `build-test-loop`、規約 `cpp-mfc.md`) を、WPF でも、同じ流れで使えるようにする。統合 (4.24)、`wpf-check` (4.25)、`add-package` (4.26) の上に、「作る」「テストを先に書く」「書き方を揃える」を足した。
+
+- **C++ の生成とは、別の経路にした (`add_layer.py` を、拡張しない)。** C++ の生成 (`.vcxproj`、GoogleTest の入れ方 3 方式、MFC の `.rc`) と、.NET の生成 (SDK 形式の `.csproj`、MSTest) は、共通部分が、ほとんどない。1 つのスクリプトに混ぜると、C++ の動作確認済みの経路を、壊しうる。**`new_solution.py` が、`--type wpf` / `--tests mstest` のときだけ、`wpf-test-first/scripts/add_project.py` を、読み込む** (WPF を使わない人は、`wpf-test-first` がなくても、C++ が動く)。C++ の経路の関数は、変えていない (`parse_layers` に、引数を足しただけ。既定は、従来どおり)。
+- **構成: View (WPF アプリ) → ViewModel → ロジック → データ。** ViewModel・ロジック・データは、**WPF 非依存のクラスライブラリ** (`net8.0`。`UseWPF` なし)。
+  - **理由は、型システムによる強制:** `net8.0` (Windows 非依存) のライブラリは、`System.Windows` の型 (`Window` / `MessageBox` / `Application`) を、**そもそも、使えない** (ビルドで落ちる)。「ViewModel が View に依存しない」を、規約ではなく、ビルドで守る。テストも、STA スレッドや `Application` なしで動く (MSTest は、これらを用意しない)。
+  - **`viewmodel` を層に含めない構成も、許す** (アプリが小さいとき)。その場合、ViewModel は、アプリの `ViewModels/` フォルダに入り、**テストできない**。`/add-feature` の計画で、「ViewModel 層の追加と、既存の ViewModel の移動」を、提案する。
+  - 層の依存: 上の層は、すぐ下の層を参照する (ViewModel → ロジック → データ)。アプリは、すべての層を参照する (組み立てる側)。テストは、対応するライブラリだけを参照する (ほかは、推移的に見える)。**ロジックから、データの実装への参照は、ある** (.NET では、インターフェースと実装が、同じアセンブリ。「使うのは、インターフェースだけ」という規律で守る。厳密に分けるなら、`*.Abstractions` ライブラリ。`PROJECT-LAYOUT.md`)。
+  - `wpf-check` の層の判定 (名前: `Logic` / `Domain` / `Core`、`Data`、`ViewModels`) に合う、既定の名前 (`LogicLayer` / `DataLayer` / `ViewModels`)。**生成したソリューションを、`wpf-check` にかけて、指摘が 0 件であることを、テストにした** (4 つの形: 4 層 + テスト、ViewModel 層なし、アプリのみ、層の名前を変えたもの、テストの後付け)。生成の誤りが、検査で見つかる。
+- **MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、自前の最小実装にした (NuGet に依存しない)。** 理由: (1) **最初のビルドが、ネットワークと、パッケージのバージョンの実在に依存しない** (MSTest だけが、依存する)。(2) CommunityToolkit.Mvvm の版を、推測で固定するのを避ける (実在を確認できない)。(3) `wpf-check` が、プロジェクト内の基底クラスを、解釈できる (`INotifyPropertyChanged` の実装も追える)。CommunityToolkit.Mvvm が欲しければ、`add-package` で足して、置き換える (`CLAUDE.md` に書く)。`RelayCommand` は、`CommandManager.RequerySuggested` (WPF 専用) を使えないので、`NotifyCanExecuteChanged()` を、明示的に呼ぶ。
+- **テストプロジェクトの名前は `<名前>.Tests`** (.NET の慣習。C++ は `<名前>Test`)。ウォッチャーの検出 (`Microsoft.NET.Test.Sdk` を参照、または名前が `Test` / `Tests` で終わる) に合う。`RECOMMENDED-SETTINGS.md` の `ask` のパターン (`*.Tests/**` `*Tests.cs`) にも合う。
+- **MSTest の参照は、`Microsoft.NET.Test.Sdk` + `MSTest.TestAdapter` + `MSTest.TestFramework` の 3 つを、明示する** (メタパッケージ `MSTest` ではなく。メタパッケージの導入時期を、確認できていないため)。既定のバージョンは、**実在を記憶している版** (Test.Sdk 17.12.0、MSTest 3.6.4) で、`--mstest-version` / `--testsdk-version` で上書きできる。**これらの版が、nuget.org に実在することは、まだ確認していない** (TEST-PLAN の WS6)。新しい版は、`add-package` の `nuget versions` で確認する。
+- **既定の TFM は `net8.0`** (LTS。この PC には、SDK 9 / 10 と、ランタイム 8 / 9 / 10 があるので、動く)。`--tfm net10.0` で変えられる (アプリは `-windows` が付く)。
+- **`.slnx` には、構成 (`Configurations`) を書かない** (.NET だけの `.slnx` の、Visual Studio の既定: Debug / Release、Any CPU)。ウォッチャーは、`-Platform auto` で `AnyCPU` を使う (4.24)。**`/p:Platform="Any CPU"` が、構成を持たない `.slnx` で通るかは、実機で未確認** (WS2)。WPF アプリに `DefaultStartup="true"` (層は、ライブラリで、起動できない)。
+- **`Directory.Build.props` に、`Nullable` / `ImplicitUsings` / `LangVersion` を、まとめる。** 各 `.csproj` は、`TargetFramework` と `RootNamespace` (と、参照・パッケージ) だけ。
+- **`.editorconfig` と `rules/wpf-csharp.md`:** C++ の規約 (`cpp-mfc.md`) と、**同じ方針の項目はそろえた** (UTF-8 BOM + CRLF、スペース 4、Allman、コメントは日本語、`.gitattributes`)。**違う項目:** 定数は PascalCase (.NET の慣習。C++ は大文字)、private フィールドは `_camelCase` (C++ は `m_`)、`C` 接頭辞なし、`Async` の接尾辞。**WPF 固有の規則 (MVVM、層、バインディング、UI スレッド) は、`wpf-check` の検査項目と、対応させた** (規約で決め、`wpf-check` が、静的に確かめる)。
+  - **`.editorconfig` の文字コード:** `[*]` は `utf-8-bom`、`.slnx` / `.json` / `.md` は `utf-8` (BOM なし。`vcpkg.json` を、VS が、BOM 付きで保存し直すのを防ぐ)。`.editorconfig` 自身は、BOM なし (BOM があると、読めない可能性)。
+  - **ひな形 (`templates/dotnet/`) と、生成の定数 (`add_project.py` の `EDITORCONFIG` / `DIRECTORY_BUILD_PROPS`) は、同じ内容** (`tests/add_project_test.sh` が、一致を確認する)。
+  - **`install.sh` が、規約とひな形を、`~/.claude/rules` と `~/.claude/templates` に配る。ユーザーが手で直していることがあるので、上書きせず、番号付きのバックアップ (`~1~`) を残す** (同じ内容なら、何もしない)。先頭が `.` のファイル (`.editorconfig`) も、配る (Skill の配布は、`.` 始まりを除くが、ひな形は、別の処理)。
+- **`wpf-test-first` は、`cpp-test-first` の骨格 (ゲート・Red の定義・ループの規則・完了時の報告) を、そのまま移した。WPF 固有の違い:**
+  - **スタブ:** `NotImplementedException` を投げるスタブは、テストが、**例外で落ちる** (アサーションの失敗ではない) ので、**Red の条件を満たさない** (使わない)。ViewModel のスタブは、**通知を上げない、固定の値を返す** プロパティ (変更通知のテストが、アサーションで落ちるように)。
+  - **`.csproj` への追加は、不要** (SDK 形式は、ファイルを自動で含める)。C++ の「`.vcxproj` に追加しないと、ビルドされず、`PASSED` になる」という落とし穴は、ない。代わりに、`[TestMethod]` の付け忘れ・`MSTest.TestAdapter` の参照漏れ・`static` / `async void` のテストメソッド (**テストが 1 件も実行されず、`ENV_ERROR`** (4.24 の「実行されなかった」の判定が、これを捕まえる)) を、注意として書いた。
+  - **対象は、ViewModel・ロジック・データのライブラリだけ。View は、テストしない。** C++ の「UI 層は、切り出して止まる」と同じ。WPF の UI 自動化 (UI Automation) は、対象外。
+  - **実装 (Green) のあと、`wpf-check` を実行する**: ユニットテストでは見つからない不具合 (バインディングの綴り、`InitializeComponent()` など) を、静的に確かめる。
+  - **パッケージが要るとき (モックのライブラリなど) は、`add-package`。**
+- **`/add-feature` と `/update-from-ideas` の対応:** `CLAUDE.md` の `- メイン:` / `- テスト:` (`あり (MSTest)`) で、`wpf-test-first` を選ぶ。構成案の値に、`wpf` / `mstest` / `viewmodel` を追加した。**WPF か MFC かは、仕様からは決まらないので、ユーザーが決める** (Skill に、明記)。
+- **取り下げた案:** WPF のアプリ (View) の UI テスト (UI Automation による、ウィンドウの操作)。重く、環境依存で、実機でしか確認できない。CommunityToolkit.Mvvm を既定にする案 (上記の理由)。ViewModel をアプリの中に置く構成を、既定にする案 (テストできなくなる。層を作らない構成としては、残した)。C++ の `add_layer.py` に、.NET を足す案 (上記)。
+- **検証の範囲 (誤解しないために):**
+  - **WSL 側 (検証済み):** `tests/add_project_test.sh` (24 項目: `.slnx` と、Visual Studio 形式の `.sln` への追加、構成の対応付け、BOM と CRLF の保持、既存の保護、`--tests-only`、ひな形と定数の一致)、`tests/new_solution_wpf_test.sh` (51 → 59 項目 (4.28 で増加): 4 つの形の生成、依存の連鎖、名前空間、`CLAUDE.md` の記録、引数の検証 14 種、テストの後付け、`--spec`、**生成物が `wpf-check` で指摘 0 件**)。
+  - **Windows 側 (未検証):** **生成した C# / XAML は、まだ、コンパイルしていない** (WSL に .NET がない。コードは、手で読んで確認した)。MSTest のバージョンの実在、`.slnx` (構成なし) が `Any CPU` でビルドできるか、`dotnet test --no-build` で、8 件が通るか、アプリが起動して、バインディングが動くか。`docs/TEST-PLAN.md` の WS 系 (**WS6 と WS2 と WS3 を、最初に**)。
+
+### 4.28 WPF プログラミング規約の適用 (規約 `rules/wpf-csharp.md` の全面改訂)
+**きっかけ:** ユーザーが、WPF プログラミング規約 (19 章。MVVM 必須、MVVM Toolkit / Prism は後から選ぶ、View / ViewModel / Model の責務、層の構成 3.1 / 3.2、命名、非同期、DI、例外、ログ、XAML、テスト、禁止事項、レビュー項目) を示し、これを適用するよう求めた。4.27 で作った規約 (自作) を、**ユーザーの規約の章立てに、置き換え**、ツール群で追加した決まりは、各章の「**ツール群の補足**」として、残した。
+
+- **規約の本体は、ユーザーの文書を、そのまま使う** (章立て・例・禁止事項・レビュー項目)。補足は、(1) このツール群との対応、(2) 規約が決めていない、実務上の決まり (ファイルの形式、書式、`obj/` の編集禁止、`add-package`、MSTest の書き方)。**補足が、規約と食い違う場合は、規約を優先する。**
+- **差異を、隠さず、記した:**
+  - **テスト:** 規約は、xUnit / NUnit / MSTest のいずれか。ツール群が検証しているのは、**MSTest だけ** (規約の例の `[Fact]` は xUnit。補足に、`[TestMethod]` を書いた)。テスト名の、条件と期待を、日本語にしてよい (規約の例に合わせた)。
+  - **構成:** 規約 3.1 は、1 つのアプリ + 1 つのテストプロジェクト。生成されるのは、**アプリ + WPF 非依存のライブラリの層 + ライブラリごとのテスト** (規約 3.2 に近い)。**どちらも、規約の範囲**と、補足に書いた。3.1 のフォルダ (`Models` `Services` など) は、**必要になったときに作る** (空のフォルダを、先に作らない)。
+  - **層の依存の向き: 2 つのモデルを、名前で分ける。** 規約 3.2 (Presentation → Application → Domain、Infrastructure → Application / Domain) と、4.27 の (View → ViewModel → ロジック → データ) は、**同じ検査にできない** (Infrastructure が Application を参照するのは、規約では正しいが、後者では、「データがロジックを参照する」違反になる)。**プロジェクトの名前が、`Presentation` / `Application` / `Domain` / `Infrastructure` (末尾が一致) なら、前者で、それ以外は、後者で、検査する。** `--logic` / `--data` / `--viewmodel` の明示は、名前による推定より、優先する。**混ぜない**ことを、補足に書いた。
+- **生成物を、規約に合わせた:**
+  - **アプリの構成 (3.1):** `Views/` `ViewModels/` `Resources/` を作り、**画面は `Views/MainWindow.xaml`** (名前空間 `<ルート>.Views`)。
+  - **`DataContext` の設定を、`App.xaml.cs` の `OnStartup` (composition root) に移した** (`StartupUri` を、やめた)。理由: 規約 6.2 / 11 (コードビハインドに、View 固有の処理だけを書く。DI を可能にする)。`MainWindow` のコードビハインドには、`InitializeComponent()` だけ。`wpf-check` は、`new MainWindow { DataContext = new MainViewModel() }` から、`DataContext` の型を、推定する (検証済み)。
+  - **共通値 (14.3):** `Resources/Styles.xaml` (`DefaultControlMargin` と `PrimaryButtonStyle`) を、`App.xaml` の `MergedDictionaries` で結合。**画面は `Grid`** (`Auto` / `*`、`MinWidth` / `MinHeight`、14.1 / 14.2)。バインディングは `Mode` を明示 (9.1)。
+  - **`.` 区切りのプロジェクト名 (`SampleApp.Domain`)** に対応 (規約 3.2 の例の名前)。名前空間は、その名前のまま。型名では、`.` を除く (`SampleAppDomainInfo`)。**新規の層の名前を、規約の名前にする、という使い方を、補足に書いた。**
+- **機械で判定できる項目を、`wpf-check` に足した** (規約の章と、検査の対応を、規約の付録に表で示した):
+
+  | コード | 規約 | 内容 |
+  |---|---|---|
+  | LAY002 (拡張) | 7.2 | ViewModel が、`OpenFileDialog` / `SaveFileDialog` / `Clipboard` / `.ShowDialog()` / `Views` の名前空間を使う |
+  | DI001 | 11 | ViewModel 内の `new XxxService()` (`Repository` / `Client` / `Provider` / `Gateway` も) |
+  | ASY001 | 10.3 | `.Result` / `.Wait()` / `GetAwaiter().GetResult()` |
+  | ASY002 | 10.2 | イベントハンドラ (引数に `sender` か `EventArgs`) 以外の `async void` |
+  | EXC001 | 12.1 | 空の `catch` (コメントだけも) |
+  | EXC002 | 12.3 | `catch (Exception ex) { throw ex; }` |
+  | NAM001 | 4.2 | bool の `Flag` / `Status` / `Check` |
+  | UI003 | 6.4 | UserControl が、自分自身を `DataContext` にする |
+  | LAY001 / LAY003 (標準の層) | 3.2 | Domain / Application / Infrastructure の WPF への依存、標準の依存の向き |
+
+  **すべて warning** (LAY001 / LAY003 は error)。`.Result` の判定は、`)` か `Task` / `await` の直後の `.Result` に限り (`RunWorkerCompletedEventArgs.Result` などの、無関係なものを拾わない)。`ASY002` は、引数に `EventArgs` か `sender` がある `async void` を、イベントハンドラとして許す。`EXC001` は、コメントを空白にした後で判定するので、コメントだけの `catch` も、握りつぶしと見なす。
+- **機械で判定できない項目は、検査しない** (責務の分離の妥当性、メソッドの大きさ、コメントの質、Binding エラーの出力ウィンドウ、キーボード操作、Singleton、秘密情報のログ)。規約の 18 章 (レビュー) と、付録の表に、そう書いた。**ツールが通ることは、規約を満たすことを、意味しない。**
+- **取り下げた案:** 6.2 (コードビハインドに、業務ロジックを書かない) の機械検査 (`database.` / `.Find(` などの語で判定すると、誤検出が多い)。メソッドの行数 (5.5) の検査 (目安であり、規約も「分割を検討」)。MVVM Toolkit / Prism の自動導入 (規約 8 章は、プロジェクト作成後に、人が決める)。
+- **検証の範囲 (誤解しないために):** `tests/wpf_check_test.sh` (72 項目: 新しい検査 25 項目 (各コードの検出と、誤検出しない形) と、標準の層 7 項目を含む)、`tests/new_solution_wpf_test.sh` (59 項目: 規約の構成、composition root、`Grid`、`Mode`、`.` 区切りの名前)、`tests/add_project_test.sh` (24 項目)。**生成した C# / XAML は、まだ、コンパイルしていない** (4.27 と同じ)。特に、**`App.OnStartup` で、画面を作って `Show()` する形と、`Resources/Styles.xaml` の結合 (`StaticResource` の解決) が、実行時に動くか**は、実機で確認する (TEST-PLAN の WS17 / WS18)。
+
+### 4.29 UI テストの自動化 (FlaUI): 検討と PoC (2026-10-20)
+
+**動機:** ビルド → テストのループで、UI だけは、人が、毎回、アプリを起動して確認している。FlaUI (UI Automation を包む .NET ライブラリ。MIT) + MSTest で、フォーム (WPF / WinForms / MFC のダイアログ) の UI テストを、ある程度、自動化したい。
+
+**PoC (段階 0。`poc/flaui/`) の実機の結果 (2026-10-20、`UiPoc`: WPF の `WpfSample` と、MFC のダイアログ `MfcDlgLayers`):**
+- **WPF (UIA3):** 起動 (メインウィンドウが取れるまで) **約 1.4 秒**。`TextBox` に `ValuePattern` で文字を設定すると、**ViewModel の `PropertyChanged` が働き、挨拶の `TextBlock` が変わる**。「クリア」を `InvokePattern` で押すと、入力欄が空になる。**マウスもキーボードも使わない。** `x:Name` / `AutomationId` が付いた要素 (`NameTextBox`、`GreetingText`、`ClearButton` など) は、`AutomationId` で見える。付いていない要素 (`TitleBar` を除くウィンドウなど) は、空。`TextBlock` の `Name` は、表示の文字。
+- **MFC のダイアログ:** **UIA3 と UIA2 の、どちらでも、同じように見える。** ボタンの `AutomationId` は、**コントロール ID の数値** (`IDOK` = `1`、`IDCANCEL` = `2`)、`Name` は表示の文字 (`OK` / `Cancel`)、静的テキスト (`IDC_STATIC`) は `Text` として、`Name` に文字が入る (`AutomationId` は空)。起動 **約 0.2 秒**。`Invoke` で `Cancel` を押すと、ダイアログが終了する。違いは、タイトルバーの子 (システムメニューの名前が、UIA2 は `System`、UIA3 は `システム`) だけ。
+- **スクリーンショット:** `Capture.Screen()` / `Capture.Element(window)` で PNG を保存でき、**WSL の Claude が、画像として読める** (ウィンドウの内容、ボタンの状態が、目視できる)。失敗の原因調査に、使える。
+- **`trigger_test.flag` で、そのまま動いた** (`PASSED` 3 件)。ただし、これは、PoC のソリューションに、UI テストしかないため。通常のテストとの併用では、分ける必要がある (UI テストは、遅く、デスクトップを占有する)。
+
+**判断 (PoC を受けて):**
+- 実現性は、確認できた。**WPF も MFC のダイアログも、AutomationId で操作できる。** MFC では、**リソースのコントロール ID が、そのまま AutomationId** になる。`IDC_STATIC` のままの要素は、ID で探せない (Name = 表示の文字で、探す)。
+- UIA のパターン (`Invoke` / `Value`) で操作できるので、**入力の占有は、小さい** (ただし、画面のロック・RDP の切断・最小化では、UIA が動かない)。
+- テストフレームワークは **MSTest** (既存の流れ (`dotnet test` → trx → 要約) を、そのまま使う)。
+- **WinForms は、このツール群に対応がない。** 範囲に含めるかは、ユーザーの決定。
+
+**決定 (2026-10-20、ユーザー):** (1) **同じ PC で始める** (テスト中は、マウス・キーボードに触らない)。(2) **WinForms は、必要になったときに、別の PoC で確認する。** (3) **段階 1 に進む。**
+
+**段階 1 の実装 (v2.5.0):**
+- ウォッチャーに **`trigger_uitest.flag`** を追加。ビルドのあと、**UI テストのプロジェクト** (名前が `UITests` / `UiTests` で終わる、または FlaUI.* を参照) **だけ**を `dotnet test` で実行する。結果のファイルは `trigger_test.flag` と同じ (`test_result.txt` など。WSL 側の要約 (`summarize_test_log.py`) も、そのまま使える)。
+- **UI テストのプロジェクトは、通常のテスト (`trigger_test.flag`) から除く** (遅く、デスクトップを占有するため)。両方のフラグがあれば、UI テストを先に処理する。
+- 実行環境を、環境変数でテストに渡す: `UITEST_SOLUTION_DIR` / `UITEST_CONFIGURATION` / `UITEST_PLATFORM` / `UITEST_SCREENSHOT_DIR` (`.claude-logs\ui-screenshots`)。exe のパスの規則は、テスト側 (ひな形) が持つ。
+- **ハングと残ったアプリの後始末:** 実行の前後に、ソリューションのフォルダの下の exe のプロセスを終了する (残ると、次のビルドが、exe のロックで失敗する。実機で確認済みの現象)。ウォッチャーの制限時間 (`-UiTestTimeoutSec`、既定 600 秒/プロジェクト) で、`dotnet test` を、プロセスごと終了する (既存の仕組み)。
+- WSL 側: `skills/build-test-loop/scripts/uitest_once.sh` (`build_test_once.sh` の薄い包み。フラグ名と既定の制限時間 900 秒が違う。失敗時のスクリーンショットの一覧を、最後に出す)。
+- **スクリーンショットの撮影は、テスト側の責任** (FlaUI の `Capture`)。ひな形 (段階 2) に、失敗時に撮る仕組みを入れる。
+- 実機の確認: TEST-PLAN の 1-7 (UT1〜UT8)。
+
+**操作の占有についての整理 (2026-10-20、UT7 のあと):** PoC のテストは、`ValuePattern` / `InvokePattern` で操作し、**実際のマウス・キーボードは使っていない**。干渉は、(a) テストが起動したアプリのウィンドウが前面に出て、フォーカスを奪うこと、(b) 画面のロック・RDP の切断・最小化で、UIA / スクリーンショットが動かなくなること。ユーザーの要望 (毎回「触らないでください」を求められるのは、開発の流れが止まる) を受けて、**案 B: 別のデスクトップで実行する** PoC を行う。
+- 実装: ウォッチャーの `-UiTestDesktop separate`。`CreateDesktop` で別のデスクトップを作り、`CreateProcess` の `lpDesktop` を指定して `dotnet test` を起動する (テストが起動するアプリも、同じデスクトップに出る)。出力は、ファイルにリダイレクトする。ジョブオブジェクトで、残ったアプリを、すべて終了する。
+- **不明 (実機の PoC で確認):** 別のデスクトップで、(1) UIA3 / UIA2 が、アプリの要素を取れるか。(2) FlaUI の `Capture` (画面のコピー) が、別のデスクトップで、黒い画像にならないか (ならば、`PrintWindow` 方式に変える)。(3) アプリ (WPF / MFC) の描画と起動が、別のデスクトップで、正常か。
+- 失敗した場合: 案 A (パターン操作のみ。フォーカスの奪取は残る。注意を弱める) に戻す。
+- **PoC の途中経過 (2026-10-20 実機):** 別のデスクトップで、(1) **`dotnet test` の起動と実行は、動いた** (`CreateDesktop` + `CreateProcess` + ジョブオブジェクト)。(2) **UIA3 は、WPF / MFC とも、要素が取れ、`Value` / `Invoke` の操作が通った。** (3) **UIA2 は、ツリーは取れたが、`Invoke` が失敗** (`InvalidOperationException`)。UIA3 を既定にする。(0) **ユーザーの画面には、ウィンドウが出ず、入力も途切れなかった (ユーザーの報告) = 案 B の目的は達成。** (4) **`Capture` (画面のコピー) は、黒い画像になった** → `PrintWindow` に変更: **MFC は、内容が写った。WPF は、クライアント領域が白** (ハードウェアアクセラレーションの描画)。→ **UI テストの間だけ、ウォッチャーが、HKCU の `Avalon.Graphics\DisableHWAcceleration=1` を設定し (WPF は、プロセスの起動時に読む)、終わったら元に戻す。** アプリのコードは、変えない。**元の値は、変更する前に、ファイル (`%LOCALAPPDATA%\claude-watcher\wpf-hwaccel-backup.txt`) に記録し、終わったら復元して記録を消す。ウォッチャーが途中で異常終了して、記録が残っていたら、次の起動時に復元する** (ユーザーの提案)。(5) **UIA2 は、別のデスクトップで `Invoke` が失敗し、`LegacyIAccessible` も使えない → UIA3 を標準にする。**
+
+**段階 2 の実装 (v2.5.0):**
+- **流れ (ユーザーの決定、2026-10-21):** **UI テストファースト (UI テストを先に書く) は、しない。テスト先行 (Red) → ビルド → テスト (Green) の「あとに、追加で」、UI テストを実行する。** 専用の Skill (`ui-test-first`) は、作らない (作ってあったものを削除)。手順は `build-test-loop` の「UI テスト」(Green のあと、UI テストのプロジェクトがあれば、`uitest_once.sh`。失敗したらスクリーンショットを読む。書き方の規約)、`add-feature` の検証 (全体) にも追加。`scripts/add_ui_tests.py` (`new-solution/scripts/`) が、`<アプリ名>.UITests` を生成する。対象のアプリは、`.slnx` の `DefaultStartup`、なければ WPF の exe、なければ C++ の Application (`--app` で指定)。WPF は `UseWPF` と `OutputType` で、C++ は `ConfigurationType = Application` で、判定する。
+- **ひな形:** `UiTestBase` (テストごとに `Application.Launch` → `GetMainWindow`、`TestCleanup` で、失敗したときだけ、PrintWindow でスクリーンショット → `Close` / `Kill`)、`AppLocator` (環境変数 `UITEST_SOLUTION_DIR` / `UITEST_CONFIGURATION` / `UITEST_PLATFORM`。WPF は `bin\<構成>\<TFM>\<アプリ>.exe`、C++ は `<プラットフォーム>\<構成>\<アプリ>.exe`)、`Screenshots`。**標準の WPF の View (AutomationId あり) なら、入力 → 挨拶 → クリアのテスト**、そうでなければ、ウィンドウが開くだけのテスト。
+- **`new-solution --ui-tests flaui`:** 作成の後に、`add_ui_tests.py` を呼ぶ (後付けは、`--ui-tests flaui` だけ)。
+- **`wpf-check` UI002:** UI テストのプロジェクトがあるとき、操作するコントロールに AutomationId がない (warning)。
+- **既定:** ウォッチャーの UI テストは、既定で**別のデスクトップ** (`WATCH_UI_DESKTOP=default` で戻せる)。
+- **未実施 / 実機の確認が必要:** (a) 生成した UI テストのプロジェクトが、実際にビルドでき、`uitest_once.sh` で通ること (TEST-PLAN WS22〜)。(b) **MFC (C++) に .NET の UI テストを足した「混在」のソリューション**が、ビルド・実行できること (混在そのものが、U9 / U10 で、実機の確認が済んでいない)。(c) `mfc-check` に、`IDC_STATIC` のままの操作対象の検査 (段階 3 の残り)。
+
+**決定済み・実装済み:** (1) 実行環境: 同じ PC、別のデスクトップ (既定)。(2) WinForms: 必要になったときに、別の PoC で確認。(3) 段階 1 (ウォッチャー、`uitest_once.sh`、スクリーンショット) と、段階 2 (ひな形、`new-solution --ui-tests flaui`、`wpf-check` UI002、`build-test-loop` の「UI テスト」) は、WPF で、実機で確認済み (TEST-PLAN UT1〜UT16)。
+**残り:** (a) **MFC (C++) への UI テスト (混在のソリューション)** の実機の確認 (UT18)。混在そのものが、実機で未確認 (U9 / U10)。(b) `mfc-check` に、`IDC_STATIC` のままの操作対象の検査 (段階 3 の残り)。(c) **流れ (Green のあとに、UI テストを追加で実行) の確認** (UT19)。(d) WinForms。
+
 ## 5. ファイル形式
 
 | ファイル | 文字コード | 改行 | 理由 |
@@ -388,11 +623,11 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 
 ## 6. 既知の制限と、検証範囲
 
-**検証済み** (実機): VS 2026 Enterprise、x64 / Debug、GoogleTest、`.sln`。
+**検証済み** (実機): VS 2026 Enterprise、x64 / Debug、GoogleTest、`.sln` (C++ のみ。4.24 の統合の前の版)。
 どの項目を実機で確認し、どれが未確認かは、`docs/TEST-PLAN.md` の「状況」列を参照。
 
-**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。実機の MSBuild / リンカ / GoogleTest のログでの、ビルドエラーとテスト失敗の要約 (4.22。サンプルのログのみ)。
-**未対応:** MSTest、複数プロジェクトの同時監視 (別ウィンドウで、別のウォッチャーを起動する)。
+**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。**4.24 の変更 (統合、.NET のビルドとテスト、`-Platform auto`) は、Windows 側で、すべて未確認。**実機の MSBuild / リンカ / GoogleTest のログでの、ビルドエラーとテスト失敗の要約 (4.22。サンプルのログのみ)。
+**未対応:** C++ の `CppUnitTestFramework`、.NET の xUnit / NUnit の検証 (動く見込みだが、未検証)、VS のない環境での `dotnet build` へのフォールバック、複数プロジェクトの同時監視 (別ウィンドウで、別のウォッチャーを起動する)。
 **未対策:** Claude 側の再実行が重なったときの、古い結果の誤読 (4.4)。
 
 ## 7. 取り下げた案 (再び提案しないために)
