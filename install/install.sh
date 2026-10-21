@@ -2,14 +2,20 @@
 # install.sh - このリポジトリの成果物を、配布先へコピーする (バイトを変えない)。
 #
 #   skills/*      -> ~/.claude/skills/            (WSL の Claude Code が読むユーザー Skill)
-#   host-tools/*  -> /mnt/c/tools/cpp-watcher/    (Windows 側で動かす 3 ファイル + README)
+#   host-tools/*  -> /mnt/c/tools/cpp-watcher/    (Windows 側で動かす 3 ファイル + README。C++ と .NET の両方に使う)
+#   rules/*.md    -> ~/.claude/rules/              (ユーザー共通のコーディング規約。C# / XAML を扱うときに、自動で読み込まれる)
+#   templates/*   -> ~/.claude/templates/          (.editorconfig などのひな形)
 #
-# Usage: install/install.sh [--skills-dir DIR] [--host-dir DIR] [--skills-only | --host-only] [--dry-run]
+# Usage: install/install.sh [--skills-dir DIR] [--host-dir DIR] [--rules-dir DIR] [--templates-dir DIR]
+#                           [--skills-only | --host-only | --rules-only] [--dry-run]
 #
 #   --skills-dir DIR  Skill のコピー先 (既定: $HOME/.claude/skills)
 #   --host-dir DIR    ホスト側ツールのコピー先 (既定: /mnt/c/tools/cpp-watcher)
+#   --rules-dir DIR   規約のコピー先 (既定: $HOME/.claude/rules)
+#   --templates-dir DIR  ひな形のコピー先 (既定: $HOME/.claude/templates)
 #   --skills-only     Skill だけをコピーする
 #   --host-only       ホスト側ツールだけをコピーする
+#   --rules-only      規約とひな形だけをコピーする (既存のファイルは、上書きせず、番号付きのバックアップ (~) を残す)
 #   --dry-run         何もコピーせず、行う内容だけを表示する
 #
 # 注意:
@@ -22,18 +28,24 @@ set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$HOME/.claude/skills"
 HOST_DIR="/mnt/c/tools/cpp-watcher"
+RULES_DIR="$HOME/.claude/rules"
+TEMPLATES_DIR="$HOME/.claude/templates"
 DO_SKILLS=1
 DO_HOST=1
+DO_RULES=1
 DRY=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --skills-dir) SKILLS_DIR="${2:?--skills-dir に DIR が必要}"; shift 2 ;;
         --host-dir)   HOST_DIR="${2:?--host-dir に DIR が必要}"; shift 2 ;;
-        --skills-only) DO_HOST=0; shift ;;
-        --host-only)   DO_SKILLS=0; shift ;;
+        --rules-dir)  RULES_DIR="${2:?--rules-dir に DIR が必要}"; shift 2 ;;
+        --templates-dir) TEMPLATES_DIR="${2:?--templates-dir に DIR が必要}"; shift 2 ;;
+        --skills-only) DO_HOST=0; DO_RULES=0; shift ;;
+        --host-only)   DO_SKILLS=0; DO_RULES=0; shift ;;
+        --rules-only)  DO_SKILLS=0; DO_HOST=0; shift ;;
         --dry-run)     DRY=1; shift ;;
-        -h|--help)     sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)     sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "不明なオプション: $1 (--help を参照)"; exit 2 ;;
     esac
 done
@@ -69,6 +81,45 @@ if [ "$DO_SKILLS" -eq 1 ]; then
     echo "== Skill -> $SKILLS_DIR"
     for d in "$REPO"/skills/*/; do
         copy_tree "${d%/}" "$SKILLS_DIR/$(basename "$d")"
+    done
+fi
+
+# 規約とひな形は、ユーザーが手で直していることがある。上書きせず、番号付きのバックアップ (~1~ など) を残す。
+# (先頭が "." のファイル (.editorconfig) も、コピーする)
+copy_file_backup() { # $1=コピー元ファイル $2=コピー先ファイル
+    if [ "$DRY" -eq 1 ]; then
+        echo "   [dry-run] $1 -> $2"
+        return 0
+    fi
+    mkdir -p "$(dirname "$2")" || { echo "NG  フォルダを作れない: $(dirname "$2")"; fail=1; return 1; }
+    if [ -f "$2" ] && cmp -s "$1" "$2"; then
+        echo "   same $2"
+        return 0
+    fi
+    cp --backup=numbered "$1" "$2" || { echo "NG  コピーできない: $2"; fail=1; return 1; }
+    cmp -s "$1" "$2" || { echo "NG  内容が一致しない: $2"; fail=1; return 1; }
+    echo "   OK  $2"
+}
+
+if [ "$DO_RULES" -eq 1 ]; then
+    echo "== 規約 -> $RULES_DIR"
+    for f in "$REPO"/rules/*.md; do
+        [ -f "$f" ] && copy_file_backup "$f" "$RULES_DIR/$(basename "$f")"
+    done
+    echo "== ひな形 -> $TEMPLATES_DIR"
+    while IFS= read -r -d '' f; do
+        copy_file_backup "$REPO/templates/$f" "$TEMPLATES_DIR/$f"
+    done < <(cd "$REPO/templates" && find . -type f -print0 | sed -z 's|^\./||')
+fi
+
+# 旧名の Skill (v2.0.0 で、技術名を外した): 配布先に残っていると、新しい Skill と description が重なり、取り違えの原因になる。
+# 自動では、消さない (配布先は、ユーザーのフォルダ)。
+if [ "$DO_SKILLS" -eq 1 ] && [ "$DRY" -eq 0 ]; then
+    for old in cpp-auto-build cpp-build-test-loop; do
+        if [ -d "$SKILLS_DIR/$old" ]; then
+            echo "!!  旧名の Skill が残っています: $SKILLS_DIR/$old"
+            echo "    (新: $(case $old in cpp-auto-build) echo auto-build;; *) echo build-test-loop;; esac))。重複を避けるため、手で削除してください: rm -r \"$SKILLS_DIR/$old\""
+        fi
     done
 fi
 
