@@ -26,7 +26,7 @@ import sys
 from collections import OrderedDict
 
 DIAG = re.compile(
-    r"^(?P<loc>.*?)\s*:\s*(?:fatal\s+)?(?P<sev>error|warning)\s+(?P<code>[A-Za-z]{1,4}\d{2,5})\s*:\s*(?P<msg>.*?)"
+    r"^(?P<loc>.*?)\s*:\s*(?:fatal\s+)?(?P<sev>error|warning)\s+(?P<code>[A-Za-z]{1,8}\d{2,5})\s*:\s*(?P<msg>.*?)"
     r"(?:\s*\[(?P<proj>[^\]]+)\])?\s*$"
 )
 LINE_COL = re.compile(r"^(?P<file>.*?)\((?P<line>\d+)(?:,(?P<col>\d+))?\)$")

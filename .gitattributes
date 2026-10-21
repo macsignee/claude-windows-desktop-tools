@@ -14,3 +14,8 @@
 *.md    text eol=lf
 *.json  text eol=lf
 VERSION text eol=lf
+
+# ひな形・規約・テスト用の見本: LF のまま (バイト列を、そのまま配る)
+templates/** text eol=lf
+rules/** text eol=lf
+tests/fixtures/** text eol=lf

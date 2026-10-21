@@ -4,8 +4,9 @@
 # Windows 側のウォッチャーや VS がなくても、WSL/Linux だけで、結果の分岐 (1行目と終了コード) を確認できる。
 # Usage: tests/fake_watcher_test.sh        (各ケースの出力の後に rc=... が出る。期待値は、見出しの expect を参照)
 export LC_ALL=C
-SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/cpp-build-test-loop/scripts/build_test_once.sh"
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/build-test-loop/scripts/build_test_once.sh"
 T="${TMPDIR:-/tmp}/bt_$$"
+FX="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures"
 rm -rf "$T"; mkdir -p "$T"
 BOM=$'\xEF\xBB\xBF'
 CR=$'\r'
@@ -72,6 +73,18 @@ h_manyfail() {   # 失敗が多く詳細が60行を超えても、失敗一覧�
     } > "$T/test_error.log"
     printf FAILED > "$T/test_result.txt"
 }
+h_failed_structured() {   # GoogleTest の XML と trx (MSTest) の両方がある失敗: 共通の形式で要約されるか
+    printf SUCCESS > "$T/build_result.txt"
+    mkdir -p "$T/.claude-logs/test-results"
+    cp "$FX/LogicLayerTest.xml" "$FX/WpfApp.Tests.trx" "$T/.claude-logs/test-results/"
+    { printf '=== LogicLayerTest.exe ===\n[  FAILED  ] TestPointD.DistX (0 ms)\n=== WpfApp.Tests (dotnet test) ===\nFAILED x\n\nTests failed\n'; } > "$T/test_error.log"
+    printf FAILED > "$T/test_result.txt"
+}
+h_failed_stale_results() {   # 前回の結果 (XML) が残っていても、今回の実行の前に、消されているか
+    printf SUCCESS > "$T/build_result.txt"
+    { printf '=== X.exe: exit code 1 ===\nA.cpp(1): error: Expected equality\n[  FAILED  ] S.OnlyThis (0 ms)\n\nTests failed\n'; } > "$T/test_error.log"
+    printf FAILED > "$T/test_result.txt"
+}
 h_never()   { :; }            # フラグは回収するがマーカーを書かない
 h_stale()   { sleep 2; h_passed; }   # 古い結果が残っていても、消されるか
 
@@ -110,5 +123,37 @@ run_case "TIMEOUT: flag picked up, no marker (expect rc=5)" h_never 4
 echo "=== BAD_ARGS (expect rc=2)"
 bash "$SCRIPT" "$T/nonexistent" 5; echo "rc=$?"
 
+
+# ---------- 構造化された結果 (GoogleTest XML + trx) の経路 ----------
+asserts=0; assert_fail=0
+expect() { asserts=$((asserts+1)); if ! grep -qF -- "$2" <<<"$1"; then assert_fail=$((assert_fail+1)); echo "FAIL: $3 (missing: $2)"; fi; }
+
+echo "=== FAILED with gtest XML + trx (expect rc=1, one common summary for both frameworks)"
+fake_watcher h_failed_structured & W=$!
+out="$(bash "$SCRIPT" "$T" 20)"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+echo "$out"; echo "rc=$rc"
+expect "$out" "FAILED" "first line is FAILED"
+expect "$out" "6 failed tests in 4 suites" "summary covers both frameworks"
+expect "$out" "[ran 10: passed 2 / failed 6 / skipped 2]" "ran/passed/failed/skipped"
+expect "$out" "WpfApp.Tests.CalcTests.AddsTwoNumbers" "MSTest failure listed"
+expect "$out" "TestGeo.cpp(49)" "GoogleTest location shown (relative-path conversion is covered by summarize_test_log_test.sh)"
+[ "$rc" = 1 ] || { assert_fail=$((assert_fail+1)); echo "FAIL: rc=$rc (expected 1)"; }
+[ -f "$T/.claude-logs/test_summary.json" ] || { assert_fail=$((assert_fail+1)); echo "FAIL: test_summary.json not written"; }
+rm -rf "$T"/*.txt "$T"/*.log "$T"/*.flag "$T"/.claude-logs
+
+echo "=== stale test-results removed before the run (expect the text log to be used, not old XML)"
+mkdir -p "$T/.claude-logs/test-results"; cp "$FX/WpfApp.Tests.trx" "$T/.claude-logs/test-results/"
+fake_watcher h_failed_stale_results & W=$!
+out="$(bash "$SCRIPT" "$T" 20)"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+echo "$out"; echo "rc=$rc"
+expect "$out" "S.OnlyThis" "text log used"
+if grep -qF "WpfApp.Tests" <<<"$out"; then assert_fail=$((assert_fail+1)); echo "FAIL: stale trx leaked into the summary"; fi
+rm -rf "$T"/*.txt "$T"/*.log "$T"/*.flag "$T"/.claude-logs
+
+echo "structured-path asserts: $asserts checked, $assert_fail failed"
+
 rm -rf "$T"
 echo "ALL DONE"
+[ "$assert_fail" = 0 ]

@@ -1,24 +1,34 @@
 ---
-name: cpp-build-test-loop
-description: C++ (Visual Studio) のソリューションで、ビルドと GoogleTest の実行を Windows ホスト側のウォッチャー経由で行い、ビルドエラーやテスト失敗を自動修正して、全テストが通るまで繰り返す手順。xxx と xxxTest (GoogleTest) があるソリューションで、「テストまで通して」「テストが通るまで直して」といった依頼で使う。ビルドだけでよい場合は cpp-auto-build を使う。
+name: build-test-loop
+description: C++ (GoogleTest) と .NET / WPF (MSTest) のソリューションで、ビルドとテストの実行を Windows ホスト側のウォッチャー経由で行い、ビルドエラーやテスト失敗を自動修正して、全テストが通るまで繰り返す手順。C++ のみ、.NET のみ、混在のどれでも同じ手順で使う (テストの種類は、ウォッチャーが判定し、結果は共通の形式で返る)。xxx と xxxTest があるソリューションで、「テストまで通して」「テストが通るまで直して」といった依頼で使う。ビルドだけでよい場合は auto-build を使う。
 ---
 
-# C++ ビルド + GoogleTest 自動修正ループ
+# ビルド + テスト 自動修正ループ (C++ GoogleTest / .NET MSTest)
 
 サンドボックスから msbuild やテスト exe を直接実行できないため、ホスト側の `run_watcher.cmd`
-(watch_and_build.ps1) が `trigger_test.flag` を監視し、ビルド → xxxTest.exe の実行まで行う。
+(watch_and_build.ps1) が `trigger_test.flag` を監視し、ビルド → テストの実行まで行う。
 Claude はフラグを置いて結果を読むだけ。
+
+| 種類 | テストの形 | ウォッチャーの実行 |
+|---|---|---|
+| C++ | `xxxTest.exe` (GoogleTest) | exe を実行 (`--gtest_output=xml` で、機械可読な結果も残す) |
+| .NET / WPF | `xxx.Tests` などの MSTest プロジェクト | `dotnet test --no-build` (trx を残す) |
+
+混在のソリューション (C++ の DLL + WPF のアプリなど) では、両方が実行され、**失敗の要約は、同じ形で 1 つにまとまる。** どちらのテストが落ちたかは、テスト名とファイルで分かる。
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
 - ソリューションフォルダ (.sln または .slnx があるフォルダ) を `$SLN` とする。Claude はこのフォルダをルートとして動く。
 - xxxTest は同じソリューションにあり、xxx をプロジェクト参照している。ソリューションをビルドすれば
   xxx → xxxTest の順は MSBuild が自動で解決する (順序を自分で指定しない)。
+- .NET のテストは、`Microsoft.NET.Test.Sdk` + MSTest (v3 以降。VSTest モード) のプロジェクト。`dotnet test` で、trx が出ること。
 - ログ中のパスは `$SLN` からの相対パス (例: `MyAppTest/TestFoo.cpp(49)`)。そのまま開ける。
 
 ## 実行 (1回分)
 
 必ず同梱スクリプトを使う。自分で flag を作ったり待機ループを書いたりしない。
+**スクリプトは、この Skill のフォルダ (`~/.claude/skills/build-test-loop/scripts/`) のものだけを使う。** 同じ名前の古いコピー (ホーム直下の `cpp-build-test-loop/` など) を、探して使わない。古い版は、エラーの要約や `.claude-logs/*_summary.json` を出さず、`.claude-logs/test-results/` も扱えない。
+失敗の要約 (`[ran N: passed X / failed Y / skipped Z]` の行と、`.claude-logs/test_summary.json`) が出ないときは、まず、古い版を実行していないか (スクリプトのパス) を確認する。
 
 ```bash
 bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
@@ -46,7 +56,7 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 | `BUILD_FAILED` | 6 | ビルドエラー | 2行目以降のエラー要約を読んで修正し、再実行 (読み方は下記) |
 | `FAILED` | 1 | テスト失敗 | テスト失敗の要約 (読み方は下記) を読み、下記の方針で修正し、再実行 |
 | `TEST_TIMEOUT` | 7 | テストが制限時間内に終わらない | 下記「`TEST_TIMEOUT` の扱い」に従う。テストの待ち時間を延ばして誤魔化さない |
-| `ENV_ERROR` | 4 | 環境エラー (VS/テスト exe が見つからない等) | **ソースもテストも直さず**、内容を報告して停止 |
+| `ENV_ERROR` | 4 | 環境エラー (VS / .NET SDK / テストが見つからない、1 件も実行されない等) | **ソースもテストも直さず**、内容を報告して停止 |
 | `WATCHER_NOT_RUNNING` | 3 | フラグが回収されない | 停止し、`run_watcher.cmd` の起動をユーザーに依頼 |
 | `TIMEOUT` | 5 | 完了マーカーが出ない | 停止して報告 (長いビルドなら timeout を延ばして1回だけ再試行可) |
 
@@ -65,20 +75,70 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 - 同じ内容は `.claude-logs/build_summary.json` にもある。ログの再読ではなく、必要なら、これを読む。
 - 要約が出ない (生ログのまま) 場合は、`python3` がないか、エラー行を解釈できなかった。生ログのとおりに読む。
 
-## テスト失敗の要約の読み方
-`FAILED` の2行目以降は、`test_error.log` を集約した要約。
+## UI テスト (FlaUI): Green の「あとに」、追加で実行する
+
+**流れ:** テスト先行 (Red) → ビルド → テスト (Green、`build_test_once.sh`) が `PASSED` になった**あとに、追加で**、UI テストを実行する。
+**UI テストファースト (UI テストを先に書いて、Red にする) は、しない。** UI テストは、画面と、ViewModel・ロジックが、つながっているか、主要な操作の流れが通るか、の**最後の確認**で、`PASSED` のあとの、追加の段階。
+
+### いつ実行するか
+- **`build_test_once.sh` が `PASSED` になったら、UI テストのプロジェクトがあるかを、確かめる** (`ls "$SLN"` で、名前が `UITests` / `UiTests` で終わる、または FlaUI を参照するプロジェクト。`CLAUDE.md` に「UI テスト (FlaUI)」の節があれば、ある)。**あれば、続けて、実行する。なければ、何もしない。**
+- UI テストは、**通常のテスト (`build_test_once.sh`) には、含まれない** (遅く、アプリを起動するため)。
+- 実行するのは、**ソースを変えた (または、ユーザーが頼んだ) とき**。修正の途中の、毎回は、実行しない (Green になってから、1 回)。
+
+```bash
+bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 ```
-3 failed tests in 2 suites: TestPointD 2, TestLineD 1
+使い方、出力の形、`FAILED` / `ENV_ERROR` / `TEST_TIMEOUT` の読み方は、`build_test_once.sh` と同じ。`run_in_background: true` で実行し、完了通知を待つ。
+
+- **別のデスクトップで実行される** (ウォッチャーの既定。`WATCH_UI_DESKTOP=default` で、ユーザーのデスクトップ)。ウィンドウは、ユーザーの画面に出ず、操作は UIA のパターンなので、**ユーザーに「触らないで」と頼む必要は、ない**。ユーザーのデスクトップで実行する設定のときだけ、フォーカスが奪われることがある、と伝える。
+- ウォッチャーが古い (UI テスト未対応) と、`WATCHER_NOT_RUNNING`。`~/src/copy-host-tools.sh` で再配置して、ウォッチャーを起動し直す。
+
+### 失敗したら
+1. 最後に出る **スクリーンショット (`.claude-logs/ui-screenshots/*.png`) を、Read ツールで画像として開き、画面に何が写っているかを確かめる** (入力欄の値、表示、ダイアログ、アプリが落ちていないか)。例外のメッセージだけでは、分からないことがある。
+2. 原因を、次から切り分ける。
+
+| 失敗の様子 | 疑うこと |
+|---|---|
+| `AutomationId 'xxx' の要素が、見つからない` | AutomationId の付け忘れ・綴り (WPF: `AutomationProperties.AutomationId`。MFC: コントロールの ID の数値。`IDC_STATIC` は ID で探せない)。`wpf-check` の UI002 |
+| 表示が、変わらない | バインディングの誤り (`wpf-check`)、待ちが足りない (`WaitFor`) |
+| メインウィンドウが、15 秒以内に出ない | exe が古い (先にビルド)、起動時の例外 (スクリーンショットに、ダイアログが写る) |
+| `exe が、見つからない` | ビルドの出力の場所が、標準と違う (`AppLocator.cs` を調整) |
+| 画像が、真っ黒 / 白い | 別のデスクトップの描画の問題。ウォッチャーが古い可能性 |
+
+3. **アプリの不具合なら、アプリを直して**、`build_test_once.sh` (Green) からやり直す。**テストの書き方の誤りなら、テストを直す。** どちらか迷うときは、スクリーンショットで、画面の実際の状態を見て、判断する。
+4. **UI テストを通すために、アサーションを弱めたり、テストを消したりしない。**
+5. UI テストの修正の繰り返しは、**3 回まで** (「ループのルール」とは、別に数える)。それでも通らなければ、スクリーンショットと原因の仮説を、報告して止まる。
+
+### UI テストを書く・足すとき
+- **UI テストのプロジェクトがなければ、ユーザーに、足してよいかを確認する** (`.slnx` / `.sln` が変わる)。足し方: `python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN" --dry-run` (何を作るかを見せる) → 了承 → `--dry-run` なしで実行。(新しいソリューションなら `/new-solution --ui-tests flaui`。)
+- **何を書くか:** 仕様の**主要な操作の流れ** (起動して開く、入力して表示が変わる、ボタンで状態が変わる、ダイアログが開く・閉じる)。**画面あたり数件**。見た目 (レイアウト・色)、細かい計算 (単体テストで確かめる)、独自描画のコントロールは、対象にしない。
+- **要素は AutomationId で探す** (`Find("NameTextBox")`)。**操作は UIA のパターン** (`Find("Id").AsTextBox().Text = "..."` (Value)、`.AsButton().Invoke()` (Invoke))。**マウス・キーボードの入力 (`Click()`、`Keyboard.Type`) は使わない** (別のデスクトップで動かず、ユーザーの作業と干渉する)。**待ちは `WaitFor(() => 条件)`** (固定の `Thread.Sleep` を使わない)。UIA3 を使う (UIA2 は、別のデスクトップで `Invoke` が失敗する)。
+- 操作したいコントロールに AutomationId がなければ、**XAML に付ける** (ユーザーの了承を得てから)。名前は、役割が分かるもの。同じ画面の操作が増えたら、Page Object にまとめる。
+- 名前: `対象_条件_期待`。既存のファイルの文字コード・改行に合わせる (新規は UTF-8 BOM 付き、CRLF)。
+
+### 注意
+- 実行の前後に、ウォッチャーが、テストが残したアプリのプロセスを終了する (別のデスクトップのときは、ジョブオブジェクトで、すべて終了する)。
+- 別のデスクトップでは、**WPF の描画を、UI テストの間だけ、ソフトウェアレンダリングにする** (レジストリ `HKCU\Software\Microsoft\Avalon.Graphics\DisableHWAcceleration`。元の値を記録して、終了後に復元する)。
+- MFC のダイアログ・ウィンドウは、標準のコントロール (ボタン、エディット、リスト、コンボ) は操作できる。オーナー描画・独自描画は取れない。C++ のソリューションに UI テスト (.NET) を足すと、C++ と .NET の混在になる (`docs/DESIGN.md` 4.24)。WinForms は、まだ対象にしていない。
+
+## テスト失敗の要約の読み方
+`FAILED` の2行目以降は、テストの結果を集約した要約 (GoogleTest も MSTest も、同じ形)。
+```
+6 failed tests in 4 suites: TestPointD 2, TestLineD 1, WpfApp.Tests.CalcTests 2, ...  [ran 10: passed 2 / failed 6 / skipped 2]
 [1] x2  Expected equality of these values: | 25.0 | Which is: 28
     tests: TestPointD.DistX, TestPointD.DistY
     at: App/TestGeo.cpp(49)  App/TestGeo.cpp(60)
+[2] x2  Assert.AreEqual failed. Expected:<3>. Actual:<4>.
+    tests: WpfApp.Tests.CalcTests.AddsTwoNumbers, WpfApp.Tests.CalcTests.SubtractsTwoNumbers
+    at: WpfApp.Tests/CalcTests.cs(21)  WpfApp.Tests/CalcTests.cs(30)
 ```
-- 見出し: 失敗数と、スイートごとの件数。
+- 見出し: 失敗数と、スイート (C++ はスイート名、.NET は、クラスの完全名) ごとの件数。`[ran N: ...]` は、実行・成功・失敗・スキップの件数。
 - `[n]` は**同じメッセージの失敗をまとめたもの** (`xN` は件数)。`tests:` はテスト名 (最大5)、`at:` は失敗の場所 (最大3)。`(+N more)` は省略分。
 - **同じ組の失敗は、同じ原因であることが多い。** 組の数だけ原因を探し、1つ直したら再実行して、残りを確認する。
 - `Expected` / `Which is` の値は、`|` で区切って1行に並べてある。期待値と実際の値の対応は、`test_error.log` のとおり (必要なときだけ読む)。
 - `other:` は解釈できなかった行 (クラッシュの報告など。そのまま)。
-- 全テスト名と、テストごとの場所・メッセージは、`.claude-logs/test_summary.json` にある。
+- 全テスト名と、テストごとの場所・メッセージは、`.claude-logs/test_summary.json` にある (共通の形式。`sources` に、テスト exe / プロジェクトごとの件数と、`framework` (`gtest` / `mstest`))。
+- 元の機械可読な結果 (GoogleTest の XML、MSTest の trx) は、`.claude-logs/test-results/` にある。通常は読まない。
 - 要約が出ない (従来の「Failed tests」の一覧と詳細) 場合は、`python3` がないか、失敗したテスト名を解釈できなかった (クラッシュなど)。そのまま読む。
 
 ## テスト失敗 (`FAILED`) の扱い
@@ -90,6 +150,8 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 5. **次のことは、ユーザーの明示的な許可なしにしない。**
    テストの削除、`DISABLED_` 化、`GTEST_SKIP()`、アサーションを弱める (`EXPECT_EQ` → `EXPECT_NE` など)、
    許容誤差を広げる、テスト側の期待値を実装の出力に合わせる。
+   **MSTest では、次も同じ扱い:** `[Ignore]` の付与、`Assert.Inconclusive()` による飛ばし、`[TestCategory]` や `.runsettings` で実行から外す、
+   `Assert.AreEqual` → `Assert.AreNotEqual` / `Assert.IsNotNull` への弱め、`[ExpectedException]` や `Assert.ThrowsException` の削除、タイムアウト (`[Timeout]`) の延長。
 6. 複数のテストが失敗している場合は、共通の原因 (同じ関数の不具合) を先に探す。1つ直すと複数が通ることが多い。
 
 ## `TEST_TIMEOUT` の扱い
@@ -130,7 +192,7 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
    ```
    - `-c core.fileMode=false` を付けるのは、WSL の git が、`/mnt/c` のファイルを実行権限つきと見て、ほぼ全ファイルを「変更あり」と表示してしまうため。
    - git のリポジトリでない場合や、コマンドが失敗した場合は、自分が編集したファイルの一覧で代える。
-2. **テストファイル (`Test*.cpp`、`Test*.h`、`*Test/` 配下) の変更があれば、報告の先頭で明示する** (ファイル名と、変更した理由)。
+2. **テストファイル (`Test*.cpp`、`Test*.h`、`*Test/` 配下、.NET の `*Tests/` 配下と `*Tests.cs`) の変更があれば、報告の先頭で明示する** (ファイル名と、変更した理由)。
    ない場合は、「テストファイルの変更なし」と書く。
 3. 「コミット前に、`git diff` で変更を確認してください」と、一言添える。
 4. **`git commit` と `git push` は、ユーザーの明示的な指示がない限り、実行しない。**
@@ -156,8 +218,9 @@ warnings: 12 (5 unique): C4244 x5, C4996 x3, C4101 x2, ... (+2 more)
 - 失敗で停止: 最後のエラー、試した修正、停止理由。テストを変更したい場合は、その理由と案。変更したファイルも、同様に報告する。
 
 ## ホスト側の構成 (参考)
-- `trigger_test.flag`: Claude が作る。ウォッチャーが検知して削除し、ビルド → テスト exe 実行を行う。
+- `trigger_test.flag`: Claude が作る。ウォッチャーが検知して削除し、ビルド → テスト (GoogleTest の exe と、`dotnet test`) を行う。
 - `build_result.txt`: ビルド終了時に `SUCCESS` / `FAILED`。`build_error.log`: ビルド失敗時のみ。
 - `test_result.txt`: 完了マーカー (最後に書かれる)。`PASSED` / `FAILED` / `TIMEOUT` / `BUILD_FAILED` / `ENV_ERROR`。
 - `test_error.log`: テスト失敗・タイムアウト・環境エラー時のみ。環境エラーは先頭が `[ENVIRONMENT ERROR - not a source code problem]`。
-- `.claude-logs/`: `build.log` / `errors.log` / `warnings.log` / `test.log` (フルパスのまま)。
+- `.claude-logs/`: `build.log` / `errors.log` / `warnings.log` / `test.log` (フルパスのまま)、`test-results/` (GoogleTest の XML と MSTest の trx)。
+- `ENV_ERROR` には、「テストが 1 件も実行されなかった」(.NET: trx がない / `executed=0`、GoogleTest: 要約行がない) も含まれる。**ソースもテストも直さずに、報告して止まる** (`Microsoft.NET.Test.Sdk` や、テストアダプタ (MSTest) の参照の確認を、ユーザーに依頼する)。

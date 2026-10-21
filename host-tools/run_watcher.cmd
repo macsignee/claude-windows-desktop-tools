@@ -10,7 +10,8 @@ rem   （プロジェクトフォルダをこのファイルにドラッグ＆ドロップしても起動できる）
 rem
 rem   ProjectDir     : 省略時は、このファイルがあるフォルダ（通常は、プロジェクトのフォルダを指定する）
 rem   Solution       : 省略時は、ProjectDir 内の .slnx、なければ .sln を自動検出する
-rem   Platform       : 省略時は x64   (x64 / Win32 / x86 / ARM64)
+rem   Platform       : 省略時は auto  (auto / x64 / Win32 / x86 / ARM64 / AnyCPU)
+rem                    auto は、C++ のプロジェクトがあれば x64、.NET だけなら AnyCPU
 rem   Configuration  : 省略時は Debug
 rem
 rem 前提:
@@ -70,10 +71,10 @@ if not defined SLN_FILE (
 )
 
 rem --- ビルド構成。省略時は、Platform=x64、Configuration=Debug ---
-set "PLATFORM=%~3"
-if "%PLATFORM%"=="" set "PLATFORM=x64"
-set "CONFIG=%~4"
-if "%CONFIG%"=="" set "CONFIG=Debug"
+set "WATCH_PLATFORM=%~3"
+if "%WATCH_PLATFORM%"=="" set "WATCH_PLATFORM=auto"
+set "WATCH_CONFIG=%~4"
+if "%WATCH_CONFIG%"=="" set "WATCH_CONFIG=Debug"
 
 rem --- ウォッチャー本体 (ps1) は、このファイルと同じフォルダにあるものを使う ---
 set "WATCH_PS=%~dp0watch_and_build.ps1"
@@ -86,13 +87,13 @@ rem --- 起動する内容を表示する ---
 echo ========================================================
 echo  Project : %PROJECT_DIR%
 echo  Solution: %SLN_FILE%
-echo  Build   : %CONFIG% / %PLATFORM%
+echo  Build   : %WATCH_CONFIG% / %WATCH_PLATFORM%
 echo ========================================================
 
 rem --- ウォッチャーを起動する。終了するまで（ウィンドウを閉じるか Ctrl+C まで）ここで待つ ---
 rem -ExecutionPolicy Bypass: ExecutionPolicy の設定に関係なく、この ps1 を実行する。
 rem テスト実行の制限時間など、ここにない細かいオプションを使うときは、ps1 を直接起動する。
-powershell -ExecutionPolicy Bypass -NoProfile -File "%WATCH_PS%" -TargetDir "%PROJECT_DIR%" -SolutionPath "%SLN_FILE%" -Platform "%PLATFORM%" -Configuration "%CONFIG%"
+powershell -ExecutionPolicy Bypass -NoProfile -File "%WATCH_PS%" -TargetDir "%PROJECT_DIR%" -SolutionPath "%SLN_FILE%" -Platform "%WATCH_PLATFORM%" -Configuration "%WATCH_CONFIG%"
 echo.
 echo Watcher exited with code %ERRORLEVEL%.
 rem 終了メッセージを読めるよう、キー入力まで待つ。

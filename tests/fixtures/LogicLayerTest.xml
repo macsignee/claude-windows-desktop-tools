@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="5" failures="3" disabled="0" errors="0" time="0.012" timestamp="2026-10-18T10:00:00" name="AllTests">
+  <testsuite name="TestPointD" tests="3" failures="2" disabled="0" skipped="0" errors="0" time="0.004" timestamp="2026-10-18T10:00:00">
+    <testcase name="DistX" file="C:\w\LogicLayerTest\TestGeo.cpp" line="40" status="run" result="completed" time="0" timestamp="2026-10-18T10:00:00" classname="TestPointD">
+      <failure message="C:\w\LogicLayerTest\TestGeo.cpp:49&#x0A;Expected equality of these values:&#x0A;  25.0&#x0A;  Which is: 28" type=""><![CDATA[C:\w\LogicLayerTest\TestGeo.cpp:49
+Expected equality of these values:
+  25.0
+  Which is: 28]]></failure>
+    </testcase>
+    <testcase name="DistY" file="C:\w\LogicLayerTest\TestGeo.cpp" line="55" status="run" result="completed" time="0.001" timestamp="2026-10-18T10:00:00" classname="TestPointD">
+      <failure message="C:\w\LogicLayerTest\TestGeo.cpp:60&#x0A;Expected equality of these values:&#x0A;  25.0&#x0A;  Which is: 28" type=""><![CDATA[C:\w\LogicLayerTest\TestGeo.cpp:60
+Expected equality of these values:
+  25.0
+  Which is: 28]]></failure>
+    </testcase>
+    <testcase name="Origin" file="C:\w\LogicLayerTest\TestGeo.cpp" line="70" status="run" result="completed" time="0" timestamp="2026-10-18T10:00:00" classname="TestPointD" />
+  </testsuite>
+  <testsuite name="TestLineD" tests="2" failures="1" disabled="0" skipped="1" errors="0" time="0.002" timestamp="2026-10-18T10:00:00">
+    <testcase name="Foo/0" value_param="1" file="C:\w\LogicLayerTest\TestLine.cpp" line="8" status="run" result="completed" time="0" timestamp="2026-10-18T10:00:00" classname="Inst/TestLineD">
+      <failure message="C:\w\LogicLayerTest\TestLine.cpp:10&#x0A;Value of: ok&#x0A;  Actual: false&#x0A;Expected: true" type=""><![CDATA[C:\w\LogicLayerTest\TestLine.cpp:10
+Value of: ok
+  Actual: false
+Expected: true]]></failure>
+    </testcase>
+    <testcase name="Later" file="C:\w\LogicLayerTest\TestLine.cpp" line="20" status="run" result="skipped" time="0" timestamp="2026-10-18T10:00:00" classname="TestLineD">
+      <skipped message="C:\w\LogicLayerTest\TestLine.cpp:21&#x0A;Skipped" type=""><![CDATA[C:\w\LogicLayerTest\TestLine.cpp:21
+Skipped]]></skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

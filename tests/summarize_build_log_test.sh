@@ -3,7 +3,7 @@
 # Usage: tests/summarize_build_log_test.sh      (最後に PASS/FAIL の件数。失敗があれば rc=1)
 export LC_ALL=C
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-S="$ROOT/skills/cpp-auto-build/scripts/summarize_build_log.py"
+S="$ROOT/skills/auto-build/scripts/summarize_build_log.py"
 T="${TMPDIR:-/tmp}/sbl_$$"
 rm -rf "$T"; mkdir -p "$T"
 trap 'rm -rf "$T"' EXIT
@@ -66,8 +66,26 @@ printf 'Foo.cpp(1): error C2065: x\n' > "$T/nowarn.log"
 out="$(python3 -I "$S" "$T/nowarn.log" --severity warning)"; rc=$?
 ok "warnings: none -> rc=3, no output" $([ $rc = 3 ] && [ -z "$out" ] && echo 1 || echo 0)
 
+# .NET (C# / WPF) の診断: CS / MC / XDG / NETSDK / NU / MSTEST のコード (6 文字以上の接頭辞を含む)
+{
+    printf 'C:\\w\\WpfApp\\ViewModels\\MainViewModel.cs(21,17): error CS0103: The name '"'"'Count'"'"' does not exist in the current context [C:\\w\\WpfApp\\WpfApp.csproj]%s\n' "$CR"
+    printf 'C:\\w\\WpfApp\\ViewModels\\MainViewModel.cs(30,9): error CS0103: The name '"'"'Count'"'"' does not exist in the current context [C:\\w\\WpfApp\\WpfApp.csproj]%s\n' "$CR"
+    printf 'C:\\w\\WpfApp\\MainWindow.xaml(12,5): error MC3000: '"'"'x'"'"' is not valid XML. [C:\\w\\WpfApp\\WpfApp.csproj]%s\n' "$CR"
+    printf 'C:\\w\\WpfApp\\MainWindow.xaml(20,10): error XDG0008: The name "Foo" does not exist in the namespace "clr-namespace:WpfApp". [C:\\w\\WpfApp\\WpfApp.csproj]%s\n' "$CR"
+    printf 'C:\\Program Files\\dotnet\\sdk\\9.0.100\\Sdks\\Microsoft.NET.Sdk\\targets\\x.targets(144,5): error NETSDK1045: The current .NET SDK does not support targeting .NET 10.0. [C:\\w\\WpfApp\\WpfApp.csproj]%s\n' "$CR"
+    printf 'C:\\w\\WpfApp.Tests\\WpfApp.Tests.csproj : error NU1101: Unable to find package Foo. No packages exist with this id in source(s): nuget.org [C:\\w\\WpfApp.Tests\\WpfApp.Tests.csproj]%s\n' "$CR"
+    printf 'C:\\w\\WpfApp.Tests\\A.cs(5,1): error MSTEST0037: Use proper assert methods [C:\\w\\WpfApp.Tests\\WpfApp.Tests.csproj]%s\n' "$CR"
+} > "$T/net.log"
+out="$(python3 -I "$S" "$T/net.log" --json "$T/net.json")"; rc=$?
+ok ".NET: rc=0" $([ $rc = 0 ] && echo 1 || echo 0)
+ok ".NET: all 7 errors parsed (6 unique), none under other:" "$([ "$(has "$out" '7 errors (6 unique)')" = 1 ] && [ "$(grep -c 'other:' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+ok ".NET: same CS error grouped x2" "$(has "$out" "CS0103 The name 'Count' does not exist in the current context  x2")"
+ok ".NET: XAML codes (MC3000 / XDG0008) parsed" "$([ "$(has "$out" 'MC3000')" = 1 ] && [ "$(has "$out" 'XDG0008')" = 1 ] && echo 1 || echo 0)"
+ok ".NET: long prefixes (NETSDK1045 / MSTEST0037) parsed" "$([ "$(has "$out" 'NETSDK1045')" = 1 ] && [ "$(has "$out" 'MSTEST0037')" = 1 ] && echo 1 || echo 0)"
+ok ".NET: no 'link' count in the header (C# has no linker)" "$([ "$(grep -c 'link' <<<"$(head -1 <<<"$out")")" = 0 ] && echo 1 || echo 0)"
+
 # 2 つの Skill のコピーが同一であること
-ok "skill copies identical" $(cmp -s "$S" "$ROOT/skills/cpp-build-test-loop/scripts/summarize_build_log.py" && echo 1 || echo 0)
+ok "skill copies identical" $(cmp -s "$S" "$ROOT/skills/build-test-loop/scripts/summarize_build_log.py" && echo 1 || echo 0)
 
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

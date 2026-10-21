@@ -7,6 +7,17 @@ build_error.log
 test_result.txt
 test_error.log
 
+trigger_gtest.flag
+trigger_package.flag
+package_result.txt
+package_error.log
+package_output.txt
+gtest_result.txt
+gtest_error.log
+
+# Python のキャッシュ (テストの実行で生成される)
+__pycache__/
+
 # 個人設定
 .claude/settings.local.json
 .claude/.cc-writes/
