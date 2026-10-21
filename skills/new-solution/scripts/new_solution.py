@@ -769,6 +769,7 @@ def add_ui_tests_flaui(folder, dry_run=False, new=False):
         print('UI テスト       : <アプリ名>.UITests (MSTest + FlaUI) を足す (ウォッチャーの trigger_uitest.flag で実行。通常のテストには、含まれない)')
         return
     import subprocess
+    sys.stdout.flush()   # 出力が、パイプのとき、親の出力が、子の出力より後に出ないように
     cmd = [sys.executable, '-I', script, folder] + (['--dry-run'] if dry_run else [])
     r = subprocess.run(cmd)
     if r.returncode != 0:

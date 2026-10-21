@@ -596,7 +596,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 
 **目で確かめるモード (2026-10-21、ユーザーの要望):** UI テストが、実際に動いているかを、確かめたい。操作できない時間は許容するので、ユーザーのデスクトップで実行したい。→ (1) `run_watcher_visible.cmd` (`WATCH_UI_DESKTOP=default` + `WATCH_UI_SLOWMO_MS=800`)。(2) ひな形 `UiTestBase` が、環境変数 `UITEST_SLOWMO_MS` で、要素を探すたびに待ち、ウィンドウを前面に出し、終了の前に最後の状態を見せる。(3) **操作の記録 (`ui-trace.txt`)** を、常に残し、`uitest_once.sh` が、テストごとの結果の行を出す (Claude も、動いたことを確認できる)。(4) ユーザーのデスクトップでは、PrintWindow が空白なら、画面のコピー (`Capture`) に切り替える。(5) 既存の UI テストのプロジェクトは、`add_ui_tests.py --refresh-support-files` で、ツールが持つファイルを最新にする。
 **決定済み・実装済み:** (1) 実行環境: 同じ PC、別のデスクトップ (既定)。(2) WinForms: 必要になったときに、別の PoC で確認。(3) 段階 1 (ウォッチャー、`uitest_once.sh`、スクリーンショット) と、段階 2 (ひな形、`new-solution --ui-tests flaui`、`wpf-check` UI002、`build-test-loop` の「UI テスト」) は、WPF で、実機で確認済み (TEST-PLAN UT1〜UT16)。
-**残り:** (a) **MFC (C++) への UI テスト (混在のソリューション)** の実機の確認 (UT18)。混在そのものが、実機で未確認 (U9 / U10)。(b) `mfc-check` に、`IDC_STATIC` のままの操作対象の検査 (段階 3 の残り)。(c) **流れ (Green のあとに、UI テストを追加で実行) の確認** (UT19)。(d) WinForms。
+**残り:** (a) ~~MFC (C++) への UI テスト (混在のソリューション)~~ → **UT18 で、実機で確認済み** (混在のビルド `SUCCESS`、UI テスト `PASSED`。MFC のコントロール ID が AutomationId)。混在での GoogleTest と MSTest の同時実行 (U9) は、未確認。(b) `mfc-check` に、`IDC_STATIC` のままの操作対象の検査 (段階 3 の残り)。(c) **流れ (Green のあとに、UI テストを追加で実行) の確認** (UT19)。(d) WinForms。
 
 ## 5. ファイル形式
 
