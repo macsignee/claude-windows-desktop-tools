@@ -90,8 +90,13 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 ```
 使い方、出力の形、`FAILED` / `ENV_ERROR` / `TEST_TIMEOUT` の読み方は、`build_test_once.sh` と同じ。`run_in_background: true` で実行し、完了通知を待つ。
 
-- **別のデスクトップで実行される** (ウォッチャーの既定。`WATCH_UI_DESKTOP=default` で、ユーザーのデスクトップ)。ウィンドウは、ユーザーの画面に出ず、操作は UIA のパターンなので、**ユーザーに「触らないで」と頼む必要は、ない**。ユーザーのデスクトップで実行する設定のときだけ、フォーカスが奪われることがある、と伝える。
+- **別のデスクトップで実行される** (ウォッチャーの既定。`WATCH_UI_DESKTOP=default` で、ユーザーのデスクトップ。下の「目で確かめる」)。ウィンドウは、ユーザーの画面に出ず、操作は UIA のパターンなので、**ユーザーに「触らないで」と頼む必要は、ない**。ユーザーのデスクトップで実行する設定のときだけ、フォーカスが奪われることがある、と伝える。
 - ウォッチャーが古い (UI テスト未対応) と、`WATCHER_NOT_RUNNING`。`~/src/copy-host-tools.sh` で再配置して、ウォッチャーを起動し直す。
+
+### 動いたことを、確かめる (トレースと、目で見るモード)
+- `uitest_once.sh` は、最後に、**操作の記録 (`.claude-logs/ui-screenshots/ui-trace.txt`)** から、テストごとの結果の行 (`=== テスト名: Passed` など) を出す。**UI テストが、実際に、起動して、操作したことの確認**に使う (`PASSED` と出ても、テストが 0 件でないこと、狙いのテストが動いたことを、行で確かめる)。記録は、`find: <AutomationId>` (探した要素)、`launched: <exe>`、`=== <テスト名>: start (desktop: ..., slowmo: ... ms)` などで、全文は、Read で読める。
+- **ユーザーが「目で確かめたい」と言うとき:** ユーザーのデスクトップで、操作の間に待ちを入れて、実行する。**ユーザーに、ウォッチャーを `run_watcher_visible.cmd` で、起動し直してもらう** (`WATCH_UI_DESKTOP=default`、`WATCH_UI_SLOWMO_MS=800` が、設定される。待ちは、`set WATCH_UI_SLOWMO_MS=1500` で変えられる)。ウィンドウが、画面に出て、入力や、ボタンが、順番に動くのが見える。**実行中、ユーザーは、PC を、快適には使えない** (マウスやキーボードの入力が、フォーカスを持つテスト対象のアプリに入ることがある)。確かめ終わったら、通常の `run_watcher.cmd` (別のデスクトップ) に戻す。
+- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN" --refresh-support-files` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
 
 ### 失敗したら
 1. 最後に出る **スクリーンショット (`.claude-logs/ui-screenshots/*.png`) を、Read ツールで画像として開き、画面に何が写っているかを確かめる** (入力欄の値、表示、ダイアログ、アプリが落ちていないか)。例外のメッセージだけでは、分からないことがある。

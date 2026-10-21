@@ -10,6 +10,8 @@
 #   - 既定の制限時間は 900 秒 (アプリの起動と操作を含むため)。ウォッチャー側の制限は、-UiTestTimeoutSec (既定 600、プロジェクトごと)。
 #   - 実行中は、ユーザーが、マウスとキーボードに触らない (画面のロック・RDP の切断・最小化も避ける)。
 #   - 失敗時のスクリーンショット (.claude-logs/ui-screenshots/*.png) があれば、最後に一覧を出す。Read ツールで、画像として読める。
+#   - 操作の記録 (ui-trace.txt) があれば、テストごとの結果の行を出す (UI テストが、実際に動いたことの確認)。
+#   - ユーザーのデスクトップで、目で確かめるには、ウォッチャーを run_watcher_visible.cmd で起動する (操作の間に待ちが入る)。
 set -u
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,5 +29,13 @@ if [ -d "$shots" ]; then
         echo "screenshots (Read ツールで、画像として開ける):"
         printf '%s\n' "$list" | sed "s#^$DIR/##"
     fi
+fi
+
+# 操作の記録 (トレース): 動いたことの確認。テストごとの結果の行 (=== テスト名: Passed / Failed) と、記録の場所を出す
+trace="$DIR/.claude-logs/ui-screenshots/ui-trace.txt"
+if [ -f "$trace" ]; then
+    n="$(wc -l < "$trace" | tr -d ' ')"
+    echo "ui-trace (${n} lines; 操作の記録。動いたことの確認に使う): ${trace#$DIR/}"
+    grep -a -E ' === .*: (Passed|Failed|Inconclusive|Timeout|Aborted|Error|NotExecuted|Unknown)' "$trace" | sed 's/^[0-9:.]* //' | head -n 20
 fi
 exit "$rc"

@@ -14,6 +14,7 @@ Usage:
   UiTestBase.cs               テストごとに、アプリを起動し、終了する。失敗したときは、ウィンドウのスクリーンショットを残す
   AppLocator.cs               アプリの exe を探す (UITEST_* の環境変数。WPF: bin\\<構成>\\<TFM>\\、C++: <プラットフォーム>\\<構成>\\)
   Screenshots.cs              PrintWindow によるウィンドウのスクリーンショット (別のデスクトップでも、撮れる)
+  UiNative.cs                 デスクトップ名、前面表示、操作の記録 (ui-trace.txt)
   MainWindowUiTests.cs        ひな形のテスト (WPF の標準の View なら、入力 → 挨拶 → クリア。それ以外は、ウィンドウが開くだけ)
 .slnx / .sln にも登録する。ウォッチャーの trigger_uitest.flag (uitest_once.sh) で実行する。通常のテスト (trigger_test.flag) には含まれない。
 """
@@ -77,6 +78,12 @@ namespace __NS__.UITests;
 /// (環境変数 UITEST_SCREENSHOT_DIR。ウォッチャーの trigger_uitest.flag が、渡す)。
 /// 操作は、UIA のパターン (Invoke / Value) を使う。マウスやキーボードの入力は、使わない
 /// (別のデスクトップでも動き、ユーザーの作業と干渉しない)。要素は、AutomationId で探す。
+///
+/// 動いたことを、確かめるために:
+///  - 操作の記録 (トレース) を、ui-trace.txt (スクリーンショットと同じフォルダ) に残す。
+///  - 環境変数 UITEST_SLOWMO_MS (ウォッチャーの -UiTestSlowMoMs) が 0 より大きいと、要素を探すたびに、その時間だけ待つ。
+///    ユーザーのデスクトップ (WATCH_UI_DESKTOP=default) で実行すると、操作の様子を、目で見られる。
+///    終了の前にも、その 2 倍の時間だけ、最後の状態を見せる。
 /// </summary>
 public abstract class UiTestBase
 {
@@ -89,25 +96,33 @@ public abstract class UiTestBase
     /// <summary>対象のアプリのプロジェクト名 (= exe の名前)。</summary>
     protected virtual string AppName => "__APP__";
 
+    private static int SlowMoMs =>
+        int.TryParse(Environment.GetEnvironmentVariable("UITEST_SLOWMO_MS"), out var ms) && ms > 0 ? ms : 0;
+
     [TestInitialize]
     public void StartApp()
     {
+        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms)");
         var exe = AppLocator.Find(AppName);
         App = Application.Launch(exe);
         Automation = new UIA3Automation();
         MainWindow = App.GetMainWindow(Automation, TimeSpan.FromSeconds(15))
             ?? throw new InvalidOperationException("メインウィンドウが、15 秒以内に出ない: " + exe);
+        UiTrace.Write($"launched: {exe} (title: {MainWindow.Title})");
+        if (SlowMoMs > 0) UiNative.BringToFront(MainWindow);   // ユーザーのデスクトップで、見えるように、前面に出す
     }
 
     [TestCleanup]
     public void StopApp()
     {
+        var outcome = TestContext.CurrentTestOutcome;
         try
         {
-            if (TestContext.CurrentTestOutcome != UnitTestOutcome.Passed)
+            if (outcome != UnitTestOutcome.Passed)
             {
                 Screenshots.Save(MainWindow, TestContext.TestName ?? "test");
             }
+            if (SlowMoMs > 0) Thread.Sleep(SlowMoMs * 2);   // 最後の状態を、見せる
         }
         catch (Exception)
         {
@@ -124,12 +139,17 @@ public abstract class UiTestBase
         }
         Automation.Dispose();
         App.Dispose();
+        UiTrace.Write($"=== {TestContext.TestName}: {outcome}");
     }
 
     /// <summary>AutomationId で、要素を探す。なければ、テストを失敗にする。(MFC のコントロールは、リソースのコントロール ID が、AutomationId)</summary>
-    protected AutomationElement Find(string automationId) =>
-        MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId))
-        ?? throw new AssertFailedException($"AutomationId '{automationId}' の要素が、見つからない");
+    protected AutomationElement Find(string automationId)
+    {
+        UiTrace.Write($"find: {automationId}");
+        if (SlowMoMs > 0) Thread.Sleep(SlowMoMs);
+        return MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId))
+            ?? throw new AssertFailedException($"AutomationId '{automationId}' の要素が、見つからない");
+    }
 
     protected bool WaitExit(int timeoutMs)
     {
@@ -155,6 +175,58 @@ public abstract class UiTestBase
     }
 }
 '''
+
+NATIVE_CS = '''using System.Runtime.InteropServices;
+using FlaUI.Core.AutomationElements;
+
+namespace __NS__.UITests;
+
+/// <summary>デスクトップ名の取得、ウィンドウの前面表示、操作の記録 (トレース)。</summary>
+internal static class UiNative
+{
+    [DllImport("user32.dll")] private static extern IntPtr GetThreadDesktop(int threadId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool GetUserObjectInformationW(IntPtr obj, int index, char[] info, int length, out int needed);
+    [DllImport("kernel32.dll")] private static extern int GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    /// <summary>このスレッドが属するデスクトップの名前。ユーザーのデスクトップは "Default"。ウォッチャーの別のデスクトップは "ClaudeUiTest..."。</summary>
+    public static string DesktopName()
+    {
+        var buf = new char[256];
+        return GetUserObjectInformationW(GetThreadDesktop(GetCurrentThreadId()), 2 /* UOI_NAME */, buf, buf.Length * 2, out _)
+            ? new string(buf).TrimEnd('\0') : "(取得できない)";
+    }
+
+    public static void BringToFront(AutomationElement window)
+    {
+        try { SetForegroundWindow(window.Properties.NativeWindowHandle.ValueOrDefault); }
+        catch (Exception) { }
+    }
+}
+
+/// <summary>操作の記録。スクリーンショットと同じフォルダの ui-trace.txt に、追記する (ウォッチャーが、実行の前に、フォルダを空にする)。</summary>
+internal static class UiTrace
+{
+    private static readonly object Gate = new();
+
+    public static void Write(string message)
+    {
+        try
+        {
+            lock (Gate)
+            {
+                File.AppendAllText(Path.Combine(Screenshots.Dir, "ui-trace.txt"),
+                    $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
+            }
+        }
+        catch (Exception)
+        {
+        }
+    }
+}
+'''
+
 
 LOCATOR_CS = '''namespace __NS__.UITests;
 
@@ -209,7 +281,8 @@ namespace __NS__.UITests;
 /// <summary>
 /// ウィンドウのスクリーンショットを、PNG で保存する (WSL の Claude が、画像として読める)。
 /// PrintWindow (ウィンドウ自身に描かせる) を使う: 別のデスクトップでは、画面のコピーが、黒くなる。
-/// (WPF は、ハードウェアアクセラレーションの描画だと、白くなる。ウォッチャーが、UI テストの間だけ、ソフトウェアレンダリングにする。)
+/// (WPF は、ハードウェアアクセラレーションの描画だと、白くなる。ウォッチャーが、別のデスクトップの UI テストの間だけ、ソフトウェアレンダリングにする。)
+/// ユーザーのデスクトップで、PrintWindow の結果が、空白 (1 色) だったときは、画面のコピー (FlaUI の Capture) に切り替える。
 /// </summary>
 internal static class Screenshots
 {
@@ -228,6 +301,7 @@ internal static class Screenshots
     public static void Save(FlaUI.Core.AutomationElements.AutomationElement window, string testName)
     {
         var name = string.Concat(testName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        var path = Path.Combine(Dir, name + "-window.png");
         var hwnd = window.Properties.NativeWindowHandle.ValueOrDefault;
         var r = window.BoundingRectangle;
         using var bmp = new System.Drawing.Bitmap(Math.Max(1, r.Width), Math.Max(1, r.Height));
@@ -237,10 +311,32 @@ internal static class Screenshots
             try { PrintWindow(hwnd, hdc, 2 /* PW_RENDERFULLCONTENT */); }
             finally { g.ReleaseHdc(hdc); }
         }
-        bmp.Save(Path.Combine(Dir, name + "-window.png"), System.Drawing.Imaging.ImageFormat.Png);
+        if (IsBlank(bmp) && UiNative.DesktopName() == "Default")
+        {
+            FlaUI.Core.Capturing.Capture.Element(window).ToFile(path);   // ユーザーのデスクトップなら、画面のコピーで、撮れる
+            UiTrace.Write("screenshot: PrintWindow was blank; used a screen capture");
+            return;
+        }
+        bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+        UiTrace.Write("screenshot: " + path);
+    }
+
+    /// <summary>格子状に、点を取って、すべて同じ色なら、空白とみなす。</summary>
+    private static bool IsBlank(System.Drawing.Bitmap bmp)
+    {
+        var first = bmp.GetPixel(0, 0);
+        for (var x = 0; x < bmp.Width; x += Math.Max(1, bmp.Width / 10))
+        {
+            for (var y = 0; y < bmp.Height; y += Math.Max(1, bmp.Height / 10))
+            {
+                if (bmp.GetPixel(x, y) != first) return false;
+            }
+        }
+        return true;
     }
 }
 '''
+
 
 TESTS_WPF_CS = '''using Microsoft.VisualStudio.TestTools.UnitTesting;
 using FlaUI.Core.AutomationElements;
@@ -364,6 +460,7 @@ def main():
     ap.add_argument('--mstest-version')
     ap.add_argument('--testsdk-version')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--refresh-support-files', action='store_true', help='すでにある <アプリ名>.UITests の、UiTestBase.cs / AppLocator.cs / Screenshots.cs / UiNative.cs を、最新のひな形で上書きする (テストの本体 MainWindowUiTests.cs は、触らない)。CLAUDE.md の節も、更新する')
     ap.add_argument('--refresh-claude-md', action='store_true', help='すでにある <アプリ名>.UITests は、そのままにして、CLAUDE.md の「UI テスト (FlaUI)」の節だけを、最新にする')
     a = ap.parse_args()
 
@@ -376,6 +473,22 @@ def main():
     ui = app + '.UITests'
     if a.refresh_claude_md:
         print(update_claude_md(sln_dir, ui, app, refresh=True))
+        return
+    if a.refresh_support_files:
+        if not os.path.isdir(os.path.join(sln_dir, ui)):
+            die(f'{ui} がない (先に、add_ui_tests.py で足す)')
+        ns0 = a.namespace or AP.type_prefix(app)
+        kv0 = dict(NS=ns0, APP=app, TFM='', SDK='', MSTEST='', FLAUI='')
+        sup = {f'{ui}/UiTestBase.cs': fill(BASE_CS, **kv0), f'{ui}/AppLocator.cs': fill(LOCATOR_CS, **kv0),
+               f'{ui}/Screenshots.cs': fill(SHOTS_CS, **kv0), f'{ui}/UiNative.cs': fill(NATIVE_CS, **kv0)}
+        for r in sup:
+            print(f'  ~ {r}')
+        if a.dry_run:
+            print('(dry-run: 何も書いていない)')
+            return
+        AP.write_files(sln_dir, sup)
+        print(update_claude_md(sln_dir, ui, app, refresh=True))
+        print('完了。テストの本体 (MainWindowUiTests.cs) は、変えていない。')
         return
     if os.path.exists(os.path.join(sln_dir, ui)):
         die(f'すでに存在する: {ui} (何も書いていない)', 3)
@@ -403,6 +516,7 @@ def main():
         f'{ui}/UiTestBase.cs': fill(BASE_CS, **kv),
         f'{ui}/AppLocator.cs': fill(LOCATOR_CS, **kv),
         f'{ui}/Screenshots.cs': fill(SHOTS_CS, **kv),
+        f'{ui}/UiNative.cs': fill(NATIVE_CS, **kv),
         f'{ui}/MainWindowUiTests.cs': fill(TESTS_WPF_CS if standard else TESTS_GENERIC_CS, **kv),
     }
     print(f'ソリューション : {os.path.basename(sln)}')

@@ -14,7 +14,7 @@ b() { [ "$1" = 0 ] && echo 1 || echo 0; }   # rc=0 なら 1
 # --- WPF: 作成と同時に
 python3 -I "$NS" "$T/WpfUi" --type wpf --layers data,logic,viewmodel --tests mstest --ui-tests flaui >"$T/o1" 2>&1; rc=$?
 ok "WPF: new-solution --ui-tests flaui succeeds" "$(b $rc)"
-for f in WpfUi.UITests.csproj UiTestBase.cs AppLocator.cs Screenshots.cs MainWindowUiTests.cs; do
+for f in WpfUi.UITests.csproj UiTestBase.cs AppLocator.cs Screenshots.cs UiNative.cs MainWindowUiTests.cs; do
     ok "WPF: WpfUi.UITests/$f exists" "$([ -f "$T/WpfUi/WpfUi.UITests/$f" ] && echo 1 || echo 0)"
 done
 ok "WPF: slnx has the UITests project" "$(grep -q 'WpfUi.UITests/WpfUi.UITests.csproj' "$T/WpfUi/WpfUi.slnx" && echo 1 || echo 0)"
@@ -37,6 +37,15 @@ python3 -I "$UI" "$T/WpfUi" --refresh-claude-md >"$T/o6" 2>&1; rc=$?
 ok "refresh-claude-md: old section replaced, following section kept, only one UI section" "$([ $rc = 0 ] && ! grep -q '古い説明' "$T/WpfUi/CLAUDE.md" && grep -q 'uitest_once.sh "$PWD" 900' "$T/WpfUi/CLAUDE.md" && grep -q '## 後ろの節' "$T/WpfUi/CLAUDE.md" && [ "$(grep -c '## UI テスト (FlaUI)' "$T/WpfUi/CLAUDE.md")" = 1 ] && echo 1 || echo 0)"
 out="$(python3 -I "$WC" "$T/WpfUi" --all)"; rc=$?
 ok "WPF: wpf-check finds nothing (UI002 satisfied by the standard View)" "$([ $rc = 0 ] && grep -qF 'error 0 / warning 0 / info 0' <<<"$out" && echo 1 || echo 0)"
+
+# --- 目で確かめる (スローモーション) とトレース
+ok "visible mode: UiTestBase reads UITEST_SLOWMO_MS, writes the trace, brings the window to front" "$(grep -q 'UITEST_SLOWMO_MS' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && grep -q 'UiTrace.Write' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && grep -q 'BringToFront' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && grep -q 'ui-trace.txt' "$T/WpfUi/WpfUi.UITests/UiNative.cs" && echo 1 || echo 0)"
+ok "Screenshots falls back to a screen capture on the user's desktop when PrintWindow is blank" "$(grep -q 'IsBlank' "$T/WpfUi/WpfUi.UITests/Screenshots.cs" && grep -q 'Capture.Element' "$T/WpfUi/WpfUi.UITests/Screenshots.cs" && echo 1 || echo 0)"
+# --refresh-support-files: ツールが持つファイルだけを最新にし、テストの本体は触らない
+echo '// old' > "$T/WpfUi/WpfUi.UITests/UiTestBase.cs"; rm -f "$T/WpfUi/WpfUi.UITests/UiNative.cs"
+echo '// my test' > "$T/WpfUi/WpfUi.UITests/MainWindowUiTests.cs"
+python3 -I "$UI" "$T/WpfUi" --refresh-support-files >"$T/o7" 2>&1; rc=$?
+ok "refresh-support-files: support files regenerated, the test body untouched" "$([ $rc = 0 ] && grep -q 'UITEST_SLOWMO_MS' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && [ -f "$T/WpfUi/WpfUi.UITests/UiNative.cs" ] && [ "$(cat "$T/WpfUi/WpfUi.UITests/MainWindowUiTests.cs")" = '// my test' ] && echo 1 || echo 0)"
 
 # --- 二重実行は、何も書かない (rc=3)
 python3 -I "$UI" "$T/WpfUi" >/dev/null 2>&1; rc=$?

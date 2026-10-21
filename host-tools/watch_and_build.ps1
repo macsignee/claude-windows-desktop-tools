@@ -33,7 +33,7 @@
       (test_result.txt (最後に書く) / test_error.log / test.log / .claude-logs\test-results\*.trx)。
     - UI テストのプロジェクト: 名前が UITests / UiTests で終わる、または FlaUI.* を参照しているもの。
       **通常のテスト (trigger_test.flag) からは、除かれる** (UI テストは、遅く、デスクトップを占有するため)。
-    - テストには、環境変数で、実行環境を渡す: UITEST_SOLUTION_DIR / UITEST_CONFIGURATION / UITEST_PLATFORM / UITEST_SCREENSHOT_DIR
+    - テストには、環境変数で、実行環境を渡す: UITEST_SOLUTION_DIR / UITEST_CONFIGURATION / UITEST_PLATFORM / UITEST_SCREENSHOT_DIR / UITEST_SLOWMO_MS
       (<LogDir>\ui-screenshots。失敗時のスクリーンショット (PNG) の保存先。WSL の Claude が、画像として読める)。
     - 実行の前後に、ソリューションのフォルダの下の exe のプロセス (テストが残したアプリ) を終了する (残ると、次のビルドが、exe のロックで失敗する)。
     - 制限時間は、テストプロジェクトごとに -UiTestTimeoutSec (既定 600)。
@@ -109,6 +109,10 @@ param(
     # default:  ユーザーのデスクトップ (ウィンドウが見え、フォーカスを奪うことがある)。
     [ValidateSet("default","separate")]
     [string]$UiTestDesktop = $(if ($env:WATCH_UI_DESKTOP) { $env:WATCH_UI_DESKTOP } else { "separate" }),
+
+    # UI テストの、操作の間隔 (ミリ秒)。0 より大きいと、テストは、要素を探すたびに、その時間だけ待ち、最後の状態も 2 倍の時間だけ見せる。
+    # ユーザーのデスクトップ (-UiTestDesktop default) で、操作の様子を、目で確かめるときに使う (例: 800)。省略時: 環境変数 WATCH_UI_SLOWMO_MS、なければ 0。
+    [int]$UiTestSlowMoMs = $(if ($env:WATCH_UI_SLOWMO_MS) { [int]$env:WATCH_UI_SLOWMO_MS } else { 0 }),
 
     # テスト実行時の作業フォルダ。省略時は exe のあるフォルダ
     [string]$TestWorkingDir,
@@ -1101,6 +1105,7 @@ function Invoke-Tests([switch]$Ui) {
         $env:UITEST_CONFIGURATION = $Configuration
         $env:UITEST_PLATFORM = $Platform
         $env:UITEST_SCREENSHOT_DIR = $UiScreenshotDir
+        $env:UITEST_SLOWMO_MS = "$UiTestSlowMoMs"
     }
     $exes = if ($Ui) { @() } else { @(Find-TestExes) }
     $projects = @(Find-DotnetTestProjects -Ui:$Ui)
@@ -1271,7 +1276,7 @@ Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
 Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
 Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch)" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (GoogleTest, timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
-Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop, timeout ${UiTestTimeoutSec}s)" -ForegroundColor Cyan
+Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop, timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
 Write-Host " dotnet test  : $DotnetExe  (projects: $(@(Find-DotnetTestProjects).Count))" -ForegroundColor Cyan
 Write-Host " QuickEdit    : $QuickEditStatus" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
@@ -1405,7 +1410,7 @@ while ($true) {
         if ($runUiTests) {
             Restore-WpfRendering
             Stop-SolutionProcesses   # テストが残したアプリを、終了する
-            Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR -ErrorAction SilentlyContinue
+            Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS -ErrorAction SilentlyContinue
         }
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }

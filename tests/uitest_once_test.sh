@@ -16,6 +16,7 @@ fake_watcher() {
             sleep 1
             mkdir -p "$T/.claude-logs/ui-screenshots"
             printf 'PNG' > "$T/.claude-logs/ui-screenshots/Login_Fails-window.png"
+            printf '12:00:00.000 === Login_Fails: start (desktop: Default, slowmo: 800 ms)\n12:00:01.000 find: NameTextBox\n12:00:02.000 === Login_Fails: Failed\n12:00:03.000 === Other_Test: Passed\n' > "$T/.claude-logs/ui-screenshots/ui-trace.txt"
             printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"
         fi
         sleep 0.3
@@ -28,6 +29,7 @@ out="$(bash "$SCRIPT" "$T" 30)"; rc=$?
 kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
 ok "PASSED (rc=0), first line is PASSED" "$([ $rc = 0 ] && [ "$(echo "$out" | head -n 1)" = PASSED ] && echo 1 || echo 0)"
 ok "screenshots are listed (relative path)" "$(echo "$out" | grep -q '^\.claude-logs/ui-screenshots/Login_Fails-window.png$' && echo 1 || echo 0)"
+ok "ui-trace: path and per-test outcome lines are printed" "$(echo "$out" | grep -q '^ui-trace (4 lines' && echo "$out" | grep -q '^=== Login_Fails: Failed$' && echo "$out" | grep -q '^=== Other_Test: Passed$' && echo 1 || echo 0)"
 ok "trigger_test.flag was not used" "$([ ! -e "$T/trigger_test.flag" ] && echo 1 || echo 0)"
 
 # 2. trigger_test.flag だけを回収する watcher (UI テスト非対応の古い版) → WATCHER_NOT_RUNNING (フラグ名が、通常のテストと違う)
