@@ -24,6 +24,7 @@ Usage: mfc_check.py <dir> [--json <out.json>] [--max-lines 40] [--all]
   UI001  warning ON_COMMAND の ID が、.rc のメニュー・アクセラレータ・ツールバーにない (コードから送る場合を除く)
   UI002  warning コントロール通知の ID が、.rc のダイアログにない (コードで作る場合を除く)
   UI003  warning DDX / DDV のコントロール ID が、.rc のダイアログにない
+  UI004  warning UI テストのプロジェクト (*.UITests) があるとき、ダイアログの操作できるコントロール (ボタン・エディット・コンボなど) の ID が IDC_STATIC (-1) のまま、または、同じダイアログで、ID が重複している (UI テストの AutomationId = コントロール ID なので、ID で探せない)
   DLG001 error   DDX / DDV のコントロール ID が、そのクラスのダイアログ (IDD) にない
   DLG002 error   ダイアログクラスの IDD が、.rc に DIALOG として存在しない (DoModal が失敗する)
   DLG003 error   DDX_Control のメンバーの型が、ダイアログのコントロールの種類と違う
@@ -809,6 +810,54 @@ def make_used_outside_maps(p, codes):
     return used
 
 
+# UI テスト (FlaUI) で操作するコントロールの種類 (.rc の CONTROL のクラス)。静的テキスト・グループボックス・アイコンは、含めない
+UI_OPERABLE_KW = {"PUSHBUTTON", "DEFPUSHBUTTON", "EDITTEXT", "COMBOBOX", "LISTBOX", "CHECKBOX", "AUTOCHECKBOX",
+                  "RADIOBUTTON", "AUTORADIOBUTTON", "AUTO3STATE", "STATE3", "SCROLLBAR"}
+UI_OPERABLE_CLASSES = {"button", "edit", "combobox", "listbox", "scrollbar", "syslistview32", "systreeview32",
+                       "systabcontrol32", "msctls_trackbar32", "msctls_updown32", "sysdatetimepick32", "sysmonthcal32",
+                       "sysipaddress32"}
+
+
+def has_ui_tests(root):
+    """ソリューションに、UI テストのプロジェクト (名前が UITests / UiTests で終わる .csproj) があるか。"""
+    for f in collect_files(root):
+        b = os.path.basename(f)
+        if b.lower().endswith(".csproj") and re.search(r"(UI|Ui)Tests\.csproj$", b):
+            return True
+    return False
+
+
+def is_ui_operable(c):
+    if c["kw"] in UI_OPERABLE_KW:
+        return True
+    if c["kw"] != "CONTROL":
+        return False
+    k = c["cls"] or ""
+    if k == "button" and "BS_GROUPBOX" in c["style"]:
+        return False
+    return k in UI_OPERABLE_CLASSES or k.startswith("richedit")
+
+
+def check_ui_ids(p, rcinfo):
+    """UI004: UI テストで操作するコントロールの ID が、IDC_STATIC (-1) のまま / 重複している。"""
+    for rcpath, rc in rcinfo.items():
+        rel = p.rel(rcpath)
+        for dlg, rich in rc["dlgctrls"].items():
+            seen = {}
+            for c in rich:
+                if not is_ui_operable(c):
+                    continue
+                cid = c["id"]
+                if cid in ("IDC_STATIC", "-1"):
+                    label = c["kw"] + ((' "' + c["text"] + '"') if c["text"] else "")
+                    p.add("UI004", "warning", "ダイアログ " + dlg + " の操作できるコントロール (" + label + ") の ID が " + cid + " のまま "
+                          "(UI テストの AutomationId = コントロール ID なので、ID で探せない。固有の ID (IDC_xxx) を付ける)", rel, c["line"])
+                elif cid in seen:
+                    p.add("UI004", "warning", f"ダイアログ {dlg} のコントロール ID {cid} が重複している (UI テストで、どちらを指すか決まらない)", rel, c["line"])
+                else:
+                    seen[cid] = c["line"]
+
+
 def check_layering(projects, logic_names, data_names):
     by_name = {pr.name: pr for pr in projects}
 
@@ -880,6 +929,10 @@ def run(root, logic_names, data_names):
             classes = build_classes(codes)
             handled = check_dialogs(pr, codes, rcinfo, classes, make_used_outside_maps(pr, codes))
             check_maps(pr, codes, rcinfo, classes, handled)
+    if has_ui_tests(root):   # UI テストのプロジェクトがあるときだけ (UI004)
+        for pr in projects:
+            if pr.checked:
+                check_ui_ids(pr, {f: parse_rc(t) for f, t in pr.files if f.lower().endswith(".rc")})
     check_layering(projects, set(logic_names), set(data_names))
     return projects
 
