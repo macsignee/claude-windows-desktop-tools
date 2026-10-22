@@ -144,6 +144,14 @@ $ErrorActionPreference = "Stop"
 # (ビルドは、/p:Platform を、明示するので、影響を受けなかった)
 Remove-Item Env:\Platform -ErrorAction SilentlyContinue
 
+# プロキシの環境変数 (HTTPS_PROXY / HTTP_PROXY) を、PowerShell の Web 要求 (nuget search / versions、fetch の zip の取得) にも、適用する。
+# dotnet / NuGet / git は、環境変数を見るが、PowerShell 5.1 の Invoke-RestMethod は、システムのプロキシ設定だけを見るため、
+# 環境変数でプロキシを指定しても、nuget search / versions だけが、プロキシを通らなかった (P6 の実機で発見)。
+$proxyUrl = @($env:HTTPS_PROXY, $env:https_proxy, $env:HTTP_PROXY, $env:http_proxy) | Where-Object { $_ } | Select-Object -First 1
+if ($proxyUrl) {
+    try { [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($proxyUrl, $true) } catch { }
+}
+
 # build-windows.cmd が MSBuild 呼び出しの前後だけ chcp 65001 にするため、
 # パイプで受け取るネイティブプロセスの出力も UTF-8 として解釈する (PS 5.1)。
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -388,7 +396,7 @@ function New-PackageResult([bool]$ok, [bool]$envErr, [string[]]$lines) {
 
 # ネットワーク・フィードに届かない、という種類の出力か (ソースの問題ではない)
 function Test-PackageEnvOutput($lines) {
-    return @($lines | Where-Object { "$_" -match 'NU1301|Unable to load the service index|No such host is known|could not be resolved|actively refused|timed out|Failed to download|unable to access|Could not resolve host|fatal: unable' }).Count -gt 0
+    return @($lines | Where-Object { "$_" -match 'NU1301|Unable to load the service index|No such host is known|could not be resolved|actively refused|timed out|Failed to download|unable to access|Could not resolve host|fatal: unable|拒否されたため、接続できません|そのようなホストは不明|リモート名を解決できません|サービス インデックスを読み込めません|タイムアウト|応答しなかった|HttpRequestException|SocketException' }).Count -gt 0
 }
 
 # ソリューション内の、プロジェクトファイル。外・存在しない・拡張子違いは $null
@@ -933,15 +941,23 @@ function Restore-WpfRendering {
     if (-not (Test-Path -LiteralPath $WpfHwAccelBackup)) { return }
     try {
         $v = ([System.IO.File]::ReadAllText($WpfHwAccelBackup)).Trim()
+        # 失敗を、握りつぶさない (-ErrorAction Stop)。以前は SilentlyContinue で、失敗しても「復元した」と表示した (UT14b の実機で発見)
         if ($v -eq "absent") {
-            Remove-ItemProperty -LiteralPath $WpfHwAccelKey -Name DisableHWAcceleration -ErrorAction SilentlyContinue
+            if (Get-ItemProperty -LiteralPath $WpfHwAccelKey -Name DisableHWAcceleration -ErrorAction SilentlyContinue) {
+                Remove-ItemProperty -LiteralPath $WpfHwAccelKey -Name DisableHWAcceleration -ErrorAction Stop
+            }
         } else {
-            Set-ItemProperty -LiteralPath $WpfHwAccelKey -Name DisableHWAcceleration -Value ([int]$v) -Type DWord
+            Set-ItemProperty -LiteralPath $WpfHwAccelKey -Name DisableHWAcceleration -Value ([int]$v) -Type DWord -ErrorAction Stop
         }
-        Remove-Item -LiteralPath $WpfHwAccelBackup -ErrorAction SilentlyContinue
+        # 実際に戻ったかを、確かめてから、記録を消す
+        $now = (Get-ItemProperty -LiteralPath $WpfHwAccelKey -Name DisableHWAcceleration -ErrorAction SilentlyContinue).DisableHWAcceleration
+        $expected = if ($v -eq "absent") { $null } else { [int]$v }
+        if ("$now" -ne "$expected") { throw "the registry value is still '$now' (expected '$expected')" }
+        Remove-Item -LiteralPath $WpfHwAccelBackup -ErrorAction Stop
+        if (Test-Path -LiteralPath $WpfHwAccelBackup) { throw "the backup file could not be deleted" }
         Write-Host "[UITEST] WPF rendering setting restored ($v)" -ForegroundColor DarkGray
     } catch {
-        Write-Host "[UITEST] could not restore the WPF rendering setting: $($_.Exception.Message) (backup file: $WpfHwAccelBackup)" -ForegroundColor Yellow
+        Write-Host "[UITEST] could not restore the WPF rendering setting: $($_.Exception.GetType().Name): $($_.Exception.Message) (backup file: $WpfHwAccelBackup)" -ForegroundColor Yellow
     }
 }
 
@@ -1277,6 +1293,7 @@ Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
 Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch)" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (GoogleTest, timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
 Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop, timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
+Write-Host " Proxy        : $(if ($proxyUrl) { $proxyUrl + ' (from the HTTPS_PROXY / HTTP_PROXY environment variable)' } else { '(none: the system proxy settings are used)' })" -ForegroundColor Cyan
 Write-Host " dotnet test  : $DotnetExe  (projects: $(@(Find-DotnetTestProjects).Count))" -ForegroundColor Cyan
 Write-Host " QuickEdit    : $QuickEditStatus" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan

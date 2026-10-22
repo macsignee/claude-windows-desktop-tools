@@ -38,6 +38,7 @@ fake_watcher trigger_test.flag & W=$!
 out="$(bash "$SCRIPT" "$T" 30)"; rc=$?
 kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
 ok "an old watcher that only handles trigger_test.flag -> WATCHER_NOT_RUNNING (rc=3)" "$([ $rc = 3 ] && [ "$(echo "$out" | head -n 1)" = WATCHER_NOT_RUNNING ] && echo 1 || echo 0)"
+ok "the message names trigger_uitest.flag and tells to update the watcher" "$(echo "$out" | grep -q "^trigger_uitest.flag was not picked up" && echo "$out" | grep -q "old version" && echo 1 || echo 0)"
 rm -f "$T/trigger_uitest.flag"
 
 # 3. 引数不正

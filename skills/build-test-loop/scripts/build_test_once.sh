@@ -99,7 +99,8 @@ while [ ! -f "$TEST_RESULT" ]; do
         elif [ "$elapsed" -ge "$PICKUP_WAIT" ]; then
             rm -f "$FLAG"
             echo "WATCHER_NOT_RUNNING"
-            echo "trigger_test.flag was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            echo "$(basename "$FLAG") was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            case "$(basename "$FLAG")" in trigger_uitest.flag) echo "If the watcher is running, it may be an old version without UI test support: run ~/src/copy-host-tools.sh and restart the watcher (run_watcher.cmd)." ;; esac
             exit 3
         fi
     fi

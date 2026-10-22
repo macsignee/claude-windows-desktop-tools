@@ -138,3 +138,26 @@ P13: 存在しないポート
 
 ## 残りの実機確認 (2026-10-19)
 手順・期待値・実施者は、`docs/REMAINING-CHECKS.md` に集めた (U6c / U7〜U16、P1〜P7 / P14〜P21、WS8〜WS16 / WS19 / WS20)。結果は `docs/TEST-PLAN.md` に記録する。
+
+## 再開メモ (2026-10-21 夕、PC の再起動のため、いったん区切り)
+
+**状態:** ブランチ `unify-dotnet`、最後のコミット `96bdf68` (v2.5.2)。push は、ユーザーが、自分で行う (`git push -u origin unify-dotnet`)。**未コミット (v2.5.3):** `host-tools/watch_and_build.ps1` (WPF 描画設定の復元の修正)、`skills/build-test-loop/scripts/build_test_once.sh` (ウォッチャー未起動の案内)、`tests/uitest_once_test.sh`、`CHANGELOG.md`、`VERSION` (2.5.3)、`docs/TEST-PLAN.md` (U9 / U10 / UT4 / UT6 / UT8 / UT14b の記録)。コミットは、ユーザーの指示があってから。`poc/` は、含めない (未追跡のまま)。
+
+**直近の実機の結果:** U9 / U10 (混在の GoogleTest + MSTest) ✔、UT4 ✔、UT6 ✔、UT8 ✔、UT17 ✔、UT18 ✔、UT19 ✔、UT20〜UT22 ✔。**UT14b は NG → 修正済み、再確認待ち。**
+
+**UT14b の再確認: 2026-10-22 に ✔ (修正版で、`restored (absent)`、記録ファイルが消えた)。以下は、当時の手順の記録:**
+1. `~/src/copy-host-tools.sh` (修正版のウォッチャーを再配置)。
+2. **PC の再起動後は、レジストリ `HKCU\Software\Microsoft\Avalon.Graphics\DisableHWAcceleration=1` と `%LOCALAPPDATA%\claude-watcher\wpf-hwaccel-backup.txt` (内容 `absent`) が、残ったまま** (UT14b の異常終了の再現で残した)。**手動で消さずに**、`C:\tools\cpp-watcher\run_watcher.cmd C:\workspace\macsignee\source\repos\WpfUi15` で、ウォッチャーを起動する (起動時の復元の確認)。
+3. 起動画面の `[UITEST] ...` の行を見る: `WPF rendering setting restored (absent)` (成功)、または `could not restore ...: <例外名>: <理由>` (失敗。原因が分かる)。そのあと `reg query "HKCU\Software\Microsoft\Avalon.Graphics"` と `dir "%LOCALAPPDATA%\claude-watcher"` を実行して、値が無く、記録ファイルが消えているかを確認。
+4. 原因の仮説: 旧版は `-ErrorAction SilentlyContinue` で、失敗が握りつぶされ、メッセージだけが出た。
+
+**その次 (ユーザーが決めた順序):** P4、P6、P14、P15、U6c、U12〜U15、WS8、WS10、WS14、W11、WS16、U7、U8。手順は `docs/REMAINING-CHECKS.md`。
+
+**使い捨てフォルダ (削除可):** `repos` の下の `WpfUi15` / `WpfUi17` / `MfcUi18` / `MixTest` / `UiPoc` / `WpfStd2` / `WpfLate` / `WpfToolkit` / `WpfRetro` など。UT14b の再確認には `WpfUi15` を使う (ウォッチャーの起動だけなら、どのフォルダでもよい)。
+
+**未解決:** `run_watcher_visible.cmd` 経由の起動で、バナーに `slow-motion` が出ない (PowerShell の直接起動は問題なし。原因は未特定。コマンドプロンプトのウィンドウに環境変数 `WATCH_UI_DESKTOP` が残っていた可能性)。
+
+**注意 (再開したときの、私の作業の癖):**
+- Skill / スクリプトを変えたら、ユーザーに `install.sh --skills-only` (とホストは `copy-host-tools.sh`) を、必ず案内する。配布の忘れで、UT19 と UT8 が、一度ずつ NG になった。
+- TEST-PLAN の項目番号 (U6〜U16 など) は、節をまたいで重なる。更新は、節を限定して行う (一度、`/update-from-ideas` の U9 / U10 を、上書きした)。
+- コンソールの Claude は、この会話を知らない。依頼文は、自己完結にする。
