@@ -36,7 +36,7 @@ bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
 |---|---|---|---|
 | `SUCCESS` | 0 | ビルド成功 | ループ終了。1〜2行で報告 |
 | `FAILED` | 1 | コンパイル/リンクエラー | 2行目以降のエラー要約を読んで修正し、再ビルド (読み方は下記) |
-| `ENV_ERROR` | 4 | 環境エラー (VS/vswhere/引数など) | **ソースを直さず**、内容を報告して停止 |
+| `ENV_ERROR` | 4 | 環境エラー (VS/vswhere/引数など) | **ソースを直さず**、内容を報告して停止。**`no Visual Studio with C++ x86/x64 tools found` のとき: C++ ツールのない VS では、C++ のビルドができない。自動では追加できないので、ユーザーに、Visual Studio Installer で「変更」→「C++ によるデスクトップ開発」の追加を依頼して、待つ。逆に、.NET / WPF のビルドで `MSB4236` / `NETSDK1045` / `NETSDK1141` (または `dotnet` が見つからない) のときは、「.NET デスクトップ開発」の追加 (または .NET SDK のインストール) を依頼して、待つ (`build_error.log` に、その案内の行が付く)** |
 | `WATCHER_NOT_RUNNING` | 3 | フラグが回収されない | 停止し、`run_watcher.cmd` の起動をユーザーに依頼 |
 | `TIMEOUT` | 5 | 完了マーカーが出ない | 停止して報告 (長いビルドなら timeout を延ばして1回だけ再試行可) |
 

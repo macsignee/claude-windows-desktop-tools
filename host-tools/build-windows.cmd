@@ -111,7 +111,13 @@ set "VSNAME="
 set "VSVER="
 for /f "usebackq tokens=* delims=" %%I in (`"%VSWHERE%" %VSQUERY% -property installationPath`) do set "VSINSTALL=%%I"
 if not defined VSINSTALL (
-    if defined NEEDCPP (echo ERROR: no Visual Studio with C++ x86/x64 tools found.) else (echo ERROR: no Visual Studio with MSBuild found.)
+    if defined NEEDCPP (
+        echo ERROR: no Visual Studio with C++ x86/x64 tools found.
+        echo ERROR: Open Visual Studio Installer, choose Modify, and add the workload "Desktop development with C++". It cannot be added automatically. Then run again.
+    ) else (
+        echo ERROR: no Visual Studio with MSBuild found.
+        echo ERROR: Install Visual Studio ^(or Build Tools^) with Visual Studio Installer, including the ".NET desktop development" workload. Then run again.
+    )
     exit /b 11
 )
 for /f "usebackq tokens=* delims=" %%I in (`"%VSWHERE%" %VSQUERY% -property displayName`) do set "VSNAME=%%I"

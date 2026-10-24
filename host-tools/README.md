@@ -204,7 +204,7 @@ test_error.log
 | `ENV_ERROR` (no gtest summary) | テスト exe が GoogleTest でない、または `-TestArgs` が不正 (古い GoogleTest は `--gtest_brief` を知らず、ヘルプだけ表示して終了コード 0 になる) |
 | テストが `TIMEOUT` になる | 全体の実行時間が制限 (既定 120 秒) を超えている。`-TestTimeoutSec` を延ばす。`Hung test` は、打ち切られた時点のテスト名で、必ずしもハングしたテストではない |
 | Claude 側で `WATCHER_NOT_RUNNING` | ウォッチャーが起動していない (フラグが 15 秒回収されない)。対象プロジェクト用に `run_watcher.cmd` を起動する |
-| ビルド環境のエラー (`ENV_ERROR`、VS が見つからない等) | `[ENVIRONMENT ERROR ...]` のメッセージに従う。C++ のソリューションは VS の C++ ワークロード、.NET のソリューションは MSBuild と .NET SDK のインストールを確認する |
+| ビルド環境のエラー (`ENV_ERROR`、VS が見つからない等) | `[ENVIRONMENT ERROR ...]` のメッセージに従う。C++ のソリューションは VS の C++ ワークロード (**C++ ツールのない VS では、C++ のビルドはできない。Visual Studio Installer で「変更」→「C++ によるデスクトップ開発」を、手で追加する**。`no Visual Studio with C++ x86/x64 tools found`、終了コード 11)。**逆に、.NET のビルドで `MSB4236` / `NETSDK1045` / `NETSDK1141`、または `dotnet` が見つからない場合は、Visual Studio Installer で「変更」→「.NET デスクトップ開発」を手で追加する (または .NET SDK をインストールする)** (案内の行が `build_error.log` / `test_error.log` / `package_error.log` に付く) |
 | `-ExecutionPolicy Bypass` が組織のポリシーで拒否される | IT 管理者に確認する |
 | ダウンロードしたファイルがブロックされる | `Get-ChildItem <フォルダ> -Recurse \| Unblock-File` |
 

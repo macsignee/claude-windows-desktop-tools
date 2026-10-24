@@ -144,6 +144,10 @@ $ErrorActionPreference = "Stop"
 # (ビルドは、/p:Platform を、明示するので、影響を受けなかった)
 Remove-Item Env:\Platform -ErrorAction SilentlyContinue
 
+# .NET の SDK / ビルドツールがない環境 (例: C++ のワークロードだけの Visual Studio) で、.NET のビルド・テストを求められたときの案内。
+# 自動では追加できないので、利用者に、手で追加してもらう。
+$DotnetInstallHint = "ERROR: The .NET SDK is missing or too old. Open Visual Studio Installer, choose Modify, and add the workload `".NET desktop development`" (or install the .NET SDK from https://dotnet.microsoft.com/download). It cannot be added automatically. Then run again."
+
 # プロキシの環境変数 (HTTPS_PROXY / HTTP_PROXY) を、PowerShell の Web 要求 (nuget search / versions、fetch の zip の取得) にも、適用する。
 # dotnet / NuGet / git は、環境変数を見るが、PowerShell 5.1 の Invoke-RestMethod は、システムのプロキシ設定だけを見るため、
 # 環境変数でプロキシを指定しても、nuget search / versions だけが、プロキシを通らなかった (P6 の実機で発見)。
@@ -591,7 +595,7 @@ function Invoke-OnePackageOp([string]$op) {
             if ($t[3] -notmatch $RePkgId) { return New-PackageResult $false $false @("ERROR: invalid package id: $($t[3])") }
             if ($isAdd -and $t.Count -eq 5 -and $t[4] -notmatch $RePkgVersion) { return New-PackageResult $false $false @("ERROR: invalid version: $($t[4])") }
             $cmd = Get-Command $DotnetExe -ErrorAction SilentlyContinue
-            if (-not $cmd) { return New-PackageResult $false $true @("ERROR: '$DotnetExe' was not found. Install the .NET SDK, or pass -DotnetExe <full path>.") }
+            if (-not $cmd) { return New-PackageResult $false $true @("ERROR: '$DotnetExe' was not found. Install the .NET SDK, or pass -DotnetExe <full path>.", $DotnetInstallHint) }
             $argString = if ($isAdd) { 'add "' + $proj + '" package ' + $t[3] + $(if ($t.Count -eq 5) { " --version " + $t[4] } else { "" }) }
                          else { 'remove "' + $proj + '" package ' + $t[3] }
             $r = Invoke-TestProcess $cmd.Source $argString (Split-Path -Parent $proj) $PackageTimeoutSec
@@ -1165,7 +1169,7 @@ function Invoke-Tests([switch]$Ui) {
     if ($projects.Count -gt 0) {
         $cmd = Get-Command $DotnetExe -ErrorAction SilentlyContinue
         if (-not $cmd) {
-            Write-TestEnvError @("ERROR: '$DotnetExe' was not found, but the solution has .NET test projects. Install the .NET SDK, or pass -DotnetExe <full path>.")
+            Write-TestEnvError @("ERROR: '$DotnetExe' was not found, but the solution has .NET test projects. Install the .NET SDK, or pass -DotnetExe <full path>.", $DotnetInstallHint)
             return
         }
         $dotnetPath = $cmd.Source
@@ -1428,6 +1432,10 @@ while ($true) {
             # ソースの問題ではないので、環境エラーとして扱う
             if ($exitCode -eq 1 -and @($errs | Where-Object { "$_" -match '\b(MSB4236|NETSDK1045|NETSDK1141|NU1301)\b' }).Count -gt 0) {
                 $errs = @("[ENVIRONMENT ERROR - not a source code problem]") + $errs
+            }
+            # SDK がない / 古いときは、対処 (VS Installer での追加) も伝える。NU1301 (ネットワーク) には付けない
+            if ($exitCode -eq 1 -and @($errs | Where-Object { "$_" -match '\b(MSB4236|NETSDK1045|NETSDK1141)\b' }).Count -gt 0) {
+                $errs += $DotnetInstallHint
             }
             $errs += ""
             $errs += "Build failed with exit code: $exitCode"

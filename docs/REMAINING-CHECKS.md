@@ -39,7 +39,7 @@
 | U10 | 混在のヘッダー | 混在のソリューションでウォッチャーを起動 | `Solution : C++ + .NET (build features: cpp,restore)`、`Build : Debug\|x64`。ビルドが通る | ✗ |
 | U12 | 存在しない dotnet | `-DotnetExe NoSuchDotnet` で起動し、`WpfSample` で `trigger_test.flag` | `ENV_ERROR` (`'NoSuchDotnet' was not found`) | ✗ (2026-10-14 の `ClaudeProject` の表では ✔ だが、この WPF 版は未実施) |
 | U13 | 存在しない SDK | `global.json` に存在しない SDK を指定して `trigger_build.flag` (後で戻す) | `FAILED`。`build_error.log` の先頭が `[ENVIRONMENT ERROR` (`NETSDK1141`) | ✗ |
-| U14 | C++ ワークロードなしの VS | MSBuild だけの環境で `WpfSample` の `trigger_build.flag` | ビルドが通る (`cpp` を要求しない) | ✗ (この環境がなければ、△ のまま) |
+| U14 | C++ ワークロードなしの VS | MSBuild だけの環境で `WpfSample` の `trigger_build.flag` | ビルドが通る (`cpp` を要求しない) | 対象外 (2026-10-24。C++ ツールのない VS は、環境の前提に含まない。DESIGN の「1. 目的と前提」) |
 | U15 | x64 出力の WPF | `bin\x64\Debug` に出す構成で `-DotnetTestArgs "-p:Platform=x64"`。指定なしの場合も確認 | 指定ありはテストが走る。指定なしは見つからず `FAILED` (`no test results ...`) | ✗ |
 | U16 | Skill の競合 | 新しいセッションで `auto-build` / `build-test-loop` を使う (旧名の `cpp-*` が残っていないこと) | description が競合せず、WPF でも C++ でも、同じ手順で動く | ✗ |
 | P6 | ネットワークなし | ネットワークを切る (または、プロキシを誤設定) して `nuget add ...` と `nuget versions ...` | `ENV_ERROR` (`NU1301` / `could not reach nuget.org`)。先頭が `[ENVIRONMENT ERROR` | ✗ |
