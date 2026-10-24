@@ -1433,9 +1433,10 @@ while ($true) {
             if ($exitCode -eq 1 -and @($errs | Where-Object { "$_" -match '\b(MSB4236|NETSDK1045|NETSDK1141|NU1301)\b' }).Count -gt 0) {
                 $errs = @("[ENVIRONMENT ERROR - not a source code problem]") + $errs
             }
-            # SDK がない / 古いときは、対処 (VS Installer での追加) も伝える。NU1301 (ネットワーク) には付けない
+            # SDK がない / 古いときは、対処 (VS Installer での追加) も伝える。NU1301 (ネットワーク) には付けない。
+            # build_once.sh は、先頭の 40 行までしか出さないので、エラーが多くても届くように、2 行目 ([ENVIRONMENT ERROR] の次) に置く
             if ($exitCode -eq 1 -and @($errs | Where-Object { "$_" -match '\b(MSB4236|NETSDK1045|NETSDK1141)\b' }).Count -gt 0) {
-                $errs += $DotnetInstallHint
+                $errs = @($errs[0]) + @($DotnetInstallHint) + @($errs | Select-Object -Skip 1)
             }
             $errs += ""
             $errs += "Build failed with exit code: $exitCode"
