@@ -15,6 +15,13 @@
 - 変更の一覧は、`CHANGELOG.md` の 2.4.x〜2.5.6 (ブランチ `unify-dotnet`、main から 20 コミット先)。
 - 配置: `./install/install.sh` (Skill・規約。`--skills-only` / `--rules-only` / `--host-only`)、`~/src/copy-host-tools.sh` (ホスト側ツール)。**Skill やスクリプトを変えたら、再配置を忘れない** (確認のやり直しの、最大の原因だった)。
 
+## マージのあとの予定 (2026-10-24 に決定。要件の整理と設計は、これから)
+
+1. **GoogleTest の取得を vcpkg に一元化する** (下の節)。
+2. **3 層構造のモジュール名の変更:** MFC / Win32、WPF で、ロジック層を `Command`、データ層を `Model` に改名する (現在の既定は `LogicLayer` / `DataLayer`)。**決めること:** 既存のソリューション (層の名前を、あとから変える手順は `DLL-LAYOUT.md`) の扱い、`--layers` の値 (`logic` / `data`) と、生成される名前の対応、WPF の `viewmodel` 層の名前との関係、名前空間・`CLAUDE.md`・Skill・`mfc-check` / `wpf-check` の層の判定、既存の記録 (TEST-PLAN) の名前。
+3. **ダイアログのテスト:** FlaUI とユニットテストの、いずれかで、MFC / Win32、WPF の**メインウィンドウから表示されるダイアログ (モーダル、モードレス)** のテストを、実行できるようにする。**決めること:** FlaUI (UIA の `Window.ModalWindows` / トップレベルのウィンドウの検出、モーダル中の操作) とユニットテスト (ダイアログの ViewModel / ロジックの分離、`IDialogService` のモック。MFC は、ダイアログのクラスを、テスト可能にする分離) の、どちらを、どこまで。モードレスの検出 (別のトップレベルウィンドウ)。
+4. **WinForms と C# の DLL への拡張:** WinForms、C# の DLL の、作成 (`new-solution`)・ビルド・テストを、できるようにする。**決めること:** `--type` の値 (`winforms`、`csharp-dll` など)、層とテストの構成 (WPF と同じ MSTest)、WinForms の UI テスト (FlaUI の UIA2 / UIA3、`AutomationId` は `Name`)、検査 (`wpf-check` に相当するもの)、規約 (`rules/`)、ウォッチャー (`.csproj` の判定は、すでに SDK 形式に対応)。WinForms の UI テストは、PoC を別に行う、と先に決めている (DESIGN 4.29)。
+
 ## マージのあとの作業: GoogleTest の取得を vcpkg に一元化する (2026-10-24 に決定。マージ後に開始)
 
 **順序:** (1) 現状の問題点の修正 (スキップする項目は、記録に残す) → (2) コミットして、main へマージ → (3) 次の PoC から。
