@@ -2,6 +2,238 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.5.7] 2026-10-24 (U16 の C++ 側で発見。実機で確認済み)
+
+- **ウォッチャー: 古い DLL の検出が、Debug と Release を比べて、誤検出していた (U16 の C++ 側の実機で発見):** `MixTest` を、先に `Release` でビルド (T9a)、あとで `Debug` で起動すると、増分ビルドで書き換わらなかった `bin\Debug` の `Calc.Tests.dll` (10-21) が、`bin\Release` の同名の DLL (10-24) より古いと判定され、`ENV_ERROR` になった。**比べる対象を、構成のフォルダ名と、TFM のフォルダ名が同じもの (プラットフォームのフォルダだけが違うもの: `bin\Debug\net8.0` と `bin\x64\Debug\net8.0`) に限る。** U15 / U15b の、偽の成功の検出は、そのまま働く。
+
+## [2.5.6] 2026-10-24 (H4 / T9a / T9b は実機で確認済み)
+
+- **ウォッチャー: 起動後に `build-windows.cmd` が消えたとき、環境エラーにする (H4 の確認の準備で発見):** `cmd /c` が、見つからないバッチに対して返す終了コードは、ビルド失敗 (1) と区別できないことがある (`build_error.log` に `[ENVIRONMENT ERROR ...]` が付かない、または、古いログが読まれる)。`Invoke-BuildScript` が、実行の前にファイルの有無を確かめ、なければ `ERROR: build script not found: ...` と終了コード 2 (環境エラー) を返す。
+- **`build-windows.cmd`: `-Platform Win32` で、`.sln` / `.slnx` のソリューション構成の名前に合わせる (T9b の実機で発見):** `DoubleBufferSample.sln` (VS 製) を `-Platform Win32` でビルドすると、`MSB4126: 指定されたソリューション構成 "Debug|Win32" は無効です` で失敗した (終了コード 6 `BUILD_FAILED`)。VS が作るソリューションでは、x86 のプラットフォームの名前が **`x86`** (プロジェクトの側が `Win32` に対応づく)。ソリューション構成の一覧 (`Debug|x86 = Debug|x86`、`.slnx` は `<Platform Name="x86" />`) に、`Win32` がなく `x86` があれば、MSBuild に `x86` を渡す。`.vcxproj` を直接ビルドするときと、`Win32` があるソリューションは、従来どおり `Win32`。
+- **ウォッチャー: `Win32` のテスト exe を、`<ソリューション>\<Configuration>\` からも探す (T9b の実機で発見):** `Win32` のビルドが通っても、`build_test_once.sh` が `ENV_ERROR` (`no tests found for Debug|Win32`) になった。VS の既定の出力先は、x64 が `x64\Debug\`、**Win32 だけは `Debug\` (プラットフォームのフォルダが付かない)**。`Find-TestExes` が、`Win32\<Configuration>\` のあとに、`<Configuration>\` も探す (最初に、テスト exe が見つかった側)。
+
+## [2.5.5] 2026-10-24 (U14b / U14c の (b) は実機で確認済み。案内の行を 2 行目に移した変更は、再確認していない)
+
+- **`build-windows.cmd`: C++ ツールのない VS のとき、案内を出す (終了コード 11、契約は変えない):** `no Visual Studio with C++ x86/x64 tools found.` だけでは、対処が分からなかった。**「Visual Studio Installer で『変更』→『C++ によるデスクトップ開発』を追加する。自動では追加できない」**という `ERROR:` 行を足した (ウォッチャーは `ERROR:` 行を `build_error.log` に渡すので、Claude に伝わる)。C++ を要求しない場合 (`MSBuild` のある VS がない) も、VS (または Build Tools) のインストールを案内する。
+- **逆の場合 (.NET のビルドツールのない環境、例: C++ のワークロードだけの VS) の案内 (`watch_and_build.ps1`):** `MSB4236` / `NETSDK1045` / `NETSDK1141` で `ENV_ERROR` になるとき、および `dotnet` が見つからないとき (テスト・パッケージ操作) に、**「Visual Studio Installer で『.NET デスクトップ開発』を追加する (または .NET SDK をインストールする)。自動では追加できない」**という `ERROR:` 行を、`build_error.log` / `test_error.log` / `package_error.log` に付ける (`$DotnetInstallHint`)。`NU1301` (ネットワーク) には付けない。
+- `auto-build` の `ENV_ERROR` の行と、`host-tools/README.md` に、同じ対処を記載。C++ ツールなしの VS で動くかの確認 (U14) は、環境の前提に含まないため、対象外 (DESIGN 1.)。メッセージだけを、擬似的な `vswhere.exe` で確かめる (U14b)。
+
+## [2.5.4] 2026-10-24 (U15b を含め、実機で確認済み)
+
+- **ウォッチャー: 古い DLL を実行する「偽の成功」の検出 (U15 の実機で発見):** 出力先が `bin\x64\Debug` のプラットフォーム別の構成で、`-DotnetTestArgs` を付けないと、`dotnet test --no-build` は `bin\Debug` を探す。そこに過去のビルドの古い DLL があると、今回のビルドの成果物ではなく、古い DLL のテストが通って `PASSED` になった。**`Get-StaleTestAssemblies`:** 実行されたアセンブリ (trx の `storage`) と同名で、より新しい DLL が、プロジェクトの `bin` 配下の別の場所にあれば、`ENV_ERROR` (成功のとき。失敗のときは `FAILED` のまま、理由を `test_error.log` に追記) にして、`-DotnetTestArgs:-p:Platform=x64` を案内する。更新時刻とビルドの開始時刻は比べない (増分ビルドで DLL が書き換わらないのは、正常なため)。出力先を切り替えて使うと、古い側が新しい側に負けて、誤って `ENV_ERROR` になることがある (古い `bin` を消せば解消)。
+- **`test_error.log` の `at at` の重複 (U7 の実機で発見):** trx のスタックトレースが、すでに `at` で始まっていたため、`at at ...` と出た。先頭の `at` / `場所` を取ってから付ける。
+- **`-DotnetTestArgs` の書き方 (U15 の実機で発見):** `powershell -File` から `-DotnetTestArgs "-p:Platform=x64"` と書くと、値が `-` で始まるため、PowerShell が `-p` をパラメーター名と解釈して、`ambiguous` で起動に失敗する。**`-DotnetTestArgs:-p:Platform=x64` (コロンで結ぶ)** に、README・ヘルプ・PROJECT-LAYOUT を直した。
+- **生成コードの `using` の並び (WS14 の実機で発見):** `dotnet format --verify-no-changes` が、`WpfUi15.UITests/MainWindowUiTests.cs` と `WpfUi15/App.xaml.cs` の 2 件 (`IMPORTS`) を指摘。`add_ui_tests.py` (`TESTS_WPF_CS`) と `add_project.py` (`app_xaml_cs`。Views / ViewModels の名前空間を並べ替える) を直した。新しく生成した `WpfFmt14` で `exit=0`。
+- 記録: U7 / U8 / U13 / U15 / WS14、P14 / P15 / U6c / U12 を、実機で確認済み。
+
+## [2.5.3] 2026-10-21 (実機で確認済み: UT14b、P6、P14、P15、U6c、U12)
+
+- **ウォッチャー: WPF の描画設定の復元 (`Restore-WpfRendering`):** 異常終了のあと、次の起動で、「復元した」と表示したのに、レジストリも記録ファイルも、そのままだった (UT14b の実機で発見)。失敗を握りつぶさず (`-ErrorAction Stop`)、実際に戻ったかを確かめてから、記録を消し、メッセージを出す。失敗したときは、例外の種類と理由を表示する。
+- **ウォッチャー: ネットワークに届かないときの判定 (P6 の実機で発見):** (1) 日本語 OS の、接続の失敗のメッセージ (`対象のコンピューターによって拒否されたため、接続できませんでした` など) が、環境エラーの判定に含まれず、`ENV_ERROR` でなく `FAILED` になった → 判定に、日本語のメッセージを追加。(2) PowerShell 5.1 の `Invoke-RestMethod` は、プロキシの環境変数を見ず、`nuget search` / `versions` だけが、プロキシを通らなかった → `HTTPS_PROXY` / `HTTP_PROXY` を、`DefaultWebProxy` に適用。
+- `build_test_once.sh`: ウォッチャーが動いていないときの案内に、実際のフラグ名と、古いウォッチャーの可能性 (`copy-host-tools.sh` で再配置) を、出す。
+- 記録: U9 / U10 (混在の GoogleTest + MSTest)、UT4 / UT6 / UT8 を、実機で確認済み。
+
+## [2.5.2] 2026-10-21
+
+- **`mfc-check` UI004** (warning): UI テストのプロジェクト (`*.UITests`) があるとき、ダイアログの操作できるコントロール (ボタン・エディット・コンボなど) の ID が `IDC_STATIC` (`-1`) のまま、または、同じダイアログで ID が重複している (UI テストの AutomationId = コントロール ID なので、ID で探せない)。静的テキスト・グループボックス・アイコンは、対象外。UI テストのプロジェクトがなければ、出ない。実プロジェクト (`MfcUi18` / `MfcDlgLayers` / `MfcSdiLayers`) で、誤検出なし。`mfc_check_test.sh` に 7 件を追加 (76 件)。
+- 生成の出力の順序 (UI テストの足し込みが、本体より先に出る) を直した (標準出力のフラッシュ)。
+
+## [2.5.1] 2026-10-21 (UI テストを、目で確かめるモード。UT20〜UT22 は実機で確認済み)
+
+- **`run_watcher_visible.cmd`** (新規): UI テストを、ユーザーのデスクトップで、操作の間に待ち (`WATCH_UI_SLOWMO_MS`、既定 800 ms) を入れて、実行する。ウォッチャーに `-UiTestSlowMoMs` (環境変数 `WATCH_UI_SLOWMO_MS`)、テストへの環境変数 `UITEST_SLOWMO_MS`。
+- **ひな形 (`add_ui_tests.py`):** `UiTestBase` が、操作の記録 (`ui-trace.txt`) を残し、スローモーション (要素を探すたびに待つ。ウィンドウを前面に出す。終了の前に、最後の状態を見せる)。`UiNative.cs` (新規: デスクトップ名、前面表示、トレース)。`Screenshots`: ユーザーのデスクトップで PrintWindow が空白なら、画面のコピーに切り替える。`--refresh-support-files`: 既存の UI テストのプロジェクトの、ツールが持つ 4 つのファイルを、最新にする。
+- **`uitest_once.sh`:** 操作の記録から、テストごとの結果の行を出す (UI テストが、実際に動いたことの確認)。
+- テスト: `ui_tests_gen_test.sh` (32 件)、`uitest_once_test.sh` (6 件)。
+
+## [2.5.0] 2026-10-20 (UI テストの自動化。段階 1 と、段階 2 の WPF (UT15 / UT16 / UT19) は実機で確認済み。MFC (UT18) と、既存ソリューションへの後付け (UT17) も、2026-10-21 に実機で確認済み)
+
+- **段階 2 — UI テストのひな形と Skill:**
+  - **UI テストを Green のあとに実行させる指示を、強めた (UT19 の実機で、実行されなかったため):** `CLAUDE.md` の「UI テスト (FlaUI)」の節に、命令形で書く (`add_ui_tests.py` が書く。既存のソリューションは `--refresh-claude-md` で更新)。`wpf-test-first` / `cpp-test-first` の「Green へ引き渡す」にも追加。(UT19 の直接の原因は、Skill の再配布 (`install.sh --skills-only`) の忘れだった。)
+  - **UI テストの流れ (ユーザーの決定 2026-10-21): UI テストファースト (UI テストを先に書く) は、しない。テスト先行 (Red) → ビルド → テスト (Green) の「あとに、追加で」、UI テストを実行する。** そのため、`ui-test-first` Skill は、作らない (作ってあったものを、削除)。UI テストの書き方・実行・失敗時のスクリーンショットの読み方は、`build-test-loop` の「UI テスト」に、まとめた。`add-feature` の検証 (全体) にも、「UI テストのプロジェクトがあれば、PASSED のあとに、`uitest_once.sh`」を追加。
+  - `add_ui_tests.py` (既存のソリューションに `<アプリ名>.UITests` (MSTest + FlaUI.UIA3 5.0.0、`net8.0-windows`) を足す) は、`new-solution/scripts/` に置く (`UiTestBase` (起動・終了・失敗時のスクリーンショット)、`AppLocator`、`Screenshots` (PrintWindow)、ひな形のテスト)。
+  - **`new-solution --ui-tests flaui`**: 作成と同時に、または、すでにあるソリューションに後付けで、足す。
+  - **生成する WPF の View に、`AutomationProperties.AutomationId`** (`NameTextBox` / `GreetingText` / `ClearButton`) を付けた。
+  - **`wpf-check` UI002** (warning): ソリューションに UI テストのプロジェクト (`*.UITests`) があるとき、操作できるコントロール (Button / TextBox など。テンプレート・スタイルの中は除く) に、AutomationId (または `x:Name`) がない。
+  - **規約** (`rules/wpf-csharp.md`): UI テストの書き方を、テストの節と付録に追加。
+  - テスト: `tests/ui_tests_gen_test.sh` (26 件)、`wpf_check_test.sh` に UI002 を追加 (76 件)。
+
+- **UI テストの既定を、別のデスクトップ (`separate`) にした** (推奨に基づく。ユーザーの了承は、実機の確認後)。`WATCH_UI_DESKTOP=default` で、ユーザーのデスクトップに戻せる。
+- **ウォッチャー: `-UiTestDesktop separate`** — UI テストを、**別のデスクトップ** (Win32 の `CreateDesktop`) で実行する。ユーザーの画面に、ウィンドウが出ず、フォーカスも奪わない (実行中に、マウス・キーボードを使っていてよい、を目指す)。`dotnet test` を、ジョブオブジェクト (`KILL_ON_JOB_CLOSE`) に入れ、終了後・時間切れのとき、テストが起動して残ったアプリを、すべて終了する。既定は `default` (従来どおり)。UIA / スクリーンショットが、別のデスクトップで動くかは、**実機の PoC で確認する** (TEST-PLAN UT9〜UT13)。
+
+- **ウォッチャー (別のデスクトップ、PoC の実機で発見):** WPF を PrintWindow で撮ると、クライアント領域が白くなる (ハードウェアアクセラレーションの描画)。`-UiTestDesktop separate` のとき、UI テストの間だけ、HKCU `Avalon.Graphics` の `DisableHWAcceleration=1` を設定し、終わったら元に戻す。**元の値は、変更する前に、`%LOCALAPPDATA%\claude-watcher\wpf-hwaccel-backup.txt` に記録し、ウォッチャーが異常終了して記録が残っていたら、次の起動時に元に戻す** (ユーザーの提案)。
+- **ウォッチャー (UT7 の実機で発見):** テストが制限時間を超えて強制終了されたとき、リダイレクト先の `test_stdout.tmp` を、子プロセス (テストが起動したアプリ) が開いたままで、**読み取りに失敗し、`TEST_TIMEOUT` でなく `ENV_ERROR` (`別のプロセスで使用されているため...`) になった**。出力の読み取りを、共有を許す方式に変更。UI テストが時間切れのとき、残ったアプリも終了する。(ウォッチャーが固まらないこと、時間切れで強制終了されることは、実機で確認済み。)
+
+- **ウォッチャー:** `trigger_uitest.flag` を追加 (`docs/DESIGN.md` 4.29)。UI テストのプロジェクト (名前が `UITests` / `UiTests` で終わる、または FlaUI.* を参照) だけを実行し、通常のテスト (`trigger_test.flag`) からは除く。環境変数 `UITEST_*` でテストに実行環境を渡す。実行の前後に、ソリューションのフォルダの下の残ったアプリを終了する。`-UiTestTimeoutSec` (既定 600)。
+- **`build-test-loop`:** `uitest_once.sh` を追加 (失敗時のスクリーンショットの一覧を出す)。`build_test_once.sh` は、環境変数 `BUILD_TEST_FLAG` でフラグ名を変えられる。
+- **PoC (`poc/flaui/`):** 段階 1 の確認用に、環境変数のテストと、わざと失敗させるスイッチ (`UIPOC_FAIL=1`) を追加。
+
+## [2.4.2] 2026-10-19
+
+- **`wpf-check` LAY001:** ViewModel 層のプロジェクトの `UseWPF` / `UseWindowsForms` / `-windows` も、error にした (WS13 の実機で、検査の漏れを発見。ロジック・データ層だけが対象だった)。ViewModel のソースの WPF の型は、従来どおり LAY002 (warning)。
+
+- **ウォッチャー (`watch_and_build.ps1`):** プロジェクトの一覧を、**起動時に 1 回だけ**読んでいたため、起動後に、テストプロジェクトを後付け (`new_solution.py --tests mstest`) すると、`no tests found` の `ENV_ERROR` になり、再起動が要った (WS8 / WS9 などで 4 回再現)。**トリガーごとに、`.slnx` / `.sln` を読み直す**ようにした (2026-10-20 実機で確認済み (WS21)。ホストへの再配置が要る)。
+
+- **`build_once.sh` / `build_test_once.sh`:** 前回の `build_summary.json` / `test_summary.json` を、実行の最初に消す (U11 の実機で発見: ENV_ERROR / PASSED / SUCCESS では、JSON が更新されず、前回の失敗の内容が、今回の結果のように残った)。
+
+- **`new-solution` (WPF) の修正 (WS19 の実機で発見):** 層の名前を変えた (`viewmodel:Std.Presentation`) とき、アプリの `App.xaml.cs` の `using` と、`MainWindow.xaml` の `xmlns:vm` が、**存在しない `<ルート>.ViewModels`** を指し、`CS0234` でビルドが通らなかった。ViewModel のプロジェクトがあるときは、その名前空間 (`layer_namespace`) を使う (`add_project.py` の `wpf_app_files`)。テスト (`new_solution_wpf_test.sh`) を足した。
+
+- **`wpf-check` RES002:** 同じ辞書の中の `StaticResource` の前方参照を、warning から **error** に (W8 の実機で、起動時の `InvalidOperationException` を確認。説明文も訂正)。
+
+- **`wpf-check` BND003:** setter なしの読み取り専用プロパティへの、`TextBox.Text` などの既定 TwoWay のバインドを、warning から **error** に (W4 の実機で、起動時の `InvalidOperationException` を確認)。setter が public でない場合は、warning のまま。
+
+- **`add-package` (実機 P9 / P11 の結果):** (1) `vcpkg search` は、マニフェストモードでは `builtin-baseline` が要る → 手順に「先に `vcpkg baseline`」を明記。(2) fmt は MSVC で `/utf-8` を要求する (C2338) → `cpp_pkg.py` の `add` / `remove` / `setup` が、各 `.vcxproj` に `<ItemDefinitionGroup Label="VcpkgDefines">` で `FMT_UNICODE=0` を自動で入れる / 外す (`/utf-8` は CP932 のソースが文字化けするので使わない。ポート別の表は `PORT_DEFINES`)。
+
+**Skill の本文だけの変更** (再配布が必要: `install/install.sh`)。スクリプトの変更はない。
+
+- **`auto-build` / `build-test-loop`:** 「スクリプトは、この Skill のフォルダのものだけを使う。同名の古いコピーを、探して使わない。要約が出ないときは、まず、古い版を実行していないか確認する」を追加した。
+  - **きっかけ (実機の確認 U7):** コンソールの Claude が、ホーム直下の古いコピー (`~/cpp-build-test-loop/scripts/build_test_once.sh`、10/12 の版) を実行し、失敗の要約 (`[ran N: ...]`) と `test_summary.json` が出ないのを、「ツールの不具合」と記録した。**現行の配布版は、実機の trx を使った検証で、期待どおりの要約と JSON を出す** (古いコピーは、要約の処理を持たない)。古いコピーは、ホーム直下の `cpp-auto-build/` と `cpp-build-test-loop/` に残っている (ユーザーが、退避する)。
+- **`add-package`:** 「C++ の NuGet は、対象外 (`packages.config` も、VS 2026 の `PackageReference` (Experimental) も)。C++ は vcpkg」を、明記した。
+  - **決定 (ユーザー、2026-10-19):** VS 2026 の「C++ の NuGet PackageReference」(`EnableNativePackageReferenceSupport`。公式の記事 2026-05-19) は、**Experimental なので、対応を見送る**。手元の VS 2026 (18.8.1) と公式の記事で、仕組みは確認した (DESIGN 4.26 の調査メモ)。再開の条件も、同じ場所に記録。
+- 手順書: U4 / U5 / U6b / WS5 を ✔ (2026-10-19 実機)。P22 を ✔ (公式の記事で確認)。P23 / P24 を、見送り。U7 は △ (上の原因)。U8 は △ (MSTest の実機の trx を、解釈できることを確認)。
+
+## [2.4.1] 2026-10-18
+
+**実機 (WPF + MSTest の最初の実行) で見つかった、ホスト側の不具合を 2 つ直した。** 設計: `docs/DESIGN.md` 4.24 の末尾。契約 (ファイル名・結果の値・終了コード) の変更は、ない。**ホスト側ツールの再配布が必要** (3 ファイルをまとめて。ウォッチャーは、起動し直す)。修正は、実機で、まだ確認していない (TEST-PLAN の U6b / U6c)。
+
+- **文字化け:** `dotnet test` の出力 (UTF-8) を、ANSI (CP932) として読んでいたため、日本語が化けていた (`縺ｮ繝・せ繝・`)。**`Read-ProcessOutput`** を追加: 出力をバイト列で読み、UTF-8 として厳密に解釈し、できなければ ANSI として解釈する (BOM は除く)。GoogleTest の出力 (ANSI) も、そのまま読める。構造化された結果 (trx / XML) は、影響を受けていない。
+- **テストが実行されなかった (`bin\auto\Debug` で DLL が見つからない):** `run_watcher.cmd` の cmd 変数 `PLATFORM` (= `auto`) が、環境変数 `Platform` として子プロセスに継承され、MSBuild がプロパティとして読んでいた (`dotnet test --no-build` だけが影響を受けた。ビルドは `/p:Platform` を明示するので、無事だった)。**`watch_and_build.ps1` が、起動時に環境変数 `Platform` を削除する。`run_watcher.cmd` の変数名を `WATCH_PLATFORM` / `WATCH_CONFIG` に変えた** (CP932 のまま)。
+- 手順書に、U6b (文字化け) と U6c (環境変数の漏れ) を追加。
+
+## [2.4.0] 2026-10-18
+
+**WPF プログラミング規約を適用した。** ユーザーが示した規約 (19 章) で、`rules/wpf-csharp.md` を置き換え、生成物と `wpf-check` を、規約に合わせた。設計: `docs/DESIGN.md` 4.28。契約 (ファイル名・結果の値・終了コード) の変更は、ない。ホスト側ツールの変更も、ない。
+
+**生成した C# / XAML は、まだ、コンパイルしていない** (4.27 と同じ)。**`App.OnStartup` で画面を作る形と、`Resources/Styles.xaml` の結合は、実機で確認が要る** (TEST-PLAN の WS17 / WS18)。
+
+### 規約 (再配布が必要: `install/install.sh`。既存の `~/.claude/rules/wpf-csharp.md` は、バックアップ (`~1~`) が残る)
+- **`rules/wpf-csharp.md`:** ユーザーの規約の章立て (1〜19 章: 適用範囲、基本方針、ソリューション構成 3.1 / 3.2、命名、C#、View、ViewModel、MVVM ライブラリの選択 (Toolkit / Prism)、バインディング、非同期、DI、例外、ログ、XAML、コメント、テスト、禁止事項、レビュー確認項目、最終方針) に、全面的に置き換えた。このツール群で追加した決まり (ファイルの形式、書式、`obj/` の編集禁止、`add-package`、MSTest の書き方、層のモデル) は、各章の「ツール群の補足」に残した。**規約と食い違う場合は、規約を優先する。** 末尾に、**規則と、ツール (`wpf-check` のコード) の対応表** (付録)。
+- **差異を、補足に明記した:** テストは、ツール群が検証しているのは MSTest だけ (xUnit / NUnit は、未検証)。生成される構成は、アプリ + ライブラリの層 + ライブラリごとのテスト (規約 3.2 に近い)。**層の依存のモデルは、名前で 2 つに分かれる (混ぜない)。**
+
+### Skill (再配布が必要)
+- **`new-solution --type wpf` の生成物を、規約に合わせた:**
+  - アプリの構成 (3.1): `App.xaml(.cs)` / **`Views/`** (`MainWindow`。名前空間 `<ルート>.Views`) / `ViewModels/` (`viewmodel` 層がないとき) / **`Resources/Styles.xaml`** (`DefaultControlMargin` / `PrimaryButtonStyle`。`App.xaml` の `MergedDictionaries` で結合)。
+  - **`DataContext` の設定を、`App.xaml.cs` の `OnStartup` (composition root) に移した** (`StartupUri` を、やめた。`MainWindow` のコードビハインドは、`InitializeComponent()` だけ)。
+  - 画面は `Grid` (`Auto` / `*`、`MinWidth` / `MinHeight`)、バインディングは `Mode` を明示 (TwoWay / OneWay)。
+  - **`.` 区切りのプロジェクト名** (`SampleApp.Domain` など。規約 3.2 の名前) に対応 (`new-solution --layers data:SampleApp.Domain,...`、`add_project.py`)。名前空間は、その名前のまま。型名では `.` を除く。`CLAUDE.md` の雛形に、アプリの構成と、規約の場所を追記。
+- **`wpf-check`:** **標準の層** (名前が `Presentation` / `Application` / `Domain` / `Infrastructure` で終わるプロジェクト) は、規約 3.2 の依存 (Presentation → Application → Domain、Infrastructure → Application / Domain。Domain は、何も参照しない。Domain / Application / Infrastructure は WPF に依存しない) で検査する (LAY001 / LAY003)。`--logic` / `--data` / `--viewmodel` の明示は、名前による推定より優先する。
+  - **新しい検査 (すべて warning):** DI001 (ViewModel 内の `new XxxService()` など)、ASY001 (`.Result` / `.Wait()` / `GetAwaiter().GetResult()`)、ASY002 (イベントハンドラ以外の `async void`)、EXC001 (空の `catch`)、EXC002 (`throw ex;`)、NAM001 (bool の `Flag` / `Status` / `Check`)、UI003 (UserControl が自分自身を `DataContext` にする)。**LAY002 を拡張** (`OpenFileDialog` / `SaveFileDialog` / `Clipboard` / `.ShowDialog()` / `Views` の名前空間)。
+  - **機械で判定できない項目は、検査しない** (責務の分離の妥当性、メソッドの大きさ、コメントの質など)。**通ったことは、規約を満たすことを、意味しない。**
+- `wpf-test-first/PROJECT-LAYOUT.md`: アプリの構成 (3.1)、composition root、規約 3.2 の名前を追記。`new-solution` / `wpf-check` の `SKILL.md` を更新。
+
+### テスト・文書
+- `tests/wpf_check_test.sh` を 47 → **72 項目** (新しい検査と、誤検出しない形、標準の層)、`tests/new_solution_wpf_test.sh` を 51 → **59 項目** (規約の構成、composition root、`Grid`、`Mode`、`.` 区切りの名前)。`docs/DESIGN.md` に 4.28、`docs/TEST-PLAN.md` に WS17〜WS20。
+
+## [2.3.0] 2026-10-18
+
+**WPF のソリューションの生成 (`new-solution --type wpf`)、テスト先行 (`wpf-test-first`)、規約 (`rules/wpf-csharp.md`) を追加。** C++ / MFC で作った一式を、WPF でも同じ流れで使えるようにする。設計: `docs/DESIGN.md` 4.27。
+
+**生成した C# / XAML は、まだ、コンパイルしていない** (WSL に .NET がない。手で読んで確認し、`wpf-check` にかけて、指摘 0 件を確認した)。**MSTest の既定のバージョン (Test.Sdk 17.12.0、MSTest 3.6.4) が、nuget.org に実在することも、未確認。** 配布前に、`docs/TEST-PLAN.md` の 2-4 (**WS6 → WS2 → WS3 の順**) を、実機で確認する。契約 (ファイル名・結果の値・終了コード) の変更は、ない。ホスト側ツールの変更も、ない。
+
+### Skill (再配布が必要: `install/install.sh`)
+- **`new-solution`:** `--type wpf` を追加 (WPF、MVVM。.NET)。
+  - **構成: View (WPF アプリ) → ViewModel → ロジック → データ。** 層は、`--layers` に `data` / `logic` / `viewmodel` を、組み合わせる (既定の名前 `DataLayer` / `LogicLayer` / `ViewModels`)。**層は、WPF 非依存のクラスライブラリ** (`net8.0`。ViewModel が `System.Windows` を、使えないことを、型で強制する)。`viewmodel` を作らないと、ViewModel は、アプリの `ViewModels/` フォルダ (テストできない)。
+  - **`--tests mstest`:** 層のライブラリごとに `<名前>.Tests` (MSTest v3: `Microsoft.NET.Test.Sdk` + `MSTest.TestAdapter` + `MSTest.TestFramework`)。View は、テストしない。層がないと、エラー。`--tests gtest` と、C++ 用の引数 (`--layer-kind` / `--gtest` / `--toolset`) は、エラー。
+  - 追加の引数: `--tfm` (既定 `net8.0`)、`--mstest-version`、`--testsdk-version`。**テストの後付け:** すでにある .NET のソリューションで `--tests mstest`。`--spec` は、`wpf` / `mstest` / `viewmodel` を読む。
+  - 作るもの: `.slnx` (構成なし。アプリに `DefaultStartup`)、SDK 形式の `.csproj`、`Directory.Build.props` (`Nullable` / `ImplicitUsings` / `LangVersion`)、`.editorconfig`、サンプル (`MainWindow` と `MainViewModel`。自前の最小実装の `ObservableObject` / `RelayCommand`。NuGet 不要)、`CLAUDE.md` (`- テスト: あり (MSTest)`) / `.gitignore` / `.gitattributes`。
+  - **C++ の経路は、変えていない** (`parse_layers` に、引数を足しただけ。WPF のコードは、`--type wpf` / `--tests mstest` のときだけ、読み込む)。
+- **`wpf-test-first` を追加:** `cpp-test-first` の骨格 (ゲート・正しい Red の条件・ループの規則・完了時の報告) を、WPF に移した。WPF 固有: スタブは `NotImplementedException` にしない (例外で落ちるので、Red ではない)、ViewModel のスタブは通知を上げない、`.csproj` への追加は不要 (SDK 形式)、**View は、テストしない** (ViewModel への切り出し案を示して止まる)、実装のあとに `wpf-check`、パッケージは `add-package`。
+  - `PROJECT-LAYOUT.md` (構成と規約、`.sln` / `.slnx`、よくある失敗)。
+  - `scripts/add_project.py`: クラスライブラリ + `<名前>.Tests` を、**`.slnx` と、Visual Studio 形式の `.sln` の両方**に追加する (`.sln` は、プロジェクトの種類の GUID と、構成の対応付け (ソリューションの構成 → プロジェクトの `Any CPU`) も足す)。`--kind lib|data|logic|viewmodel`、`--tests-only`、`--uses`、`--dry-run`。既存は、上書きしない (rc=3)。
+- **`add-feature` / `update-from-ideas`:** WPF に対応 (`CLAUDE.md` の `- メイン:` / `- テスト:` で、`cpp-test-first` と `wpf-test-first` を選ぶ。構成案の値に `wpf` / `mstest` / `viewmodel` を追加。**WPF か MFC かは、ユーザーが決める**)。
+
+### 規約・ひな形 (新規)
+- **`rules/wpf-csharp.md`** (ユーザー共通。`paths` は `**/*.cs` `**/*.xaml` `**/*.csproj`): C++ の規約 (`cpp-mfc.md`) と同じ方針の項目はそろえ (UTF-8 BOM + CRLF、Allman、コメントは日本語)、.NET の慣習の項目は合わせた (定数は PascalCase、private フィールドは `_camelCase`、`Async` の接尾辞)。**WPF 固有:** 層と MVVM (View に業務ルールを書かない、ViewModel は WPF の型を使わない、`INotifyPropertyChanged`、`ObservableCollection`、コマンド、`DataContext` の設定と `d:DataContext`、バインディングの綴り、リソースの順序、UI スレッド)、例外とリソース、MSTest の書き方 (命名、AAA、期待値の順、フェイク、`[Ignore]` の禁止)。**`wpf-check` の検査項目と、対応させた。**
+- **`templates/dotnet/`:** `.editorconfig` (Allman、ファイルスコープの名前空間、命名、`utf-8-bom` (`.slnx` / `.json` / `.md` は BOM なし)) と `Directory.Build.props`。**生成の定数と同じ内容** (テストで一致を確認)。
+- **`install/install.sh`:** 規約を `~/.claude/rules`、ひな形を `~/.claude/templates` に配る (`--rules-dir` / `--templates-dir` / `--rules-only`)。**既存のファイルは、上書きせず、番号付きのバックアップ (`~1~`) を残す** (同じ内容なら、何もしない)。先頭が `.` のファイルも、配る。
+
+### ツール・文書
+- `tests/add_project_test.sh` (24 項目)、`tests/new_solution_wpf_test.sh` (51 項目。**生成物が `wpf-check` で指摘 0 件**を、4 つの形で確認)。
+- `docs/DESIGN.md` 4.27 (方針、層を、WPF 非依存のライブラリにする理由、MVVM の基底を自前にした理由、MSTest の参照と版、取り下げた案、検証の範囲)。`docs/TEST-PLAN.md` に 2-4 (WS1〜WS16)。`README.md` を更新。`.gitattributes` に、`templates/` `rules/` `tests/fixtures/`。
+
+## [2.2.0] 2026-10-18
+
+**パッケージの追加 (NuGet / vcpkg / ソースの取り込み) を、ホスト側に実行させる。** WSL からは、NuGet も vcpkg も、実行できないため。設計: `docs/DESIGN.md` 4.26。
+
+**Windows 側 (`watch_and_build.ps1` の、パッケージの操作) は、実機で未検証。** WSL のサンドボックスから PowerShell を実行できない (括弧の対応のみ確認)。vcpkg のマニフェストモードと MSBuild の連携 (`vcpkg.json` を探す場所、`Label="Vcpkg"` の効き方) も、実機で未確認。**配布前に、`docs/TEST-PLAN.md` の 1-6 (P1 から) を、実機で確認する。**
+
+### 契約の追加 (後方互換。既存のファイル名・結果の値・終了コードは、変えていない)
+- `trigger_package.flag` (Claude): 各行が 1 操作 (`nuget search/versions/add/remove`、`vcpkg search/baseline/install`、`fetch`)。上から順に実行し、最初の失敗で止まる。
+- `package_output.txt` / `package_error.log` / `package_result.txt` (ウォッチャー): 出力 / 失敗時のみ (環境の問題は、先頭が `[ENVIRONMENT ERROR ...]`) / 完了マーカー `OK` / `FAILED` (最後に書く)。
+- ビルド・テスト・gtest 取得とは独立。**ビルドより先に処理される。**
+
+### ホスト側ツール (再配布が必要。3 ファイルをまとめて)
+- `watch_and_build.ps1`: パッケージの操作を追加。
+  - **引数は、決まった文字だけを許可して、検証する** (ID・語・リポジトリ・タグ・名前・バージョン。`-` 始まりは拒否。プロジェクトは、ソリューションの下の、存在する `.csproj` などに限る)。
+  - `nuget search` / `versions` は、nuget.org の REST API (ダウンロード数と `verified` も出す)。`nuget add` / `remove` は、`dotnet add / remove package` (結果のバージョンを、`.csproj` / `Directory.Packages.props` から読んで返す)。`NU1101` (名前の誤り) は、環境エラーにしない。
+  - `vcpkg search / baseline / install`: VS 同梱の vcpkg (`VC\vcpkg\vcpkg.exe`。`-VcpkgExe` → `VCPKG_ROOT` → `vswhere` の順) を使う。トリプレットは、Platform から (既定 `x64-windows-static-md`)。
+  - `fetch <owner/repo> <タグ> <名前> [<サブフォルダ>]`: GitHub のタグのソースを、`ThirdParty\<名前>\` に置く (GoogleTest の取得と、同じ構造。**GoogleTest の取得は、そのまま**)。
+  - 新しい引数: `-PackageTimeoutSec` (既定 1800)、`-VcpkgExe`、`-VcpkgTriplet`。`Invoke-TestProcess` に、制限時間の引数を追加 (既定は、従来どおり)。
+
+### Skill (再配布が必要: `install/install.sh`)
+- **`add-package` を追加:** どの方法を使うかの判断 (NuGet / vcpkg / `fetch`。**GoogleTest は対象外**)、共通のルール (追加する前に、実在とバージョンを確認する。名指しされた名前だけを追加する。バージョンを固定する)、各手順、完了時の報告 (変更したファイル・バージョン。`git commit` はしない)。
+  - `scripts/package_once.sh`: フラグを置いて、完了を待つ。**操作の形を、フラグを置く前に、検証する** (ウォッチャーと同じ規則。多重の防御)。`--file` (`ThirdParty.manifest` の再現)、`--timeout`。1 行目と終了コード: `OK` 0 / `FAILED` 1 / `BAD_ARGS` 2 / `WATCHER_NOT_RUNNING` 3 / `ENV_ERROR` 4 / `TIMEOUT` 5。
+  - `scripts/cpp_pkg.py` (WSL で完結。ネットワーク不要): `setup` (`vcpkg.json` と、各 `.vcxproj` の `Label="Vcpkg"` (マニフェストモード + プラットフォーム別トリプレット)。gtest を除く。冪等。BOM・改行・インデントを保つ)、`add` / `remove` / `list` (`vcpkg.json`)、`include-dir` (全構成の `AdditionalIncludeDirectories`)、`record-fetch` (`ThirdParty.manifest` と `.gitignore`)。
+- `auto-build`: ライブラリの不足が原因のエラー (`C1083` / 外部の `LNK2019` / `CS0246` / `NU1101`) は、`.csproj` / `.vcxproj` を、自分で書き換えず、`add-package` で追加する、という規則を追加。
+
+### ガード・文書
+- `docs/RECOMMENDED-SETTINGS.md`: **`add-package` の `permissions.ask`** (`Bash(*package_once.sh*)`、`Bash(*cpp_pkg.py*)`、`Edit(**/vcpkg.json)`、`Edit(**/*.vcxproj)`、`Edit(**/ThirdParty.manifest)`)。供給網への入口になるため。`cpp_pkg.py` は別のプロセスが書くので、`Edit` のルールが効かず、`Bash` にも `ask` が要る。**実機での確認は、未実施。**
+- `docs/DESIGN.md` 4.26 (方針、引数の検証、取り違えへの対策、vcpkg の採用理由とトリプレット、**取り下げた案**、検証の範囲)。`docs/TEST-PLAN.md` に 1-6 (P1〜P21)。`README.md` / `host-tools/README.md` を更新。`.gitignore` に、新しい生成ファイル。
+
+### テスト
+- `tests/package_once_test.sh` (41 項目: 疑似ウォッチャー。操作の検証 (注入・`..`・絶対パス・`-` 始まりなど 17 種類を拒否)、結果の分岐、古い結果の除去、`--file`、出力の上限)、`tests/cpp_pkg_test.sh` (35 項目: 疑似の `.vcxproj`。BOM と CRLF の保持、冪等、XML の整合)。
+
+## [2.1.0] 2026-10-18
+
+### Skill (再配布が必要: `install/install.sh`)
+- **`wpf-check` を追加 (独立した Skill。手動で実行する。ウォッチャーも Windows も .NET も不要。読み取りだけ):** WPF の「コンパイルは通るが、実行時に壊れる」部分を、静的に検査する (`scripts/wpf_check.py`)。`mfc-check` と同じ形 (出力・`--all` / `--json` / `--max-lines`・終了コード 0 / 1 / 2 / 3)。設計: `docs/DESIGN.md` 4.25。
+  - **バインディング (BND / CMD):** `{Binding}` のパスが、DataContext の型にない (綴りの近い候補を添える)、public フィールド・メソッド・非 public・static へのバインド、読み取り専用プロパティへの TwoWay、`INotifyPropertyChanged` の未実装、`Command` に `ICommand` でない型。DataContext の型は、XAML の `DataContext` / `<X.DataContext>` / `DataTemplate` の `DataType` / code-behind の `DataContext = new Xxx()` / `= this` / コンストラクター引数 / `GetService<Xxx>()` / ウィンドウを作るコードから推定する。**基底クラスが外部 (`Window` や未知のクラス) の型は、「ない」と言わない** (`--all` の BND900)。`d:DataContext` だけが根拠なら warning。CommunityToolkit.Mvvm の `[ObservableProperty]` / `[RelayCommand]` が作るメンバーを知っている。
+  - **リソース (RES / CNV):** `StaticResource` の未定義・同じ辞書の後ろで定義 (前方参照)、`x:Key` の重複、`DynamicResource` の未定義、結合した辞書の `Source` が見つからない、`Converter` が `IValueConverter` を実装していない。祖先の `Resources` → `App.xaml` の辞書の順に厳密に辿る。外部の辞書 (NuGet のテーマなど) やライブラリの XAML は、error を warning に下げる。コードから足されるキー (`Resources["X"] = ...`) は知っている。
+  - **起動 (UI / APP):** code-behind のコンストラクターが `InitializeComponent()` を呼んでいない (例外も出ず、画面が空になる)、`StartupUri` が見つからない。
+  - **層 (LAY):** ロジック層・データ層の WPF 依存 (`UseWPF` / `-windows` / `System.Windows` / `MessageBox`)、ViewModel の View 型の使用 (warning)、プロジェクト参照の向き (View → ViewModel → ロジック → データ)。`--logic` / `--data` / `--viewmodel` で層を指定できる。
+  - **対象外:** コンパイルエラーになるもの (イベントハンドラの不足、`x:Name` の重複、XAML の文法)。ビルドが `MC` / `XDG` / `CS` で教える。
+  - 実装: XAML は expat で読み (行番号・属性の順序・名前空間・属性の行)、C# は軽い字句解析 (コメント・文字列・raw 文字列を除き、型・メンバー・基底クラス・コンストラクターを取り出す)。
+- **契約 (ファイル名・結果の値・終了コード) の変更は、ない。** ホスト側ツールの変更も、ない。
+
+### ツール・文書
+- `tests/wpf_check_test.sh` を追加 (47 項目。**正常なプロジェクトに指摘が出ないこと**と、不具合を 1 か所ずつ入れたときの各コード、BOM + CRLF の行番号、出力の上限、終了コード、読み取り専用)。
+- `docs/DESIGN.md` に 4.25、`docs/TEST-PLAN.md` に 2-3 (W1〜W12) を追加。**実プロジェクトでは、まだ検証していない。** `mfc-check` の経験から、実プロジェクトで誤検出が見つかる可能性が高い (W1 を最初に)。
+- BND003 (読み取り専用への TwoWay が、実行時に例外になるか)、RES002 (前方参照が、実行時に失敗するか) の、実際の動作は、未確認 (W4 / W8)。
+
+## [2.0.0] 2026-10-18
+
+**C++ と .NET (WPF + MSTest) の統合。** 1 つのウォッチャーと 1 組の Skill で、C++ のみ、.NET のみ、混在のソリューションを扱う (設計: `docs/DESIGN.md` 4.24)。
+
+**Windows 側 (`watch_and_build.ps1` / `build-windows.cmd` / `run_watcher.cmd`) の変更は、実機で未検証。** WSL のサンドボックスから PowerShell を実行できなかったため、括弧の対応と、CP932 の `rem` 行の確認だけ行った。**配布前に、`docs/TEST-PLAN.md` の 1-5 (U1 の、C++ の回帰から) を、実機で確認する。**
+
+### Skill の名前の変更 (配り直しと、旧名の削除が必要: `install/install.sh`)
+- `cpp-auto-build` → **`auto-build`**、`cpp-build-test-loop` → **`build-test-loop`**。技術名を外した。**旧名の Skill が配布先に残ると、description が重なるので、手で削除する** (`install.sh` が、残っていれば知らせる)。`cpp-test-first` / `mfc-check` / `new-solution` は、変更なし。
+- 両 Skill の本文を、.NET に対応させた: XAML / C# / NuGet / SDK のエラーコードの読み方、`obj/` の生成物 (`*.g.cs`) を直接編集しない、警告の抑制 (`#pragma warning disable` / `NoWarn` / `TreatWarningsAsErrors` の解除) でビルドを通さない、`.csproj` などの変更は最小限で報告する、MSTest での禁止事項 (`[Ignore]` / `Assert.Inconclusive` / `.runsettings` で外す / アサーションを弱める / `[Timeout]` の延長)、完了時の報告のテストファイルに `*Tests/` / `*Tests.cs` を追加。
+
+### テスト結果の共通の形式
+- **`summarize_test_log.py` が、GoogleTest の XML と MSTest の trx を、共通の形式に変換して集約する** (`--results-dir`、`--root`)。同じメッセージの失敗は、フレームワークをまたいで、1 つにまとまる。見出しに `[ran N: passed / failed / skipped]`。構造化された結果がなければ、従来のテキスト解釈に戻る。クラッシュの報告 (`(no gtest failure lines ...)`、`Hung test`) は、`other:` に併記する。壊れた XML は、`other:` に残し、読めるものは使う。
+- **`test_summary.json` は schema 2** (`schema` / `structured` / `totals` / `sources` を追加。**従来のキー `failed` / `groups` / `tests` / `other` は、そのまま**)。
+- `build_test_once.sh` が、`.claude-logs/test-results/` を、`--results-dir` に渡す。フラグを置く前に、前回の結果を消す。
+- `summarize_build_log.py` (2 つの Skill のコピー): 診断コードの接頭辞を、1〜4 文字から **1〜8 文字**に広げた (`NETSDK1045` / `MSTEST0037` が、`other:` に落ちていた)。
+
+### ホスト側ツール (再配布が必要。3 ファイルをまとめて)
+- **契約の追加 (後方互換):** `.claude-logs/test-results/` (`<exe名>.xml`、`<プロジェクト名>.trx`)。**既存のファイル名・結果の値・終了コードの意味は、変えていない。** `ENV_ERROR` の意味を広げた (テストが見つからない (C++ も .NET も)、`dotnet` がない、.NET のテストが 1 件も実行されない)。
+- `watch_and_build.ps1`:
+  - ソリューションの中身 (`.vcxproj` / `.csproj` / `.vbproj` / `.fsproj`) を判定する。`-Platform` の既定が **`auto`** (C++ があれば `x64`、.NET だけなら `AnyCPU`)。`AnyCPU` を追加。
+  - `build-windows.cmd` に、第 6 引数 `Features` (`cpp` / `restore`) を渡す。判定できなければ、従来どおり `cpp`。
+  - GoogleTest の exe に `--gtest_output=xml:` を足す。.NET のテストプロジェクト (`Microsoft.NET.Test.Sdk` / `MSTest` を参照、`IsTestProject`、名前が `Test(s)` で終わる) を、`dotnet test --no-build --logger trx` で実行する。両方ある場合は両方を実行し、結果は 1 つの `test_result.txt`。trx の `executed` が 0 なら `ENV_ERROR`。
+  - .NET の環境エラー (`MSB4236` `NETSDK1045` `NETSDK1141` `NU1301`) を、`[ENVIRONMENT ERROR ...]` にする。`NU1101` は、ソースの問題として、そのまま。
+  - 新しい引数: `-DotnetTestArgs`、`-DotnetExe`。起動時のヘッダーに、`Solution` (種類) と `dotnet test` の行を追加。
+- `build-windows.cmd`: 第 6 引数 `Features`。`cpp` がなければ、VS の要求が MSBuild だけになり、`cl.exe` の確認もしない。`restore` で `/restore` (`Clean` では付けない)。`AnyCPU` (MSBuild には `Any CPU`)。**`Features` を省略した呼び出しは、従来と同じ動作** (`/p:Platform` を、引用符で囲む点だけが違う)。
+- `run_watcher.cmd`: Platform の既定を `auto` に。
+
+### ガード・文書
+- `docs/RECOMMENDED-SETTINGS.md`: **.NET を含むプロジェクトの `permissions`** を追加。`ask`: `*Tests/**` `*.Tests/**` `*Tests.cs` `*Test.cs` (C++ 用の `*Test/**` は `MyApp.Tests/` に一致しないため)、`*.csproj` `Directory.Build.props` `Directory.Packages.props` `global.json` `*.runsettings`。`deny`: `obj/` `bin/` `*.g.cs` `*.g.i.cs` `packages.lock.json`。**実機での確認は、未実施。**
+- `docs/DESIGN.md`: 4.24 (統合の方針、判定、テストの実行、共通の形式、**採らなかった案** (C++ のテストを `CppUnitTestFramework` に移す、`dotnet build` へのフォールバック)、検証の範囲)。契約の表、4.11、6 章を更新。`docs/TEST-PLAN.md`: 1-5 (U1〜U16) を追加。`README.md` / `host-tools/README.md` を更新。
+- `install/install.sh`: 旧名の Skill が残っていれば、知らせる。
+
+### テスト
+- `tests/fixtures/` (GoogleTest の XML、MSTest の trx。**仕様から書いたサンプル。実機の出力で差し替える: TEST-PLAN の U8**) を追加。`tests/summarize_test_log_test.sh` を 15 → 34 項目、`tests/summarize_build_log_test.sh` を 20 → 26 項目 (.NET の診断コード)、`tests/fake_watcher_test.sh` に、構造化された結果の経路と、前回の結果が消えることを追加。
+
 ## [1.6.0] 2026-10-18
 
 ### Skill (再配布が必要: `install/install.sh`)

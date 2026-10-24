@@ -3,7 +3,7 @@
 # Usage: tests/summarize_test_log_test.sh      (最後に PASS/FAIL の件数。失敗があれば rc=1)
 export LC_ALL=C
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-S="$ROOT/skills/cpp-build-test-loop/scripts/summarize_test_log.py"
+S="$ROOT/skills/build-test-loop/scripts/summarize_test_log.py"
 T="${TMPDIR:-/tmp}/stl_$$"
 rm -rf "$T"; mkdir -p "$T"
 trap 'rm -rf "$T"' EXIT
@@ -52,6 +52,72 @@ ok "json keeps all 100 names" "$(python3 -c "import json,sys; sys.exit(0 if len(
 printf '=== X.exe: exit code -1 ===\n(no gtest failure lines: process crashed or exited abnormally, exit code -1)\nTests failed\n' > "$T/c.log"
 out="$(python3 -I "$S" "$T/c.log")"; rc=$?
 ok "crash (no test names) -> rc=3, no output" $([ $rc = 3 ] && [ -z "$out" ] && echo 1 || echo 0)
+
+
+# ---------- 構造化された結果 (GoogleTest XML + trx) ----------
+FX="$ROOT/tests/fixtures"
+mkdir -p "$T/res"; cp "$FX/LogicLayerTest.xml" "$FX/WpfApp.Tests.trx" "$T/res/"
+: > "$T/empty.log"
+out="$(python3 -I "$S" "$T/empty.log" --results-dir "$T/res" --root /mnt/c/w --json "$T/s.json")"; rc=$?
+ok "structured: rc=0" $([ $rc = 0 ] && echo 1 || echo 0)
+ok "structured: header has totals from both frameworks" "$(has "$out" '6 failed tests in 4 suites')"
+ok "structured: ran/passed/failed/skipped counts" "$(has "$out" '[ran 10: passed 2 / failed 6 / skipped 2]')"
+ok "gtest xml: same message grouped (x2)" "$(has "$out" '[1] x2  Expected equality of these values: | 25.0 | Which is: 28')"
+ok "gtest xml: windows path made relative (--root)" "$(has "$out" 'at: LogicLayerTest/TestGeo.cpp(49)  LogicLayerTest/TestGeo.cpp(60)')"
+ok "gtest xml: parameterized name (classname Inst/TestLineD)" "$(has "$out" 'tests: Inst/TestLineD.Foo/0')"
+ok "gtest xml: skipped test is not a failure" "$([ "$(grep -c 'Later' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+ok "trx: same message grouped across tests (x2)" "$(has "$out" '[3] x2  Assert.AreEqual failed. Expected:<3>. Actual:<4>.')"
+ok "trx: full name = class + method" "$(has "$out" 'tests: WpfApp.Tests.CalcTests.AddsTwoNumbers, WpfApp.Tests.CalcTests.SubtractsTwoNumbers')"
+ok "trx: location from the first stack frame with a file" "$(has "$out" 'at: WpfApp.Tests/CalcTests.cs(21)  WpfApp.Tests/CalcTests.cs(30)')"
+ok "trx: data-row suffix kept in the name" "$(has "$out" 'WpfApp.Tests.ViewModelTests.IsEven (2,True)')"
+ok "trx: NotExecuted is skipped, not failed" "$([ "$(grep -c 'Ignored' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+ok "json schema 2: structured, totals, per-source counts" "$(python3 -c "
+import json,sys
+d=json.load(open('$T/s.json'))
+ok = (d['schema']==2 and d['structured'] is True and d['totals']=={'total':10,'passed':2,'failed':6,'skipped':2}
+      and {s['framework'] for s in d['sources']}=={'gtest','mstest'}
+      and d['failed']==6 and len(d['tests'])==6 and d['groups'][0]['count']==2)
+sys.exit(0 if ok else 1)" && echo 1 || echo 0)"
+ok "json keeps legacy keys (failed/groups/tests/other)" "$(python3 -c "
+import json,sys
+d=json.load(open('$T/s.json')); sys.exit(0 if all(k in d for k in ('failed','groups','tests','other')) else 1)" && echo 1 || echo 0)"
+
+# 全部成功の結果だけがあるとき: 失敗なし → rc=3 (呼び出し側は、従来の表示へ)
+mkdir -p "$T/res_ok"
+python3 - "$T/res_ok" <<'PY'
+import sys
+open(sys.argv[1] + "/A.xml", "w").write('<?xml version="1.0"?><testsuites><testsuite name="S"><testcase name="T" classname="S" status="run" time="0"/></testsuite></testsuites>')
+PY
+python3 -I "$S" "$T/empty.log" --results-dir "$T/res_ok" >/dev/null; rc=$?
+ok "structured: no failures -> rc=3" $([ $rc = 3 ] && echo 1 || echo 0)
+
+# 壊れた XML は、other に残し、読めたほうは使う
+mkdir -p "$T/res_bad"; cp "$FX/WpfApp.Tests.trx" "$T/res_bad/"; printf '<testsuites><broken' > "$T/res_bad/Broken.xml"
+out="$(python3 -I "$S" "$T/empty.log" --results-dir "$T/res_bad")"
+ok "broken xml: reported under other, valid trx still used" "$([ "$(has "$out" '3 failed tests')" = 1 ] && [ "$(has "$out" 'could not read Broken.xml')" = 1 ] && echo 1 || echo 0)"
+
+# 構造化された結果と一緒に、テキストのログのクラッシュ報告も残す
+printf '=== CrashTest.exe: exit code -1073741819 ===\n(no gtest failure lines: process crashed or exited abnormally, exit code -1073741819)\nTests failed\n' > "$T/crash.log"
+out="$(python3 -I "$S" "$T/crash.log" --results-dir "$T/res")"
+ok "structured + text log: crash report kept under other" "$([ "$(has "$out" 'other:')" = 1 ] && [ "$(has "$out" 'process crashed or exited abnormally')" = 1 ] && [ "$(grep -c '=== CrashTest.exe: exit code' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+
+# 結果ディレクトリがない / 空 → テキストの解釈に戻る (従来どおり)
+out="$(python3 -I "$S" "$T/t.log" --results-dir "$T/nonexistent")"
+ok "no results dir -> falls back to the text log" "$(has "$out" '3 failed tests in 2 suites: TestPointD 2, TestLineD 1')"
+
+# MSTest の、日本語 OS のスタックトレース (場所 ...:行 N)
+mkdir -p "$T/res_ja"
+python3 - "$T/res_ja" <<'PY'
+import sys
+trx = """<?xml version="1.0" encoding="utf-8"?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>
+<UnitTestResult testId="t1" testName="M" duration="00:00:00.001" outcome="Failed"><Output><ErrorInfo><Message>x</Message>
+<StackTrace>   場所 N.C.M() 場所 C:\\w\\P.Tests\\C.cs:行 7</StackTrace></ErrorInfo></Output></UnitTestResult></Results>
+<TestDefinitions><UnitTest name="M" id="t1"><TestMethod className="N.C, P.Tests" name="M"/></UnitTest></TestDefinitions></TestRun>"""
+open(sys.argv[1] + "/P.Tests.trx", "w", encoding="utf-8").write(trx)
+PY
+out="$(python3 -I "$S" "$T/empty.log" --results-dir "$T/res_ja" --root /mnt/c/w)"
+ok "trx: Japanese stack trace location (場所 ...:行 N)" "$(has "$out" 'at: P.Tests/C.cs(7)')"
 
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

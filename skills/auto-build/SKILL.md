@@ -1,12 +1,14 @@
 ---
-name: cpp-auto-build
-description: C++ (Visual Studio/MSBuild) プロジェクトを、Windows ホスト側のウォッチャーに trigger_build.flag を渡してビルドし、build_result.txt と build_error.log を読んでエラーを自動修正し、成功するまで繰り返す手順。ビルドして確認する、ビルドエラーを直す、といった依頼で使う。
+name: auto-build
+description: C++ (MSBuild / .vcxproj) と .NET (WPF などの SDK 形式 .csproj) のソリューションを、Windows ホスト側のウォッチャーに trigger_build.flag を渡してビルドし、build_result.txt と build_error.log を読んでエラーを自動修正し、成功するまで繰り返す手順。C++ のみ、.NET のみ、混在のどれでも、同じ手順で使う (ソリューションの中身は、ウォッチャーが判定する)。ビルドして確認する、ビルドエラーを直す、といった依頼で使う。テストまで通すときは build-test-loop を使う。
 ---
 
-# C++ 自動ビルド & エラー修正ループ
+# 自動ビルド & エラー修正ループ (C++ / .NET)
 
 サンドボックスから msbuild を直接実行できないため、ホスト側の `run_watcher.cmd`
 (watch_and_build.ps1) がフラグファイルを監視してビルドする。Claude はフラグを置いて結果を読むだけ。
+
+**C++ (`.vcxproj`)、.NET (`.csproj`。WPF を含む)、その混在の、どれでも、手順は同じ。** ウォッチャーが、ソリューションの中身を見て、ビルドの方法 (C++ ツール要求の有無、NuGet の復元) を決める。Skill 側で、切り替える必要はない。
 
 ## 前提
 - ユーザーが対象プロジェクトで `run_watcher.cmd` を起動済みであること。
@@ -15,6 +17,8 @@ description: C++ (Visual Studio/MSBuild) プロジェクトを、Windows ホス�
 ## ビルド実行 (1回分)
 
 必ず同梱スクリプトを使う。自分で flag を作ったり待機ループを書いたりしない。
+**スクリプトは、この Skill のフォルダ (`~/.claude/skills/auto-build/scripts/`) のものだけを使う。** 同じ名前の古いコピー (ホーム直下の `cpp-auto-build/` など) を、探して使わない。古い版は、エラーの要約や `.claude-logs/*_summary.json` を出さず、`.claude-logs/test-results/` も扱えない。
+失敗の要約 (`N errors (M unique) ...` の行と、`.claude-logs/build_summary.json`) が出ないときは、まず、古い版を実行していないか (スクリプトのパス) を確認する。
 
 ```bash
 bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
@@ -32,7 +36,7 @@ bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
 |---|---|---|---|
 | `SUCCESS` | 0 | ビルド成功 | ループ終了。1〜2行で報告 |
 | `FAILED` | 1 | コンパイル/リンクエラー | 2行目以降のエラー要約を読んで修正し、再ビルド (読み方は下記) |
-| `ENV_ERROR` | 4 | 環境エラー (VS/vswhere/引数など) | **ソースを直さず**、内容を報告して停止 |
+| `ENV_ERROR` | 4 | 環境エラー (VS/vswhere/引数など) | **ソースを直さず**、内容を報告して停止。**`no Visual Studio with C++ x86/x64 tools found` のとき: C++ ツールのない VS では、C++ のビルドができない。自動では追加できないので、ユーザーに、Visual Studio Installer で「変更」→「C++ によるデスクトップ開発」の追加を依頼して、待つ。逆に、.NET / WPF のビルドで `MSB4236` / `NETSDK1045` / `NETSDK1141` (または `dotnet` が見つからない) のときは、「.NET デスクトップ開発」の追加 (または .NET SDK のインストール) を依頼して、待つ (`build_error.log` に、その案内の行が付く)** |
 | `WATCHER_NOT_RUNNING` | 3 | フラグが回収されない | 停止し、`run_watcher.cmd` の起動をユーザーに依頼 |
 | `TIMEOUT` | 5 | 完了マーカーが出ない | 停止して報告 (長いビルドなら timeout を延ばして1回だけ再試行可) |
 
@@ -47,6 +51,8 @@ bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
 - `[n]` は同じ (コード, メッセージ) をまとめたもの。`xN` は件数、下の行は代表の場所 (最大3つ。`(+N more)` は省略分)。
 - **最初に出たエラー順。上の `[n]` ほど原因の可能性が高い。** 下のほうは連鎖エラーのことが多いので、まず `[1]` から直し、再ビルドで確認する。
 - `LNK` は定義・エクスポート・ライブラリ指定の問題。ソースの宣言だけ直しても消えない。
+- .NET のコード: `CS` は C# コンパイラ、`MC` / `XDG` は XAML のコンパイル (WPF。XAML の文法、`x:Class` の不一致、未定義の型など)、`NU` は NuGet の復元、`NETSDK` は SDK、`MSB` は MSBuild。
+  XAML のエラーは、`.xaml` のファイルと行を指す。`obj/` 配下の生成物 (`*.g.cs` など) は、**直接編集しない** (元の `.xaml` / `.cs` を直す)。
 - `other:` は解釈できなかった行 (そのまま)。
 - 同じ内容は `.claude-logs/build_summary.json` にもある。ログの再読ではなく、必要なら、これを読む。
 - 要約が出ない (生ログのまま) 場合は、`python3` がないか、エラー行を解釈できなかった。生ログのとおりに読む。
@@ -59,6 +65,9 @@ bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
    ファイルが外部 (エディタの再保存など) で書き戻されている可能性を疑い、ユーザーに確認する。
 5. `.claude-logs/` の `build.log` は詳細が必要なときだけ読む。通常は `build_error.log` で足りる。
 6. 修正時はファイルの文字コード (UTF-8 BOM の有無など) と改行コードを変えない。
+7. **ライブラリの不足が原因のエラー** (`C1083` include が見つからない、外部ライブラリの `LNK2019`、`CS0246` 型・名前空間が見つからない、`NU1101` パッケージが見つからない) は、**自分で `.csproj` や `.vcxproj` を書き換えて直さず**、`add-package` Skill で追加する (名前とバージョンの確認、ホスト側での取得が要る)。
+8. **ビルドを通すために、警告の抑制 (`#pragma warning disable`、`<NoWarn>`、`TreatWarningsAsErrors` の解除、アナライザの無効化) を足さない。** 必要だと思うときは、理由を添えて、ユーザーに確認する。
+9. `.csproj` / `Directory.Build.props` / `global.json` (対象フレームワーク、パッケージ、SDK) の変更は、ビルドエラーの直接の原因である場合に限り、必要最小限にする。変更したことは、報告の先頭で述べる。
 
 ## トークン節約
 - 成功時は `build_error.log` や `.claude-logs/` を読まない。報告も1〜2行。
@@ -103,5 +112,5 @@ warnings: 12 (5 unique): C4244 x5, C4996 x3, C4101 x2, ... (+2 more)
 ## ホスト側の構成 (参考)
 - `trigger_build.flag`: Claude が作る。ウォッチャーが検知して削除する。
 - `build_result.txt`: ビルド終了時にウォッチャーが `SUCCESS` / `FAILED` を書く (完了マーカー)。
-- `build_error.log`: 失敗時のみ作成。環境エラーは先頭が `[ENVIRONMENT ERROR - not a source code problem]`。
+- `build_error.log`: 失敗時のみ作成。環境エラーは先頭が `[ENVIRONMENT ERROR - not a source code problem]` (VS / .NET SDK が見つからない `MSB4236` `NETSDK1045` `NETSDK1141`、NuGet のソースに届かない `NU1301` を含む)。
 - `.claude-logs/`: `build.log` / `errors.log` / `warnings.log`。

@@ -1,12 +1,12 @@
 ---
 name: cpp-test-first
-description: C++ (Visual Studio) の、メイン + ロジック DLL + データ DLL + DLL ごとの GoogleTest (xxxTest.exe) のソリューション (`CLAUDE.md` が「テスト: あり」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は cpp-build-test-loop で行う。既存のテストを通すだけなら、このスキルは使わない。
+description: C++ (Visual Studio) の、メイン + ロジック DLL + データ DLL + DLL ごとの GoogleTest (xxxTest.exe) のソリューション (`CLAUDE.md` が「テスト: あり」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は build-test-loop で行う。既存のテストを通すだけなら、このスキルは使わない。
 ---
 
 # C++ テストファースト (Red を作る)
 
 実装の前に、仕様をテストとして書き、**正しい理由で失敗すること (Red)** を確かめるところまでを行う。
-実装して通す (Green) 工程は、`cpp-build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ。
+実装して通す (Green) 工程は、`build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ。
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
@@ -58,7 +58,7 @@ description: C++ (Visual Studio) の、メイン + ロジック DLL + データ 
    - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。
    - 出力の `GTEST_PACKAGE: missing` (nuget 方式): **ウォッチャーの MSBuild は、NuGet を復元しない。** コピー元の `packages\` のパスを教えてもらうか、Visual Studio での NuGet の復元 (ビルド 1 回) を依頼する。
    - 出力の `GTEST_SOURCE: to-fetch` (source 方式): ウォッチャー経由で、取得する (`new-solution` Skill の `scripts/gtest_once.sh`。手順は、`/new-solution` の「GoogleTest の仕上げ」と同じ)。
-4. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`cpp-build-test-loop` のスクリプトを使う):** ビルドが通り、**`PASSED`** になること。
+4. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`build-test-loop` のスクリプトを使う):** ビルドが通り、**`PASSED`** になること。
    - `BUILD_FAILED`: エラーを読んで直す。ベースのアプリ自体の、もともとのエラーなら、直さずに、報告する。
    - `ENV_ERROR`: 出力先 (`x64\Debug\`)、GoogleTest の復元を確認して、ユーザーに報告する。
    - **ベースラインが緑になる前に、本物のテストを書かない。**
@@ -113,13 +113,13 @@ description: C++ (Visual Studio) の、メイン + ロジック DLL + データ 
 - ファイルの文字コードと改行コードは、既存のファイルに合わせる。
 
 ### 4. Red を確認する (実行)
-`cpp-build-test-loop` の同梱スクリプトを使う。自分で flag を作ったり、待機ループを書いたりしない。
+`build-test-loop` の同梱スクリプトを使う。自分で flag を作ったり、待機ループを書いたりしない。
 
 ```bash
-bash <cpp-build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SLN" 300
+bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SLN" 300
 ```
 
-`run_in_background: true` で実行し、**完了通知が来るまで、ファイルを読まず、再実行もしない** (理由と詳細は、`cpp-build-test-loop` の「実行 (1回分)」と同じ)。
+`run_in_background: true` で実行し、**完了通知が来るまで、ファイルを読まず、再実行もしない** (理由と詳細は、`build-test-loop` の「実行 (1回分)」と同じ)。
 
 結果の判断 (**ここが、このスキルの要点。**):
 
@@ -128,7 +128,7 @@ bash <cpp-build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh 
 | `FAILED` | テスト失敗 | **失敗したテストの一覧と理由を読み、下記「正しい Red の条件」で確かめる** |
 | `PASSED` | 全テスト成功 | **Red ではない。** 新しいテストが、実装なしで通っている。テストが空振りしている (期待値がスタブの値と同じ、アサーションがない)、または、機能がすでにある。**原因を調べて、ユーザーに報告する。実装には進まない** |
 | `BUILD_FAILED` | ビルドエラー | テストかスタブの書き方の誤り。エラーを読んで直し、再実行する (下記の回数の上限に含める) |
-| `ENV_ERROR` / `WATCHER_NOT_RUNNING` / `TIMEOUT` / `TEST_TIMEOUT` | 環境・実行の問題 | `cpp-build-test-loop` の表と同じ。ソースもテストも直さず、報告して停止 |
+| `ENV_ERROR` / `WATCHER_NOT_RUNNING` / `TIMEOUT` / `TEST_TIMEOUT` | 環境・実行の問題 | `build-test-loop` の表と同じ。ソースもテストも直さず、報告して停止 |
 
 #### 正しい Red の条件 (すべて満たすこと)
 1. **新しく書いたテストが、すべて、アサーションの失敗 (`Expected` / `Which is`) で落ちている。** 値の食い違いが、仕様どおりの理由で出ている。
@@ -147,9 +147,10 @@ bash <cpp-build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh 
 ユーザーが、「実装まで続けて」と、最初から依頼している場合は、確認を待たずに、**6. に進んでよい。** それ以外は、確認を待つ。
 
 ### 6. Green へ引き渡す
-テストが確定したら、`cpp-build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
-- `cpp-build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`DISABLED_` 化・アサーションを弱める、は、ユーザーの許可なしにしない。**
+テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
+- `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`DISABLED_` 化・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。
+- **全テストが `PASSED` になったら、UI テストのプロジェクト (`*.UITests`。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある) があるかを確かめ、あれば、続けて `uitest_once.sh` を実行する** (`build-test-loop` の「UI テスト」。画面を伴う変更のとき。Green になってから 1 回。UI テストを先に書く (UI テストファースト) ことは、しない)。失敗したら、スクリーンショットを読む。仕様変更で、UI テストの期待値が古くなったときは、画面の実際の状態を確認したうえで、期待値を直す (アサーションを弱めない)。
 - 通ったあとの整理 (リファクタリング) は、**テストを変えずに**行い、そのたびに、テストが通ることを、確認する。
 
 ## ループのルール

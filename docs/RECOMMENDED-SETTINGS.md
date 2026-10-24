@@ -38,6 +38,80 @@
 | `Bash(git commit *)` | コミット。通常も確認が出るが、別の設定で、許可されていても、確認を残すため |
 
 - プロジェクトの命名規則 (`Test*.cpp`、`*Test/`) に、合わせて、パターンを調整する。
+
+### .NET (WPF + MSTest) を含むプロジェクトの設定 (v2.0.0 で追加)
+.NET のテストは、`*.Tests/` のフォルダに、`*Tests.cs` で置く習慣が多い。C++ 用のパターン (`**/*Test/**`) は、`MyApp.Tests/` に、**一致しない** (末尾が `Tests` のため、`*Test` に合わない)。**.NET 用のパターンを、足す。** あわせて、ビルドの生成物の編集を禁止 (`deny`) する。
+
+```json
+{
+  "permissions": {
+    "ask": [
+      "Edit(**/Test*.cpp)",
+      "Edit(**/Test*.h)",
+      "Edit(**/*Test/**)",
+      "Edit(**/*Tests/**)",
+      "Edit(**/*.Tests/**)",
+      "Edit(**/*Tests.cs)",
+      "Edit(**/*Test.cs)",
+      "Edit(**/*.csproj)",
+      "Edit(**/Directory.Build.props)",
+      "Edit(**/Directory.Packages.props)",
+      "Edit(**/global.json)",
+      "Edit(**/*.runsettings)",
+      "Bash(git commit *)"
+    ],
+    "deny": [
+      "Edit(**/obj/**)",
+      "Edit(**/bin/**)",
+      "Edit(**/*.g.cs)",
+      "Edit(**/*.g.i.cs)",
+      "Edit(**/packages.lock.json)"
+    ]
+  }
+}
+```
+
+| ルール | 対象と理由 |
+|---|---|
+| `Edit(**/*Tests/**)` `Edit(**/*.Tests/**)` `Edit(**/*Tests.cs)` `Edit(**/*Test.cs)` | .NET のテストプロジェクトとテストコード。**MSTest では、`[Ignore]` の付与、`Assert.Inconclusive`、アサーションの弱め、`[Timeout]` の延長が、`Edit` で行われる。** 人が見逃さないための `ask` |
+| `Edit(**/*.csproj)` `Edit(**/Directory.Build.props)` `Edit(**/Directory.Packages.props)` `Edit(**/global.json)` | **対象フレームワーク、パッケージ、SDK、警告の扱い (`NoWarn` / `TreatWarningsAsErrors`)。** ビルドを通すために、警告の抑制や SDK の変更が、紛れ込むのを防ぐ (`ask`)。**テストプロジェクトに、`.cs` を足しても、`.csproj` の編集は不要** (SDK 形式は、ファイルを自動で含める) ので、確認が出る頻度は、高くない |
+| `Edit(**/*.runsettings)` | テストの実行設定 (除外、タイムアウト)。テストを実行から外す抜け道になる |
+| `deny` の `obj/` `bin/` `*.g.cs` `*.g.i.cs` | **XAML のコンパイルの生成物 (`*.g.cs`) と、ビルドの出力。** 編集しても、次のビルドで上書きされる。`XDG` / `MC` のエラーの修正は、元の `.xaml` / `.cs` に対して行う |
+| `deny` の `packages.lock.json` | NuGet のロックファイル。手編集の禁止 (復元で更新する) |
+
+### パッケージの追加 (`add-package`) の設定 (v2.2.0 で追加)
+パッケージの追加は、**供給網への入口**になる (紛らわしい名前の混入、意図しないバージョン)。Skill の規則 (「追加する前に確認する」) は、指示にすぎないので、**実行そのものに、確認を付ける。**
+
+```json
+{
+  "permissions": {
+    "ask": [
+      "Bash(*package_once.sh*)",
+      "Edit(**/vcpkg.json)",
+      "Edit(**/*.vcxproj)",
+      "Edit(**/ThirdParty.manifest)",
+      "Bash(*cpp_pkg.py*)"
+    ]
+  }
+}
+```
+
+| ルール | 対象と理由 |
+|---|---|
+| `Bash(*package_once.sh*)` | **ホスト側で、NuGet / vcpkg / GitHub のソースを取得する操作。** `search` / `versions` だけでも、確認が出る (頻度が高くて煩わしければ、`nuget search` を含む呼び出しだけ、`allow` にする。ただし、`allow` は `ask` より弱い (評価の順序は deny → ask → allow) ので、`ask` と、同じパターンには、書かない) |
+| `Edit(**/vcpkg.json)` `Edit(**/ThirdParty.manifest)` | 依存関係の宣言と、取得したソースの記録。バージョンと名前を、人が見る |
+| `Edit(**/*.vcxproj)` | `cpp_pkg.py setup` / `include-dir` が書き換える。**ただし、`cpp_pkg.py` は、別のプロセスが書くので、`Edit` のルールは効かない** (上の 3 章の限界)。**そのため、`Bash(*cpp_pkg.py*)` にも、`ask` を付ける** |
+| `Bash(*cpp_pkg.py*)` | `vcpkg.json` と `.vcxproj` の編集のスクリプト |
+
+- **`ask` は、許可すれば実行される。** 確認で、**パッケージ名とバージョンが、依頼したものと一致するか**を見る。コミットの前に、`git diff` で、`.csproj` / `Directory.Packages.props` / `vcpkg.json` の差分も見る。
+- **C++ のパッケージは、ソースからビルドされ、ビルドスクリプトが、Windows 側で実行される。** 信頼できないポートを入れると、ビルド中に、任意のコードが走る。vcpkg の登録 (`builtin-baseline`) の、公式のポートだけを使う運用を、勧める。
+- `fetch` は、**GitHub のタグのソースを置くだけで、ビルドしない** (`.vcxproj` に足すまで)。ただし、置かれたソースは、そのあと、ビルドされる。
+- **このパターンの、実機での確認は、未実施。**
+
+- **C++ と .NET の混在のソリューションは、両方のパターンを、合わせる** (上の例のとおり)。**`ask` と `deny` は、配列がマージされる。** 既存の設定を、置き換えずに、追記する。
+- **`Edit(**/*.csproj)` の `ask` は、`/new-solution` や、テストの後付けの、`.csproj` の生成でも、出る** (正常な動作)。
+- `deny` は、Skill のスクリプトや `dotnet` / `msbuild` が、生成物を書くのを防がない (4.3 の限界の、`Edit` のルールが効く範囲と、同じ)。**Claude の `Edit` / `Write` による編集だけが対象。**
+- **このパターンの、実機での確認は、未実施** (TEST-PLAN の S9 / S10 を、.NET のファイルで繰り返す)。
 - **すでに `.claude/settings.json` がある場合は、置き換えずに、`permissions.ask` の配列に、追記する** (既存の `allow` / `deny` は、そのまま保つ)。
 
 ### 公式ドキュメントで確認した、仕様 (2026-10-13 の調査)

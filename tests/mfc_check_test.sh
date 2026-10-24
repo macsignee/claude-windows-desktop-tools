@@ -312,6 +312,34 @@ w("ok-layers/LogicLayer/LogicLayer.vcxproj", VCX % ("DynamicLibrary", refs("Data
 w("ok-layers/LogicLayer/Logic.cpp", '#include <afx.h>\n#include <afxtempl.h>\nCString f() { return CString(); }\n')
 w("ok-layers/DataLayer/DataLayer.vcxproj", VCX % ("StaticLibrary", ""))
 w("ok-layers/DataLayer/Data.cpp", "int g() { return 1; }\n")
+# ---------------- UI004 (UI テストのプロジェクトがあるときの、IDC_STATIC のままの操作対象) ----------------
+RC_UI = '''#include "resource.h"
+#include "afxres.h"
+IDD_MAIN DIALOGEX 0, 0, 200, 120
+CAPTION "Main"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,10,10,50,14
+    PUSHBUTTON      "Run",IDC_STATIC,10,30,50,14
+    EDITTEXT        -1,10,50,80,14,ES_AUTOHSCROLL
+    COMBOBOX        IDC_COMBO1,10,70,80,60,CBS_DROPDOWN
+    COMBOBOX        IDC_COMBO1,10,90,80,60,CBS_DROPDOWN
+    GROUPBOX        "Group",IDC_STATIC,5,5,190,100
+    LTEXT           "label",IDC_STATIC,100,10,40,8
+    CONTROL         "check",IDC_STATIC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,100,30,50,10
+    CONTROL         "box",IDC_STATIC,"Button",BS_GROUPBOX,100,50,50,30
+END
+'''
+RC_UI_OK = RC_UI.replace('PUSHBUTTON      "Run",IDC_STATIC', 'PUSHBUTTON      "Run",IDC_RUN_BTN').replace('EDITTEXT        -1', 'EDITTEXT        IDC_NAME_EDIT').replace('COMBOBOX        IDC_COMBO1,10,90', 'COMBOBOX        IDC_COMBO2,10,90').replace('"check",IDC_STATIC', '"check",IDC_CHECK1')
+RES_UI = "#define IDD_MAIN 101\n#define IDC_RUN_BTN 1001\n#define IDC_NAME_EDIT 1002\n#define IDC_COMBO1 1003\n#define IDC_COMBO2 1004\n#define IDC_CHECK1 1005\n"
+UITESTS = '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0-windows</TargetFramework></PropertyGroup></Project>'
+for d, rc, ut in (("ui1", RC_UI, True), ("ui2", RC_UI, False), ("ui3", RC_UI_OK, True)):
+    w(d + "/App/App.vcxproj", VCX % ("Application", ""))
+    w(d + "/App/App.rc", rc, "utf-16")
+    w(d + "/App/resource.h", RES_UI)
+    w(d + "/App/App.cpp", "int main() { return 0; }\n")
+    if ut:
+        w(d + "/App.UITests/App.UITests.csproj", UITESTS)
 w("empty/readme.txt", "no mfc here\n")
 PYEOF
 
@@ -319,6 +347,18 @@ PYEOF
 out="$(python3 -I "$S" "$T/good" --all)"; rc=$?
 ok "good: rc=0" $([ $rc = 0 ] && echo 1 || echo 0)
 ok "good: no findings (error 0 / warning 0 / info 0)" "$(has "$out" 'error 0 / warning 0 / info 0')"
+
+# ---- UI004: UI テストのプロジェクトがあるとき、操作するコントロールの ID が IDC_STATIC のまま ----
+out="$(python3 -I "$S" "$T/ui1" --all --max-lines 100)"
+ok "UI004: PUSHBUTTON with IDC_STATIC" "$(has "$out" 'warning UI004 ダイアログ IDD_MAIN の操作できるコントロール (PUSHBUTTON "Run") の ID が IDC_STATIC のまま')"
+ok "UI004: EDITTEXT with -1" "$(has "$out" '(EDITTEXT) の ID が -1 のまま')"
+ok "UI004: CONTROL Button (checkbox) with IDC_STATIC" "$(has "$out" '(CONTROL "check") の ID が IDC_STATIC のまま')"
+ok "UI004: duplicated control ID" "$(has "$out" 'コントロール ID IDC_COMBO1 が重複している')"
+ok "UI004: exactly 4 findings (group box, static text and group-box CONTROL are not reported)" "$([ "$(grep -c ' UI004 ' <<<"$out")" = 4 ] && echo 1 || echo 0)"
+out="$(python3 -I "$S" "$T/ui2" --all --max-lines 100)"
+ok "UI004: not reported without a UITests project" "$([ "$(has "$out" ' UI004 ')" = 0 ] && echo 1 || echo 0)"
+out="$(python3 -I "$S" "$T/ui3" --all --max-lines 100)"
+ok "UI004: not reported when the controls have their own IDs" "$([ "$(has "$out" ' UI004 ')" = 0 ] && echo 1 || echo 0)"
 
 # ---- 問題だらけのプロジェクト: 各ルールが、検出される ----
 out="$(python3 -I "$S" "$T/bad" --all --max-lines 200 --json "$T/bad.json")"; rc=$?

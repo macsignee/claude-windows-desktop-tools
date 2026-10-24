@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="5a1e0c3e-1111-4a2b-9c3d-aaaaaaaaaaaa" name="user@HOST 2026-10-18 10:00:00" runUser="HOST\user" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-18T10:00:00.0000000+09:00" queuing="2026-10-18T10:00:00.0000000+09:00" start="2026-10-18T10:00:00.0000000+09:00" finish="2026-10-18T10:00:01.0000000+09:00" />
+  <Results>
+    <UnitTestResult executionId="e1" testId="t1" testName="AddsTwoNumbers" computerName="HOST" duration="00:00:00.0012345" startTime="2026-10-18T10:00:00.5+09:00" endTime="2026-10-18T10:00:00.5+09:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e1">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.AreEqual failed. Expected:&lt;3&gt;. Actual:&lt;4&gt;. </Message>
+          <StackTrace>   at WpfApp.Tests.CalcTests.AddsTwoNumbers() in C:\w\WpfApp.Tests\CalcTests.cs:line 21
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e2" testId="t2" testName="SubtractsTwoNumbers" computerName="HOST" duration="00:00:00.0004000" startTime="2026-10-18T10:00:00.6+09:00" endTime="2026-10-18T10:00:00.6+09:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e2">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.AreEqual failed. Expected:&lt;3&gt;. Actual:&lt;4&gt;. </Message>
+          <StackTrace>   at WpfApp.Tests.CalcTests.SubtractsTwoNumbers() in C:\w\WpfApp.Tests\CalcTests.cs:line 30</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e3" testId="t3" testName="IsEven (2,True)" computerName="HOST" duration="00:00:00.0001000" startTime="2026-10-18T10:00:00.7+09:00" endTime="2026-10-18T10:00:00.7+09:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e3">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.IsTrue failed. </Message>
+          <StackTrace>   at WpfApp.Tests.ViewModelTests.IsEven(Int32 n, Boolean expected) in C:\w\WpfApp.Tests\ViewModelTests.cs:line 12</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e4" testId="t4" testName="Passes" computerName="HOST" duration="00:00:00.0000100" startTime="2026-10-18T10:00:00.8+09:00" endTime="2026-10-18T10:00:00.8+09:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e4" />
+    <UnitTestResult executionId="e5" testId="t5" testName="Ignored" computerName="HOST" duration="00:00:00" startTime="2026-10-18T10:00:00.9+09:00" endTime="2026-10-18T10:00:00.9+09:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e5" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AddsTwoNumbers" storage="c:\w\wpfapp.tests\bin\debug\net8.0\wpfapp.tests.dll" id="t1">
+      <Execution id="e1" />
+      <TestMethod codeBase="C:\w\WpfApp.Tests\bin\Debug\net8.0\WpfApp.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="WpfApp.Tests.CalcTests, WpfApp.Tests" name="AddsTwoNumbers" />
+    </UnitTest>
+    <UnitTest name="SubtractsTwoNumbers" storage="c:\w\wpfapp.tests\bin\debug\net8.0\wpfapp.tests.dll" id="t2">
+      <Execution id="e2" />
+      <TestMethod codeBase="C:\w\WpfApp.Tests\bin\Debug\net8.0\WpfApp.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="WpfApp.Tests.CalcTests, WpfApp.Tests" name="SubtractsTwoNumbers" />
+    </UnitTest>
+    <UnitTest name="IsEven (2,True)" storage="c:\w\wpfapp.tests\bin\debug\net8.0\wpfapp.tests.dll" id="t3">
+      <Execution id="e3" />
+      <TestMethod codeBase="C:\w\WpfApp.Tests\bin\Debug\net8.0\WpfApp.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="WpfApp.Tests.ViewModelTests, WpfApp.Tests" name="IsEven" />
+    </UnitTest>
+    <UnitTest name="Passes" storage="c:\w\wpfapp.tests\bin\debug\net8.0\wpfapp.tests.dll" id="t4">
+      <Execution id="e4" />
+      <TestMethod codeBase="C:\w\WpfApp.Tests\bin\Debug\net8.0\WpfApp.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="WpfApp.Tests.CalcTests, WpfApp.Tests" name="Passes" />
+    </UnitTest>
+    <UnitTest name="Ignored" storage="c:\w\wpfapp.tests\bin\debug\net8.0\wpfapp.tests.dll" id="t5">
+      <Execution id="e5" />
+      <TestMethod codeBase="C:\w\WpfApp.Tests\bin\Debug\net8.0\WpfApp.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="WpfApp.Tests.CalcTests, WpfApp.Tests" name="Ignored" />
+    </UnitTest>
+  </TestDefinitions>
+  <ResultSummary outcome="Failed">
+    <Counters total="5" executed="4" passed="1" failed="3" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="1" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

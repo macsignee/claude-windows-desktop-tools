@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build_test_once.sh - ホスト側ウォッチャーに「ビルド + GoogleTest 実行」を1回させ、完了まで待って結果を返す。
+# build_test_once.sh - ホスト側ウォッチャーに「ビルド + テスト (GoogleTest / MSTest) 実行」を1回させ、完了まで待って結果を返す。
 #
 # Usage: build_test_once.sh <solution_dir> [timeout_sec=300]
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
@@ -29,7 +29,7 @@ case "$TIMEOUT" in
     ''|*[!0-9]*) echo "BAD_ARGS: timeout must be a positive integer (seconds): $TIMEOUT"; exit 2 ;;
 esac
 
-FLAG="$DIR/trigger_test.flag"
+FLAG="$DIR/${BUILD_TEST_FLAG:-trigger_test.flag}"   # uitest_once.sh は、trigger_uitest.flag を指定する
 BUILD_RESULT="$DIR/build_result.txt"
 BUILD_ERR="$DIR/build_error.log"
 TEST_RESULT="$DIR/test_result.txt"
@@ -58,13 +58,15 @@ show_build_summary() {  # $1=build_error.log
     show_log "$1"
 }
 
-# テスト失敗の要約 (同じメッセージの失敗の集約・場所)。成功したら 0、解釈できない/python3 がなければ 1 (従来の表示に切り替える)
+# テスト失敗の要約 (同じメッセージの失敗の集約・場所。GoogleTest も MSTest も同じ形)。成功したら 0、解釈できない/python3 がなければ 1 (従来の表示に切り替える)
 show_test_summary() {  # $1=test_error.log
     local here
     here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     [ -f "$1" ] && command -v python3 >/dev/null 2>&1 || return 1
     mkdir -p "$DIR/.claude-logs" 2>/dev/null
-    python3 -I "$here/summarize_test_log.py" "$1" --json "$DIR/.claude-logs/test_summary.json"
+    # 構造化された結果 (GoogleTest の XML・trx) があれば、それを使う。なければ、テキストのログを解釈する
+    python3 -I "$here/summarize_test_log.py" "$1" --results-dir "$DIR/.claude-logs/test-results" --root "$DIR" \
+        --json "$DIR/.claude-logs/test_summary.json"
 }
 
 # 成功時の警告の件数 (1 行だけ。警告がなければ何も出さない。失敗しても、結果には影響しない)
@@ -84,6 +86,8 @@ first_line_is_env_error() {  # $1=file
 
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
 rm -f "$BUILD_RESULT" "$BUILD_ERR" "$TEST_RESULT" "$TEST_ERR"
+rm -f "$DIR/.claude-logs/build_summary.json" "$DIR/.claude-logs/test_summary.json"   # 前回の要約 (JSON) も消す (今回の結果と取り違えない。ENV_ERROR / PASSED では更新されないため)
+rm -rf "$DIR/.claude-logs/test-results"   # 前回の、構造化された結果 (XML / trx) も、古い結果の誤読を防ぐために消す
 touch "$FLAG"
 
 elapsed=0
@@ -95,7 +99,8 @@ while [ ! -f "$TEST_RESULT" ]; do
         elif [ "$elapsed" -ge "$PICKUP_WAIT" ]; then
             rm -f "$FLAG"
             echo "WATCHER_NOT_RUNNING"
-            echo "trigger_test.flag was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            echo "$(basename "$FLAG") was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            case "$(basename "$FLAG")" in trigger_uitest.flag) echo "If the watcher is running, it may be an old version without UI test support: run ~/src/copy-host-tools.sh and restart the watcher (run_watcher.cmd)." ;; esac
             exit 3
         fi
     fi

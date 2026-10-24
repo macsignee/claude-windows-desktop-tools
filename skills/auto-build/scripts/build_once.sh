@@ -63,6 +63,7 @@ show_warnings_line() {
 
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
 rm -f "$RESULT" "$ERRLOG"
+rm -f "$DIR/.claude-logs/build_summary.json"   # 前回の要約 (JSON) も消す (SUCCESS / ENV_ERROR では更新されないため、古い結果が残る)
 touch "$FLAG"
 
 elapsed=0

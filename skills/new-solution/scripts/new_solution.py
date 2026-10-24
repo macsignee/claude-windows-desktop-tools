@@ -5,16 +5,22 @@ Usage:
   新規:        python3 new_solution.py <FOLDER> --type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib --layers none|logic|data|logic,data
                                        --tests none|gtest [--layer-kind dll|lib] [--namespace NS] [--toolset v145]
                                        [--gtest auto|nuget|source] [--gtest-from DIR] [--dry-run]
+               WPF (.NET): python3 new_solution.py <FOLDER> --type wpf --layers none|data|logic|viewmodel の組み合わせ --tests none|mstest
+                                       [--namespace NS] [--tfm net8.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
+                           (層は、WPF 非依存のクラスライブラリ。viewmodel を作らないと、ViewModel は、アプリの中)
                または、--spec <仕様書> で、仕様書の「構成案」から、省略した項目を読み取る (明示した引数が優先)
   改行コードの規則 (.gitattributes) の確認と追加 (すでにあるプロジェクト用):
                python3 new_solution.py <FOLDER> --check-git          (読み取りだけ。状態と、提案の要否を出す)
                python3 new_solution.py <FOLDER> --add-gitattributes  (最小版の .gitattributes を作る。git の操作は、しない)
   テストの後付け: python3 new_solution.py <FOLDER> --tests gtest [--gtest auto|nuget|source] [--gtest-from DIR] [--dry-run]
                  (すでにソリューションがあるフォルダで。テストのない DLL に、対応するテスト exe を足す)
+                 .NET のソリューションなら: python3 new_solution.py <FOLDER> --tests mstest [--dry-run]
+                 (テストのないクラスライブラリに、<名前>.Tests を足す)
 
   FOLDER   ソリューションを作るフォルダ。**フォルダ名が、ソリューション名・メインのプロジェクト名になる**
            (例: .../MFCTDDTest -> MFCTDDTest.slnx と、MFCTDDTest/MFCTDDTest.vcxproj)
   --type   メインの種類: mfc (MFC SDI) / mfc-mdi (MFC MDI) / mfc-dialog (MFC ダイアログベース) / win32 (Win32 デスクトップ) / console / dll / lib (静的ライブラリ)
+           / wpf (WPF、MVVM。.NET。ソリューションは .slnx、各プロジェクトは SDK 形式の .csproj。NuGet の復元は、ウォッチャーのビルドが行う)
   --layers 作る層: logic -> LogicLayer、data -> DataLayer。none は、層を作らない。
            名前を変えるなら logic:OrderLogic,data:OrderData のように指定する (省略時の既定の名前は、作成後に変更もできる)
   --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ)。全部の層に、同じ種類を使う
@@ -30,7 +36,8 @@ Usage:
 x64 の Debug / Release だけ。GoogleTest の nuget 方式は、既存の packages\\ をコピーする (このスクリプトは、ネットワークを使わない)。
 
 終了コード: 0 成功 / 2 引数・組み合わせ・フォルダの問題 / 3 すでにある (何も書かない)
-このスクリプトは、同じ skills フォルダの cpp-test-first/scripts/add_layer.py を、読み込んで使う。
+このスクリプトは、同じ skills フォルダの cpp-test-first/scripts/add_layer.py (C++) と、wpf-test-first/scripts/add_project.py (WPF) を、読み込んで使う
+(WPF のものは、--type wpf / --tests mstest のときだけ、読み込む)。
 """
 import argparse
 import os
@@ -47,11 +54,13 @@ except ImportError:
     sys.exit(2)
 
 die = AL.die
-KIND = {'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
+KIND = {'wpf': 'WPF (MVVM)', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
 MFC_TYPES = ('mfc', 'mfc-mdi', 'mfc-dialog')   # MFC の exe (mfc は SDI)
 EXE_TYPES = ('console', 'win32') + MFC_TYPES    # exe の種類 (名前が Test で終わると、出力名を変える)
 LIBRARY_TYPES = ('dll', 'lib')   # メイン自身が、テストの対象になる種類
 LAYER_NAMES = {'data': 'DataLayer', 'logic': 'LogicLayer'}   # 作る順 (依存される側から)
+WPF_LAYER_NAMES = {'data': 'DataLayer', 'logic': 'LogicLayer', 'viewmodel': 'ViewModels'}
+WPF_LAYER_ORDER = ('data', 'logic', 'viewmodel')
 
 # ---------------- メイン (exe) のソース ----------------
 CONSOLE_MAIN = '''#include <iostream>
@@ -520,7 +529,7 @@ UI / メイン → ロジック → データ (のインターフェース)
 """
     out += r"""
 ## ビルド
-- Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`cpp-auto-build` / `cpp-build-test-loop`) が行う。出力先: `x64\Debug\`。
+- Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。出力先: `x64\Debug\`。
 - 新しい `.cpp` / `.h` は、`.vcxproj` (と `.filters`) に追加する。
 """
     if layers and kind not in (KIND['dll'], KIND['lib']):
@@ -671,20 +680,22 @@ def add_gitattributes(folder):
 IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 
-def parse_layers(v):
-    """'none' / 'logic' / 'data' / 'logic,data' / 'logic:OrderLogic,data:OrderData' -> [(key, 名前), ...] (データが先)"""
+def parse_layers(v, names=None, order=('data', 'logic'), ident=None):
+    """'none' / 'logic' / 'data' / 'logic,data' / 'logic:OrderLogic,data:OrderData' -> [(key, 名前), ...] (データが先)。
+    WPF は、names=WPF_LAYER_NAMES、order=WPF_LAYER_ORDER (viewmodel も許す)"""
+    names = names or LAYER_NAMES
     if v == 'none':
         return []
     got = {}
     for t in v.split(','):
         key, _, nm = t.strip().partition(':')
-        if key not in LAYER_NAMES:
-            die(f'--layers の値が不正: {t.strip()} (none / logic / data / logic,data。名前は logic:OrderLogic のように指定できる)')
-        nm = nm.strip() or LAYER_NAMES[key]
-        if not IDENT.match(nm):
-            die(f'層の名前が不正 (英数字と _ のみ、先頭は英字か _): {nm}')
+        if key not in names:
+            die(f'--layers の値が不正: {t.strip()} (none / {" / ".join(order)} の組み合わせ。名前は logic:OrderLogic のように指定できる)')
+        nm = nm.strip() or names[key]
+        if not (ident or IDENT).match(nm):
+            die(f'層の名前が不正 (英数字と _ のみ、先頭は英字か _{"。WPF は、SampleApp.Domain のように、. で区切ってもよい" if ident else ""}): {nm}')
         got[key] = nm
-    return [(k, got[k]) for k in ('data', 'logic') if k in got]
+    return [(k, got[k]) for k in order if k in got]
 
 
 def existing_solutions(folder):
@@ -736,7 +747,251 @@ def main_files(name, mtype, ns, toolset, guid):
     return files, plain
 
 
+# ---------------- WPF (.NET) ----------------
+def load_ap():
+    """wpf-test-first/scripts/add_project.py を、読み込む (WPF のときだけ)。"""
+    d = os.path.join(HERE, '..', '..', 'wpf-test-first', 'scripts')
+    if d not in sys.path:
+        sys.path.insert(0, d)
+    try:
+        import add_project as AP
+    except ImportError:
+        die('wpf-test-first/scripts/add_project.py が見つからない (wpf-test-first Skill も、配布されている必要がある)')
+    return AP
+
+
+def add_ui_tests_flaui(folder, dry_run=False, new=False):
+    """--ui-tests flaui: 同じフォルダの add_ui_tests.py で、<アプリ名>.UITests (MSTest + FlaUI) を足す。"""
+    script = os.path.join(HERE, 'add_ui_tests.py')
+    if not os.path.isfile(script):
+        die('add_ui_tests.py が見つからない (new-solution/scripts/ に、ある)')
+    if dry_run and new:
+        print('UI テスト       : <アプリ名>.UITests (MSTest + FlaUI) を足す (ウォッチャーの trigger_uitest.flag で実行。通常のテストには、含まれない)')
+        return
+    import subprocess
+    sys.stdout.flush()   # 出力が、パイプのとき、親の出力が、子の出力より後に出ないように
+    cmd = [sys.executable, '-I', script, folder] + (['--dry-run'] if dry_run else [])
+    r = subprocess.run(cmd)
+    if r.returncode != 0:
+        sys.exit(r.returncode)
+
+
+def claude_md_wpf(name, layers, tests, tfm, vm_in_app, ns):
+    """layers: [(key, 名前), ...]"""
+    default = all(nm == WPF_LAYER_NAMES[k] for k, nm in layers)
+    layer_txt = ('なし' if not layers else ','.join(k if default else f'{k}:{nm}' for k, nm in layers))
+    test_txt = 'あり (MSTest)' if tests else 'なし'
+    out = f"""# CLAUDE.md ({name})
+
+WPF (.NET、MVVM) のプロトタイプ。ソリューション: `{name}.slnx` (フォルダ名と同名)。
+
+## このソリューションの設定
+- メイン: {name} (WPF (MVVM))
+- 層: {layer_txt}
+- テスト: {test_txt}
+
+(この 3 行は、スラッシュコマンド (`/brainstorm` `/add-feature` `/update-from-ideas`) が読む。手で変えるときは、実際の構成と合わせること。)
+
+## 進め方 (スラッシュコマンド)
+1. `/brainstorm`: 壁打ちで、考えを広げる (`docs/ideas/<機能名>.md`)。
+2. `/update-from-ideas`: メモを整理して、正式な仕様書にする (`docs/specs/<機能名>.md`)。
+3. `/add-feature <仕様書>`: 計画 → 承認 → 実装 (テストありなら、テスト先行の Red → Green) → 検証。
+
+## 層と依存の向き
+View (WPF アプリ) → ViewModel → ロジック → データ (のインターフェース)。逆向きの参照は禁止。
+"""
+    if layers:
+        labels = {'viewmodel': 'ViewModel', 'logic': 'ロジック', 'data': 'データ'}
+        out += "\n| 層 | プロジェクト | 種類 | テスト |\n|---|---|---|---|\n"
+        out += f"| View | `{name}` | WPF アプリ (`{tfm}-windows`) | しない (画面。ビルドと、`wpf-check` と、目視) |\n"
+        for k, nm in reversed(layers):
+            tcell = f'`{nm}.Tests` (MSTest)' if tests else 'なし'
+            out += f"| {labels[k]} | `{nm}` | クラスライブラリ (`{tfm}`。**WPF 非依存**) | {tcell} |\n"
+    out += f"""
+- 名前空間: `{ns}` (ライブラリは `{ns}.<Data|Logic|ViewModels>`。名前が `SampleApp.Domain` のように `.` を含むときは、その名前)。
+- アプリの構成: `App.xaml` / `Views/` / `ViewModels/` (ViewModel 層がないとき) / `Resources/` (共通の色・余白・スタイル)。**`DataContext` は、`App.xaml.cs` の `OnStartup` (組み立てる場所) で設定する** (`MainWindow` のコードビハインドには、書かない)。
+- **ViewModel は、WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) を使わない。** ダイアログなどは、インターフェース (`IDialogService` など) に分ける。
+"""
+    if vm_in_app:
+        out += "- ViewModel 層を作っていないので、ViewModel は、アプリの `ViewModels/` フォルダにある (テストできない。テストしたくなったら、`ViewModels` ライブラリに切り出す)。\n"
+    out += f"""- MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要)。CommunityToolkit.Mvvm などを使うときは、`add-package` Skill で追加して、置き換える。
+
+## ビルドとテスト
+- Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。NuGet の復元は、ビルドが行う (`/restore`)。
+- **パッケージの追加は、`add-package` Skill** (`.csproj` を、手で書き換えない)。
+- XAML / ViewModel を編集したら、`wpf-check` (画面に何も出ない、起動時に例外、などの、コンパイルでは見つからない不具合の静的検査)。
+- 新しい `.cs` / `.xaml` は、SDK 形式なので、`.csproj` に追加しなくてよい (自動で含まれる)。
+- Visual Studio で実行 (F5) するときは、`{name}` が、スタートアッププロジェクト (`{name}.slnx` の `DefaultStartup="true"`)。ただし、`.vs/` の個人の設定が、すでにあれば、そちらが優先される。
+"""
+    if tests:
+        out += """
+## テスト (MSTest)
+- ライブラリごとに、`<名前>.Tests` (MSTest v3、`Microsoft.NET.Test.Sdk`)。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
+- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`wpf-test-first` Skill。
+"""
+    out += """
+## 規約
+- 規約 (**WPF プログラミング規約**) の全文は、ユーザー共通の `~/.claude/rules/wpf-csharp.md` (C# / XAML のファイルを扱うときに、自動で読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。
+- ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
+- `git commit` / `git push` は、ユーザーの指示があるときだけ。
+"""
+    return out
+
+
+def create_wpf(a, folder, name):
+    AP = load_ap()
+    missing = [k for k, v in (('--layers', a.layers), ('--tests', a.tests)) if v is None]
+    if missing:
+        die(f'新規作成には、{" / ".join(missing)} が必要 (省略した項目は、ユーザーに質問して、決めること)')
+    if a.tests == 'gtest':
+        die('--tests gtest は C++ 用。WPF (.NET) は、--tests mstest (または none)')
+    if a.layer_kind or a.gtest or a.gtest_from or a.toolset:
+        die('--layer-kind / --gtest / --gtest-from / --toolset は C++ 用。WPF では、指定できない')
+    layers = parse_layers(a.layers, WPF_LAYER_NAMES, WPF_LAYER_ORDER, AP.PROJ_NAME)
+    tests = a.tests == 'mstest'
+    if tests and not layers:
+        die('--tests mstest は、テスト対象 (層) が必要。WPF のアプリ (View) は、テストしない。--layers を指定するか、--tests none にする')
+    ns = a.namespace or AP.default_namespace(name + '.slnx')
+    if not all(IDENT.match(x) for x in ns.split('.')):
+        die(f'名前空間が不正 (英数字と _ のみ。. で区切る): {ns}')
+    tfm = a.tfm or AP.DEFAULT_TFM
+    if not re.match(r'^net\d+\.\d+$', tfm):
+        die(f'--tfm が不正 (例: net8.0): {tfm}')
+    mver = a.mstest_version or AP.MSTEST_VER
+    sver = a.testsdk_version or AP.TESTSDK_VER
+    for v in (mver, sver):
+        if not re.match(r'^[0-9][0-9A-Za-z.+-]{0,63}$', v):
+            die(f'バージョンが不正: {v}')
+
+    lnames = dict(layers)
+    layer_names = [nm for _, nm in layers]
+    dirs = [name] + layer_names + ([nm + '.Tests' for nm in layer_names] if tests else [])
+    if len(set(dirs)) != len(dirs):
+        die('プロジェクト名が重複している (フォルダ名が、層の名前などと同じ?)')
+    for d in dirs:
+        if os.path.exists(os.path.join(folder, d)):
+            die(f'すでに存在する: {d} (何も書いていない)', 3)
+
+    # 層の依存: データ ← ロジック ← ViewModel ← View。上の層は、すぐ下の層 (なければ、その下) を参照する
+    uses_of = {}
+    for k, nm in layers:
+        below = [lnames[x] for x in ('logic', 'data') if x in lnames and WPF_LAYER_ORDER.index(x) < WPF_LAYER_ORDER.index(k)]
+        uses_of[k] = below[:1]
+    vm_in_app = 'viewmodel' not in lnames
+    app_uses = [nm for _, nm in reversed(layers)]
+    files = {}
+    projects = [(name, AP.new_guid())]
+    files.update(AP.wpf_app_files(name, ns, tfm, app_uses, vm_in_app, lnames.get('viewmodel')))
+    for k, nm in layers:
+        lns = AP.layer_namespace(ns, k, nm)
+        files.update(AP.lib_files(nm, lns, uses_of[k], tfm, k if k == 'viewmodel' else 'lib'))
+        projects.append((nm, AP.new_guid()))
+        if tests:
+            files.update(AP.test_files(nm, lns, tfm, mver, sver, k if k == 'viewmodel' else 'lib'))
+            projects.append((nm + '.Tests', AP.new_guid()))
+    files['Directory.Build.props'] = AP.DIRECTORY_BUILD_PROPS
+
+    vm_where = 'アプリの ViewModels フォルダ' if vm_in_app else lnames['viewmodel']
+    layer_desc = ', '.join(f'{nm} ({k})' for k, nm in layers) + f' (クラスライブラリ、{tfm}、WPF 非依存)' if layers else 'なし'
+    print(f'フォルダ       : {folder}')
+    print(f'ソリューション : {name}.slnx (フォルダ名と同名)')
+    print(f'メイン         : {name} (WPF (MVVM)、{AP.windows_tfm(tfm)}。ViewModel は、{vm_where})')
+    print(f'層             : {layer_desc}')
+    print(f'テスト         : {"あり (MSTest): " + ", ".join(nm + ".Tests" for nm in layer_names) if tests else "なし"}')
+    print(f'名前空間       : {ns}')
+    if tests:
+        print(f'MSTest         : MSTest {mver} / Microsoft.NET.Test.Sdk {sver} (新しい版は、add-package の nuget versions で確認する)')
+    print(f'  + {name}.slnx ({len(projects)} プロジェクト)')
+    for rel in files:
+        print(f'  + {rel}')
+    extras = [x for x in ('.editorconfig', 'CLAUDE.md', '.gitignore', '.gitattributes') if not os.path.exists(os.path.join(folder, x))]
+    for e in extras:
+        print(f'  + {e}')
+    if a.dry_run:
+        print('NUGET: 初回のビルドで、MSTest を復元する (ホストが nuget.org に届くこと)' if tests else 'NUGET: パッケージなし')
+        print('(dry-run: 何も書いていない)')
+        return
+
+    os.makedirs(folder, exist_ok=True)
+    AP.write_files(folder, files)
+    write_plain(folder, f'{name}.slnx', AP.slnx_text(projects, name), crlf=True)
+    if '.editorconfig' in extras:
+        write_plain(folder, '.editorconfig', AP.EDITORCONFIG, crlf=True)
+    if 'CLAUDE.md' in extras:
+        write_plain(folder, 'CLAUDE.md', claude_md_wpf(name, layers, tests, tfm, vm_in_app, ns))
+    if '.gitignore' in extras:
+        write_plain(folder, '.gitignore', AP.GITIGNORE)
+    if '.gitattributes' in extras:
+        write_plain(folder, '.gitattributes', GITATTRIBUTES)
+    print('完了。')
+
+
+def update_claude_md_mstest(folder):
+    p = os.path.join(folder, 'CLAUDE.md')
+    if not os.path.isfile(p):
+        return 'CLAUDE.md がない (何も更新していない)'
+    text = open(p, encoding='utf-8').read()
+    changed = False
+    if re.search(r'^- テスト: .*$', text, re.M):
+        new = re.sub(r'^- テスト: .*$', '- テスト: あり (MSTest)', text, count=1, flags=re.M)
+        changed, text = new != text, new
+    else:
+        text += '\n## このソリューションの設定 (追記)\n- テスト: あり (MSTest)\n'
+        changed = True
+    if '## テスト (MSTest)' not in text:
+        text += ('\n## テスト (MSTest)\n'
+                 '- ライブラリごとに、`<名前>.Tests` (MSTest v3、`Microsoft.NET.Test.Sdk`)。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。\n')
+        changed = True
+    if changed:
+        with open(p, 'w', encoding='utf-8', newline='') as f:
+            f.write(text)
+    return 'CLAUDE.md の「テスト:」を更新した' if changed else 'CLAUDE.md は、すでに「テスト: あり」'
+
+
+def has_dotnet_projects(folder):
+    return any(os.path.isfile(os.path.join(folder, d, f'{d}.csproj')) for d in os.listdir(folder)
+               if os.path.isdir(os.path.join(folder, d)))
+
+
+def add_tests_wpf(a, folder, name, sln_name):
+    if a.type is not None or a.layers is not None or a.spec is not None:
+        die('すでにソリューションがあるフォルダでは、--tests mstest だけを指定できる (--type / --layers / --spec は、指定できない)')
+    AP = load_ap()
+    sln = os.path.join(folder, sln_name)
+    todo = AP.libraries_without_tests(folder)
+    if not todo:
+        die('テストを足せるクラスライブラリがない (ないか、すべてに、すでに <名前>.Tests がある)。'
+            'WPF のアプリ (View) は、テストしない。先に、層 (クラスライブラリ) を作ること')
+    mver = a.mstest_version or AP.MSTEST_VER
+    sver = a.testsdk_version or AP.TESTSDK_VER
+    files, projects = {}, []
+    for ln in todo:
+        info = AP.read_lib_info(folder, ln)
+        lns = a.namespace or info['ns'] or AP.default_namespace(sln_name)
+        files.update(AP.test_files(ln, lns, info['tfm'], mver, sver, 'viewmodel' if info['is_vm'] else 'lib'))
+        projects.append((ln + '.Tests', AP.new_guid()))
+    print(f'ソリューション : {sln_name} (すでにある)')
+    print(f'テストの後付け : {", ".join(todo)} に、<名前>.Tests を足す (MSTest {mver})')
+    for rel in files:
+        print(f'  + {rel}')
+    print(f'  ~ {sln_name} ({len(projects)} プロジェクトを追加)')
+    if a.dry_run:
+        print('(dry-run: 何も書いていない)')
+        return
+    AP.write_files(folder, files)
+    AP.register(sln, projects)
+    print(update_claude_md_mstest(folder))
+    print('完了。NuGet の復元は、ウォッチャーのビルド (/restore) が行う。')
+
+
 def create_mode(a, folder, name):
+    if a.type == 'wpf':
+        create_wpf(a, folder, name)
+        return
+    if a.tests == 'mstest':
+        die('--tests mstest は WPF (.NET) 用。C++ は、--tests gtest')
+    if a.tfm or a.mstest_version or a.testsdk_version:
+        die('--tfm / --mstest-version / --testsdk-version は WPF (.NET) 用')
     missing = [k for k, v in (('--type', a.type), ('--layers', a.layers), ('--tests', a.tests)) if v is None]
     if missing:
         die(f'新規作成には、{" / ".join(missing)} が必要 (省略した項目は、ユーザーに質問して、決めること)')
@@ -882,7 +1137,7 @@ def add_tests_mode(a, folder, name, sln_name):
 
 
 SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace'}
-SPEC_ALLOWED = {'type': ('mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib'), 'tests': ('none', 'gtest')}
+SPEC_ALLOWED = {'type': ('wpf', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib'), 'tests': ('none', 'gtest', 'mstest')}
 
 
 def read_spec_config(path):
@@ -924,14 +1179,18 @@ def apply_spec(a):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('folder')
-    ap.add_argument('--type', choices=['mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'])
+    ap.add_argument('--type', choices=['wpf', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'])
     ap.add_argument('--layers')
-    ap.add_argument('--tests', choices=['none', 'gtest'])
+    ap.add_argument('--tests', choices=['none', 'gtest', 'mstest'])
+    ap.add_argument('--tfm')
+    ap.add_argument('--mstest-version')
+    ap.add_argument('--testsdk-version')
     ap.add_argument('--namespace')
     ap.add_argument('--toolset')
     ap.add_argument('--gtest-from')
     ap.add_argument('--gtest', choices=['auto', 'nuget', 'source'])
     ap.add_argument('--layer-kind', choices=['dll', 'lib'])
+    ap.add_argument('--ui-tests', choices=['none', 'flaui'])
     ap.add_argument('--spec')
     ap.add_argument('--check-git', action='store_true')
     ap.add_argument('--add-gitattributes', action='store_true')
@@ -956,13 +1215,25 @@ def main():
         apply_spec(a)
     if len(sols) > 1:
         die(f'ソリューションが複数ある ({", ".join(sols)})。どれを使うか、ユーザーに確認すること')
+    if sols and a.ui_tests == 'flaui' and a.tests is None:
+        add_ui_tests_flaui(folder, a.dry_run)
+        return
     if sols:
-        if a.tests == 'gtest':
+        dotnet = has_dotnet_projects(folder)
+        if a.tests == 'mstest':
+            if not dotnet:
+                die('--tests mstest は、.NET (WPF) のソリューション用。このソリューションには、.csproj のプロジェクトがない。C++ は --tests gtest')
+            add_tests_wpf(a, folder, name, sols[0])
+        elif a.tests == 'gtest':
+            if dotnet:
+                die('--tests gtest は、C++ 用。.NET (WPF) のソリューションは、--tests mstest')
             add_tests_mode(a, folder, name, sols[0])
         else:
-            die(f'すでにソリューションがある ({sols[0]})。何も書いていない。テストを後付けするなら、--tests gtest だけを指定する', 3)
+            die(f'すでにソリューションがある ({sols[0]})。何も書いていない。テストを後付けするなら、--tests gtest (C++) か --tests mstest (.NET) だけを指定する', 3)
     else:
         create_mode(a, folder, name)
+        if a.ui_tests == 'flaui':
+            add_ui_tests_flaui(folder, a.dry_run, new=True)
 
 
 if __name__ == '__main__':

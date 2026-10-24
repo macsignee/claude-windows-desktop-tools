@@ -1,7 +1,7 @@
 ---
 name: new-solution
-description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ) を作る。層 (ロジック・データの DLL または静的ライブラリ) を作るか、テスト (GoogleTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
-argument-hint: "[--type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data] [--tests none|gtest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--spec <仕様書>]"
+description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ / WPF (MVVM)) を作る。層 (C++ はロジック・データの DLL または静的ライブラリ、WPF は ViewModel・ロジック・データのクラスライブラリ) を作るか、テスト (C++ は GoogleTest、WPF は MSTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest / --tests mstest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
+argument-hint: "[--ui-tests none|flaui] [--type wpf|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--tfm net8.0] [--spec <仕様書>]"
 disable-model-invocation: true
 ---
 
@@ -16,17 +16,41 @@ disable-model-invocation: true
 
 | 軸 | 引数 | 値 |
 |---|---|---|
-| メインの種類 | `--type` | `mfc` (MFC SDI) / `mfc-mdi` (MFC MDI) / `mfc-dialog` (MFC ダイアログベース) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
-| 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる |
+| メインの種類 | `--type` | **`wpf` (WPF、MVVM。.NET)** / `mfc` (MFC SDI) / `mfc-mdi` (MFC MDI) / `mfc-dialog` (MFC ダイアログベース) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
+| 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。**`wpf` のときは、`viewmodel` (既定の名前 `ViewModels`) も、組み合わせられる** (例: `data,logic,viewmodel`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる。**`wpf` は、`SampleApp.Domain` のように、`.` を含む名前もよい** (規約 3.2 の `Presentation` / `Application` / `Domain` / `Infrastructure`。`wpf-check` が、標準の依存で検査する) |
 | 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし)。全部の層に、同じ種類 |
-| テスト | `--tests` | `none` / `gtest` (作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) |
+| テスト | `--tests` | `none` / `gtest` (C++: 作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) / **`mstest` (WPF: 作った各クラスライブラリに、`<名前>.Tests` と MSTest)** |
 | GoogleTest の入れ方 | `--gtest` | `auto` (既定) / `nuget` / `source` (下の「GoogleTest」) |
+| UI テスト | `--ui-tests` | `none` (既定) / **`flaui` (WPF と、MFC などの C++ の GUI アプリ: `<アプリ名>.UITests` (MSTest + FlaUI) を足す)**。画面を、自動で操作して確かめたいときだけ。**テスト先行 (Red) → ビルド → テスト (Green) の「あとに、追加で」、実行する** (ウォッチャーの `trigger_uitest.flag`、`build-test-loop` の `uitest_once.sh`)。通常のテストには、含まれない。作成と同時に指定でき、**すでにあるソリューションに、後付けもできる** (`--ui-tests flaui` だけを指定)。書き方は、`build-test-loop` の「UI テスト」 |
 
 - 層とテストは、独立。`--layers logic,data --tests none` (層だけ、テストなし)、`--layers none --tests none` (メインだけ)、などができる。
 - **`--tests gtest` は、テスト対象 (DLL / 静的ライブラリ) が必要。** メインが exe で `--layers none` の組み合わせは、エラー (層を作るか、`--tests none` にする)。メインが dll / lib なら、メイン自身がテスト対象になる。
 - **層の名前は、既定のままでよい** (変更は、作成後にもできる。`DLL-LAYOUT.md` の「層の名前を、あとから変えるとき」)。作成時に指定するのは、ユーザーが望んだときだけ。
 
 引数 (`$ARGUMENTS`) で指定された項目は、質問しない。**省略した項目は、質問する。特に `--tests` は、省略されたら、必ず質問する (黙って既定にしない)。**
+
+## WPF (`--type wpf` のとき)
+
+**C++ とは別の経路** (GoogleTest も、DLL も、`.vcxproj` も、使わない)。生成は、`wpf-test-first` Skill の `add_project.py` を、読み込んで行う (両方とも、配布されていること)。
+
+| 項目 | 内容 |
+|---|---|
+| 構成 | **View (WPF アプリ) → ViewModel → ロジック → データ。** メインが WPF アプリ (`<フォルダ名>`、`net8.0-windows`)、層が **WPF 非依存のクラスライブラリ** (`net8.0`)。`--layers` の組み合わせで、足す層を決める (`data` / `logic` / `viewmodel`)。`viewmodel` を作らないと、ViewModel は、**アプリの `ViewModels/` フォルダ**に入る (テストできない。テストしたいなら、`viewmodel` を作る) |
+| 層の依存 | データ ← ロジック ← ViewModel ← View。上の層は、すぐ下の層を参照する (アプリは、すべての層を参照する) |
+| テスト | `--tests mstest`: **層のライブラリごとに** `<名前>.Tests` (MSTest v3)。**View (アプリ) には、作らない。** 層がないと、テスト対象がないので、エラー (層を作るか、`--tests none`) |
+| 名前空間 | ルート = フォルダ名 (`--namespace` で変更)。層は `<ルート>.Data` / `.Logic` / `.ViewModels`、テストは `<名前空間>.Tests` |
+| MVVM の基底 | **自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要)。CommunityToolkit.Mvvm などは、`add-package` で足して、置き換える |
+| アプリの構成 | **WPF プログラミング規約 3.1 に合わせる:** `App.xaml(.cs)` / `Views/` / `ViewModels/` (`viewmodel` 層がないとき) / `Resources/Styles.xaml` (共通の余白・スタイル。`App.xaml` で結合)。**`DataContext` は、`App.xaml.cs` の `OnStartup` (composition root) で設定する** (`MainWindow` のコードビハインドには、書かない)。画面は `Grid` レイアウト (`Auto` / `*`、`MinWidth` / `MinHeight`)、バインディングは `Mode` を明示 |
+| サンプル | `MainWindow` (入力欄・表示・ボタン) と `MainViewModel` (`Name` / `Greeting` / `ClearCommand`)。`viewmodel` と `mstest` を作ると、`MainViewModelTests` (5 件) も付く。**サンプルは、消してよい** |
+| 作るファイル | `<名前>.slnx` (構成は書かない。アプリに `DefaultStartup="true"`)、各 `.csproj` (SDK 形式)、`Directory.Build.props` (`Nullable` / `ImplicitUsings` / `LangVersion`)、`.editorconfig` (C# / XAML の書式。`~/.claude/rules/wpf-csharp.md` と同じ)、`CLAUDE.md` / `.gitignore` / `.gitattributes` |
+| 規約 | ユーザー共通の `~/.claude/rules/wpf-csharp.md` (`install.sh` が配る。C# / XAML を扱うときに、自動で読み込まれる) |
+| 追加の引数 | `--tfm` (既定 `net8.0`。例: `net10.0`)、`--mstest-version` / `--testsdk-version` (既定は、実在を確認した版。新しい版は、`add-package` の `nuget versions` で確認して指定) |
+| 使えない引数 | `--layer-kind` / `--gtest` / `--gtest-from` / `--toolset` (C++ 用。指定するとエラー)。`--tests gtest` もエラー |
+
+- **NuGet の復元は、ウォッチャーのビルド (`/restore`) が行う。** ホストが nuget.org に届く必要がある。MSTest の参照が、初回のビルドで、取得される。
+- 作成のあとの **ベースライン確認は、`build-test-loop` で `PASSED`** (テストなしなら、`auto-build` で `SUCCESS`)。GoogleTest の仕上げ (下の 5.) は、**ない**。
+- **`wpf-check` を実行して、指摘がないこと**を、確認してよい (生成物は、指摘が出ないように作ってある。出たら、生成の誤り)。
+- 最初に、Visual Studio で `.slnx` を開いて、問題がないか確認してもらうとよい (`DefaultStartup` で、アプリが、スタートアッププロジェクトになる。`.vs/` の個人の設定が、あれば、そちらが優先される)。
 
 ## GoogleTest (`--tests gtest` のとき)
 
@@ -50,8 +74,8 @@ disable-model-invocation: true
 | 状態 | モード |
 |---|---|
 | ない | **A. 新規作成** |
-| 1 つある + `--tests gtest` | **B. テストの後付け** |
-| 1 つある + それ以外 | 「すでにソリューションがあります。できるのは、テストの後付け (`--tests gtest`) だけです」と伝えて、止まる |
+| 1 つある + `--tests gtest` (C++) / `--tests mstest` (.NET) | **B. テストの後付け** |
+| 1 つある + それ以外 | 「すでにソリューションがあります。できるのは、テストの後付け (`--tests gtest` (C++) / `--tests mstest` (.NET)) だけです」と伝えて、止まる |
 | 複数ある | 止まって、ユーザーに確認する |
 
 ## A. 新規作成
@@ -94,14 +118,16 @@ disable-model-invocation: true
           | `TIMEOUT` | 5 | 報告して止まる (長いネットワークなら、制限時間を延ばして、1 回だけ再試行してよい) |
           | `BAD_ARGS` | 2 | タグの形などを直す |
 6. **ベースラインを確認する (ウォッチャーが起動していること):**
-   - テストなし → `cpp-auto-build` の手順で、ビルドが成功すること (`SUCCESS`)。
-   - テストあり → `cpp-build-test-loop` の手順で、ビルドとテストが、`PASSED` になること (各 DLL のベースライン用の 1 件のテスト)。**source 方式の初回は、`gtest` のコンパイルで、少し長い。**
+   - テストなし → `auto-build` の手順で、ビルドが成功すること (`SUCCESS`)。
+   - テストあり → `build-test-loop` の手順で、ビルドとテストが、`PASSED` になること (各 DLL のベースライン用の 1 件のテスト)。**source 方式の初回は、`gtest` のコンパイルで、少し長い。**
    - 失敗したら、それぞれの Skill の規則で直す。**手書きのプロジェクトの、最初のビルド**なので、設定の不備が出る可能性がある。環境の問題 (`ENV_ERROR`、ウォッチャー未起動) は、直さずに、報告する。
 7. **報告して、終わる。** 作ったもの、モード (層・テスト・GoogleTest の方式)、確認の結果、`CLAUDE.md` に設定が書かれたこと、次の行動 (仕様書がすでにあれば **`/add-feature`**。なければ **`/brainstorm` (メモ) → `/update-from-ideas` (正式な仕様書)**) を、短く示す。自動で、次に進まない。
    - ユーザーに、Visual Studio で `.slnx` を開いて、問題がないか確認してもらうとよい、と添える。
    - **メインが exe のとき:** `.slnx` の `DefaultStartup="true"` を、メインに付けてある (最初に開くとき、メインが、スタートアッププロジェクトになる)。**ただし、`.vs/` の個人の設定 (`.suo`) が優先される。** 実行 (F5) で、「有効な Win32 アプリケーションではありません」が出たら、DLL が選ばれているので、メインを、右クリックの「スタートアップ プロジェクトに設定」で選び直す、と添える。
 
-## B. テストの後付け (`--tests gtest`、すでにソリューションがある)
+## B. テストの後付け (`--tests gtest` (C++) / `--tests mstest` (.NET)、すでにソリューションがある)
+
+**.NET (WPF) のソリューションは、`--tests mstest`** (C++ の `gtest` は、エラー)。テストのない**クラスライブラリ**に、`<名前>.Tests` を足す (アプリ (View) には、足さない。名前空間と TFM は、既存の `.csproj` から読む)。dry-run で一覧を見せて、了承を得てから実行し、`build-test-loop` で `PASSED` を確認する。`CLAUDE.md` の `テスト:` は、`あり (MSTest)` に更新される。以下の 1.〜4. は、C++ の場合の説明 (GoogleTest の手順は、MSTest には、ない)。
 
 1. **何が足されるかを、確認する:** dry-run で、テストのない DLL (層 / メイン DLL) の一覧と、作るファイル、GoogleTest の方式を、見せて、了承を得る。
    ```bash
@@ -109,7 +135,7 @@ disable-model-invocation: true
    ```
    - テストを足せる DLL がない場合 (層がない、すべての DLL にテストがある) は、止まる。メインが exe で層がないなら、先に、層を作る (`/add-feature` の計画に含めるか、`cpp-test-first` の `add_layer.py`)。
 2. **実行する** (`--dry-run` を外す)。既存の DLL の名前空間・参照は、スクリプトが、ファイルから読み取る。
-3. **A の 5. と 6. と同じ** (GoogleTest の仕上げ、ベースラインの確認)。**`cpp-build-test-loop` で、`PASSED`。**
+3. **A の 5. と 6. と同じ** (GoogleTest の仕上げ、ベースラインの確認)。**`build-test-loop` で、`PASSED`。**
 4. `CLAUDE.md` の `テスト:` の行が、`あり (GoogleTest)` に更新されたことを報告する。以降、`/add-feature` は、テスト先行で進む。
 
 ## C. 改行コードの規則 (`.gitattributes`) の確認と追加 (すでにあるプロジェクト)
@@ -148,7 +174,7 @@ disable-model-invocation: true
 ```
 - メイン: <名前> (<種類>)
 - 層: data,logic | なし      (既定でない名前は、data:OrderData,logic:OrderLogic のように記録)
-- テスト: あり (GoogleTest) | なし
+- テスト: あり (GoogleTest) | あり (MSTest) | なし
 ```
 `CLAUDE.md` が、すでにあれば、上書きしない (後付けのときは、`テスト:` の行だけを更新する)。
 
