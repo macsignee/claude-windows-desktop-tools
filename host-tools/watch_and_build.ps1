@@ -1062,6 +1062,8 @@ function Get-TrxCounters([string]$trx) {
 # そこに過去のビルドの古い DLL が残っていると、今回のビルドの成果物ではなく、古い DLL のテストが通る (偽の成功)。
 # 実行されたアセンブリ (trx の storage) と同名で、より新しい DLL が、プロジェクトの bin 配下の別の場所にあれば、その一覧を返す。
 # (増分ビルドで DLL が書き換わらないのは、正常。なので、更新時刻とビルドの開始時刻は比べない)
+# 比べるのは、構成 (Debug / Release) と、TFM (net8.0 など) が同じで、プラットフォームのフォルダだけが違うもの (bin\Debug\net8.0 と bin\x64\Debug\net8.0)。
+# Debug と Release は、別の成果物なので、比べない (構成を切り替えて使うと、古い側が、誤って ENV_ERROR になる)
 function Get-StaleTestAssemblies([string]$project, [string]$trx) {
     if (-not (Test-Path -LiteralPath $trx)) { return @() }
     try { $x = [xml](Get-Content -LiteralPath $trx -Raw -Encoding UTF8) } catch { return @() }
@@ -1075,7 +1077,9 @@ function Get-StaleTestAssemblies([string]$project, [string]$trx) {
     foreach ($path in $used.Keys) {
         $usedItem = Get-Item -LiteralPath $path
         $newer = Get-ChildItem -LiteralPath $binDir -Recurse -File -Filter $usedItem.Name -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -ne $usedItem.FullName -and $_.LastWriteTimeUtc -gt $usedItem.LastWriteTimeUtc.AddSeconds(2) } |
+            Where-Object { $_.FullName -ne $usedItem.FullName -and $_.LastWriteTimeUtc -gt $usedItem.LastWriteTimeUtc.AddSeconds(2) -and
+                           $_.Directory.Name -eq $usedItem.Directory.Name -and
+                           $_.Directory.Parent -and $usedItem.Directory.Parent -and $_.Directory.Parent.Name -eq $usedItem.Directory.Parent.Name } |
             Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
         if ($newer) { $stale += "$($usedItem.FullName) ($($usedItem.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))) is older than $($newer.FullName) ($($newer.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))" }
     }
