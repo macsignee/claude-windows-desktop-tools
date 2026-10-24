@@ -155,7 +155,7 @@ P13: 存在しないポート
 
 **使い捨てフォルダ (削除可):** `repos` の下の `WpfUi15` / `WpfUi17` / `MfcUi18` / `MixTest` / `UiPoc` / `WpfStd2` / `WpfLate` / `WpfToolkit` / `WpfRetro` など。UT14b の再確認には `WpfUi15` を使う (ウォッチャーの起動だけなら、どのフォルダでもよい)。
 
-**未解決:** `run_watcher_visible.cmd` 経由の起動で、バナーに `slow-motion` が出ない (PowerShell の直接起動は問題なし。原因は未特定。コマンドプロンプトのウィンドウに環境変数 `WATCH_UI_DESKTOP` が残っていた可能性)。
+**解決済み (2026-10-24):** `run_watcher_visible.cmd` 経由の起動で、バナーに `slow-motion` が出ない問題。ファイル (cmd / ps1) に誤りはなく、配置済みの版 (14:11 の再配置) で、`[visible mode] WATCH_UI_DESKTOP=default  WATCH_UI_SLOWMO_MS=800` と、起動画面の `UI test : ... (desktop: default, ..., slow-motion: 800ms)` が出た。**以前は、再配置前の古い版を実行していたと推定** (`[visible mode]` の行も出なかったため。環境変数の残りではない)。
 
 **注意 (再開したときの、私の作業の癖):**
 - Skill / スクリプトを変えたら、ユーザーに `install.sh --skills-only` (とホストは `copy-host-tools.sh`) を、必ず案内する。配布の忘れで、UT19 と UT8 が、一度ずつ NG になった。

@@ -172,7 +172,7 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 
 #### 目で確かめるモード (ユーザーのデスクトップ + スローモーション)
 
-**準備:** `~/src/copy-host-tools.sh` で再配置 (`run_watcher_visible.cmd` が増える)。`WpfUi15` で、`add_ui_tests.py <フォルダ> --refresh-support-files` を実行 (`UiNative.cs` が増え、`UiTestBase.cs` / `Screenshots.cs` が更新される)。ウォッチャーを `run_watcher_visible.cmd C:\workspace\macsignee\source\repos\WpfUi15` で起動する。
+**準備:** `~/src/copy-host-tools.sh` で再配置 (`run_watcher_visible.cmd` が増える)。`WpfUi15` で、`add_ui_tests.py <フォルダ> --refresh-support-files` を実行 (`UiNative.cs` が増え、`UiTestBase.cs` / `Screenshots.cs` が更新される)。ウォッチャーを `run_watcher_visible.cmd C:\workspace\macsignee\source\repos\WpfUi15` で起動する。 **(2026-10-24 追記: `run_watcher_visible.cmd` で、`[visible mode] WATCH_UI_DESKTOP=default  WATCH_UI_SLOWMO_MS=800` と、起動画面の `UI test : ... (desktop: default, ... slow-motion: 800ms)` が出ることを、実機で確認。以前、出なかったのは、再配置前の古い版を実行していたため)**
 
 | ID | 内容 | 期待 | 状況 |
 |---|---|---|---|
