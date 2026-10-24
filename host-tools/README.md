@@ -102,7 +102,7 @@ powershell -ExecutionPolicy Bypass -NoProfile -File C:\tools\cpp-watcher\watch_a
 | `-TestArgs` | `--gtest_color=no` | テスト exe に渡す引数 |
 | `-TestTimeoutSec` | `120` | テスト exe 1本あたりの制限時間 (秒) |
 | `-TestWorkingDir` | テスト exe のあるフォルダ | GoogleTest の実行時の作業フォルダ |
-| `-DotnetTestArgs` | (空) | `dotnet test` に足す引数。例: `-p:Platform=x64` (プロジェクトの出力先が、プラットフォーム別のとき) |
+| `-DotnetTestArgs` | (空) | `dotnet test` に足す引数。例: `-DotnetTestArgs:-p:Platform=x64` (プロジェクトの出力先が、プラットフォーム別のとき)。**値が `-` で始まるので、コロンで結ぶ** (`-DotnetTestArgs "-p:Platform=x64"` は、PowerShell が `-p` をパラメーター名と解釈して、`ambiguous` で失敗する) |
 | `-DotnetExe` | `dotnet` | `dotnet` の実行ファイル (PATH にないときは、フルパス) |
 | `-PackageTimeoutSec` | `1800` | パッケージの操作 1 件の制限時間 (秒)。`vcpkg install` は、ポートのビルドで長い |
 | `-VcpkgExe` | (自動) | `vcpkg.exe`。省略時: 環境変数 `VCPKG_ROOT`、なければ Visual Studio 同梱 (`VC\vcpkg\vcpkg.exe`) |
@@ -198,7 +198,8 @@ test_error.log
 | `.cmd` のコメントが文字化けする、`'xxx' は、内部コマンドまたは外部コマンド...` のようなエラーが出る | `.cmd` が UTF-8 などで保存し直された。CP932 (Shift_JIS) で保存し直す |
 | `ENV_ERROR` (テストが見つからない) | C++: ビルド構成 (Platform/Configuration) と、`<ソリューション>\<x64\|Win32\|ARM64>\<Configuration>\` に exe があるか、`-TestExePattern` が名前に合っているかを確認。.NET: テストプロジェクトが、ソリューションに入っているか、`Microsoft.NET.Test.Sdk` を参照しているか (名前が `Test` / `Tests` で終わるかでも、拾われる) |
 | `ENV_ERROR` (no tests were executed) | .NET: `dotnet test` が終了コード 0 でも、trx がない、または `executed=0`。`Microsoft.NET.Test.Sdk` と MSTest のアダプタ (`MSTest` パッケージ) を参照しているか、`[TestMethod]` があるかを確認 |
-| .NET のテストで `FAILED`、`no test results: the test host crashed, or dotnet test failed before running tests` | `--no-build` が、アセンブリを見つけられない (出力先が `bin\x64\Debug` など、プラットフォーム別) → `-DotnetTestArgs "-p:Platform=x64"`。または、テストホストのクラッシュ (`test.log` を見る) |
+| .NET のテストで `FAILED`、`no test results: the test host crashed, or dotnet test failed before running tests` | `--no-build` が、アセンブリを見つけられない (出力先が `bin\x64\Debug` など、プラットフォーム別) → `-DotnetTestArgs:-p:Platform=x64` (コロンで結ぶ)。または、テストホストのクラッシュ (`test.log` を見る) |
+| .NET のテストが `ENV_ERROR`、`test_error.log` に `the test assembly that was run is older than a build output in another folder` | 出力先が `bin\x64\Debug` などなのに、`dotnet test --no-build` が `bin\Debug` の古い DLL を実行しようとした (偽の成功の防止)。`-DotnetTestArgs:-p:Platform=x64` を付けて起動し直す。または、古い `bin` を消す |
 | .NET のビルドで `ENV_ERROR` (`MSB4236` / `NETSDK1045` / `NETSDK1141` / `NU1301`) | .NET SDK が、見つからない / 古い (`global.json`、対象フレームワーク) / NuGet のソースに届かない。SDK のインストールと、ネットワークを確認する |
 | `ENV_ERROR` (no gtest summary) | テスト exe が GoogleTest でない、または `-TestArgs` が不正 (古い GoogleTest は `--gtest_brief` を知らず、ヘルプだけ表示して終了コード 0 になる) |
 | テストが `TIMEOUT` になる | 全体の実行時間が制限 (既定 120 秒) を超えている。`-TestTimeoutSec` を延ばす。`Hung test` は、打ち切られた時点のテスト名で、必ずしもハングしたテストではない |

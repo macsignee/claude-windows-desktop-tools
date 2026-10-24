@@ -470,9 +470,10 @@ def app_xaml(ns):
 
 
 def app_xaml_cs(ns, vm_ns):
+    # using の並びは、dotnet format (IMPORTS) の規約に合わせる: System が先、残りは名前の順
+    usings = "\n".join(f"using {u};" for u in sorted({f"{ns}.Views", vm_ns}))
     return f'''using System.Windows;
-using {ns}.Views;
-using {vm_ns};
+{usings}
 
 namespace {ns};
 

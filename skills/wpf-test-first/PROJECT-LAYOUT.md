@@ -49,7 +49,7 @@ MyApp/
 3. **プロジェクト名 = フォルダ名 = `.csproj` の名前 = アセンブリ名。** `.` を含んでよい (`SampleApp.Domain`)。その場合、名前空間は、その名前のまま。型名 (`SampleAppDomainInfo`) では、`.` を除く。 XAML の `xmlns:vm="clr-namespace:NS.ViewModels;assembly=ViewModels"` の `assembly=` は、このアセンブリ名。
 4. **名前空間:** ルート (ソリューション名) + 層 (`<ルート>.Data` / `.Logic` / `.ViewModels`)。画面は `<ルート>.Views`。テストは `<ライブラリの名前空間>.Tests`。ファイルスコープの名前空間 (`namespace X;`)。
 5. **ソリューションは `.slnx`** (新規)。.NET だけなら、構成 (`Debug` / `Release` の `Any CPU`) は、書かない (Visual Studio の既定)。ウォッチャーは、`-Platform auto` で `AnyCPU` を使う。**WPF アプリに `DefaultStartup="true"`** (層は、ライブラリで、起動できない)。
-6. **出力先は、既定のまま** (`bin/<Configuration>/<TargetFramework>/`)。ウォッチャーの `dotnet test --no-build` は、各プロジェクトの既定の出力先を使う。**出力先を `bin\x64\Debug` などのプラットフォーム別にしたときは、ウォッチャーの `-DotnetTestArgs "-p:Platform=x64"` が要る。**
+6. **出力先は、既定のまま** (`bin/<Configuration>/<TargetFramework>/`)。ウォッチャーの `dotnet test --no-build` は、各プロジェクトの既定の出力先を使う。**出力先を `bin\x64\Debug` などのプラットフォーム別にしたときは、ウォッチャーの `-DotnetTestArgs:-p:Platform=x64` が要る (値が `-` で始まるので、コロンで結ぶ。`"-p:..."` と書くと、PowerShell が `-p` をパラメーター名と解釈して、起動に失敗する)。**
 7. **MSTest の参照 (テストプロジェクト):** `Microsoft.NET.Test.Sdk` + `MSTest.TestAdapter` + `MSTest.TestFramework` (3 つとも、バージョンを固定)。`IsTestProject` を `true`、`IsPackable` を `false`。
    - **VSTest モード** (`dotnet test --logger trx`)。`Microsoft.Testing.Platform` モード (`MSTest.Sdk` や、`global.json` の `test.runner` の指定) は、ウォッチャーが、対象にしていない。
 8. **パッケージの追加は、`add-package` Skill** (`.csproj` に、名前とバージョンを、推測で書かない)。

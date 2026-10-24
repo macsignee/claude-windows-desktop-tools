@@ -338,8 +338,8 @@ internal static class Screenshots
 '''
 
 
-TESTS_WPF_CS = '''using Microsoft.VisualStudio.TestTools.UnitTesting;
-using FlaUI.Core.AutomationElements;
+TESTS_WPF_CS = '''using FlaUI.Core.AutomationElements;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace __NS__.UITests;
 

@@ -120,7 +120,7 @@ param(
     # trigger_gtest.flag の 1 行目が空のときに取得する、GoogleTest のタグ
     [string]$GtestTag = "v1.17.0",
 
-    # dotnet test に追加で渡す引数。例: "-p:Platform=x64" (プロジェクトの出力先が、プラットフォーム別のとき)
+    # dotnet test に追加で渡す引数。例: -DotnetTestArgs:-p:Platform=x64 (プロジェクトの出力先が、プラットフォーム別のとき。値が - で始まるので、コロンで結ぶ)
     [string]$DotnetTestArgs = "",
 
     # dotnet の実行ファイル (PATH にないときは、フルパス)
@@ -1044,6 +1044,31 @@ function Get-TrxCounters([string]$trx) {
     }
 }
 
+# dotnet test --no-build が、古い出力先のテストアセンブリを実行していないか調べる。
+# 出力先が bin\x64\Debug などのプラットフォーム別のとき、-DotnetTestArgs を付けないと、dotnet test は bin\Debug を探す。
+# そこに過去のビルドの古い DLL が残っていると、今回のビルドの成果物ではなく、古い DLL のテストが通る (偽の成功)。
+# 実行されたアセンブリ (trx の storage) と同名で、より新しい DLL が、プロジェクトの bin 配下の別の場所にあれば、その一覧を返す。
+# (増分ビルドで DLL が書き換わらないのは、正常。なので、更新時刻とビルドの開始時刻は比べない)
+function Get-StaleTestAssemblies([string]$project, [string]$trx) {
+    if (-not (Test-Path -LiteralPath $trx)) { return @() }
+    try { $x = [xml](Get-Content -LiteralPath $trx -Raw -Encoding UTF8) } catch { return @() }
+    $binDir = Join-Path (Split-Path -Parent $project) "bin"
+    if (-not (Test-Path -LiteralPath $binDir)) { return @() }
+    $used = @{}
+    foreach ($u in @($x.TestRun.TestDefinitions.UnitTest)) {
+        if ($u -and $u.storage -and (Test-Path -LiteralPath $u.storage)) { $used[(Get-Item -LiteralPath $u.storage).FullName] = $true }
+    }
+    $stale = @()
+    foreach ($path in $used.Keys) {
+        $usedItem = Get-Item -LiteralPath $path
+        $newer = Get-ChildItem -LiteralPath $binDir -Recurse -File -Filter $usedItem.Name -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -ne $usedItem.FullName -and $_.LastWriteTimeUtc -gt $usedItem.LastWriteTimeUtc.AddSeconds(2) } |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+        if ($newer) { $stale += "$($usedItem.FullName) ($($usedItem.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))) is older than $($newer.FullName) ($($newer.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))" }
+    }
+    return $stale
+}
+
 # trx の失敗したテストを、人が読める形 (test_error.log 用) にする。構造化された解釈は、WSL 側の summarize_test_log.py が、trx を直接読んで行う。
 function Get-TrxFailureLines([string]$trx) {
     if (-not (Test-Path -LiteralPath $trx)) { return }
@@ -1064,7 +1089,7 @@ function Get-TrxFailureLines([string]$trx) {
             if ($l.Trim()) { "  " + $l.Trim() }
         }
         foreach ($l in ("$($r.Output.ErrorInfo.StackTrace)" -split "`r?`n")) {
-            if ($l -match '\s(in|場所)\s+.+:(line|行)\s+\d+\s*$') { "  at " + $l.Trim(); break }
+            if ($l -match '\s(in|場所)\s+.+:(line|行)\s+\d+\s*$') { "  at " + ($l.Trim() -replace '^(at|場所)\s+', ''); break }
         }
     }
 }
@@ -1150,6 +1175,7 @@ function Invoke-Tests([switch]$Ui) {
     $failed = $false
     $timedOut = $false
     $invalid = $false
+    $staleFound = $false
     $all = @()
 
     # --- GoogleTest (C++) ---
@@ -1201,6 +1227,15 @@ function Invoke-Tests([switch]$Ui) {
                 if ($Ui) { Stop-SolutionProcesses }   # テストが起動して、残ったアプリ
                 break
             }
+            # 古い出力先の DLL を実行していないか (成功のときは、偽の成功を防ぐため、ENV_ERROR にする)
+            $stale = @(Get-StaleTestAssemblies $proj $trx)
+            if ($stale.Count -gt 0) {
+                $staleFound = $true
+                if ($r.ExitCode -eq 0) { $invalid = $true }
+                $report += "=== $name (dotnet test): the test assembly that was run is older than a build output in another folder ==="
+                $report += $stale
+                $report += "dotnet test --no-build looked in a different output folder than the build wrote (e.g. bin\Debug, while the build wrote bin\x64\Debug). Pass -DotnetTestArgs:-p:Platform=x64 (match the build platform), or delete the stale bin folder."
+            }
             if ($r.ExitCode -eq 0) {
                 # 終了コード 0 でも、1 件も実行されていなければ、テストは走っていない (テスト 0 件、アダプタ未検出など)
                 $counters = Get-TrxCounters $trx
@@ -1235,8 +1270,9 @@ function Invoke-Tests([switch]$Ui) {
         @(ConvertTo-RelativePaths $report) | Out-File $TestErrorLog -Encoding utf8
         Write-TestMarker "FAILED"
     } elseif ($invalid) {
-        Write-Host "[RESULT] Tests ENV_ERROR (tests were probably not run)." -ForegroundColor Red
-        @(ConvertTo-RelativePaths (@("[ENVIRONMENT ERROR - not a source code problem]") + $report + @("", "Test failed: tests were probably not run (GoogleTest: check -TestArgs / is this a GoogleTest exe? dotnet: is Microsoft.NET.Test.Sdk and a test adapter referenced?)"))) |
+        $envNote = if ($staleFound) { "Test result is not trusted: the tests ran against an older build output (see above)." } else { "Test failed: tests were probably not run (GoogleTest: check -TestArgs / is this a GoogleTest exe? dotnet: is Microsoft.NET.Test.Sdk and a test adapter referenced?)" }
+        Write-Host "[RESULT] Tests ENV_ERROR ($(if ($staleFound) { 'tests ran against an older build output' } else { 'tests were probably not run' }))." -ForegroundColor Red
+        @(ConvertTo-RelativePaths (@("[ENVIRONMENT ERROR - not a source code problem]") + $report + @("", $envNote))) |
             Out-File $TestErrorLog -Encoding utf8
         Write-TestMarker "ENV_ERROR"
     } else {
