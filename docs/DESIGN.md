@@ -601,6 +601,18 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 **決定済み・実装済み:** (1) 実行環境: 同じ PC、別のデスクトップ (既定)。(2) WinForms: 必要になったときに、別の PoC で確認。(3) 段階 1 (ウォッチャー、`uitest_once.sh`、スクリーンショット) と、段階 2 (ひな形、`new-solution --ui-tests flaui`、`wpf-check` UI002、`build-test-loop` の「UI テスト」) は、WPF で、実機で確認済み (TEST-PLAN UT1〜UT16)。
 **残り:** (a) ~~MFC (C++) への UI テスト (混在のソリューション)~~ → **UT18 で、実機で確認済み** (混在のビルド `SUCCESS`、UI テスト `PASSED`。MFC のコントロール ID が AutomationId)。混在での GoogleTest と MSTest の同時実行 (U9) は、未確認。(b) ~~`mfc-check` に、`IDC_STATIC` のままの操作対象の検査~~ → **UI004 として実装済み** (v2.5.2。UI テストのプロジェクトがあるときだけ。実プロジェクトで誤検出なし)。(c) **流れ (Green のあとに、UI テストを追加で実行) の確認** (UT19)。(d) WinForms。
 
+### 4.30 WinForms と C# の DLL への拡張 (2026-10-24 に開始)
+
+**決定 (ユーザー、2026-10-24):** (1) 段階分けは、**`csharp-dll` → `winforms` → UI テストの PoC → 検査・規約**。(2) 検査は **`winforms-check` を新規に作る** (`wpf_check.py` は XAML の検査が中心で、1,396 行ある。拡張しない)。規約は **`rules/winforms-csharp.md` を新規に作る**。(3) 層は **`data` / `logic` の 2 つだけ** (ViewModel 層は作らない)。画面の振る舞いは、`logic` 側のインターフェース (`IMainView` など) に出す (3. のダイアログのテストの `IDialogService` と同じ方向)。(4) UI テストは、UIA3 の FlaUI、`AutomationId` は `Name`。生成コードの前に、WinForms の PoC (別のデスクトップ、`Invoke`、`PrintWindow`) を行う (4.29 の決定のとおり)。
+
+**段階 1 の実装 (`--type csharp-dll`。v2.6.0。単体テストのみ。実機は未確認):**
+- メイン自身が、クラスライブラリ (`<フォルダ名>`、`net8.0`)。**テスト (`<メイン>.Tests`) の対象になる** (C++ の `dll` / `lib` と同じ考え方)。層がなくても、`--tests mstest` が使える。メインは、すべての層を参照する。
+- `--layers` は `data` / `logic` だけ。`--ui-tests` は、エラー (画面がない)。`.slnx` に `DefaultStartup` はない。
+- 経路は WPF と同じ (`create_wpf` を `csharp-dll` にも使う。`add_project.py` の `lib_files` / `test_files` を、そのまま使う)。後付けの `--tests mstest` も、既存の経路で、メイン自身を含めて動く。
+- `CLAUDE.md` は専用 (`claude_md_csharp_dll`)。C# の規約は、`wpf-csharp.md` の C# の部分を指す (WinForms の規約ができるまでの暫定ではなく、画面のない C# には、これで足りる)。
+
+**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の作成・ビルド・テスト。(c) WinForms の UI テストの PoC。(d) `winforms-check` と `rules/winforms-csharp.md`。
+
 ## 5. ファイル形式
 
 | ファイル | 文字コード | 改行 | 理由 |

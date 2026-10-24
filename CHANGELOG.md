@@ -2,6 +2,11 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.6.0] 2026-10-24 (単体テストのみ。実機は未確認)
+
+- **`new-solution --type csharp-dll` を追加 (DESIGN 4.30、段階 1):** C# のクラスライブラリ (.NET) のソリューションを作る。メインがクラスライブラリで、`<メイン>.Tests` (MSTest) の対象になる。`--layers` は `data` / `logic` (`viewmodel` はエラー)、`--ui-tests` はエラー、`.slnx` に `DefaultStartup` なし。`--spec` の「メインの種類」にも使える。後付けの `--tests mstest` は、メイン自身も対象にする (既存の仕組みのまま)。`claude_md_csharp_dll` で、専用の `CLAUDE.md` を作る。
+- テスト: `tests/new_solution_csharp_dll_test.sh` (15 件)。
+
 ## [2.5.7] 2026-10-24 (U16 の C++ 側で発見。実機で確認済み)
 
 - **ウォッチャー: 古い DLL の検出が、Debug と Release を比べて、誤検出していた (U16 の C++ 側の実機で発見):** `MixTest` を、先に `Release` でビルド (T9a)、あとで `Debug` で起動すると、増分ビルドで書き換わらなかった `bin\Debug` の `Calc.Tests.dll` (10-21) が、`bin\Release` の同名の DLL (10-24) より古いと判定され、`ENV_ERROR` になった。**比べる対象を、構成のフォルダ名と、TFM のフォルダ名が同じもの (プラットフォームのフォルダだけが違うもの: `bin\Debug\net8.0` と `bin\x64\Debug\net8.0`) に限る。** U15 / U15b の、偽の成功の検出は、そのまま働く。
