@@ -1,9 +1,38 @@
 # テスト手順書
 
 実機 (Windows + WSL) で行う確認の手順と、期待する結果。
-「状況」列は、**この手順書を作った時点 (v1.0.0) の実績**。変更したときは、該当する項目を再確認して、更新する。
+「状況」列は、**実機で確認した時点の実績** (各行に、日付と結果を書いてある。日付のない ✔ は、v1.0.0 の時点)。変更したときは、該当する項目を再確認して、更新する。
+**項目番号 (U6〜U16 など) は、節をまたいで重なる。** 更新するときは、節を限定すること。
 
-凡例: ✔ 実機で確認済み / △ 一部のみ確認 / ✗ 未確認
+凡例: ✔ 実機で確認済み / △ 一部のみ確認 / ✗ 未確認 / 対象外 (環境の前提に含まない)
+
+## 状況の一覧 (2026-10-24 時点)
+
+C++ と WPF の統合 (v2.4.x〜v2.5.5) に関わる節 (1-5 / 1-6 / 1-7 / UI テスト関連 / 2-3 / 2-4) は、**WS10 (保留) を除いて、実機で確認済み**。✗ が残るのは、以前の版 (v2.0.0〜v2.3.0) で追加した、C++ / MFC の、ホスト側ツールと Skill の節。内訳と扱いの案は、`docs/REMAINING-CHECKS.md`。
+
+| 節 | ✔ | △ | ✗ | 対象外 |
+|---|---|---|---|---|
+| 1-1. ビルドのみ | 4 | 0 | 0 | 0 |
+| 1-1b. ビルドの出力の表示 | 3 | 0 | 0 | 0 |
+| 1-2. ビルド + テスト | 8 | 1 | 0 | 0 |
+| 1-2b. GoogleTest のソース取得 | 4 | 0 | 4 | 0 |
+| 1-5. C++ と .NET | 19 | 0 | 0 | 1 |
+| 1-6. パッケージの操作 | 21 | 0 | 0 | 0 |
+| 1-7. UI テスト | 8 | 0 | 0 | 0 |
+| 別のデスクトップでの実行 | 7 | 0 | 0 | 0 |
+| UI テストのひな形と Skill | 5 | 0 | 0 | 0 |
+| 目で確かめるモード | 3 | 0 | 0 | 0 |
+| 1-3. 起動まわり | 6 | 0 | 0 | 0 |
+| 1-4. 二重起動の防止 | 5 | 0 | 0 | 0 |
+| 2. Skill 経由 | 7 | 0 | 21 | 0 |
+| 2-0. /brainstorm と /add-feature | 7 | 0 | 5 | 0 |
+| 2-0c. /new-solution | 5 | 1 | 18 | 0 |
+| 2-0b. /update-from-ideas | 3 | 0 | 10 | 0 |
+| 2-1. cpp-test-first | 1 | 0 | 13 | 0 |
+| 2-2. mfc-check | 1 | 0 | 3 | 0 |
+| 2-3. wpf-check | 3 | 0 | 0 | 0 |
+| 2-4. WPF の生成とテスト先行 | 20 | 0 | 0 | 0 |
+| **合計** | **140** | **2** | **74** | **1** |
 
 ## 0. 事前準備
 
@@ -30,7 +59,7 @@
 | H1 | ソースが正常な状態で、`New-Item trigger_build.flag -ItemType File` | フラグが消える。`build_result.txt` = `SUCCESS`。`build_error.log` なし。`test_result.txt` なし | ✔ |
 | H2 | 構文エラーを 1 行入れて、同上 | `build_result.txt` = `FAILED`。`build_error.log` に `error C...` の行 (相対パス)、末尾に `Build failed with exit code: 1`。行頭に `2>` がない | ✔ |
 | H3 | エラーを直して、同上 | 開始時に、前回の `build_result.txt` / `build_error.log` が消え、`SUCCESS` になる | ✔ |
-| H4 | `build-windows.cmd` を一時的に別名にして、同上 | `FAILED`。`build_error.log` の先頭が `[ENVIRONMENT ERROR - not a source code problem]` | ✗ |
+| H4 | `build-windows.cmd` を一時的に別名にして、同上 | `FAILED`。`build_error.log` の先頭が `[ENVIRONMENT ERROR - not a source code problem]` | ✔ (2026-10-24 実機、`WpfNet10`、v2.5.6: **ウォッチャーの起動後に**、`build-windows.cmd` を `build-windows.cmd.off` に変えて `build_once.sh` → **`ENV_ERROR` (終了コード 4)**、`build_result.txt` = `FAILED`。`build_error.log` = `[ENVIRONMENT ERROR - not a source code problem]` / `ERROR: build script not found: C:\Tools\cpp-watcher\build-windows.cmd (restore it, e.g. with copy-host-tools.sh, then run again).` / `Build failed with exit code: 2`。**v2.5.6 より前は、起動後にファイルが消えると、終了コードが 1 と区別できず、`[ENVIRONMENT ERROR]` が付かない可能性があった** (修正前の動作は、確認していない)。期待値の `FAILED` は、`build_result.txt` の値。`build_once.sh` の出力は `ENV_ERROR`) |
 
 ### 1-1b. ビルドの出力の表示 (`Invoke-BuildScript`)
 
@@ -51,8 +80,8 @@
 | T5 | `-TestExePattern 'NoSuch\.exe$'` で起動し、同上 | `ENV_ERROR`。`test_error.log` の先頭が `[ENVIRONMENT ERROR ...]` | ✔ |
 | T6 | 古い GoogleTest に、`--gtest_brief=1` を `-TestArgs` で渡して同上 | ヘルプだけが出ても、`PASSED` にならず、`ENV_ERROR` (`no gtest summary`) | △ (原因の発見までは実機。修正後の分岐は、単体では未実行) |
 | T7 | ビルド中に、ウォッチャーのウィンドウをクリック/選択 | ビルドが止まらない。タイトルバーに `選択` と出ない | ✔ |
-| T8 | 別のウォッチャーを、`.slnx` のソリューションで起動し、同上 | `.slnx` を自動検出して、ビルドが通る | ✗ |
-| T9 | `-Platform Win32` / `-Configuration Release` で起動し、同上 | exe を `Win32\` / `Release\` から探して、実行する | ✗ |
+| T8 | 別のウォッチャーを、`.slnx` のソリューションで起動し、同上 | `.slnx` を自動検出して、ビルドが通る | ✔ (2026-10-24。**新たな実行はせず、既存の実機の結果で確認済みとする**: `.slnx` の C++ のソリューションで、ウォッチャーが自動検出して、ビルドとテストが通った。`MixTest.slnx` (C++ + GoogleTest + .NET): 起動画面 `Solution : C++ + .NET (build features: cpp,restore)`、`gtest_result.txt` と `LogicLayerTest.xml` (U9 / U10、2026-10-21)。`MfcUi18.slnx` (MFC + UI テスト) のビルド (UT18)。`MFCTDDTest.slnx` の gtest の XML。`.sln` のみの挙動は R1 (v1.0.0)) |
+| T9 | `-Platform Win32` / `-Configuration Release` で起動し、同上 | exe を `Win32\` / `Release\` から探して、実行する | ✔ (2026-10-24 実機。**T9a (`Release`) ✔**: `MixTest` (C++ + GoogleTest + .NET) を、`run_watcher.cmd <dir> "" x64 Release` で起動。`build_test_once.sh` が **`PASSED`**。`x64\Release\LogicLayerTest.exe` (14:52:39 にビルド) が、その直後 (`LogicLayerTest.xml` 14:52:40、`test_result.txt` 14:52:43) に実行された (`x64\Debug\` の exe は、別の日の古いもの。`Find-TestExes` は `<ソリューション>\x64\Release\` を探す)。.NET 側 (`Calc.Tests`) は `bin\Release\net8.0`。`test.log` の行は、`gtest_main.cc` のパスで、exe のパスは出ない (出力の形式)。**T9b (`Win32`)**: `new-solution` が作る C++ のプロジェクトは `x64` のみのため、`DoubleBufferSample` (VS 製、`Win32` の構成あり) のコピー (`DbsWin32`) で、`run_watcher.cmd <dir> "" Win32 Debug`。**1 回目 (v2.5.5): `build_test_once.sh` が `BUILD_FAILED` (終了コード 6)、`MSB4126: 指定されたソリューション構成 "Debug|Win32" は無効です` (`DoubleBufferSample.sln.metaproj`)。VS 製のソリューションは、x86 の名前が `x86` (プロジェクト側が `Win32`) → v2.5.6 で、`build-windows.cmd` が、ソリューション構成の名前に合わせるよう修正。**2 回目 (v2.5.6、`build-windows.cmd` の修正後): ビルドが通った (`build_result.txt` = SUCCESS)。ただし、`build_test_once.sh` が `ENV_ERROR` (`no tests found for Debug|Win32`): VS の既定の出力先は、x64 が `x64\Debug\`、Win32 だけ `<ソリューション>\Debug\` (プラットフォームのフォルダが付かない) → `Find-TestExes` が `Win32\<Configuration>\` のあとに `<Configuration>\` も探すよう修正。3 回目: `build_test_once.sh` が `PASSED` (345 件、56 テストケース。`DbsWin32\Debug\DoubleBufferSampleTest.exe`)**。`Win32` は、VS 製の `.sln` (x86 ↔ Win32) で確認。`new-solution` が作る C++ は x64 のみのため、`Win32` / `ARM64` は対象外とする。`ARM64` は未確認) |
 
 ### 1-2b. GoogleTest のソース取得 (`trigger_gtest.flag`)
 
@@ -71,7 +100,7 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 
 ### 1-5. C++ と .NET (WPF) の統合 (`docs/DESIGN.md` 4.24)
 
-**v2.0.0 で追加。Windows 側の変更は、すべて未確認 (状況 ✗)。** 最初の実機確認が必要。
+**v2.0.0 で追加 (統合の確認 (2026-10-18〜10-24) で、この節の行は、すべて ✔。各行の日付を参照)。**
 準備: WPF + MSTest の小さなソリューション `WpfSample` (`WpfSample` = WPF アプリ、`WpfSample.Tests` = MSTest v3 + `Microsoft.NET.Test.Sdk`、`WpfSample.Tests` が `WpfSample` を参照) と、混在のソリューション (C++ の DLL + GoogleTest、WPF + MSTest が、同じ `.slnx`)。
 ホスト側ツールは、**3 ファイルをまとめて**、配り直す (`install/install.sh`)。稼働中のウォッチャーは、閉じて、起動し直す。
 
@@ -101,7 +130,7 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 
 ### 1-6. パッケージの操作 (`trigger_package.flag`、`docs/DESIGN.md` 4.26)
 
-**v2.2.0 で追加。Windows 側は、すべて未確認 (状況 ✗)。** 準備: WPF + MSTest の `WpfSample` (1-5)、C++ の `MyApp` (MFC など)。Windows 側が、nuget.org と GitHub に届くこと。VS の「vcpkg パッケージ マネージャー」コンポーネント (この PC では、VS 2026 Enterprise の `VC\vcpkg\vcpkg.exe` を確認済み)。ホスト側ツールは、3 ファイルをまとめて、配り直す。
+**v2.2.0 で追加 (2026-10-19〜10-23 に、実機で確認済み。各行の日付を参照)。** 準備: WPF + MSTest の `WpfSample` (1-5)、C++ の `MyApp` (MFC など)。Windows 側が、nuget.org と GitHub に届くこと。VS の「vcpkg パッケージ マネージャー」コンポーネント (この PC では、VS 2026 Enterprise の `VC\vcpkg\vcpkg.exe` を確認済み)。ホスト側ツールは、3 ファイルをまとめて、配り直す。
 フラグは、PowerShell で置いてよい (`Set-Content trigger_package.flag "nuget versions Newtonsoft.Json"`)。結果は、`package_output.txt` / `package_error.log` / `package_result.txt`。
 
 | # | 手順 | 期待結果 | 状況 |
@@ -113,12 +142,12 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 | P5 | `nuget add WpfSample/WpfSample.csproj Nope.Pkg.Xyz` | `FAILED` (`NU1101`)。**環境エラーにならない** (ソースの問題) | ✔ (2026-10-20 実機: `FAILED` (`パッケージ 'Nope.Pkg.Xyz' に使用できるバージョンがありません`)、`.csproj` は不変。**`NU1101` のコードは、出力に出ない** (メッセージは、NU1101 と同じ内容。期待値の「(`NU1101`)」は、「版がない旨のメッセージ」と読み替える)) |
 | P6 | ネットワークを切る (または、プロキシを誤設定) して、`nuget add ...` と `nuget versions ...` | `ENV_ERROR` (`NU1301` / `could not reach nuget.org`)。先頭が `[ENVIRONMENT ERROR ...]` | ✔ (2026-10-22 実機、修正版 (v2.5.3)、ウォッチャーに `HTTP_PROXY` / `HTTPS_PROXY` = `http://127.0.0.1:9` (起動画面 `Proxy : http://127.0.0.1:9 (from the ...)` で確認): **`nuget versions Newtonsoft.Json` が `ENV_ERROR`** (`[ENVIRONMENT ERROR - not a source code problem]`、`could not reach nuget.org: リモート サーバーに接続できません。`) = PowerShell の Web 要求にも、プロキシが適用された。**未取得のパッケージの `nuget add` (`YamlDotNet`) が `ENV_ERROR`** (`.csproj` は不変。壊れた参照は残らない)。**存在しない `Nope.Pkg.Xyz` の `nuget add` も `ENV_ERROR`** (旧版は `FAILED`。日本語 OS の接続失敗のメッセージを、判定に追加した修正が効いた。ネットワークに届かないので、「パッケージが無い」とは、区別できない)。キャッシュにある (`Humanizer.Core 2.14.1`) パッケージの `nuget add` は、ネットワークに行かず `OK` (想定内)。プロキシなしで起動し直すと `OK` に戻った (1 回目の再起動では `ENV_ERROR` のまま、2 回目で `OK`: 1 回目は、プロキシ設定のあるウィンドウから起動し直した可能性)。`nuget remove` と `build_once.sh` `SUCCESS`) |
 | P7 | `nuget remove WpfSample/WpfSample.csproj CommunityToolkit.Mvvm` | `OK`。`PackageReference` が消える | ✔ (2026-10-20 実機: `OK`、`.csproj` が元と完全一致、ビルド `SUCCESS`) |
-| P8 | **C++ のセットアップ:** WSL で `cpp_pkg.py setup <SLN>` → VS で、プロジェクトを開き直す | `vcpkg.json` ができ、各 `.vcxproj` に `Label="Vcpkg"` のグループが入る。**VS が、プロジェクトを読み込める** (XML の誤りがない)。プロパティページの「vcpkg」で、マニフェストが有効と表示される | ✗ ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
-| P9 | `vcpkg search fmt` | `OK` (ポートが出る)。**出ない・失敗する場合は、理由を、`package_error.log` から記録し、`vcpkg search` の扱い (DESIGN 4.26 の限界) を見直す** | ✗ **実機 (2026-10-19): baseline 未設定で FAILED。baseline 後は OK (約 170 秒、fmt を含む一覧)。✔ (所要時間が長いので `--timeout 600` 以上を推奨)** |
-| P10 | `cpp_pkg.py add <SLN> fmt` → `vcpkg baseline` → `vcpkg install` (`--timeout 1800`) | `vcpkg.json` に `builtin-baseline` が入る (`cpp_pkg.py list` で確認)。`vcpkg install` が `OK` (初回は、数分以上)。`vcpkg_installed\x64-windows-static-md\` ができる | ✗ ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
-| P11 | **MSBuild との連携:** P10 のあと、C++ のソースに `#include <fmt/core.h>` と `fmt::print("{}", 1);` を足して、`trigger_build.flag` | ビルドが通る (インクルード・リンクが、自動)。**ビルド中の、自動の `vcpkg install` が、何もしない (速い)。** **通らない場合: (a) `vcpkg.json` を、ソリューションのフォルダから見つけるか、(b) `Label="Vcpkg"` の位置で効くか、(c) `VcpkgTriplet` が効くか、を、ビルドログで確認して記録する** | ✗ ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
-| P12 | **CRT の整合:** P11 で、`/MD` (動的 CRT) の、Debug と Release の両方 | リンクエラー (`LNK2038` ランタイムの不一致、`LNK2001`) がない | ✗ ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
-| P13 | 存在しないポートを、`cpp_pkg.py add <SLN> no-such-port-xyz` → `vcpkg install` | `FAILED` (ポートがない。環境エラーでは、ない) | ✗ ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
+| P8 | **C++ のセットアップ:** WSL で `cpp_pkg.py setup <SLN>` → VS で、プロジェクトを開き直す | `vcpkg.json` ができ、各 `.vcxproj` に `Label="Vcpkg"` のグループが入る。**VS が、プロジェクトを読み込める** (XML の誤りがない)。プロパティページの「vcpkg」で、マニフェストが有効と表示される | ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
+| P9 | `vcpkg search fmt` | `OK` (ポートが出る)。**出ない・失敗する場合は、理由を、`package_error.log` から記録し、`vcpkg search` の扱い (DESIGN 4.26 の限界) を見直す** | **実機 (2026-10-19): baseline 未設定で FAILED。baseline 後は OK (約 170 秒、fmt を含む一覧)。✔ (所要時間が長いので `--timeout 600` 以上を推奨)** |
+| P10 | `cpp_pkg.py add <SLN> fmt` → `vcpkg baseline` → `vcpkg install` (`--timeout 1800`) | `vcpkg.json` に `builtin-baseline` が入る (`cpp_pkg.py list` で確認)。`vcpkg install` が `OK` (初回は、数分以上)。`vcpkg_installed\x64-windows-static-md\` ができる | ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
+| P11 | **MSBuild との連携:** P10 のあと、C++ のソースに `#include <fmt/core.h>` と `fmt::print("{}", 1);` を足して、`trigger_build.flag` | ビルドが通る (インクルード・リンクが、自動)。**ビルド中の、自動の `vcpkg install` が、何もしない (速い)。** **通らない場合: (a) `vcpkg.json` を、ソリューションのフォルダから見つけるか、(b) `Label="Vcpkg"` の位置で効くか、(c) `VcpkgTriplet` が効くか、を、ビルドログで確認して記録する** | ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
+| P12 | **CRT の整合:** P11 で、`/MD` (動的 CRT) の、Debug と Release の両方 | リンクエラー (`LNK2038` ランタイムの不一致、`LNK2001`) がない | ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
+| P13 | 存在しないポートを、`cpp_pkg.py add <SLN> no-such-port-xyz` → `vcpkg install` | `FAILED` (ポートがない。環境エラーでは、ない) | ✔ (2026-10-19 実機。P11: `FMT_UNICODE=0` 追加後、`<fmt/format.h>` でリンクまで SUCCESS。P12: Release で `\lib\` (debug でない) を使い、LNK2038 なし) |
 | P14 | `vcpkg.exe` を見つけられない環境 (`-VcpkgExe C:\nosuch\vcpkg.exe` を、`VCPKG_ROOT` なしで) | `ENV_ERROR` (`vcpkg.exe was not found`)。**`-VcpkgExe` が存在しないとき、次の候補 (VS 同梱) に進む** (ので、実際に再現するには、VS からも見つからない状態が要る。**再現できなければ、△ のまま**) | ✔ (2026-10-22 実機、`MfcSdiLayers`、ウォッチャーを `-VcpkgExe C:\nosuch\vcpkg.exe`、`VCPKG_ROOT=C:\nosuch`、`ProgramFiles(x86)=C:\nosuch` (VS 同梱の vcpkg も見つからない) で起動: `vcpkg search fmt` / `vcpkg baseline` が **`ENV_ERROR` (終了コード 4)**。出力: `[ENVIRONMENT ERROR - not a source code problem]` / `ERROR: vcpkg.exe was not found. Install the 'vcpkg package manager' component of Visual Studio, set VCPKG_ROOT, or pass -VcpkgExe <full path>.`。**存在しないポートを足した `vcpkg install` も `ENV_ERROR`** (ポート誤りの `FAILED` ではない = 環境の問題と、ソースの問題を、区別できた)。`vcpkg.json` と 3 つの `.vcxproj` (sha256) は、変更なし。通常のウォッチャーに戻すと `vcpkg search fmt` が `OK` (fmt 12.2.0#1 を含む一覧)) |
 | P15 | `-PackageTimeoutSec 5` で起動し、`vcpkg install` (ポートが多い状態から) | `ENV_ERROR` (`vcpkg timed out`)。もう一度、通常の制限時間で `vcpkg install` すると、**続きから (キャッシュで) 進む** | ✔ (2026-10-23 実機、`MfcSdiLayers`、ウォッチャーを `-PackageTimeoutSec 5` で起動: `zlib` / `bzip2` / `lz4` を足して `vcpkg install` が **`ENV_ERROR`** (`ERROR: vcpkg timed out after 5s`、所要 9 秒)。ユーザーの確認: 時間切れのあと、`vcpkg.exe` / `cmake.exe` / `ninja.exe` / `cl.exe` / `msbuild.exe` は、**残っていない**。通常のウォッチャー (1800 秒) に戻して再実行すると **`OK`** (`Installing 2/4 bzip2` / `3/4 lz4` / `4/4 zlib`、vcpkg の所要 30 秒、全体 44 秒)。`vcpkg_installed` に `bz2.lib` / `lz4.lib` / `zs.lib` (zlib のライブラリ名)。`build_once.sh` `SUCCESS`。後片付け (`remove` と `vcpkg install`) も `OK`、`vcpkg.json` と 3 つの `.vcxproj` (sha256) は元と同じ。**注: 期待の「続きから (キャッシュで) 進む」は、確認できなかった** (5 秒では、1 つもビルドが終わらず、キャッシュに何も残らない: `Restored 0 package(s)`、ソースは、再ダウンロード)。確認できたのは、**時間切れの後でも、再実行が成功すること**。ログに `The following packages will be removed: fmt` が出た (以前に入れた fmt が、`vcpkg.json` にないため。無関係)) |
 | P16 | `fetch nlohmann/json v3.11.3 json single_include` | `OK`。`ThirdParty\json\nlohmann\json.hpp` ができ、`VERSION.txt` が `nlohmann/json@v3.11.3#single_include`。LICENSE も、置かれる。**もう一度、同じ操作 → `already present`** | ✔ (2026-10-19 実機、`wpfsample` で実施: `OK`。`ThirdParty/json/nlohmann/json.hpp` と `json_fwd.hpp`、`VERSION.txt` = `nlohmann/json@v3.11.3#single_include`、`LICENSE.MIT`。2 回目は `already present`。**`fetch` は C++ 限定ではなく、.NET / WPF のソリューションでも動く**) |
@@ -185,11 +214,11 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
 | R1 | `run_watcher.cmd <dir>` | ヘッダー (`Project / Solution / Build`) が出る。`.slnx` → `.sln` の順で自動検出 | ✔ (`.sln`) |
-| R2 | 末尾に `\` を付けて渡す | 同じく起動する (引数が壊れない) | ✗ |
-| R3 | フォルダをドラッグ&ドロップ | 起動する | ✗ |
-| R4 | スペースを含むパス | 起動する | ✗ |
+| R2 | 末尾に `\` を付けて渡す | 同じく起動する (引数が壊れない) | ✔ (2026-10-24 実機: `run_watcher.cmd C:\workspace\macsignee\source\repos\WpfNet10\` で起動し、`Project : C:\Workspace\macsignee\source\repos\WpfNet10` (末尾の `\` なし)) |
+| R3 | フォルダをドラッグ&ドロップ | 起動する | ✔ (2026-10-24 実機: `WpfNet10` のフォルダを `run_watcher.cmd` にドラッグ&ドロップして、起動を確認 (ユーザーの報告。画面の貼り付けはない)) |
+| R4 | スペースを含むパス | 起動する | ✔ (2026-10-24 実機: `run_watcher.cmd "C:\temp\space dir"` で起動し、`Project : C:\temp\space dir`) |
 | R5 | **引数なし**で `run_watcher.cmd` を起動 (`.sln` がない場所に、cmd を置いた場合) | `ERROR: no .sln / .slnx found in ...`、`NOTE: no ProjectDir argument was given ...`、`Usage` と `Example` が出て、キー入力待ち → 終了コード 2 | ✔ (v1.0.1) |
-| R6 | 存在しないフォルダを渡す | `ERROR: project folder not found: ...` と `Usage` が出る | ✗ |
+| R6 | 存在しないフォルダを渡す | `ERROR: project folder not found: ...` と `Usage` が出る | ✔ (2026-10-24 実機: `run_watcher.cmd C:\no\such\folder` で `ERROR: project folder not found: C:\no\such\folder` と `Usage` / `Example` が出た。キー入力待ちと終了コード 2 は、貼り付けに含まれていない) |
 
 ### 1-4. 二重起動の防止 (`watch_and_build.ps1`)
 
@@ -197,9 +226,9 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 |---|---|---|---|
 | M1 | ウォッチャーを起動したまま、**同じフォルダ**で、もう 1 つ `run_watcher.cmd` を起動 | 2 つ目のウィンドウに `ERROR: a watcher is already running for this folder: ...` と `Use that window, or close it first.` が出て、`Watcher exited with code 3.` で、キー入力待ち。1 つ目は動き続け、フラグを処理できる | ✔ |
 | M2 | 1 つ目のウィンドウを閉じてから、もう一度起動 | 二重起動と判定されず、起動できる (ミューテックスが解放されている) | ✔ |
-| M3 | 1 つ目を、タスクマネージャーなどで、強制終了してから、起動 | 同上 (異常終了しても、古いロックが残らない) | ✗ |
-| M4 | **別のフォルダ**のウォッチャーが動いている状態で、このフォルダのウォッチャーを起動 | 干渉せずに、起動できる (ミューテックスは、フォルダごと) | ✗ |
-| M5 | ps1 を直接起動し、`-TargetDir` の、大文字小文字や、末尾の `\` だけを変える | 同じフォルダとして扱われ、2 つ目は拒否される | ✗ |
+| M3 | 1 つ目を、タスクマネージャーなどで、強制終了してから、起動 | 同上 (異常終了しても、古いロックが残らない) | ✔ (2026-10-24 実機、`WpfNet10`: タスクマネージャーで `powershell.exe` を強制終了 → 1 つ目のウィンドウは `Watcher exited with code 1.` → 新しいウィンドウで `run_watcher.cmd` を起動し直すと、`MSBuild Watcher Started` (`Solution : .NET (build features: restore)`、`Build : Debug|AnyCPU`、`dotnet test : dotnet (projects: 3)`)。二重起動と判定されず、古いロックは残らなかった) |
+| M4 | **別のフォルダ**のウォッチャーが動いている状態で、このフォルダのウォッチャーを起動 | 干渉せずに、起動できる (ミューテックスは、フォルダごと) | ✔ (2026-10-24 実機: `WpfNet10` のウォッチャーが動いたまま、別のウィンドウで `MixTest` を `run_watcher.cmd` で起動。両方が起動した (ユーザーの報告。ミューテックスは、フォルダごと)) |
+| M5 | ps1 を直接起動し、`-TargetDir` の、大文字小文字や、末尾の `\` だけを変える | 同じフォルダとして扱われ、2 つ目は拒否される | ✔ (2026-10-24 実機: `WpfNet10` のウォッチャーが動いている状態で、`watch_and_build.ps1` を直接起動し、`-TargetDir C:\WORKSPACE\macsignee\source\repos\wpfnet10\` (大文字小文字と末尾の `\` を変えた) → `ERROR: a watcher is already running for this folder: C:\WORKSPACE\macsignee\source\repos\wpfnet10` / `Use that window, or close it first.` で拒否された。**ps1 自身が、大文字小文字と末尾の `\` の違いを、同じフォルダとして判定する**。(先に、`run_watcher.cmd` 経由でも、同じく拒否された)) |
 
 ## 2. Skill 経由 (Claude Code)
 
@@ -373,7 +402,7 @@ build-test-loop のSkillを使って、テストが通るまで直してくだ�
 
 ### 2-4. WPF の生成とテスト先行 (`new-solution --type wpf` / `wpf-test-first`、`docs/DESIGN.md` 4.27)
 
-**v2.3.0 で追加。Windows 側は、すべて未確認 (状況 ✗)。** 準備: ウォッチャーが起動できる WPF 用のフォルダ (`C:\work\WpfSample` など。**フォルダは、ユーザーが作る**)。ホスト側ツールと、Skill と、規約 (`install.sh`) を、配り直す。**WS6 → WS2 → WS3 の順に、確認する** (生成物が、ビルドできる前提の項目から)。
+**v2.3.0 で追加 (WPF の行は、2026-10-20〜10-24 に、実機で確認済み。各行の状況を参照)。** 準備: ウォッチャーが起動できる WPF 用のフォルダ (`C:\work\WpfSample` など。**フォルダは、ユーザーが作る**)。ホスト側ツールと、Skill と、規約 (`install.sh`) を、配り直す。**WS6 → WS2 → WS3 の順に、確認する** (生成物が、ビルドできる前提の項目から)。
 WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --layers data,logic,viewmodel --tests mstest` (または、Claude Code で `/new-solution`)。
 
 | # | 手順 | 期待結果 | 状況 |

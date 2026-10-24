@@ -627,10 +627,10 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 
 ## 6. 既知の制限と、検証範囲
 
-**検証済み** (実機): VS 2026 Enterprise、x64 / Debug、GoogleTest、`.sln` (C++ のみ。4.24 の統合の前の版)。
+**検証済み** (実機): VS 2026 Enterprise、x64 / Debug、GoogleTest、`.sln` (C++ のみ。4.24 の統合の前の版)。**統合の版 (4.24〜4.29、v2.4.x〜v2.5.5) は、2026-10-18〜24 に、実機で確認した**: .NET (WPF + MSTest) のビルドとテスト、混在 (C++ + .NET、GoogleTest + MSTest)、`-Platform auto`、`.slnx`、パッケージの操作 (NuGet / vcpkg / fetch)、UI テスト (FlaUI)、`dotnet format`、`net10.0`、環境エラーの案内。実機の gtest XML / trx / MSBuild のログでの要約 (4.22) も確認した。
 どの項目を実機で確認し、どれが未確認かは、`docs/TEST-PLAN.md` の「状況」列を参照。
 
-**未確認:** `Win32` / `ARM64`、`Release`、`.slnx` での、フラグ経由の実行。**4.24 の変更 (統合、.NET のビルドとテスト、`-Platform auto`) は、Windows 側で、すべて未確認。**実機の MSBuild / リンカ / GoogleTest のログでの、ビルドエラーとテスト失敗の要約 (4.22。サンプルのログのみ)。
+**未確認:** `Win32` / `ARM64`、`Release` (TEST-PLAN の T9)。以前の版 (v2.0.0〜v2.3.0) の C++ / MFC の、ホスト側ツールと Skill の一部 (`docs/REMAINING-CHECKS.md` の 3.)。**対象外:** C++ ワークロードのない VS でのビルド (1. 環境の前提)。
 **未対応:** C++ の `CppUnitTestFramework`、.NET の xUnit / NUnit の検証 (動く見込みだが、未検証)、VS のない環境での `dotnet build` へのフォールバック、複数プロジェクトの同時監視 (別ウィンドウで、別のウォッチャーを起動する)。
 **未対策:** Claude 側の再実行が重なったときの、古い結果の誤読 (4.4)。
 

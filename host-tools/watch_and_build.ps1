@@ -684,6 +684,10 @@ function Invoke-PackageOps([string[]]$rawLines) {
 #   - バッチの chcp 65001 / chcp 932 が、このウィンドウの文字コードを、変えない (表示が乱れない)。
 # 戻り値: @{ Lines = 出力の行 (標準エラーを含む); ExitCode = バッチの終了コード }
 function Invoke-BuildScript {
+    # 起動後に、build-windows.cmd が消えた・別名になった場合: cmd /c は、終了コード 1 (ビルド失敗と区別できない) などで返る。環境エラー (2) として返す
+    if (-not (Test-Path -LiteralPath $BuildScript)) {
+        return @{ Lines = @("ERROR: build script not found: $BuildScript (restore it, e.g. with copy-host-tools.sh, then run again)."); ExitCode = 2 }
+    }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $env:ComSpec
     # cmd /c の引用符の規則: 全体を、もう一度、引用符で囲む (先頭の " と、最後の " が、取り除かれる)。
@@ -711,9 +715,14 @@ function Find-TestExes {
     if (-not $HasCpp) { return @() }
     $platDir = switch ($Platform.ToLower()) { "x64" { "x64" } "arm64" { "ARM64" } default { "Win32" } }
     # 出力先は <ソリューションフォルダ>\<x64|Win32|ARM64>\<Configuration>\
-    $dir = Join-Path (Join-Path $SolutionDir $platDir) $Configuration
-    if (Test-Path -LiteralPath $dir) {
-        return @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -match $TestExePattern } | Sort-Object Name)
+    # ただし、Visual Studio の既定では、Win32 だけ、プラットフォームのフォルダが付かない (<ソリューションフォルダ>\<Configuration>\)。両方を探す
+    $dirs = @(Join-Path (Join-Path $SolutionDir $platDir) $Configuration)
+    if ($platDir -eq "Win32") { $dirs += (Join-Path $SolutionDir $Configuration) }
+    foreach ($dir in $dirs) {
+        if (Test-Path -LiteralPath $dir) {
+            $found = @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -match $TestExePattern } | Sort-Object Name)
+            if ($found.Count -gt 0) { return $found }
+        }
     }
     return @()
 }

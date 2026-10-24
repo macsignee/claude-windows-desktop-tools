@@ -85,6 +85,13 @@ if not defined VCARCH (
     echo ERROR: unsupported platform: %PLATFORM%  ^(x64 / Win32 / x86 / ARM64 / AnyCPU^)
     exit /b 2
 )
+rem --- For a solution file, the x86 platform is usually named "x86" in the solution (its projects map it to Win32). Use the name the solution has,
+rem     otherwise MSBuild stops with MSB4126 (invalid solution configuration "Debug|Win32"). Solution platforms are listed as "Debug|x86 = Debug|x86".
+for %%I in ("%TARGET%") do set "TARGET_EXT=%%~xI"
+if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".sln" findstr /C:"|Win32 = " "%TARGET%" >nul 2>&1
+if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".sln" if errorlevel 1 findstr /C:"|x86 = " "%TARGET%" >nul 2>&1 && set "MSPLATFORM=x86"
+if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".slnx" findstr /R /C:"Name=.Win32." "%TARGET%" >nul 2>&1
+if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".slnx" if errorlevel 1 findstr /R /C:"Name=.x86." "%TARGET%" >nul 2>&1 && set "MSPLATFORM=x86"
 
 rem --- ログの出力先を決める。省略時は、target と同じフォルダの .claude-logs。なければ作成する ---
 for %%I in ("%TARGET%") do set "TARGET_DIR=%%~dpI"
