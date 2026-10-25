@@ -38,6 +38,7 @@ Claude Code (WSL)                              Windows
 | `wpf-test-first` | skills | WPF のテスト先行 (Red)。`PROJECT-LAYOUT.md` と、プロジェクト生成 `add_project.py` (`new-solution` も使う) (4.27) |
 | `add-package` | skills | パッケージの追加 (NuGet / vcpkg / ソースの取り込み)。ホスト側に、`trigger_package.flag` で実行させる (4.26) |
 | `wpf-check` | skills | WPF の静的検査 (バインディング・リソース・`InitializeComponent`・層)。読み取りだけ。Windows 不要 (4.25) |
+| `winforms-check` | skills | WinForms の静的検査 (`InitializeComponent`・`Designer.cs` の Name・層・スレッド)。読み取りだけ。Windows 不要 (4.30) |
 | `cpp-test-first` | skills | テストを先に書き、スタブで Red (正しい理由での失敗) を確認する。実行は `build-test-loop` のスクリプトを使う (スクリプトは持たない) |
 | `build_once.sh` / `build_test_once.sh` | skills/*/scripts | フラグを置き、完了マーカーを待ち、結果を1行目と終了コードで返す |
 
@@ -623,7 +624,13 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - 気づいた点: UIA3 のテストの 1 枚だけ、右下のボタンが写っていなかった (撮影の範囲が、狭い)。UIA の矩形と `GetWindowRect` の大きいほうに合わせるよう、ひな形 (`Screenshots.cs`) を直した。原因は未確定 (DPI の違いを疑う)。
 - 実装: `add_ui_tests.py` が、`UseWindowsForms` の exe を `winforms` のアプリとして判定する。標準の `MainForm` (`Designer.cs` の `Name`) なら、入力 → 挨拶 → クリアのテスト。層の有無に関係なく使える (FlaUI は、アプリを参照しない)。作成と同時にも、後付けも、できる。
 
-**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) ~~WinForms の UI テストの PoC~~ → **実機で確認済み (上)**。生成した `<アプリ名>.UITests` の、ビルドと実行 (TEST-PLAN WF7 / WF8) は、未確認。(d) `winforms-check` と `rules/winforms-csharp.md`。
+**段階 4: `winforms-check` と規約 (v2.9.0。単体テストのみ):**
+- **`winforms-check` (新規の Skill。`wpf-check` を、拡張しない):** `wpf_check.py` は XAML (バインディング・リソース) の検査が中心で、1,400 行ある。WinForms には、XAML がなく、検査の対象が違う (`Designer.cs` の `InitializeComponent()`、`Name`、層、スレッド)。**共通の部分 (ファイルの読み込み、コメントと文字列の除去、ASY / EXC / NAM の規則、出力の形) は、複製した** (Skill は別々に配布されるため。共有のモジュールを作ると、配布の単位が崩れる)。
+- 検査は、**VS のデザイナーが書く形** (`x = new T();`、`x.Name = "x";`、`parent.Controls.Add(x)`) を前提にした軽い字句解析。**生成した `Designer.cs` は、指摘 0 件**。手で形を崩した `Designer.cs` は、誤検出・見逃しがありうる (SKILL.md の「限界」に記載)。
+- **何を検査するか (決めたこと):** 「コンパイルは通るが、黙って壊れる」ものと、規約のうち字面で判定できるもの。**コンパイルエラーになるもの (ハンドラーのメソッドの不足など) は、対象外** (ビルドが教える)。WinForms で、黙って壊れる代表: コンストラクターの `InitializeComponent()` の呼び忘れ (空の画面)、`Name` の重複・不一致・欠落 (UI テストの AutomationId)、`Controls.Add` の入れ忘れ、スレッドの誤り。
+- **`rules/winforms-csharp.md` (新規):** `wpf-csharp.md` の、C# の章 (5 / 10 / 12 / 13 / 15 / 16 / 17) は、共通で使い、**WPF / XAML / MVVM の章は、WinForms では適用しない**と、規約の冒頭に書いた。**限界:** 規約は、`paths` (`**/*.cs`) で読み込まれるので、**WinForms のプロジェクトでも、`wpf-csharp.md` が、読み込まれてしまう** (プロジェクトの種類では、絞れない)。そのため、`winforms-csharp.md` と、生成する `CLAUDE.md` に、「WPF の章は適用しない」と明記した。
+
+**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) ~~WinForms の UI テストの PoC~~ → **実機で確認済み (上)**。生成した `<アプリ名>.UITests` の、ビルドと実行 (TEST-PLAN WF7 / WF8) は、未確認。(d) ~~`winforms-check` と `rules/winforms-csharp.md`~~ → 実装済み (上)。**実プロジェクトでの誤検出の確認 (TEST-PLAN 2-6) と、配布 (`install.sh`) は、未実施。**
 
 ## 5. ファイル形式
 

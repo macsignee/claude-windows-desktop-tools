@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.9.0] 2026-10-25 (WinForms の検査と規約。単体テストのみ。実プロジェクトでの誤検出の確認は未実施)
+
+- **`winforms-check` を追加 (DESIGN 4.30 段階 4。独立した Skill。読み取りだけ。ウォッチャーも Windows も .NET も不要):** `winforms_check.py`。検査: `WFD001` (Form のコンストラクターが `InitializeComponent()` を呼ばない = 画面が空)、`WFD002` (Designer の `Name` の重複)、`WFD003` (`Name` が変数名と違う)、`WFD004` (生成したコントロールが `Controls.Add` に入っていない)、`WFD005` (UI テストがあるのに `Name` がない)、`WFD006` (`InitializeComponent()` が Designer.cs 以外にある)、`WFD007` (`InitializeComponent()` の中に制御構文)、`WFT001` (`DoEvents`)、`WFT002` (Form の `Thread.Sleep`)、`WFT003` (`CheckForIllegalCrossThreadCalls = false`)、`WFL001` (ロジック・データ層への WinForms の混入)、`WFL002` (Presenter が WinForms の型を使う)、`WFL003` (参照の向き)、`WFL004` (Form で Service を `new`)、`ASY001` / `ASY002` / `EXC001` / `EXC002` / `NAM001` (`wpf-check` と同じ)。出力と終了コード (0 / 1 / 2 / 3) は、`wpf-check` と同じ形。**`new-solution` が作る WinForms (層あり・ロジック層なし・アプリのみ・UI テストつき) は、指摘 0 件。**
+- **`rules/winforms-csharp.md` を追加 (ユーザー共通。`paths` は `**/*.cs` `**/*.csproj`):** MVP (Form は `IView` の実装、Presenter に振る舞い)、composition root (`Program.cs`)、ソリューション構成と層の依存、コントロールの命名 (`Name` = AutomationId)、`Designer.cs` の扱い、レイアウトと DPI、ダイアログ (`IDialogService`)、スレッド、例外 (`Program.cs` の受け口)、テスト (Presenter は `IView` の Fake、UI テストは FlaUI)、禁止事項、レビュー項目、規則と検査の対応表 (付録)。C# の共通部分は、`wpf-csharp.md` の C# の章を使う。WPF / XAML / MVVM の章は、WinForms では適用しない。
+- 生成する `CLAUDE.md` (WinForms) が、`winforms-check` と `winforms-csharp.md` を指す。`add-feature` / `wpf-test-first` / `new-solution` の `SKILL.md`、README、DESIGN を更新。
+- テスト: `tests/winforms_check_test.sh` (27 件: 生成物は指摘 0 件、各コードを、わざと壊した複製で確認、`async void` のハンドラーは対象外、テストプロジェクトは共通の規則の対象外、`--json`、読み取り専用)。
+
 ## [2.8.0] 2026-10-25 (WinForms の UI テスト。PoC は実機で確認済み。生成したプロジェクトのビルドは未確認)
 
 - **WinForms の FlaUI の PoC (DESIGN 4.30 段階 3。2026-10-25 実機):** 別のデスクトップで、(1) **`AutomationId` = コントロールの `Name`** (`NameTextBox` / `GreetingLabel` / `ClearButton` / `MainTable`)。Label の `Name` は表示の文字。(2) **UIA3:** `ValuePattern` で入れた文字が `TextChanged` を起こし、Presenter が挨拶を変える。`Invoke` でクリアが動く。ボタンの有効・無効 (`CanClear`) も見える。(3) **UIA2 も、7 手順すべて OK** (WPF は、別のデスクトップで `Invoke` が失敗した。WinForms は、UIA2 が本来の UIA なので動く)。UIA3 を標準にする方針は、変えない。(4) **`PrintWindow` が、内容を写した** (WPF のような白い画像にならない。ハードウェアアクセラレーションの対策は、要らない)。(5) 起動 約 1.1 秒。

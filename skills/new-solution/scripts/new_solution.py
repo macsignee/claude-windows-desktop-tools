@@ -889,6 +889,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。NuGet の復元は、ビルドが行う (`/restore`)。
 - **パッケージの追加は、`add-package` Skill** (`.csproj` を、手で書き換えない)。
 - 新しい `.cs` は、SDK 形式なので、`.csproj` に追加しなくてよい (自動で含まれる)。
+- **Form / `*.Designer.cs` / Presenter を編集したら、`winforms-check`** (画面が空になる、UI テストが要素を探せない、Presenter に WinForms が混ざる、などの、コンパイルでは見つからない不具合の静的検査。`~/.claude/skills/winforms-check/scripts/winforms_check.py "$PWD"`)。
 - **`*.Designer.cs` は、Visual Studio のデザイナーが書き直す。** 手で編集するときは、`InitializeComponent` の形 (`// コントロール名` のコメント、プロパティの代入、`Controls.Add`) を保つ。イベントは、Designer の `+=` と、`Form` のハンドラーの名前を、そろえる。
 - Visual Studio で実行 (F5) するときは、`{name}` が、スタートアッププロジェクト (`{name}.slnx` の `DefaultStartup="true"`)。ただし、`.vs/` の個人の設定が、すでにあれば、そちらが優先される。
 """
@@ -901,7 +902,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 """
     out += """
 ## 規約
-- C# の規約は、ユーザー共通の `~/.claude/rules/wpf-csharp.md` のうち、C# の部分 (5 C# コーディング規約 / 10 非同期 / 12 例外 / 15 コメント / 16 テスト / 17 禁止事項)。WPF / XAML / MVVM の節は、適用しない。WinForms 固有の規約は、`winforms-csharp.md` ができたら、それに従う。`.editorconfig` が、書式を定める。
+- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `~/.claude/rules/winforms-csharp.md` (C# のファイルを扱うときに、自動で読み込まれる)。C# の共通部分 (5 / 10 / 12 / 13 / 15 / 16 / 17 章) は、`wpf-csharp.md` を使う。**`wpf-csharp.md` の、WPF / XAML / MVVM の節 (6 / 7 / 8 / 9 / 14 章) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """

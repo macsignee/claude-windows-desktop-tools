@@ -447,6 +447,17 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 | WF7 | `--type winforms --layers logic --tests mstest --ui-tests flaui` で生成 → `build_test_once.sh` → `uitest_once.sh` | ビルドが通り、通常のテストは `PASSED` (UI テストは含まれない)。UI テストは `PASSED` (3 件: `MainWindow_Opens_WithTitle` / `Greeting_NameEntered_ShowsGreeting` / `ClearButton_Invoked_ClearsName`)。スクリーンショットで、右下のボタンが切れない | 未確認 |
 | WF8 | 層なし (`--layers none --tests none`) の WinForms に、`new_solution.py <フォルダ> --ui-tests flaui` で後付け → ビルド → `uitest_once.sh`。あわせて、WPF (`WpfUi...`) の UI テストで、`--refresh-support-files` 後に、スクリーンショットが崩れない | `PASSED`。WPF / MFC のスクリーンショットも、従来どおり写る (`Screenshots.cs` の大きさの変更の影響がない) | 未確認 |
 
+### 2-6. `winforms-check` (WinForms の静的検査。ウォッチャー不要。`docs/DESIGN.md` 4.30)
+
+**v2.9.0 で追加。単体テスト (`tests/winforms_check_test.sh`、27 件) は通っているが、実プロジェクトは未確認。** 準備: Skill と規約を再配置する (`install.sh --skills-only` / `--rules-only`)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| WC1 | 実機で、`new-solution --type winforms ... --ui-tests flaui` で作った (VS のデザイナーで、保存し直していない) ソリューションに、`winforms_check.py` | 指摘 0 件 (`error 0 / warning 0`) | 未確認 |
+| WC2 | **VS のデザイナーで、`MainForm` を開き、ボタンを 1 つ足して、保存 → `winforms_check.py`** | **デザイナーが書き直した `Designer.cs` で、誤検出が出ない** (`WFD003`: 新しいボタンの `Name` が `button1` で、変数名と同じ → 出ない。`WFD005`: UI テストがあれば、`button1` は Name があるので、出ない)。VS の書式 (`System.Windows.Forms.` の完全修飾、`#region`、`this.` の接頭辞) でも、`InitializeComponent()` を読めること | 未確認 |
+| WC3 | **既存の WinForms の実プロジェクト** (ユーザーが選ぶ。VS 製の古い `.NET Framework` のものは、対象外) に、`winforms_check.py` | 誤検出の有無を、記録する (どのコードの、どの書き方か)。特に、`this.` つきの `Designer.cs`、`partial` の Form、継承した Form | 未確認 |
+| WC4 | Claude Code で、`winforms-check` を起動する依頼 (「画面が空になる原因を調べて」: `InitializeComponent();` を、わざと消したソリューション) | Skill が起動し、`winforms_check.py` を実行し、`WFD001` を見つけ、呼び出しを直し、再実行して、error が 0 になる。**検査を通すために、コントロールを消さない** | 未確認 |
+
 ## 3. 疑似ウォッチャー (Windows 不要)
 
 `tests/fake_watcher_test.sh` が、`build_test_once.sh` の結果の分岐を、ファイルを書くだけの偽のウォッチャーで検証する。
