@@ -8,6 +8,7 @@
 - `summarize_test_log.py` に、`--passed-line --results-dir <dir>` を追加 (構造化された結果 (trx / GoogleTest の XML) から、1 行を出す。結果が 1 件もなければ、終了コード 3 で何も出さない。`<test_error.log>` は要らない)。`build_test_once.sh` の `show_passed_line` が呼ぶ。
 - テスト: `tests/summarize_test_log_test.sh` (9 件追加。43 件)、`tests/fake_watcher_test.sh` (構造化された結果つきの PASSED のケースを追加)。
 - `build-test-loop/SKILL.md` の `PASSED` の説明を更新。
+- **実機で確認 (H9、2026-10-25、`WfFull`):** `PASSED` の次の行に、`build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)` が出た。`uitest_once.sh` は、未確認。
 
 ## [2.10.0] 2026-10-25 (ホスト側の変更。Linux では検証できない。単体の静的テストのみ。実機は未確認)
 
