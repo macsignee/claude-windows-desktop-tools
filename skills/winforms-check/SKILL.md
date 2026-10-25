@@ -1,9 +1,11 @@
 ---
 name: winforms-check
-description: WinForms のプロジェクトの「コンパイルは通るが、実行時に壊れる / 規約に反する」部分 (InitializeComponent() の呼び忘れ、Designer.cs の Name の重複・変数名との不一致・Controls への入れ忘れ、InitializeComponent の中の制御構文、ロジック層・データ層・Presenter への WinForms の混入、層の参照の向き、DoEvents / Thread.Sleep / CheckForIllegalCrossThreadCalls、.Result / async void / 空の catch / throw ex / 曖昧な bool 名) を、静的に検査して、要約を返す手順。画面が空になる、UI テストが要素を探せない、Form / Designer / Presenter を編集した、Presenter に WinForms の型が混ざっていないか確かめたい、といった依頼で使う。Windows のウォッチャーは不要 (読み取りだけ)。
+description: WinForms のプロジェクトの「コンパイルは通るが、実行時に壊れる / 規約に反する」部分 (InitializeComponent() の呼び忘れ、Designer.cs の Name の重複・変数名との不一致・Controls への入れ忘れ、InitializeComponent の中の制御構文、ロジック層・データ層・Presenter への WinForms の混入、層の参照の向き、DoEvents / Thread.Sleep / CheckForIllegalCrossThreadCalls、.Result / async void / 空の catch / throw ex / 曖昧な bool 名) を、静的に検査して、要約を返す手順。ウィンドウは開くが中が空・何も表示されない・コントロールが出ない、画面が空になる、UI テスト (FlaUI) が要素 (ClearButton など) を探せない・見つけられない・AutomationId が見つからない、Form / Designer / Presenter を編集した、Presenter に WinForms の型が混ざっていないか確かめたい、といった依頼で使う。Windows のウォッチャーは不要 (読み取りだけ)。
 ---
 
 # WinForms の「見えない部分」の検査 (winforms-check)
+
+**「ウィンドウは開くが、中が空」「コントロールが表示されない」「UI テストが要素を探せない・見つけられない」と言われたら、コードを読んだり、別の調査 (サブエージェントなど) を始めたりする前に、まず、これを実行する** (原因が、`InitializeComponent()` の呼び忘れ、`Controls.Add` の入れ忘れ、`Name` の不一致のどれかを、数秒で絞れる)。直したあとの確認にも、使う。
 
 WinForms は、`Form` と `*.Designer.cs` (デザイナーが書く `InitializeComponent()`) が、**呼び出しと名前で結ばれている**。
 崩れても、コンパイルは通り、**「画面が空」「UI テストが要素を探せない」「スレッドの誤りが、黙って通る」**という形で現れる。
