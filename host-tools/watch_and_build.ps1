@@ -62,8 +62,15 @@
       完了マーカー <TargetDir>\package_result.txt (OK / FAILED。最後に書く)
     - 環境の問題 (ネットワーク・vcpkg / dotnet が見つからない) の失敗は、package_error.log の先頭が [ENVIRONMENT ERROR ...]
 
+  ソリューション (.sln / .slnx):
+    - -SolutionPath を省略すると、<TargetDir> の .slnx、なければ .sln を、**トリガーが来るたびに**探す。
+      そのため、**ソリューションができる前に、ウォッチャーを起動しておける** (new_solution.py で作ってから、ビルドのトリガーを置けばよい)。
+    - トリガーが来たときに、ソリューションがなければ、ビルドせずに、build_result.txt = FAILED、build_error.log の先頭が
+      [ENVIRONMENT ERROR ...] と "ERROR: no .sln / .slnx found in ..." (テストのトリガーのときは、test_result.txt = BUILD_FAILED) を書く。
+    - -SolutionPath を明示したときは、それを使う (起動時に、存在しなければ、終了コード 2)。
+
   このスクリプトの終了コード:
-    2 引数不正 (ソリューションや build-windows.cmd が見つからない)
+    2 引数不正 (-SolutionPath を明示したのに見つからない、build-windows.cmd が見つからない)
     3 同じプロジェクトフォルダで、すでに別のウォッチャーが動いている (二重起動の拒否)
 
   build-windows.cmd の終了コード:
@@ -74,7 +81,8 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$TargetDir,
 
-    [Parameter(Mandatory=$true)]
+    # 省略時: <TargetDir> の .slnx、なければ .sln を、自動で探す。**ソリューションが、まだなくても、起動できる**
+    # (トリガーが来たときに、探す。new_solution.py で作る前に、ウォッチャーを起動しておける)
     [string]$SolutionPath,
 
     # auto: C++ のプロジェクトがあれば x64、.NET だけなら AnyCPU
@@ -168,12 +176,16 @@ if (-not $BuildScript) {
 
 # ---------- パス解決 ----------
 $TargetDir = [System.IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
-if (-not [System.IO.Path]::IsPathRooted($SolutionPath)) {
-    $SolutionPath = Join-Path $TargetDir $SolutionPath
-}
-if (-not (Test-Path -LiteralPath $SolutionPath)) {
-    Write-Host "ERROR: target not found: $SolutionPath" -ForegroundColor Red
-    exit 2
+# -SolutionPath を明示したときは、それを使う (なければ、起動を拒否する)。省略したときは、トリガーのたびに、<TargetDir> から探す
+$SolutionExplicit = [bool]$SolutionPath
+if ($SolutionExplicit) {
+    if (-not [System.IO.Path]::IsPathRooted($SolutionPath)) {
+        $SolutionPath = Join-Path $TargetDir $SolutionPath
+    }
+    if (-not (Test-Path -LiteralPath $SolutionPath)) {
+        Write-Host "ERROR: target not found: $SolutionPath" -ForegroundColor Red
+        exit 2
+    }
 }
 if (-not (Test-Path -LiteralPath $BuildScript)) {
     Write-Host "ERROR: build script not found: $BuildScript" -ForegroundColor Red
@@ -181,7 +193,6 @@ if (-not (Test-Path -LiteralPath $BuildScript)) {
 }
 if (-not $LogDir) { $LogDir = Join-Path $TargetDir ".claude-logs" }
 $LogDir = $LogDir.TrimEnd('\')
-$SolutionDir = Split-Path -Parent $SolutionPath
 
 # ---------- ソリューションの中身の判定 ----------
 # .sln / .slnx (または単独のプロジェクトファイル) から、プロジェクトのパスを集める。
@@ -203,19 +214,52 @@ function Get-SolutionProjectPaths {
     }
     return @($paths | Select-Object -Unique)
 }
-$ProjectPaths = @(Get-SolutionProjectPaths)
-$HasCpp    = @($ProjectPaths | Where-Object { $_ -match '\.vcxproj$' }).Count -gt 0
-$HasDotnet = @($ProjectPaths | Where-Object { $_ -match '\.(csproj|vbproj|fsproj)$' }).Count -gt 0
-if ($Platform -eq "auto") {
-    $Platform = if ($HasDotnet -and -not $HasCpp) { "AnyCPU" } else { "x64" }
+
+# 指定された Platform (auto を含む)。ソリューションを読み直すたびに、ここから Platform を決め直す
+$PlatformSetting = $Platform
+
+# <TargetDir> の .slnx、なければ .sln を探して、フルパスを返す (なければ $null)。
+# *.sln のワイルドカードは、8.3 形式の短い名前の仕様により、.slnx にも一致することがある。そのため、拡張子を厳密に確認する。
+function Find-SolutionFile {
+    foreach ($ext in @(".slnx", ".sln")) {
+        $found = @(Get-ChildItem -LiteralPath $TargetDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -ieq $ext } | Sort-Object Name | Select-Object -First 1)
+        if ($found.Count -gt 0) { return $found[0].FullName }
+    }
+    return $null
 }
-# build-windows.cmd の第 6 引数。cpp: C++ ツール入りの VS を要求する / restore: NuGet の復元 (/restore) をする。
-# 中身を判定できなかったときは、従来どおり cpp。
-$BuildFeatures = @()
-if ($HasCpp -or -not $HasDotnet) { $BuildFeatures += "cpp" }
-if ($HasDotnet) { $BuildFeatures += "restore" }
-$BuildFeatures = $BuildFeatures -join ","
-$SolutionKind = if ($HasCpp -and $HasDotnet) { "C++ + .NET" } elseif ($HasDotnet) { ".NET" } elseif ($HasCpp) { "C++" } else { "unknown (treated as C++)" }
+
+# ソリューションの状態 (パス・プロジェクトの一覧・C++ / .NET の判定・Platform・ビルドの機能) を、決め直す。
+# 起動時と、トリガーが来るたびに呼ぶ (起動後に、ソリューションができた・プロジェクトが増えた (テストの後付けなど) 場合に備える)。
+# ソリューションがなければ、$SolutionPath は $null になる (ビルドのトリガーは、環境エラーとして返す)。
+function Update-SolutionState {
+    if (-not $SolutionExplicit) { $script:SolutionPath = Find-SolutionFile }
+    if ($script:SolutionPath -and (Test-Path -LiteralPath $script:SolutionPath)) {
+        $script:SolutionDir = Split-Path -Parent $script:SolutionPath
+        $script:ProjectPaths = @(Get-SolutionProjectPaths)
+    } else {
+        $script:SolutionPath = $null
+        $script:SolutionDir = $TargetDir
+        $script:ProjectPaths = @()
+    }
+    $script:HasCpp    = @($script:ProjectPaths | Where-Object { $_ -match '\.vcxproj$' }).Count -gt 0
+    $script:HasDotnet = @($script:ProjectPaths | Where-Object { $_ -match '\.(csproj|vbproj|fsproj)$' }).Count -gt 0
+    if (-not $script:SolutionPath) {
+        $script:Platform = $PlatformSetting
+    } elseif ($PlatformSetting -eq "auto") {
+        $script:Platform = if ($script:HasDotnet -and -not $script:HasCpp) { "AnyCPU" } else { "x64" }
+    } else {
+        $script:Platform = $PlatformSetting
+    }
+    # build-windows.cmd の第 6 引数。cpp: C++ ツール入りの VS を要求する / restore: NuGet の復元 (/restore) をする。
+    # 中身を判定できなかったときは、従来どおり cpp。
+    $features = @()
+    if ($script:HasCpp -or -not $script:HasDotnet) { $features += "cpp" }
+    if ($script:HasDotnet) { $features += "restore" }
+    $script:BuildFeatures = $features -join ","
+    $script:SolutionKind = if (-not $script:SolutionPath) { "(no .sln / .slnx yet)" } elseif ($script:HasCpp -and $script:HasDotnet) { "C++ + .NET" } elseif ($script:HasDotnet) { ".NET" } elseif ($script:HasCpp) { "C++" } else { "unknown (treated as C++)" }
+}
+Update-SolutionState
 
 # dotnet の初回の案内文やテレメトリの確認で、出力が乱れるのを避ける
 $env:DOTNET_NOLOGO = "1"
@@ -1338,7 +1382,7 @@ $QuickEditStatus = Disable-ConsoleQuickEdit
 
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host " MSBuild Watcher Started" -ForegroundColor Cyan
-Write-Host " Target       : $SolutionPath" -ForegroundColor Cyan
+Write-Host " Target       : $(if ($SolutionPath) { $SolutionPath } else { '(no .sln / .slnx in ' + $TargetDir + ' yet: it is detected when a trigger arrives)' })" -ForegroundColor Cyan
 Write-Host " Solution     : $SolutionKind  (build features: $BuildFeatures)" -ForegroundColor Cyan
 Write-Host " Build        : $Configuration|$Platform  /t:$MSBuildTarget" -ForegroundColor Cyan
 Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
@@ -1360,6 +1404,7 @@ while ($true) {
     if (Test-Path -LiteralPath $GtestTriggerFile) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (gtest fetch)!" -ForegroundColor Yellow
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
+        Update-SolutionState
         $gtestTagLine = ""
         try { $gtestTagLine = "$(Get-Content -LiteralPath $GtestTriggerFile -TotalCount 1 -ErrorAction Stop)" } catch { }
         Remove-Item -LiteralPath $GtestTriggerFile, $GtestResultFile, $GtestErrorLog -ErrorAction SilentlyContinue
@@ -1376,6 +1421,7 @@ while ($true) {
     if (Test-Path -LiteralPath $PackageTriggerFile) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (package)!" -ForegroundColor Yellow
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
+        Update-SolutionState
         $packageLines = @()
         try { $packageLines = @(Get-Content -LiteralPath $PackageTriggerFile -ErrorAction Stop) } catch { }
         Remove-Item -LiteralPath $PackageTriggerFile, $PackageResultFile, $PackageErrorLog, $PackageOutputFile -ErrorAction SilentlyContinue
@@ -1395,7 +1441,7 @@ while ($true) {
         $mode = if ($runUiTests) { "build + UI test" } elseif ($runTests) { "build + test" } else { "build" }
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected ($mode)! Starting build..." -ForegroundColor Yellow
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
-        $ProjectPaths = @(Get-SolutionProjectPaths)   # 起動後に、プロジェクトが増えた (テストの後付けなど) 場合に備え、トリガーごとに、読み直す
+        Update-SolutionState   # 起動後に、ソリューションができた・プロジェクトが増えた (テストの後付けなど) 場合に備え、トリガーごとに、決め直す
         Remove-Item -LiteralPath $TriggerFile, $(if ($runUiTests) { $UiTestTriggerFile } else { $TestTriggerFile }) -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         Remove-Item -LiteralPath $ResultFile, $ErrorLog, $TestResultFile, $TestErrorLog, $BuildLog, $ErrorsOnly, $WarnsOnly, $TestLog -ErrorAction SilentlyContinue
@@ -1405,18 +1451,24 @@ while ($true) {
             Stop-SolutionProcesses   # 前回のアプリが残っていると、出力の exe がロックされ、ビルドが失敗する
         }
 
-        # バッチは毎回別プロセスで実行される (環境変数が持ち越されない)
-        # PS 5.1 は Stop 下でネイティブの stderr を例外にするため、ここだけ Continue にする
-        $ErrorActionPreference = "Continue"
-        try {
-            $build = Invoke-BuildScript
-            $console = $build.Lines
-            $exitCode = $build.ExitCode
-        } catch {
-            $console = @("ERROR: $($_.Exception.Message)")
-            $exitCode = 99
-        } finally {
-            $ErrorActionPreference = "Stop"
+        if (-not $SolutionPath) {
+            # ソリューション (.sln / .slnx) が、まだない。ビルドせずに、環境の問題 (終了コード 2) として返す
+            $console = @("ERROR: no .sln / .slnx found in $TargetDir. Create the solution first (new_solution.py), then run the trigger again.")
+            $exitCode = 2
+        } else {
+            # バッチは毎回別プロセスで実行される (環境変数が持ち越されない)
+            # PS 5.1 は Stop 下でネイティブの stderr を例外にするため、ここだけ Continue にする
+            $ErrorActionPreference = "Continue"
+            try {
+                $build = Invoke-BuildScript
+                $console = $build.Lines
+                $exitCode = $build.ExitCode
+            } catch {
+                $console = @("ERROR: $($_.Exception.Message)")
+                $exitCode = 99
+            } finally {
+                $ErrorActionPreference = "Stop"
+            }
         }
 
         if ($exitCode -eq 0) {
