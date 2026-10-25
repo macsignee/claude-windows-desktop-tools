@@ -1,6 +1,6 @@
 # 次の作業 (再開用メモ)
 
-2026-10-24 時点。C++ と WPF の統合 (v2.4.x〜v2.5.6) の実機の確認は、**WS10 (保留) を除いて、完了した** (v2.5.7)。
+2026-10-25 時点。C++ と WPF の統合 (v2.4.x〜v2.5.6) の実機の確認は、**WS10 (保留) を除いて、完了した** (v2.5.7)。**WinForms と C# DLL への拡張 (v2.6.0〜v2.10.1) は、実装・実機の確認を終えて、main にマージし、push 済み** (マージコミット `6914e87`)。
 各項目の状況は `docs/REMAINING-CHECKS.md`、手順と結果は `docs/TEST-PLAN.md` (「状況の一覧」)。以前の版の、手順と依頼文は、git の履歴 (`docs/NEXT-STEPS.md`、2026-10-21 まで) にある。
 
 ## 残り
@@ -9,10 +9,10 @@
 2. 省略していた項目 (U14c の (a)、U16 の C++ 側、WS8 の F5) は、2026-10-24 に、すべて確認済み。
 3. **以前の版 (v2.0.0〜v2.3.0) の、未確認の項目:** C++ / MFC の、GoogleTest のソース取得 (G3 / G6 / G7 / G8) と、Skill (S / A / N / U / F / K 系)。ホスト側ツール (H4、T8、T9、R 系、M 系) は、2026-10-24 に確認済み。`docs/REMAINING-CHECKS.md` の 3.。
 
-## main へのマージの前に
+## 運用メモ (マージ・配置)
 
-- push は、ユーザーが行う (`git push -u origin unify-dotnet`)。マージも、ユーザーが決める。
-- 変更の一覧は、`CHANGELOG.md` の 2.4.x〜2.5.6 (ブランチ `unify-dotnet`、main から 20 コミット先)。
+- **コミットは、ユーザーが明示的に指示したときだけ。push は、ユーザーが行う (`git push origin main` など)。マージも、ユーザーが決める。** 新しい作業は、`main` から、新しいブランチを切って行う。
+- 変更の一覧は、`CHANGELOG.md` (2.4.x〜2.5.7: 統合 (PR #1)、2.6.0〜2.10.1: WinForms / C# DLL への拡張とその周辺 (`6914e87`))。
 - 配置: `./install/install.sh` (Skill・規約。`--skills-only` / `--rules-only` / `--host-only`)、`~/src/copy-host-tools.sh` (ホスト側ツール)。**Skill やスクリプトを変えたら、再配置を忘れない** (確認のやり直しの、最大の原因だった)。
 
 ## マージのあとの予定 (2026-10-24 に決定。要件の整理と設計は、これから)
@@ -20,7 +20,7 @@
 1. **GoogleTest の取得を vcpkg に一元化する** (下の節)。
 2. ~~**3 層構造のモジュール名の変更**~~ (MFC / Win32、WPF で、ロジック層を `Command`、データ層を `Model` に改名) → **取り下げ (2026-10-24)。** 既定の名前は、`LogicLayer` / `DataLayer` のまま。**ソリューションの作成後に、個々の事情に応じて、リネームする** (手順は `skills/cpp-test-first/DLL-LAYOUT.md` の「層の名前を、あとから変えるとき」。WPF は、名前を変えたら、プロジェクト・名前空間・`CLAUDE.md` をそろえる)。実装は、一度行い (単体テスト全通過)、方針の変更で、コミット前に破棄した。
 3. **ダイアログのテスト:** FlaUI とユニットテストの、いずれかで、MFC / Win32、WPF の**メインウィンドウから表示されるダイアログ (モーダル、モードレス)** のテストを、実行できるようにする。**決めること:** FlaUI (UIA の `Window.ModalWindows` / トップレベルのウィンドウの検出、モーダル中の操作) とユニットテスト (ダイアログの ViewModel / ロジックの分離、`IDialogService` のモック。MFC は、ダイアログのクラスを、テスト可能にする分離) の、どちらを、どこまで。モードレスの検出 (別のトップレベルウィンドウ)。
-4. **WinForms と C# の DLL への拡張 (進行中。2026-10-24 に、ブランチ `winforms-csharp` で開始。設計は DESIGN 4.30)。** 段階: ① `csharp-dll` (**実装済み・単体テスト通過。実機は未確認**) → ② `winforms` の作成・ビルド・テスト (**実装済み・単体テスト通過。コンパイルを含めて実機は未確認**) → ③ WinForms の UI テストの PoC (**実機で確認済み**) と、`--ui-tests flaui` の対応 (**実装済み・単体テスト通過。生成物のビルドは未確認**) → ④ `winforms-check` と `rules/winforms-csharp.md` (**実装済み・単体テスト通過。実プロジェクトでの誤検出の確認は未実施**)。以下は、開始時の「決めること」(決定は DESIGN 4.30): WinForms、C# の DLL の、作成 (`new-solution`)・ビルド・テストを、できるようにする。**決めること:** `--type` の値 (`winforms`、`csharp-dll` など)、層とテストの構成 (WPF と同じ MSTest)、WinForms の UI テスト (FlaUI の UIA2 / UIA3、`AutomationId` は `Name`)、検査 (`wpf-check` に相当するもの)、規約 (`rules/`)、ウォッチャー (`.csproj` の判定は、すでに SDK 形式に対応)。WinForms の UI テストは、PoC を別に行う、と先に決めている (DESIGN 4.29)。
+4. ~~**WinForms と C# の DLL への拡張**~~ → **完了 (2026-10-25。main にマージ済み。設計と結果は DESIGN 4.30、`CHANGELOG.md` 2.6.0〜2.10.1)。** `new-solution --type csharp-dll` / `--type winforms` (MVP。層なしでも、アプリ内の Presenter をテストできる)、WinForms の UI テスト (FlaUI)、`winforms-check` と `rules/winforms-csharp.md`、スクリーンショットの DPI 対応 (WinForms / WPF / MFC)、ウォッチャーの遅延検出、`build_test_once.sh` の要約の行。**実機で、必須・推奨の項目は、すべて確認済み。任意で未確認:** H7 (C++ のみで起動したあとに、.NET の UI テストを足す)、H8 (存在しない `-SolutionPath` の明示)、WC3 (手元の既存の WinForms プロジェクトでの `winforms-check`)、`uitest_once.sh` の要約の行、125% 以外の表示倍率・複数モニターでのスクリーンショット、各 UI テストで約 2 秒かかる待ちの原因 (3 件で 8 秒。許容)。TEST-PLAN の「未確認」の行 (節 1-8 の H7 / H8) を、参照。
 
 ## マージのあとの作業: GoogleTest の取得を vcpkg に一元化する (2026-10-24 に決定。マージ後に開始)
 
