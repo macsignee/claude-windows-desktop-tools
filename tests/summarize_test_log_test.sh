@@ -119,5 +119,39 @@ PY
 out="$(python3 -I "$S" "$T/empty.log" --results-dir "$T/res_ja" --root /mnt/c/w)"
 ok "trx: Japanese stack trace location (場所 ...:行 N)" "$(has "$out" 'at: P.Tests/C.cs(7)')"
 
+# ---------------------------------------------------------------- --passed-line (成功時の 1 行。build_test_once.sh が、PASSED の次の行に出す)
+mkdir -p "$T/pl_two" "$T/pl_skip" "$T/pl_empty"
+python3 - "$T" <<'PY'
+import sys
+def trx(path, results):
+    rs = "".join(f'<UnitTestResult testId="t{i}" testName="{n}" duration="00:00:00.001" outcome="{o}"/>' for i, (n, o) in enumerate(results))
+    ds = "".join(f'<UnitTest name="{n}" id="t{i}"><TestMethod className="N.C, {path.rsplit("/", 1)[1][:-4]}" name="{n}"/></UnitTest>' for i, (n, o) in enumerate(results))
+    open(path, "w", encoding="utf-8").write('<?xml version="1.0" encoding="utf-8"?><TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>' + rs + '</Results><TestDefinitions>' + ds + '</TestDefinitions></TestRun>')
+t = sys.argv[1]
+trx(t + "/pl_two/DataLayer.Tests.trx", [("A", "Passed")])
+trx(t + "/pl_two/LogicLayer.Tests.trx", [("B", "Passed"), ("C", "Passed"), ("D", "Passed"), ("E", "Passed"), ("F", "Passed")])
+trx(t + "/pl_skip/P.Tests.trx", [("A", "Passed"), ("B", "NotExecuted")])
+PY
+out="$(python3 -I "$S" --passed-line --results-dir "$T/pl_two" --root /mnt/c/w)"; rc=$?
+ok "passed-line: two MSTest projects -> one line with per-project counts (rc=0)" "$([ $rc = 0 ] && [ "$out" = "tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)" ] && echo 1 || echo 0)"
+ok "passed-line: it is exactly one line" "$([ "$(wc -l <<<"$out")" = 1 ] && echo 1 || echo 0)"
+out="$(python3 -I "$S" --passed-line --results-dir "$T/pl_skip")"
+ok "passed-line: skipped tests are counted (tests: 1 passed, 1 skipped (P.Tests 2))" "$([ "$out" = "tests: 1 passed, 1 skipped (P.Tests 2)" ] && echo 1 || echo 0)"
+cp "$FX/LogicLayerTest.xml" "$T/pl_skip/"
+out="$(python3 -I "$S" --passed-line --results-dir "$T/pl_skip")"
+ok "passed-line: GoogleTest XML and trx together are both listed (a failing fixture also shows its failed count)" "$(grep -qF 'P.Tests 2' <<<"$out" && grep -qF 'LogicLayerTest 5' <<<"$out" && grep -qF '3 failed' <<<"$out" && echo 1 || echo 0)"
+python3 -I "$S" --passed-line --results-dir "$T/pl_empty" >/dev/null; rc=$?
+ok "passed-line: no structured results -> rc=3 and no output" "$([ $rc = 3 ] && [ -z "$(python3 -I "$S" --passed-line --results-dir "$T/pl_empty")" ] && echo 1 || echo 0)"
+python3 -I "$S" --passed-line --results-dir "$T/nonexistent" >/dev/null; rc=$?
+ok "passed-line: missing results dir -> rc=3" "$([ $rc = 3 ] && echo 1 || echo 0)"
+python3 -I "$S" --passed-line >/dev/null; rc=$?
+ok "passed-line: no --results-dir -> rc=3" "$([ $rc = 3 ] && echo 1 || echo 0)"
+python3 -I "$S" >/dev/null 2>&1; rc=$?
+ok "without a log and without --passed-line: usage error (rc=2)" "$([ $rc = 2 ] && echo 1 || echo 0)"
+mkdir -p "$T/pl_many"
+for n in 1 2 3 4 5 6 7 8; do cp "$T/pl_skip/P.Tests.trx" "$T/pl_many/S$n.Tests.trx"; done
+out="$(python3 -I "$S" --passed-line --results-dir "$T/pl_many")"
+ok "passed-line: more than 6 sources are capped with '... +2 more'" "$(has "$out" '... +2 more')"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

@@ -41,7 +41,7 @@ MSTEST_VER = '3.6.4'
 TESTSDK_VER = '17.12.0'
 IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 PROJ_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$')   # SampleApp.Domain のように、. で区切ってよい
-SHORT_NS = {'data': 'Data', 'logic': 'Logic', 'viewmodel': 'ViewModels'}
+SHORT_NS = {'data': 'Data', 'logic': 'Logic', 'viewmodel': 'ViewModels', 'presenter': 'Logic'}
 
 
 def die(msg, code=2):
@@ -228,6 +228,28 @@ def csproj_test(tfm, root_ns, target, mstest_ver, sdk_ver, extra_refs=()):
   <ItemGroup>
 {items}  </ItemGroup>
 
+</Project>
+'''
+
+
+def csproj_winforms(tfm, root_ns, refs):
+    items = ''.join(f'    <ProjectReference Include="..\\{r}\\{r}.csproj" />\n' for r in refs)
+    ref_block = f'\n  <ItemGroup>\n{items}  </ItemGroup>\n' if refs else ''
+    return f'''<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>{windows_tfm(tfm)}</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>{root_ns}</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="Forms\\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+  </ItemGroup>
+{ref_block}
 </Project>
 '''
 
@@ -554,6 +576,322 @@ public partial class MainWindow : Window
 '''
 
 
+# ------------------------------------------------------------------ WinForms のソース (MVP: Form は IMainView を実装し、MainPresenter が振る舞いを持つ)
+def main_view_cs(ns):
+    return f'''namespace {ns};
+
+/// <summary>メイン画面の、Presenter から見た姿。WinForms の型 (Form や MessageBox) を、持ち込まない。</summary>
+public interface IMainView
+{{
+    /// <summary>入力された名前。</summary>
+    string PersonName {{ get; set; }}
+
+    /// <summary>表示する挨拶。</summary>
+    string Greeting {{ set; }}
+
+    /// <summary>クリアを、押せるか。</summary>
+    bool CanClear {{ set; }}
+
+    /// <summary>名前が、変わった。</summary>
+    event EventHandler? NameChanged;
+
+    /// <summary>クリアが、求められた。</summary>
+    event EventHandler? ClearRequested;
+}}
+'''
+
+
+def main_presenter_cs(ns):
+    return f'''namespace {ns};
+
+/// <summary>メイン画面の振る舞い。WinForms の型を使わない (View は IMainView 越しに触る)。</summary>
+public sealed class MainPresenter
+{{
+    private readonly IMainView _view;
+
+    public MainPresenter(IMainView view)
+    {{
+        _view = view;
+        _view.NameChanged += OnNameChanged;
+        _view.ClearRequested += OnClearRequested;
+        Refresh();
+    }}
+
+    private void OnNameChanged(object? sender, EventArgs e)
+    {{
+        Refresh();
+    }}
+
+    private void OnClearRequested(object? sender, EventArgs e)
+    {{
+        _view.PersonName = "";
+        Refresh();
+    }}
+
+    private void Refresh()
+    {{
+        var name = _view.PersonName;
+        _view.Greeting = name.Length == 0 ? "名前を入力してください" : $"こんにちは、{{name}} さん";
+        _view.CanClear = name.Length > 0;
+    }}
+}}
+'''
+
+
+def main_presenter_tests_cs(ns):
+    return f'''using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace {ns}.Tests;
+
+[TestClass]
+public class MainPresenterTests
+{{
+    private sealed class FakeMainView : IMainView
+    {{
+        public event EventHandler? NameChanged;
+
+        public event EventHandler? ClearRequested;
+
+        public string PersonName {{ get; set; }} = "";
+
+        public string Greeting {{ get; set; }} = "";
+
+        public bool CanClear {{ get; set; }}
+
+        public void RaiseNameChanged(string name)
+        {{
+            PersonName = name;
+            NameChanged?.Invoke(this, EventArgs.Empty);
+        }}
+
+        public void RaiseClearRequested()
+        {{
+            ClearRequested?.Invoke(this, EventArgs.Empty);
+        }}
+    }}
+
+    [TestMethod]
+    public void Constructor_NameEmpty_AsksForNameAndDisablesClear()
+    {{
+        var view = new FakeMainView();
+
+        _ = new MainPresenter(view);
+
+        Assert.AreEqual("名前を入力してください", view.Greeting);
+        Assert.IsFalse(view.CanClear);
+    }}
+
+    [TestMethod]
+    public void NameChanged_NameSet_GreetsByName()
+    {{
+        var view = new FakeMainView();
+        _ = new MainPresenter(view);
+
+        view.RaiseNameChanged("太郎");
+
+        Assert.AreEqual("こんにちは、太郎 さん", view.Greeting);
+    }}
+
+    [TestMethod]
+    public void NameChanged_NameSet_EnablesClear()
+    {{
+        var view = new FakeMainView();
+        _ = new MainPresenter(view);
+
+        view.RaiseNameChanged("太郎");
+
+        Assert.IsTrue(view.CanClear);
+    }}
+
+    [TestMethod]
+    public void ClearRequested_NameSet_ClearsName()
+    {{
+        var view = new FakeMainView {{ PersonName = "太郎" }};
+        _ = new MainPresenter(view);
+
+        view.RaiseClearRequested();
+
+        Assert.AreEqual("", view.PersonName);
+        Assert.IsFalse(view.CanClear);
+    }}
+}}
+'''
+
+
+def program_cs(ns, usings):
+    # using の並びは、dotnet format (IMPORTS) の規約に合わせる: System が先、残りは名前の順
+    lines = "\n".join(f"using {u};" for u in sorted(set(usings)))
+    return f'''{lines}
+
+namespace {ns};
+
+internal static class Program
+{{
+    [STAThread]
+    private static void Main()
+    {{
+        ApplicationConfiguration.Initialize();
+
+        // 画面と Presenter を組み立てる場所 (composition root)。DI コンテナを導入するときは、ここで構成する。
+        var form = new MainForm();
+        _ = new MainPresenter(form);
+        Application.Run(form);
+    }}
+}}
+'''
+
+
+def main_form_cs(ns, presenter_ns):
+    # using System.Windows.Forms を、明示する (ImplicitUsings に頼ると、VS が Form と認識しなかった。実機で確認)。System が先、残りは名前の順
+    usings = "\n".join(f"using {u};" for u in ["System.Windows.Forms"] + sorted({presenter_ns}))
+    return f'''{usings}
+
+namespace {ns}.Forms;
+
+/// <summary>メイン画面。View 固有の処理だけを書く (業務ロジックは、Presenter に置く)。</summary>
+public partial class MainForm : Form, IMainView
+{{
+    public MainForm()
+    {{
+        InitializeComponent();
+    }}
+
+    public event EventHandler? NameChanged;
+
+    public event EventHandler? ClearRequested;
+
+    public string PersonName
+    {{
+        get => NameTextBox.Text;
+        set => NameTextBox.Text = value;
+    }}
+
+    public string Greeting
+    {{
+        set => GreetingLabel.Text = value;
+    }}
+
+    public bool CanClear
+    {{
+        set => ClearButton.Enabled = value;
+    }}
+
+    private void NameTextBox_TextChanged(object? sender, EventArgs e)
+    {{
+        NameChanged?.Invoke(this, EventArgs.Empty);
+    }}
+
+    private void ClearButton_Click(object? sender, EventArgs e)
+    {{
+        ClearRequested?.Invoke(this, EventArgs.Empty);
+    }}
+}}
+'''
+
+
+def main_form_designer_cs(ns, title):
+    return f'''namespace {ns}.Forms;
+
+partial class MainForm
+{{
+    /// <summary>
+    /// Required designer variable.
+    /// </summary>
+    private System.ComponentModel.IContainer components = null;
+
+    /// <summary>
+    /// Clean up any resources being used.
+    /// </summary>
+    /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+    protected override void Dispose(bool disposing)
+    {{
+        if (disposing && (components != null))
+        {{
+            components.Dispose();
+        }}
+        base.Dispose(disposing);
+    }}
+
+    #region Windows Form Designer generated code
+
+    /// <summary>
+    /// Required method for Designer support - do not modify
+    /// the contents of this method with the code editor.
+    /// </summary>
+    private void InitializeComponent()
+    {{
+        MainTable = new TableLayoutPanel();
+        NameTextBox = new TextBox();
+        GreetingLabel = new Label();
+        ClearButton = new Button();
+        MainTable.SuspendLayout();
+        SuspendLayout();
+        //
+        // MainTable
+        //
+        MainTable.ColumnCount = 1;
+        MainTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        MainTable.Controls.Add(NameTextBox, 0, 0);
+        MainTable.Controls.Add(GreetingLabel, 0, 1);
+        MainTable.Controls.Add(ClearButton, 0, 2);
+        MainTable.Dock = DockStyle.Fill;
+        MainTable.Name = "MainTable";
+        MainTable.Padding = new Padding(12);
+        MainTable.RowCount = 3;
+        MainTable.RowStyles.Add(new RowStyle());
+        MainTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        MainTable.RowStyles.Add(new RowStyle());
+        MainTable.TabIndex = 0;
+        //
+        // NameTextBox
+        //
+        NameTextBox.Dock = DockStyle.Fill;
+        NameTextBox.Name = "NameTextBox";
+        NameTextBox.TabIndex = 0;
+        NameTextBox.TextChanged += NameTextBox_TextChanged;
+        //
+        // GreetingLabel
+        //
+        GreetingLabel.Dock = DockStyle.Fill;
+        GreetingLabel.Name = "GreetingLabel";
+        GreetingLabel.TabIndex = 1;
+        GreetingLabel.TextAlign = ContentAlignment.MiddleLeft;
+        //
+        // ClearButton
+        //
+        ClearButton.Anchor = AnchorStyles.Right;
+        ClearButton.AutoSize = true;
+        ClearButton.Name = "ClearButton";
+        ClearButton.TabIndex = 2;
+        ClearButton.Text = "クリア";
+        ClearButton.UseVisualStyleBackColor = true;
+        ClearButton.Click += ClearButton_Click;
+        //
+        // MainForm
+        //
+        AutoScaleDimensions = new SizeF(7F, 15F);
+        AutoScaleMode = AutoScaleMode.Font;
+        ClientSize = new Size(400, 180);
+        Controls.Add(MainTable);
+        MinimumSize = new Size(320, 160);
+        Name = "MainForm";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "{title}";
+        MainTable.ResumeLayout(false);
+        MainTable.PerformLayout();
+        ResumeLayout(false);
+    }}
+
+    #endregion
+
+    private TableLayoutPanel MainTable;
+    private TextBox NameTextBox;
+    private Label GreetingLabel;
+    private Button ClearButton;
+}}
+'''
+
+
 # ------------------------------------------------------------------ ファイル一式
 def lib_files(name, ns, uses, tfm, kind='lib'):
     """ライブラリ <Name> のファイル一式 (WPF 非依存)。"""
@@ -563,7 +901,16 @@ def lib_files(name, ns, uses, tfm, kind='lib'):
     }
     if kind == 'viewmodel':
         files.update(viewmodel_files(f'{name}', ns))
+    if kind == 'presenter':
+        files.update(presenter_files(f'{name}', ns))
     return files
+
+
+def presenter_files(folder, ns):
+    return {
+        f'{folder}/IMainView.cs': main_view_cs(ns),
+        f'{folder}/MainPresenter.cs': main_presenter_cs(ns),
+    }
 
 
 def viewmodel_files(folder, ns):
@@ -577,12 +924,35 @@ def viewmodel_files(folder, ns):
 def test_files(name, ns, tfm, mstest_ver, sdk_ver, kind='lib', extra_refs=()):
     """<Name>.Tests のファイル一式。"""
     tn = f'{name}.Tests'
+    if kind == 'app-presenter':
+        # ロジック層のない WinForms: アプリ (WinExe) の Presenters/ を、テストする。Info クラスがないので、ベースラインは Presenter のテスト。
+        # アプリが <TFM>-windows なので、テストも同じ TFM (違うと NU1201)
+        return {
+            f'{tn}/{tn}.csproj': csproj_test(windows_tfm(tfm), ns, name, mstest_ver, sdk_ver, extra_refs),
+            f'{tn}/MainPresenterTests.cs': main_presenter_tests_cs(ns),
+        }
     files = {
         f'{tn}/{tn}.csproj': csproj_test(tfm, ns, name, mstest_ver, sdk_ver, extra_refs),
         f'{tn}/{type_prefix(name)}InfoTests.cs': info_tests_cs(name, ns),
     }
     if kind == 'viewmodel':
         files[f'{tn}/MainViewModelTests.cs'] = main_viewmodel_tests_cs(ns)
+    if kind == 'presenter':
+        files[f'{tn}/MainPresenterTests.cs'] = main_presenter_tests_cs(ns)
+    return files
+
+
+def winforms_app_files(name, ns, tfm, uses, presenter_ns, presenter_in_app):
+    """WinForms のメイン (View)。presenter_in_app なら、IMainView / MainPresenter を、アプリの Presenters フォルダに置く。
+    構成: Program.cs (composition root) / Forms/ (Form と Designer) / Presenters/ (ロジック層がないとき)。"""
+    files = {
+        f'{name}/{name}.csproj': csproj_winforms(tfm, ns, uses),
+        f'{name}/Program.cs': program_cs(ns, [f'{ns}.Forms', presenter_ns]),
+        f'{name}/Forms/MainForm.cs': main_form_cs(ns, presenter_ns),
+        f'{name}/Forms/MainForm.Designer.cs': main_form_designer_cs(ns, name),
+    }
+    if presenter_in_app:
+        files.update(presenter_files(f'{name}/Presenters', presenter_ns))
     return files
 
 
@@ -696,19 +1066,21 @@ def read_lib_info(sln_dir, name):
             for m in re.findall(r'<ProjectReference\s+Include="([^"]+)"', text)]
     return {'ns': ns.group(1) if ns else None, 'tfm': tfm.group(1) if tfm else DEFAULT_TFM, 'uses': uses,
             'is_vm': os.path.isfile(os.path.join(sln_dir, name, 'MainViewModel.cs')),
+            'is_presenter': os.path.isfile(os.path.join(sln_dir, name, 'MainPresenter.cs')),
+            'is_app_presenter': os.path.isfile(os.path.join(sln_dir, name, 'Presenters', 'MainPresenter.cs')),
             'is_exe': bool(re.search(r'<OutputType>\s*(Win)?Exe\s*</OutputType>', text)),
             'is_test': 'Microsoft.NET.Test.Sdk' in text}
 
 
 def libraries_without_tests(sln_dir):
-    """テストプロジェクトのない、ライブラリ (exe とテストプロジェクトを除く) の名前の一覧。"""
+    """テストプロジェクトのない、ライブラリ (exe とテストプロジェクトを除く。ただし、アプリの Presenters/ に Presenter がある WinForms のアプリは含める) の名前の一覧。"""
     out = []
     for d in sorted(os.listdir(sln_dir)):
         p = os.path.join(sln_dir, d, f'{d}.csproj')
         if not os.path.isfile(p) or d.endswith('.Tests'):
             continue
         info = read_lib_info(sln_dir, d)
-        if info['is_exe'] or info['is_test']:
+        if info['is_test'] or (info['is_exe'] and not info['is_app_presenter']):   # WPF のアプリは除く。Presenter を持つ WinForms のアプリは、対象
             continue
         if os.path.exists(os.path.join(sln_dir, f'{d}.Tests')):
             continue
@@ -720,7 +1092,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('sln_dir')
     ap.add_argument('name')
-    ap.add_argument('--kind', choices=['lib', 'data', 'logic', 'viewmodel'], default='lib')
+    ap.add_argument('--kind', choices=['lib', 'data', 'logic', 'viewmodel', 'presenter'], default='lib')
     ap.add_argument('--tests', choices=['none', 'mstest'], default='mstest')
     ap.add_argument('--tests-only', action='store_true')
     ap.add_argument('--namespace')
@@ -748,7 +1120,7 @@ def main():
         if os.path.exists(os.path.join(sln_dir, f'{a.name}.Tests')):
             die(f'すでに存在する: {a.name}.Tests (何も書いていない)', 3)
         ns = a.namespace or info['ns'] or layer_namespace(root_ns, a.kind, a.name)
-        kind = 'viewmodel' if info['is_vm'] else a.kind
+        kind = 'viewmodel' if info['is_vm'] else ('presenter' if info['is_presenter'] else a.kind)
         tg = new_guid()
         files = test_files(a.name, ns, info['tfm'], a.mstest_version, a.testsdk_version, kind)
         projects = [(f'{a.name}.Tests', tg)]

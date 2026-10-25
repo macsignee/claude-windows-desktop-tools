@@ -33,6 +33,11 @@ h_passedwarn() {   # 成功でも警告があれば、PASSED の次の行に 1 �
     } > "$T/.claude-logs/warnings.log"
     printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"
 }
+h_passedstruct() {   # 構造化された結果 (trx) があれば、PASSED の次の行に、build: SUCCESS / tests: ... の要約が出るか
+    mkdir -p "$T/.claude-logs/test-results"
+    printf '%s' '<?xml version="1.0" encoding="utf-8"?><TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results><UnitTestResult testId="t1" testName="A" duration="00:00:00.001" outcome="Passed"/><UnitTestResult testId="t2" testName="B" duration="00:00:00.001" outcome="Passed"/></Results><TestDefinitions><UnitTest name="A" id="t1"><TestMethod className="N.C, X.Tests" name="A"/></UnitTest><UnitTest name="B" id="t2"><TestMethod className="N.C, X.Tests" name="B"/></UnitTest></TestDefinitions></TestRun>' > "$T/.claude-logs/test-results/X.Tests.trx"
+    printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"
+}
 h_failed()  {
     printf SUCCESS > "$T/build_result.txt"
     {
@@ -99,6 +104,7 @@ run_case() {  # $1=名前 $2=ハンドラ $3=timeout
 
 bash -n "$SCRIPT" && echo "syntax-ok"
 run_case "PASSED (expect rc=0)"                 h_passed
+run_case "PASSED with structured results (expect rc=0, 2nd line: build: SUCCESS / tests: 2 passed (X.Tests 2))" h_passedstruct
 run_case "PASSED with warnings (expect rc=0, 2nd line: warnings: 2 (1 unique): C4244 x2)" h_passedwarn
 run_case "FAILED (expect rc=1, names first)"    h_failed
 run_case "BUILD_FAILED (expect rc=6)"           h_buildfail

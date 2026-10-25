@@ -38,6 +38,7 @@ Claude Code (WSL)                              Windows
 | `wpf-test-first` | skills | WPF のテスト先行 (Red)。`PROJECT-LAYOUT.md` と、プロジェクト生成 `add_project.py` (`new-solution` も使う) (4.27) |
 | `add-package` | skills | パッケージの追加 (NuGet / vcpkg / ソースの取り込み)。ホスト側に、`trigger_package.flag` で実行させる (4.26) |
 | `wpf-check` | skills | WPF の静的検査 (バインディング・リソース・`InitializeComponent`・層)。読み取りだけ。Windows 不要 (4.25) |
+| `winforms-check` | skills | WinForms の静的検査 (`InitializeComponent`・`Designer.cs` の Name・層・スレッド)。読み取りだけ。Windows 不要 (4.30) |
 | `cpp-test-first` | skills | テストを先に書き、スタブで Red (正しい理由での失敗) を確認する。実行は `build-test-loop` のスクリプトを使う (スクリプトは持たない) |
 | `build_once.sh` / `build_test_once.sh` | skills/*/scripts | フラグを置き、完了マーカーを待ち、結果を1行目と終了コードで返す |
 
@@ -600,6 +601,39 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 **目で確かめるモード (2026-10-21、ユーザーの要望):** UI テストが、実際に動いているかを、確かめたい。操作できない時間は許容するので、ユーザーのデスクトップで実行したい。→ (1) `run_watcher_visible.cmd` (`WATCH_UI_DESKTOP=default` + `WATCH_UI_SLOWMO_MS=800`)。(2) ひな形 `UiTestBase` が、環境変数 `UITEST_SLOWMO_MS` で、要素を探すたびに待ち、ウィンドウを前面に出し、終了の前に最後の状態を見せる。(3) **操作の記録 (`ui-trace.txt`)** を、常に残し、`uitest_once.sh` が、テストごとの結果の行を出す (Claude も、動いたことを確認できる)。(4) ユーザーのデスクトップでは、PrintWindow が空白なら、画面のコピー (`Capture`) に切り替える。(5) 既存の UI テストのプロジェクトは、`add_ui_tests.py --refresh-support-files` で、ツールが持つファイルを最新にする。
 **決定済み・実装済み:** (1) 実行環境: 同じ PC、別のデスクトップ (既定)。(2) WinForms: 必要になったときに、別の PoC で確認。(3) 段階 1 (ウォッチャー、`uitest_once.sh`、スクリーンショット) と、段階 2 (ひな形、`new-solution --ui-tests flaui`、`wpf-check` UI002、`build-test-loop` の「UI テスト」) は、WPF で、実機で確認済み (TEST-PLAN UT1〜UT16)。
 **残り:** (a) ~~MFC (C++) への UI テスト (混在のソリューション)~~ → **UT18 で、実機で確認済み** (混在のビルド `SUCCESS`、UI テスト `PASSED`。MFC のコントロール ID が AutomationId)。混在での GoogleTest と MSTest の同時実行 (U9) は、未確認。(b) ~~`mfc-check` に、`IDC_STATIC` のままの操作対象の検査~~ → **UI004 として実装済み** (v2.5.2。UI テストのプロジェクトがあるときだけ。実プロジェクトで誤検出なし)。(c) **流れ (Green のあとに、UI テストを追加で実行) の確認** (UT19)。(d) WinForms。
+
+### 4.30 WinForms と C# の DLL への拡張 (2026-10-24 に開始)
+
+**決定 (ユーザー、2026-10-24):** (1) 段階分けは、**`csharp-dll` → `winforms` → UI テストの PoC → 検査・規約**。(2) 検査は **`winforms-check` を新規に作る** (`wpf_check.py` は XAML の検査が中心で、1,396 行ある。拡張しない)。規約は **`rules/winforms-csharp.md` を新規に作る**。(3) 層は **`data` / `logic` の 2 つだけ** (ViewModel 層は作らない)。画面の振る舞いは、`logic` 側のインターフェース (`IMainView` など) に出す (3. のダイアログのテストの `IDialogService` と同じ方向)。(4) UI テストは、UIA3 の FlaUI、`AutomationId` は `Name`。生成コードの前に、WinForms の PoC (別のデスクトップ、`Invoke`、`PrintWindow`) を行う (4.29 の決定のとおり)。
+
+**段階 1 の実装 (`--type csharp-dll`。v2.6.0。単体テストのみ。実機は未確認):**
+- メイン自身が、クラスライブラリ (`<フォルダ名>`、`net8.0`)。**テスト (`<メイン>.Tests`) の対象になる** (C++ の `dll` / `lib` と同じ考え方)。層がなくても、`--tests mstest` が使える。メインは、すべての層を参照する。
+- `--layers` は `data` / `logic` だけ。`--ui-tests` は、エラー (画面がない)。`.slnx` に `DefaultStartup` はない。
+- 経路は WPF と同じ (`create_wpf` を `csharp-dll` にも使う。`add_project.py` の `lib_files` / `test_files` を、そのまま使う)。後付けの `--tests mstest` も、既存の経路で、メイン自身を含めて動く。
+- `CLAUDE.md` は専用 (`claude_md_csharp_dll`)。C# の規約は、`wpf-csharp.md` の C# の部分を指す (WinForms の規約ができるまでの暫定ではなく、画面のない C# には、これで足りる)。
+
+**段階 2 の実装 (`--type winforms`。v2.7.0。単体テストのみ。コンパイルを含めて、実機は未確認):**
+- **MVP:** `Form` (`MainForm`) は `IMainView` (`PersonName` / `Greeting` / `CanClear` と、`NameChanged` / `ClearRequested` のイベント) を実装し、値の出し入れと通知だけをする。**振る舞いは `MainPresenter`** (WinForms の型を使わない)。ロジック層があれば、`IMainView` / `MainPresenter` はそこに置く (テストできる。`MainPresenterTests` は Fake の View で 4 件)。なければ、アプリの `Presenters/`。(`Form.Name` と衝突するので、名前は `PersonName`。)
+- `Program.cs` が composition root。`MainForm.Designer.cs` は VS の形 (`Name` を付ける。UI Automation の `AutomationId`。ハンドラーは Designer の `+=` と Form の名前をそろえる)。`Form` (View) は、WPF と同じく、テストしない。**層を持たない構成 (ロジック層なし) では、アプリの `Presenters/` が、テストの対象:** `--tests mstest` が、`<アプリ名>.Tests` (アプリを参照。TFM は `-windows`。参照先が `<TFM>-windows` のとき、テストが同じ TFM でないと、`NU1201` になるため) を作る。後付けも同じ。未確認の点 (実機): WinExe のプロジェクトを、テストプロジェクトから参照して、ビルド・実行できること (TEST-PLAN WF4 / WF6)。`--ui-tests flaui` は、PoC のあとに対応するため、今はエラー。
+- 生成コードの `using` は、`dotnet format` (IMPORTS) の並びに合わせる (System が先、残りは名前順。`Program.cs`)。Designer は、生成コード扱いで、Nullable の警告が出ない (実機で確認する: WF1)。
+
+**段階 3: WinForms の UI テスト (v2.8.0)。PoC (2026-10-25、実機、別のデスクトップ) の結果:**
+- **`AutomationId` = コントロールの `Name`。** `[Edit] id='NameTextBox'`、`[Text] id='GreetingLabel' name='<表示の文字>'`、`[Button] id='ClearButton' name='クリア'` (無効のときは `IsEnabled=False`)、`[Pane] id='MainTable'`。ウィンドウは `id='MainForm' name='<Form.Text>'`。
+- **UIA3 で、入力 → 挨拶の変化 → クリアが通る** (`ValuePattern` で入れた文字で、`TextChanged` が起き、Presenter が反応する。`Invoke` が動く)。**UIA2 も、7 手順すべて OK** (WPF では、別のデスクトップで UIA2 の `Invoke` が失敗した (4.29)。WinForms は、UIA2 が本来の UIA で、動く)。UIA3 を標準にする。
+- **`PrintWindow` が、内容を写した** (別のデスクトップでも。WPF のような白い画像にならない = **ハードウェアアクセラレーションの切り替えは、WinForms には要らない**)。起動 約 1.1 秒。
+- 気づいた点: UIA3 のテストの 1 枚だけ、右下のボタンが写っていなかった。v2.8.0 で、UIA の矩形と `GetWindowRect` の大きいほうに合わせたが、**効かなかった** (WF7 の実機で、失敗時のスクリーンショットが 380 x 230 で、ボタンが写っていなかった)。**原因: テストのプロセスが DPI 非対応で、矩形が縮小された値で返る (`GetWindowRect` も同じ)。** v2.9.1 で、起動時に Per-Monitor V2 の DPI 対応にし (`[ModuleInitializer]`)、できなかったときは `GetDpiForWindow` で拡大するようにした。修正の確認は、TEST-PLAN WF7 / WF8。
+- 実装: `add_ui_tests.py` が、`UseWindowsForms` の exe を `winforms` のアプリとして判定する。標準の `MainForm` (`Designer.cs` の `Name`) なら、入力 → 挨拶 → クリアのテスト。層の有無に関係なく使える (FlaUI は、アプリを参照しない)。作成と同時にも、後付けも、できる。
+
+**段階 4: `winforms-check` と規約 (v2.9.0。単体テストのみ):**
+- **`winforms-check` (新規の Skill。`wpf-check` を、拡張しない):** `wpf_check.py` は XAML (バインディング・リソース) の検査が中心で、1,400 行ある。WinForms には、XAML がなく、検査の対象が違う (`Designer.cs` の `InitializeComponent()`、`Name`、層、スレッド)。**共通の部分 (ファイルの読み込み、コメントと文字列の除去、ASY / EXC / NAM の規則、出力の形) は、複製した** (Skill は別々に配布されるため。共有のモジュールを作ると、配布の単位が崩れる)。
+- 検査は、**VS のデザイナーが書く形** (`x = new T();`、`x.Name = "x";`、`parent.Controls.Add(x)`) を前提にした軽い字句解析。**生成した `Designer.cs` は、指摘 0 件**。手で形を崩した `Designer.cs` は、誤検出・見逃しがありうる (SKILL.md の「限界」に記載)。
+- **何を検査するか (決めたこと):** 「コンパイルは通るが、黙って壊れる」ものと、規約のうち字面で判定できるもの。**コンパイルエラーになるもの (ハンドラーのメソッドの不足など) は、対象外** (ビルドが教える)。WinForms で、黙って壊れる代表: コンストラクターの `InitializeComponent()` の呼び忘れ (空の画面)、`Name` の重複・不一致・欠落 (UI テストの AutomationId)、`Controls.Add` の入れ忘れ、スレッドの誤り。
+- **`rules/winforms-csharp.md` (新規):** `wpf-csharp.md` の、C# の章 (5 / 10 / 12 / 13 / 15 / 16 / 17) は、共通で使い、**WPF / XAML / MVVM の章は、WinForms では適用しない**と、規約の冒頭に書いた。**限界:** 規約は、`paths` (`**/*.cs`) で読み込まれるので、**WinForms のプロジェクトでも、`wpf-csharp.md` が、読み込まれてしまう** (プロジェクトの種類では、絞れない)。そのため、`winforms-csharp.md` と、生成する `CLAUDE.md` に、「WPF の章は適用しない」と明記した。
+
+**VS のデザイナーが、生成した Form を認識しない問題 (v2.9.2。WF2 の実機で発見):** 生成直後の `MainForm.cs` は、VS で通常の `.cs` として扱われ、デザイナーが開けなかった。VS で新しい Form を追加すると、`.csproj.user` に `SubType` = `Form` が書かれ、`MainForm.resx` が作られ、開けるようになった (`.cs` と `.csproj` は変わらない)。**ファイルスコープの名前空間は、原因ではない。** 切り分け: `using System.Windows.Forms;` の明示だけ、`.csproj` の `SubType` だけ、のどちらでも、新しい（VS で未使用の）ソリューションで、開けた。**本当の原因は、どちらか分かっていない**ので、**両方を生成する** (害がない)。
+- **学び:** 生成物が、ビルドとテストを通るだけでは、不十分。**IDE の機能 (デザイナー) が、期待どおりに使えるかは、別に、実機で確認する**必要がある (WF2 / WC2)。
+
+**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) ~~WinForms の UI テストの PoC~~ → **実機で確認済み (上)**。生成した `<アプリ名>.UITests` の、ビルドと実行 (TEST-PLAN WF7 / WF8) は、未確認。(d) ~~`winforms-check` と `rules/winforms-csharp.md`~~ → 実装済み (上)。**実プロジェクトでの誤検出の確認 (TEST-PLAN 2-6) と、配布 (`install.sh`) は、未実施。**
 
 ## 5. ファイル形式
 

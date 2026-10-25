@@ -9,7 +9,7 @@ rem   run_watcher.cmd [ProjectDir] [Solution] [Platform] [Configuration]
 rem   （プロジェクトフォルダをこのファイルにドラッグ＆ドロップしても起動できる）
 rem
 rem   ProjectDir     : 省略時は、このファイルがあるフォルダ（通常は、プロジェクトのフォルダを指定する）
-rem   Solution       : 省略時は、ProjectDir 内の .slnx、なければ .sln を自動検出する
+rem   Solution       : 省略時は、ProjectDir 内の .slnx、なければ .sln を自動検出する (ソリューションが、まだなくても起動できる。トリガーが来たときに探す)
 rem   Platform       : 省略時は auto  (auto / x64 / Win32 / x86 / ARM64 / AnyCPU)
 rem                    auto は、C++ のプロジェクトがあれば x64、.NET だけなら AnyCPU
 rem   Configuration  : 省略時は Debug
@@ -62,13 +62,17 @@ if defined FOUND_SLNX (
 ) else (
     set "SLN_FILE=%FOUND_SLN%"
 )
-rem --- ここまでで、ソリューションが決まっていなければ終了する ---
+rem --- ここまでで、ソリューションが決まっていなくても、起動する (ウォッチャーが、トリガーが来たときに探す) ---
+rem ただし、フォルダの引数がなく、このファイルのフォルダを使っているときは、指定ミスの可能性が高いので、終了する。
 :sln_ready
-if not defined SLN_FILE (
+if not defined SLN_FILE if defined DEFAULT_DIR (
     echo ERROR: no .sln / .slnx found in %PROJECT_DIR%
-    if defined DEFAULT_DIR echo NOTE: no ProjectDir argument was given, so the folder of this cmd was used.
+    echo NOTE: no ProjectDir argument was given, so the folder of this cmd was used.
     goto :fail_usage
 )
+rem ソリューションがあれば、-SolutionPath を渡す。なければ、渡さない (ウォッチャーが、トリガーのたびに、フォルダから探す)。
+set "SLN_ARG="
+if defined SLN_FILE set SLN_ARG=-SolutionPath "%SLN_FILE%"
 
 rem --- ビルド構成。省略時は、Platform=x64、Configuration=Debug ---
 set "WATCH_PLATFORM=%~3"
@@ -86,14 +90,15 @@ if not exist "%WATCH_PS%" (
 rem --- 起動する内容を表示する ---
 echo ========================================================
 echo  Project : %PROJECT_DIR%
-echo  Solution: %SLN_FILE%
+if defined SLN_FILE echo  Solution: %SLN_FILE%
+if not defined SLN_FILE echo  Solution: ^(none yet - detected when a trigger arrives^)
 echo  Build   : %WATCH_CONFIG% / %WATCH_PLATFORM%
 echo ========================================================
 
 rem --- ウォッチャーを起動する。終了するまで（ウィンドウを閉じるか Ctrl+C まで）ここで待つ ---
 rem -ExecutionPolicy Bypass: ExecutionPolicy の設定に関係なく、この ps1 を実行する。
 rem テスト実行の制限時間など、ここにない細かいオプションを使うときは、ps1 を直接起動する。
-powershell -ExecutionPolicy Bypass -NoProfile -File "%WATCH_PS%" -TargetDir "%PROJECT_DIR%" -SolutionPath "%SLN_FILE%" -Platform "%WATCH_PLATFORM%" -Configuration "%WATCH_CONFIG%"
+powershell -ExecutionPolicy Bypass -NoProfile -File "%WATCH_PS%" -TargetDir "%PROJECT_DIR%" %SLN_ARG% -Platform "%WATCH_PLATFORM%" -Configuration "%WATCH_CONFIG%"
 echo.
 echo Watcher exited with code %ERRORLEVEL%.
 rem 終了メッセージを読めるよう、キー入力まで待つ。

@@ -52,6 +52,7 @@ run_watcher.cmd <プロジェクトフォルダ> [ソリューション] [Platfo
 ```
 - 引数なしで起動すると、`run_watcher.cmd` があるフォルダが対象になります。
 - ソリューション省略時は、フォルダ内の `.slnx`、なければ `.sln` を自動検出します (両方ある場合は `.slnx` を使い、メッセージを出します)。
+- **ソリューションが、まだなくても、起動できます** (`new_solution.py` で作る前に、ウォッチャーを起動しておける)。起動時のヘッダーの `Target` に `(no .sln / .slnx ... yet: it is detected when a trigger arrives)` と出ます。**ソリューションは、トリガー (ビルド・テスト・UI テストのフラグ) が来るたびに、フォルダから探し直します** (起動後に作った・プロジェクトを足した、場合も、再起動は要りません)。トリガーが来たときに、まだなければ、ビルドせずに、`build_result.txt` = `FAILED`、`build_error.log` の先頭が `[ENVIRONMENT ERROR ...]` と `ERROR: no .sln / .slnx found in ...` になります (テストのトリガーのときは `test_result.txt` = `BUILD_FAILED`)。**ただし、引数なしで起動した (`run_watcher.cmd` のあるフォルダが対象になる) ときに、ソリューションがなければ、指定ミスの可能性が高いので、従来どおり、エラーで終了します。**
 - Platform: `auto` (既定: C++ のプロジェクトがあれば `x64`、.NET だけなら `AnyCPU`) / `x64` / `Win32` / `x86` / `ARM64` / `AnyCPU`。Configuration: `Debug` (既定) / `Release` など。
 - **1つのウォッチャーは、1つのプロジェクトフォルダ・1つの Platform/Configuration 専用です。** 別のプロジェクトは、別のウィンドウで起動します。
 - **同じプロジェクトフォルダで、ウォッチャーを二重には起動できません。** 2つ目は、`ERROR: a watcher is already running for this folder` と出て、終了コード 3 で終了します (1つ目が、そのまま使われます)。
@@ -193,7 +194,8 @@ test_error.log
 | ビルド/テストが途中で止まる。ウィンドウのタイトルに `選択` と出る | コンソールをクリックすると出力が一時停止する (クイック編集)。Enter か Esc で再開。起動時のヘッダーが `QuickEdit : disabled` なら発生しない (`not changed` なら Windows Terminal などで無効化できていない。従来のコンソールで起動する) |
 | `ERROR: no .sln / .slnx found in <cmd のあるフォルダ>` | 引数なしで起動したため、`run_watcher.cmd` のあるフォルダが対象になった。プロジェクトのフォルダを、引数で渡す (例: `run_watcher.cmd C:\path\to\MyApp`、またはプロジェクトのフォルダから `run_watcher.cmd .`) |
 | `ERROR: a watcher is already running for this folder` (終了コード 3) | 同じプロジェクトフォルダで、すでに別のウォッチャーが動いている。そのウィンドウを使うか、閉じてから、起動し直す。見当たらない場合は、最小化されたウィンドウや、別のユーザーのセッションを、確認する |
-| `パラメーター 'SolutionPath' の引数が指定されていません` | ソリューションが空で渡っている。フォルダに `.sln` / `.slnx` があるか、`run_watcher.cmd` の第2引数で指定する |
+| `パラメーター 'SolutionPath' の引数が指定されていません` | (古い版のウォッチャー) ソリューションが空で渡っている。最新版では、省略できる (トリガーのときに、フォルダから探す)。古い版なら、フォルダに `.sln` / `.slnx` があるか、`run_watcher.cmd` の第2引数で指定する |
+| ビルドのトリガーを置くと、`ERROR: no .sln / .slnx found in ...` (`build_result.txt` = `FAILED`) | ウォッチャーが見ているフォルダに、まだソリューションがない。`new_solution.py` で作ってから、もう一度トリガーを置く (ウォッチャーの再起動は、不要)。フォルダが違うなら、ヘッダーの `Target` の行 (またはフォルダ名) を、確かめる |
 | `ParserError` や、ps1 の日本語の文字化け | `.ps1` の BOM が落ちている。BOM 付き UTF-8 で保存し直す |
 | `.cmd` のコメントが文字化けする、`'xxx' は、内部コマンドまたは外部コマンド...` のようなエラーが出る | `.cmd` が UTF-8 などで保存し直された。CP932 (Shift_JIS) で保存し直す |
 | `ENV_ERROR` (テストが見つからない) | C++: ビルド構成 (Platform/Configuration) と、`<ソリューション>\<x64\|Win32\|ARM64>\<Configuration>\` に exe があるか、`-TestExePattern` が名前に合っているかを確認。.NET: テストプロジェクトが、ソリューションに入っているか、`Microsoft.NET.Test.Sdk` を参照しているか (名前が `Test` / `Tests` で終わるかでも、拾われる) |

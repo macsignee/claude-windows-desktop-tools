@@ -21,6 +21,7 @@ disable-model-invocation: true
   | 設定 | 進め方 |
   |---|---|
   | `テスト: あり (GoogleTest)` (C++) | 計画 → 承認 → **テスト先行 (Red) → テストの確認 → 実装 (Green)** → 検証 (`cpp-test-first`) |
+  | `テスト: あり (MSTest)` (WinForms) | 同上 (`wpf-test-first`)。**Form は、テストしない**。画面の振る舞いは、Presenter に置いて、`IView` の Fake でテストする。実装のあと、`winforms-check` で、静的に検査する |
   | `テスト: あり (MSTest)` (WPF) | 同上 (`wpf-test-first`)。**View (XAML / code-behind) は、テストしない**。実装のあと、`wpf-check` で、静的に検査する |
   | `テスト: なし` | 計画 → 承認 → **実装 → ビルド確認 → 手動確認** → 報告 (Red / Green は、ない) |
 

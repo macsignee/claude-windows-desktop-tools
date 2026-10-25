@@ -4,7 +4,7 @@
 # Usage: uitest_once.sh <solution_dir> [timeout_sec=900]
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
 #
-# build_test_once.sh と同じ出力 (1行目と終了コード) の、UI テスト版。違いは次のとおり。
+# build_test_once.sh と同じ出力 (1行目と終了コード。PASSED のときの要約の行も同じ) の、UI テスト版。違いは次のとおり。
 #   - フラグは trigger_uitest.flag。実行するのは、UI テストのプロジェクト (名前が UITests / UiTests で終わる、または FlaUI を参照)
 #     だけ。通常のテスト (trigger_test.flag) からは、UI テストのプロジェクトは、除かれる。
 #   - 既定の制限時間は 900 秒 (アプリの起動と操作を含むため)。ウォッチャー側の制限は、-UiTestTimeoutSec (既定 600、プロジェクトごと)。
