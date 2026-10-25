@@ -5,7 +5,7 @@
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
 #
 # 標準出力の1行目と終了コード:
-#   PASSED               rc=0  ビルド成功・全テスト成功
+#   PASSED               rc=0  ビルド成功・全テスト成功 (2 行目に、`build: SUCCESS / tests: 6 passed (...)` の要約。警告があれば、その次の行に件数)
 #   FAILED               rc=1  テスト失敗 (失敗テスト一覧 + 詳細)
 #   BUILD_FAILED         rc=6  ビルド失敗 (build_error.log)
 #   TEST_TIMEOUT         rc=7  テストがホスト側の制限時間内に終わらない (無限ループ等の疑い)
@@ -80,6 +80,17 @@ show_warnings_line() {
     return 0
 }
 
+# 成功時の要約の 1 行 (PASSED の次の行): build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)
+# 構造化された結果 (trx / XML) がなければ、何も出さない。失敗しても、結果には影響しない。
+show_passed_line() {
+    local here line
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    command -v python3 >/dev/null 2>&1 || return 0
+    line="$(python3 -I "$here/summarize_test_log.py" --passed-line --results-dir "$DIR/.claude-logs/test-results" --root "$DIR" 2>/dev/null)" || return 0
+    [ -n "$line" ] && echo "build: SUCCESS / $line"
+    return 0
+}
+
 first_line_is_env_error() {  # $1=file
     [ -f "$1" ] && head -n 1 "$1" | sed 's/^\xEF\xBB\xBF//' | grep -q '^\[ENVIRONMENT ERROR'
 }
@@ -119,6 +130,7 @@ STATUS="$(tr -d '\r\n ' < "$TEST_RESULT")"
 case "$STATUS" in
     PASSED)
         echo "PASSED"
+        show_passed_line
         show_warnings_line
         exit 0
         ;;

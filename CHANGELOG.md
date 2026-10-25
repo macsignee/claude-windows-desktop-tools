@@ -2,12 +2,19 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.10.1] 2026-10-25 (Skill 側。`build_test_once.sh` の成功時の要約。単体テストのみ。再配置のあとの実機確認は未実施)
+
+- **`build_test_once.sh` が、`PASSED` のとき、2 行目に、要約の 1 行を出す:** `build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)` (スキップがあれば `6 passed, 1 skipped`。ソースが 6 つを超えれば `... +N more`)。**1 行目の `PASSED` と、終了コードは、変えない** (Skill が読むのは 1 行目)。以前は、`PASSED` の 1 行だけで、テストの件数を知るために、ログファイルを別に読む必要があった。警告の行は、その次。`uitest_once.sh` も、同じ (`build_test_once.sh` を呼ぶため)。
+- `summarize_test_log.py` に、`--passed-line --results-dir <dir>` を追加 (構造化された結果 (trx / GoogleTest の XML) から、1 行を出す。結果が 1 件もなければ、終了コード 3 で何も出さない。`<test_error.log>` は要らない)。`build_test_once.sh` の `show_passed_line` が呼ぶ。
+- テスト: `tests/summarize_test_log_test.sh` (9 件追加。43 件)、`tests/fake_watcher_test.sh` (構造化された結果つきの PASSED のケースを追加)。
+- `build-test-loop/SKILL.md` の `PASSED` の説明を更新。
+
 ## [2.10.0] 2026-10-25 (ホスト側の変更。Linux では検証できない。単体の静的テストのみ。実機は未確認)
 
 - **ウォッチャーが、ソリューション (`.sln` / `.slnx`) がなくても起動でき、トリガーのたびに、フォルダから探し直す:** これまでは、起動時に、ソリューションを探して、なければ終了していた。そのため、`new_solution.py` で作る**前**には、ウォッチャーを起動できず、生成のあとに、起動し直す手間があった (実機の確認で、何度も、ここで止まった: `WATCHER_NOT_RUNNING`)。
   - `watch_and_build.ps1`: `-SolutionPath` を、省略可能にした (明示したときは、従来どおり。存在しなければ、終了コード 2)。**`Update-SolutionState`** (新規) が、ソリューションのパス・フォルダ・プロジェクトの一覧・C++ / .NET の判定・Platform (`auto` の解決)・ビルドの機能 (`cpp` / `restore`)・種類の表示を、まとめて決め直す。起動時と、**ビルド / テスト / UI テスト / GoogleTest 取得 / パッケージの、各トリガーが来るたび**に、呼ぶ (起動後に、ソリューションができた・プロジェクトが増えた場合も、再起動が要らない。**以前は、プロジェクトの一覧だけを読み直していたので、C++ だけで起動したあとに、.NET の UI テストを足すと、`restore` が付かない可能性があった。これも、直る**)。`Find-SolutionFile` は、`.slnx` を優先し、`.sln` は拡張子を厳密に確認する (8.3 の短い名前で、`*.sln` が `.slnx` に一致する問題)。
   - **トリガーが来たときに、ソリューションがなければ、ビルドせずに、環境エラー (終了コード 2) として返す** (`build_result.txt` = `FAILED`、`build_error.log` の先頭が `[ENVIRONMENT ERROR ...]` と `ERROR: no .sln / .slnx found in ...`。テストのトリガーなら、`test_result.txt` = `BUILD_FAILED`)。契約 (結果の値・終了コード) は変えない。Skill 側のスクリプトも、変えない。 (`build_once.sh` は、`[ENVIRONMENT ERROR` で始まる `build_error.log` を、`ENV_ERROR` (終了コード 4) として返す。)
-  - **実機で確認 (H1〜H4、2026-10-25、`LazySln`):** 空のフォルダで起動 → 生成の前のトリガーは、`FAILED` (環境エラー) で、ウォッチャーは終了しない → 生成 → 再起動なしで、ビルド `SUCCESS`・テスト `PASSED`・UI テスト `PASSED` (3 件)。**H6 (従来の使い方: 既存のソリューションのフォルダで起動) も確認:** ヘッダーにソリューションのパスと種類が出て、ビルド `SUCCEEDED`、テスト `PASSED` (6 件)。H5 / H7 / H8 は、未確認。
+  - **実機で確認 (H1〜H4、2026-10-25、`LazySln`):** 空のフォルダで起動 → 生成の前のトリガーは、`FAILED` (環境エラー) で、ウォッチャーは終了しない → 生成 → 再起動なしで、ビルド `SUCCESS`・テスト `PASSED`・UI テスト `PASSED` (3 件)。**H6 (従来の使い方: 既存のソリューションのフォルダで起動) も確認:** ヘッダーにソリューションのパスと種類が出て、ビルド `SUCCEEDED`、テスト `PASSED` (6 件)。**H5 (引数なしの起動は、従来どおり、エラーで終了) も確認。** H7 / H8 は、未確認 (任意)。
   - `run_watcher.cmd`: ソリューションが見つからなくても、起動する (`-SolutionPath` を、見つかったときだけ渡す)。**ただし、フォルダの引数なしで起動して (`run_watcher.cmd` のあるフォルダが対象になる)、ソリューションがないときは、指定ミスの可能性が高いので、従来どおり、エラーで終了する。**
   - **自動のつながり:** ビルド、テスト、UI テストの各トリガーが、それぞれ、今までどおり動く (ビルドのあとにテスト、など)。トリガーを、自動で連鎖させる仕組みは、入れていない。
 - 検証: `tests/host_tools_static_test.sh` (16 件): 構造の静的な確認 (BOM・CRLF・CP932、`-SolutionPath` が省略可能、`Update-SolutionState` が 4 か所で呼ばれる、ソリューションがないときのビルドの分岐、括弧の対応、`.cmd` の `SLN_ARG`)。**PowerShell が使えないので、実行は未確認** (TEST-PLAN H 系)。

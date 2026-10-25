@@ -3,6 +3,7 @@
 
 Usage: summarize_test_log.py <test_error.log> [--results-dir <dir>] [--root <dir>]
                              [--json <out.json>] [--max-lines 40]
+       summarize_test_log.py --passed-line --results-dir <dir>      (成功時の 1 行。下記)
 
 入力は 2 通り (読み取り専用。元のファイルは変えない):
   1. 構造化された結果 (優先): --results-dir に置かれた、テストランナーの機械可読な出力。
@@ -23,6 +24,11 @@ Usage: summarize_test_log.py <test_error.log> [--results-dir <dir>] [--root <dir
 
 BOM / CR は取り除く。標準出力は最大 --max-lines 行・1 行 400 文字。
 失敗したテストが 1 つも解釈できなければ、終了コード 3 で何も出さない (呼び出し側が、従来の表示に切り替える)。
+
+--passed-line (成功時の要約。<test_error.log> は、要らない): --results-dir の、構造化された結果から、1 行だけ出す。
+    tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)        スキップがあれば: tests: 6 passed, 1 skipped (...)
+  失敗があれば (呼び出し側の誤用)、failed の件数も出す。構造化された結果が 1 件もなければ、終了コード 3 で何も出さない。
+  build_test_once.sh が、PASSED の次の行に、`build: SUCCESS / ` を付けて出す (1 行目の PASSED は変えない。Skill が読むのは 1 行目)。
 """
 import argparse
 import glob
@@ -288,6 +294,23 @@ def totals(results):
     return c
 
 
+def passed_line(results, max_sources=6):
+    """成功時の 1 行: tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)。ソースごとの件数は、出現順。"""
+    c = totals(results)
+    parts = [f"{c['passed']} passed"]
+    if c["failed"]:
+        parts.append(f"{c['failed']} failed")
+    if c["skipped"]:
+        parts.append(f"{c['skipped']} skipped")
+    per = OrderedDict()
+    for r in results:
+        per[r["source"]] = per.get(r["source"], 0) + 1
+    items = [f"{name} {n}" for name, n in per.items()]
+    if len(items) > max_sources:
+        items = items[:max_sources] + [f"... +{len(items) - max_sources} more"]
+    return "tests: " + ", ".join(parts) + (" (" + ", ".join(items) + ")" if items else "")
+
+
 def render(failed, counts, groups, other, max_lines):
     suites = OrderedDict()
     for t in failed:
@@ -347,13 +370,22 @@ def to_json(results, failed, groups, other, structured):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("log")
+    ap.add_argument("log", nargs="?")
+    ap.add_argument("--passed-line", action="store_true")
     ap.add_argument("--results-dir")
     ap.add_argument("--root")
     ap.add_argument("--json")
     ap.add_argument("--max-lines", type=int, default=40)
     a = ap.parse_args()
     root = os.path.abspath(a.root) if a.root else None
+    if a.passed_line:
+        results, _other = load_structured(a.results_dir, root)
+        if not results:
+            return 3
+        sys.stdout.write(passed_line(results) + "\n")
+        return 0
+    if not a.log:
+        ap.error("the following arguments are required: log (or use --passed-line)")
     try:
         with open(a.log, encoding="utf-8-sig", errors="replace") as f:
             text = f.read()
