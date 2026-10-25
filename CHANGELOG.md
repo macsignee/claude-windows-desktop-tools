@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.11.0] 2026-10-25 (Skill 側。`/brainstorm` → `/update-from-ideas` の成果を、`new_solution.py --spec` が、積極的に取り込む。単体テストのみ。実機は未確認)
+
+- **構成案のキーを拡張:** `UIテスト` (`none` | `flaui`)、`TFM` (.NET のみ。C++ では、注意を出して、読み飛ばす) を、`--spec` が読む。`層` は、`logic:OrderLogic,data` のように、名前つきでも書ける (従来から動いたが、書式を、`update-from-ideas` に明記した)。
+- **仕様書の取り込み (新規 `scripts/spec_import.py`):** 新規作成のとき、`--spec` が、(1) 仕様書と `元:` のメモを `docs/specs/`・`docs/ideas/` に置く (すでにあれば何もしない)、(2) 「具体例」「境界値と異常系」の表から、テストケースの種 `docs/specs/<名前>.cases.md` を作る (E1.. / B1..。既存なら上書きしない)、(3) `CLAUDE.md` に「## 仕様書」の節を足す。`--dry-run` は、予定だけを示す。
+- `update-from-ideas` の構成案の説明に、`winforms` / `csharp-dll` (層は logic / data のみ)、UIテスト、TFM を追加。`add-feature` は、ケースの種 (`.cases.md`) を読み、WinForms / C# DLL も対象と明記。
+- テスト: `tests/new_solution_spec_import_test.sh` (新規)。
+
 ## [2.10.1] 2026-10-25 (Skill 側。`build_test_once.sh` の成功時の要約。単体テストのみ。再配置のあとの実機確認は未実施)
 
 - **`build_test_once.sh` が、`PASSED` のとき、2 行目に、要約の 1 行を出す:** `build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)` (スキップがあれば `6 passed, 1 skipped`。ソースが 6 つを超えれば `... +N more`)。**1 行目の `PASSED` と、終了コードは、変えない** (Skill が読むのは 1 行目)。以前は、`PASSED` の 1 行だけで、テストの件数を知るために、ログファイルを別に読む必要があった。警告の行は、その次。`uitest_once.sh` も、同じ (`build_test_once.sh` を呼ぶため)。

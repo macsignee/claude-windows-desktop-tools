@@ -1,6 +1,6 @@
 ---
 name: add-feature
-description: 確定した仕様書 (docs/specs/<機能名>.md) から、計画 → ユーザーの承認 → テスト先行 (Red) → 実装 (Green) → 検証 まで、承認のゲートを挟んで進める。C++ (Visual Studio) と WPF (.NET、MVVM) のソリューションで使う。層・テストの有無は、CLAUDE.md の設定 (テスト: あり (GoogleTest) / あり (MSTest) / なし) に従って、進め方が切り替わる。「機能を追加して」「TDD で作って」という依頼で使う。仕様がなければ /brainstorm を先に行う。
+description: 確定した仕様書 (docs/specs/<機能名>.md) から、計画 → ユーザーの承認 → テスト先行 (Red) → 実装 (Green) → 検証 まで、承認のゲートを挟んで進める。C++ (Visual Studio)、WPF (.NET、MVVM)、WinForms (MVP)、C# クラスライブラリのソリューションで使う。層・テストの有無は、CLAUDE.md の設定 (テスト: あり (GoogleTest) / あり (MSTest) / なし) に従って、進め方が切り替わる。「機能を追加して」「TDD で作って」という依頼で使う。仕様がなければ /brainstorm を先に行う。
 argument-hint: "[仕様書のパス]"
 disable-model-invocation: true
 ---
@@ -55,6 +55,7 @@ python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$PWD" --check-git
 - **仕様書がない、または `状態: 下書き` / `変更あり (要再確定)` / 未決事項が残っている場合は、実装に進まない。** **`/brainstorm` のメモ (`docs/ideas/`) だけがあって、仕様書がない場合は、`/update-from-ideas` で、整理して、仕様書にするよう案内する。** メモがない場合は、`/brainstorm` から。
 - 仕様書に `変更履歴` があり、**すでに実装・テストがある場合**は、変更分 (変更履歴と、既存のテストの差) だけを、計画にする。全部を、作り直さない。
 - 仕様書を読んで、**どの層に、何を作るか**を把握する (ロジック層 / データ層 / UI 層)。
+- **`docs/specs/<機能名>.cases.md` (テストケースの種。`/new-solution --spec` が作る) があれば、それも読む。** 計画のテストケース (手動の確認項目) は、この E / B の番号と対応させる (`E1` → `Total_100x3_8percent_Returns324` など)。**種にない具体例・境界値が、仕様書の表にあれば、種に足す。** 計画が承認されて、テストを書いたら、種のチェックを付ける。
 
 ### 1. 現状を確認する (読み取りだけ)
 - 改行コードの規則 (`.gitattributes`) の確認は、**手順の最初 (0a.)** で済ませてある。
