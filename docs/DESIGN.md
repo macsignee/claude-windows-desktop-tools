@@ -621,7 +621,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **`AutomationId` = コントロールの `Name`。** `[Edit] id='NameTextBox'`、`[Text] id='GreetingLabel' name='<表示の文字>'`、`[Button] id='ClearButton' name='クリア'` (無効のときは `IsEnabled=False`)、`[Pane] id='MainTable'`。ウィンドウは `id='MainForm' name='<Form.Text>'`。
 - **UIA3 で、入力 → 挨拶の変化 → クリアが通る** (`ValuePattern` で入れた文字で、`TextChanged` が起き、Presenter が反応する。`Invoke` が動く)。**UIA2 も、7 手順すべて OK** (WPF では、別のデスクトップで UIA2 の `Invoke` が失敗した (4.29)。WinForms は、UIA2 が本来の UIA で、動く)。UIA3 を標準にする。
 - **`PrintWindow` が、内容を写した** (別のデスクトップでも。WPF のような白い画像にならない = **ハードウェアアクセラレーションの切り替えは、WinForms には要らない**)。起動 約 1.1 秒。
-- 気づいた点: UIA3 のテストの 1 枚だけ、右下のボタンが写っていなかった (撮影の範囲が、狭い)。UIA の矩形と `GetWindowRect` の大きいほうに合わせるよう、ひな形 (`Screenshots.cs`) を直した。原因は未確定 (DPI の違いを疑う)。
+- 気づいた点: UIA3 のテストの 1 枚だけ、右下のボタンが写っていなかった。v2.8.0 で、UIA の矩形と `GetWindowRect` の大きいほうに合わせたが、**効かなかった** (WF7 の実機で、失敗時のスクリーンショットが 380 x 230 で、ボタンが写っていなかった)。**原因: テストのプロセスが DPI 非対応で、矩形が縮小された値で返る (`GetWindowRect` も同じ)。** v2.9.1 で、起動時に Per-Monitor V2 の DPI 対応にし (`[ModuleInitializer]`)、できなかったときは `GetDpiForWindow` で拡大するようにした。修正の確認は、TEST-PLAN WF7 / WF8。
 - 実装: `add_ui_tests.py` が、`UseWindowsForms` の exe を `winforms` のアプリとして判定する。標準の `MainForm` (`Designer.cs` の `Name`) なら、入力 → 挨拶 → クリアのテスト。層の有無に関係なく使える (FlaUI は、アプリを参照しない)。作成と同時にも、後付けも、できる。
 
 **段階 4: `winforms-check` と規約 (v2.9.0。単体テストのみ):**

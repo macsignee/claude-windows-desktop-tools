@@ -274,9 +274,31 @@ internal static class AppLocator
 }
 '''
 
-SHOTS_CS = '''using System.Runtime.InteropServices;
+SHOTS_CS = '''using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace __NS__.UITests;
+
+/// <summary>
+/// テストのプロセスを、DPI 対応 (Per-Monitor V2) にする。アセンブリの読み込み時に、1 回だけ (ウィンドウや UI Automation を使う前)。
+/// 非対応のままだと、UI Automation の矩形が縮小されて、スクリーンショットの右下が切れる。
+/// </summary>
+internal static class DpiAwareness
+{
+    [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+
+    [ModuleInitializer]
+    internal static void Enable()
+    {
+        try
+        {
+            SetProcessDpiAwarenessContext(new IntPtr(-4));   // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2。すでに決まっていれば、失敗するだけ
+        }
+        catch (Exception)
+        {
+        }
+    }
+}
 
 /// <summary>
 /// ウィンドウのスクリーンショットを、PNG で保存する (WSL の Claude が、画像として読める)。
@@ -288,6 +310,8 @@ internal static class Screenshots
 {
     [DllImport("user32.dll")] private static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool IsProcessDPIAware();
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -311,13 +335,21 @@ internal static class Screenshots
         var path = Path.Combine(Dir, name + "-window.png");
         var hwnd = window.Properties.NativeWindowHandle.ValueOrDefault;
         var r = window.BoundingRectangle;
-        // UIA の矩形と、ウィンドウ自身の矩形 (GetWindowRect) の、大きいほうに合わせる (DPI の違いで、UIA の矩形が小さいと、右下が切れる。WinForms の PoC で、1 枚だけ、ボタンが切れた)
+        // UIA の矩形と、ウィンドウ自身の矩形 (GetWindowRect) の、大きいほうに合わせる
         var width = r.Width;
         var height = r.Height;
         if (GetWindowRect(hwnd, out var wr))
         {
             width = Math.Max(width, wr.Right - wr.Left);
             height = Math.Max(height, wr.Bottom - wr.Top);
+        }
+        // このプロセスが DPI 非対応だと、矩形は、縮小された値で返る (PrintWindow は、実際の大きさで描くので、右下が切れる。実機で確認)。
+        // 起動時に DPI 対応にしている (DpiAwareness) が、できなかったときは、対象のウィンドウの DPI で、拡大する。
+        var dpi = GetDpiForWindow(hwnd);
+        if (dpi > 96 && !IsProcessDPIAware())
+        {
+            width = (int)Math.Ceiling(width * dpi / 96.0);
+            height = (int)Math.Ceiling(height * dpi / 96.0);
         }
         using var bmp = new System.Drawing.Bitmap(Math.Max(1, width), Math.Max(1, height));
         using (var g = System.Drawing.Graphics.FromImage(bmp))
