@@ -243,6 +243,12 @@ def csproj_winforms(tfm, root_ns, refs):
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>{root_ns}</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="Forms\\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+  </ItemGroup>
 {ref_block}
 </Project>
 '''
@@ -736,8 +742,11 @@ internal static class Program
 
 
 def main_form_cs(ns, presenter_ns):
-    usings = f'using {presenter_ns};\n\n' if presenter_ns != f'{ns}.Forms' else ''
-    return f'''{usings}namespace {ns}.Forms;
+    # using System.Windows.Forms を、明示する (ImplicitUsings に頼ると、VS が Form と認識しなかった。実機で確認)。System が先、残りは名前の順
+    usings = "\n".join(f"using {u};" for u in ["System.Windows.Forms"] + sorted({presenter_ns}))
+    return f'''{usings}
+
+namespace {ns}.Forms;
 
 /// <summary>メイン画面。View 固有の処理だけを書く (業務ロジックは、Presenter に置く)。</summary>
 public partial class MainForm : Form, IMainView

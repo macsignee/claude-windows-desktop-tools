@@ -95,6 +95,7 @@ Solution/
   - `InitializeComponent()` は、`*.Designer.cs` に置く (`winforms-check` の WFD006)。
   - 生成したコントロールは、`Controls.Add` / `AddRange` で、親に入れる (入れないと、画面に出ない。`winforms-check` の WFD004)。
   - 各コントロールの `// 名前` のコメントの形、`SuspendLayout` / `ResumeLayout` の対を、保つ。
+- **Form のファイルは、Visual Studio に Form と認識させる。** `using System.Windows.Forms;` を**明示**し (`ImplicitUsings` に頼らない)、`.csproj` に `<Compile Update="Forms\<名前>.cs"><SubType>Form</SubType></Compile>` を書く。**どちらかが欠けると、Solution Explorer で通常の `.cs` のアイコンになり、「デザイナーの表示」が出ないことがある** (実機で確認。VS で新しい Form を追加すると、`.csproj.user` に `SubType` が書かれて、開けるようになる)。生成される `MainForm` は、両方を持つ。Form を手で足すときは、VS の「新しい項目」で足すのが確実。
 - **Form のコンストラクターは、`InitializeComponent()` を呼ぶ。** 忘れると、画面が空になり、例外も出ない (`winforms-check` の WFD001)。
 - **イベントハンドラーは、Designer の `+=` と、Form のメソッド名を、そろえる** (名前を変えたら、両方を直す。食い違うと、`CS0103` でビルドに失敗する)。ハンドラーの名前は、`<コントロール名>_<イベント名>` (`ClearButton_Click`)。
 - ハンドラーは、**Presenter へのイベント通知だけ**にする。

@@ -630,6 +630,9 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **何を検査するか (決めたこと):** 「コンパイルは通るが、黙って壊れる」ものと、規約のうち字面で判定できるもの。**コンパイルエラーになるもの (ハンドラーのメソッドの不足など) は、対象外** (ビルドが教える)。WinForms で、黙って壊れる代表: コンストラクターの `InitializeComponent()` の呼び忘れ (空の画面)、`Name` の重複・不一致・欠落 (UI テストの AutomationId)、`Controls.Add` の入れ忘れ、スレッドの誤り。
 - **`rules/winforms-csharp.md` (新規):** `wpf-csharp.md` の、C# の章 (5 / 10 / 12 / 13 / 15 / 16 / 17) は、共通で使い、**WPF / XAML / MVVM の章は、WinForms では適用しない**と、規約の冒頭に書いた。**限界:** 規約は、`paths` (`**/*.cs`) で読み込まれるので、**WinForms のプロジェクトでも、`wpf-csharp.md` が、読み込まれてしまう** (プロジェクトの種類では、絞れない)。そのため、`winforms-csharp.md` と、生成する `CLAUDE.md` に、「WPF の章は適用しない」と明記した。
 
+**VS のデザイナーが、生成した Form を認識しない問題 (v2.9.2。WF2 の実機で発見):** 生成直後の `MainForm.cs` は、VS で通常の `.cs` として扱われ、デザイナーが開けなかった。VS で新しい Form を追加すると、`.csproj.user` に `SubType` = `Form` が書かれ、`MainForm.resx` が作られ、開けるようになった (`.cs` と `.csproj` は変わらない)。**ファイルスコープの名前空間は、原因ではない。** 切り分け: `using System.Windows.Forms;` の明示だけ、`.csproj` の `SubType` だけ、のどちらでも、新しい（VS で未使用の）ソリューションで、開けた。**本当の原因は、どちらか分かっていない**ので、**両方を生成する** (害がない)。
+- **学び:** 生成物が、ビルドとテストを通るだけでは、不十分。**IDE の機能 (デザイナー) が、期待どおりに使えるかは、別に、実機で確認する**必要がある (WF2 / WC2)。
+
 **未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) ~~WinForms の UI テストの PoC~~ → **実機で確認済み (上)**。生成した `<アプリ名>.UITests` の、ビルドと実行 (TEST-PLAN WF7 / WF8) は、未確認。(d) ~~`winforms-check` と `rules/winforms-csharp.md`~~ → 実装済み (上)。**実プロジェクトでの誤検出の確認 (TEST-PLAN 2-6) と、配布 (`install.sh`) は、未実施。**
 
 ## 5. ファイル形式

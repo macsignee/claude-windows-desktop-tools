@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.9.2] 2026-10-25 (VS のデザイナーが、生成した Form を認識しない問題を修正。実機で原因を切り分け)
+
+- **生成した `MainForm.cs` が、VS で Form と認識されず、デザイナーが開けなかった (WF2 の実機で発見):** Solution Explorer で通常の `.cs` のアイコンになり、「デザイナーの表示」が出なかった。VS で新しい Form (`Form1`) を追加すると、`MainForm` も認識され、デザイナーが開けた。**そのときの差 (ディスク): `WfFull.csproj.user` が新規に作られ、`Forms\MainForm.cs` に `<SubType>Form</SubType>` が書かれた。`MainForm.resx` (空のテンプレート) も新規に作られた。`MainForm.cs` / `MainForm.Designer.cs` / `.csproj` は、変わっていない** (**ファイルスコープの名前空間は、原因ではなかった**)。
+- **切り分け (未使用の 2 つのソリューションで):** (A) `MainForm.cs` に `using System.Windows.Forms;` を足すだけ、(B) `.csproj` に `<Compile Update="Forms\MainForm.cs"><SubType>Form</SubType></Compile>` を足すだけ、のどちらでも、VS が Form と認識し、デザイナーが開けた。**どちらが本当の原因かは、分かっていない** (何も足さない対照は、`WfFull` の最初の状態)。
+- **修正: 両方を、生成する。** (1) `csproj_winforms` が、`Forms\MainForm.cs` に `SubType` = `Form` を、書く。(2) `main_form_cs` が、`using System.Windows.Forms;` を、明示する (`ImplicitUsings` に頼らない。`dotnet format` の並びに合わせて、System が先)。既存のソリューションは、VS でデザイナーを一度開けば、VS が `.csproj.user` に書く。
+- `rules/winforms-csharp.md` 5.1 に、Form を VS に認識させる決まりを追記。
+- テスト: `tests/new_solution_winforms_test.sh` (40 件)。
+
 ## [2.9.1] 2026-10-25 (UI テストのスクリーンショットの切れを修正。実機で、原因を確認。修正の確認は未実施)
 
 - **UI テストのひな形 (`Screenshots.cs`): スクリーンショットの右下が切れる不具合を修正 (WF7 の実機で発見):** 失敗したテストの PNG が **380 x 230** で、タイトルバーの最大化ボタンの途中、テキストボックスの右端、**「クリア」ボタン (下端)** が写っていなかった。**原因: テストのプロセス (testhost) が DPI 非対応**で、UI Automation の矩形も `GetWindowRect` も、**縮小された値**で返る。`PrintWindow` は、ウィンドウの実際の大きさで描くので、小さすぎる `Bitmap` に、左上だけが入る。v2.8.0 の「UIA の矩形と `GetWindowRect` の大きいほう」は、**同じ縮小値なので、効かなかった** (v2.8.0 の説明にある「原因未確定」は、これ)。**修正: (1) アセンブリの読み込み時 (`[ModuleInitializer]`) に、`SetProcessDpiAwarenessContext(Per-Monitor V2)` で、テストのプロセスを DPI 対応にする (矩形が、実際の大きさで返る)。(2) できなかったとき (すでに決まっていた場合) は、`IsProcessDPIAware()` が false で、`GetDpiForWindow` が 96 より大きければ、矩形を `dpi / 96` 倍にする。** WPF / MFC のひな形も、同じ `Screenshots.cs` なので、同じ修正が入る。既存の `*.UITests` は、`add_ui_tests.py <フォルダ> --refresh-support-files` で更新する。
