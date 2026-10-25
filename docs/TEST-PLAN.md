@@ -429,6 +429,21 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 | WS15 | 規約が読み込まれること: 新しいセッションで、`.cs` を開く | `~/.claude/rules/wpf-csharp.md` が、読み込まれる (`install.sh` で配られている) | ✔ (2026-10-24 実機、`WpfChk`。新しいセッションで `ViewModels/MainViewModel.cs` を開き、規約に沿っているかを依頼: **`~/.claude/rules/wpf-csharp.md` が自動で読み込まれた** (Claude の報告: 自分で Read したのではなく、`.cs` を読んだあとに、システムが全文を渡した)。回答は、規約の章の番号 (4.1 命名、5.3 アクセス修飾子、6.3 コマンド、7.1〜7.4 ViewModel、9.3 バインディング、11 DI、15 コメント) に沿い、`CLAUDE.md` の層の規約も参照した。`///` の不足を、軽微な指摘として挙げた (規約 15 章)) |
 | WS16 | Claude Code で、`/new-solution --type wpf ...` を、引数なしと、`--spec` つきで | 質問が出る (`--tests` は、必ず)。dry-run を見せて、了承を得てから、作る。`--spec` は、`メインの種類: wpf` / `テスト: mstest` / `層: data,logic,viewmodel` を、読み取る | ✔ (2026-10-24 実機。**ケース A (引数なし、`WpfDlgA`) ✔**: `/new-solution` → 質問 (メインの種類 → 層とテストを同時に、選択肢で。**テストは必ず質問された**) → `new-solution` / `wpf-test-first` の配布を確認 → `--dry-run` で案を示し (ソリューション、メイン、層、テスト、名前空間 = `WpfDlgA`、MSTest 3.6.4 / Test SDK 17.12.0、NuGet の復元の注意) → **「この構成で、作成してよいですか」と了承を待って止まり**、了承後に作成 → `wpf-check` (指摘なし) → `build-test-loop`。ウォッチャー未起動で `WATCHER_NOT_RUNNING` (終了コード 3) → **起動を依頼して待ち**、起動後に `PASSED`。生成物を WSL で確認: 7 つの `.csproj` (アプリ `net8.0-windows`、ほか `net8.0`)、`CLAUDE.md` の設定 (`WPF (MVVM)` / `data,logic,viewmodel` / `あり (MSTest)`)、`build_result.txt` = SUCCESS、`test_result.txt` = PASSED。名前空間は、質問されず、フォルダ名が既定で使われた。**ケース B (`--spec docs/specs/dlg.md`、`WpfDlgB`) ✔**: 構成案 (`メインの種類: wpf` / `層: data,logic,viewmodel` / `テスト: mstest` / `名前空間: WpfDlgB`) を読み取り、**4 項目すべてが指定済みのため、質問なし** (`--tests` も、構成案で明示されていたため) → `--dry-run` → **作成してよいかの了承を待って止まり**、了承後に作成 → `wpf-check` (指摘なし) → ウォッチャー未起動で `WATCHER_NOT_RUNNING` → 起動を依頼して待ち、起動後に `PASSED`。生成物を WSL で確認 (下記)。注: コンソールの Claude が、待機のために、使えない操作 (`prompt` が必要というエラー) を試みたが、そのあと待機できた。**「構成案から読み取った: ...」の行の本文は、貼り付けに含まれていない** (Claude の説明は「4 項目が構成案にあるので、聞かない」)) |
 
+### 2-5. C# クラスライブラリと WinForms の生成 (`new-solution --type csharp-dll` / `--type winforms`、`docs/DESIGN.md` 4.30)
+
+**v2.6.0 / v2.7.0 で追加。単体テスト (`tests/new_solution_csharp_dll_test.sh` / `new_solution_winforms_test.sh`) は通っているが、実機は未確認 (コンパイルを含む)。** 準備: 使い捨てのフォルダ (ユーザーが作る)。ホスト側ツールと Skill を再配置してから、ウォッチャーを起動する。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| CD1 | `--type csharp-dll --layers data,logic --tests mstest` で生成 → `build_test_once.sh` | ビルドが通り、`PASSED` (メイン + 2 層の `.Tests` の 3 件)。`.slnx` を VS で開くと、6 プロジェクト、スタートアップは未設定 | 未確認 |
+| CD2 | `--type csharp-dll --layers none --tests none` で生成 → ビルド → `--tests mstest` で後付け → `build_test_once.sh` | 後付けで `<名前>.Tests` が足され、`PASSED`。`CLAUDE.md` の `テスト:` が `あり (MSTest)` | 未確認 |
+| WF1 | `--type winforms --layers data,logic --tests mstest` で生成 → `build_test_once.sh` | **`Designer.cs` を含め、コンパイルが通る** (警告 0 が望ましい。`Nullable` の警告が出たら記録)。`PASSED` (`LogicLayer.Tests` に、`MainPresenterTests` の 4 件) | 未確認 |
+| WF2 | WF1 のソリューションを VS で開く。`MainForm` を、デザイナーで開く | デザイナーが開く (コントロールが 3 つ並ぶ)。**デザイナーで何か動かして保存しても、`InitializeComponent` が壊れない** (生成した `Designer.cs` が、VS の書式と、合っている) | 未確認 |
+| WF3 | F5 で実行 | ウィンドウが 1 つ開く。名前を入力すると、挨拶が変わり、クリアが押せる。クリアで、空に戻る。閉じると終了 | 未確認 |
+| WF4 | `--type winforms --layers data --tests mstest` (ロジック層なし) で生成 → `build_test_once.sh` | `Presenters/` がアプリの中にある。**`<アプリ名>.Tests` (`net8.0-windows`) が、WinExe のアプリを参照して、ビルドでき**(`NU1201` / `CS0016` が出ない)、`PASSED` (`MainPresenterTests` の 4 件 + `DataLayer.Tests`) | 未確認 |
+| WF6 | `--type winforms --layers none --tests none` で生成 → ビルド (`SUCCESS`) → `--tests mstest` で後付け → `build_test_once.sh` | `<アプリ名>.Tests` が足され、`.slnx` が壊れず、`PASSED` (4 件)。`CLAUDE.md` の `テスト:` が `あり (MSTest)`。WF4 と同じ、WinExe の参照の確認を兼ねる | 未確認 |
+| WF5 | WF1 のソリューションに、`auto-build` で、わざと `Designer.cs` のイベントハンドラー名を壊す (`NameTextBox_TextChanged` → `NameTextBox_TextChange`) | `CS0103` でビルドが失敗し、Claude が、ハンドラー名を直す (Designer と Form の名前をそろえる) | 未確認 |
+
 ## 3. 疑似ウォッチャー (Windows 不要)
 
 `tests/fake_watcher_test.sh` が、`build_test_once.sh` の結果の分岐を、ファイルを書くだけの偽のウォッチャーで検証する。

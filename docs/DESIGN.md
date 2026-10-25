@@ -611,7 +611,12 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - 経路は WPF と同じ (`create_wpf` を `csharp-dll` にも使う。`add_project.py` の `lib_files` / `test_files` を、そのまま使う)。後付けの `--tests mstest` も、既存の経路で、メイン自身を含めて動く。
 - `CLAUDE.md` は専用 (`claude_md_csharp_dll`)。C# の規約は、`wpf-csharp.md` の C# の部分を指す (WinForms の規約ができるまでの暫定ではなく、画面のない C# には、これで足りる)。
 
-**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の作成・ビルド・テスト。(c) WinForms の UI テストの PoC。(d) `winforms-check` と `rules/winforms-csharp.md`。
+**段階 2 の実装 (`--type winforms`。v2.7.0。単体テストのみ。コンパイルを含めて、実機は未確認):**
+- **MVP:** `Form` (`MainForm`) は `IMainView` (`PersonName` / `Greeting` / `CanClear` と、`NameChanged` / `ClearRequested` のイベント) を実装し、値の出し入れと通知だけをする。**振る舞いは `MainPresenter`** (WinForms の型を使わない)。ロジック層があれば、`IMainView` / `MainPresenter` はそこに置く (テストできる。`MainPresenterTests` は Fake の View で 4 件)。なければ、アプリの `Presenters/`。(`Form.Name` と衝突するので、名前は `PersonName`。)
+- `Program.cs` が composition root。`MainForm.Designer.cs` は VS の形 (`Name` を付ける。UI Automation の `AutomationId`。ハンドラーは Designer の `+=` と Form の名前をそろえる)。`Form` (View) は、WPF と同じく、テストしない。**層を持たない構成 (ロジック層なし) では、アプリの `Presenters/` が、テストの対象:** `--tests mstest` が、`<アプリ名>.Tests` (アプリを参照。TFM は `-windows`。参照先が `<TFM>-windows` のとき、テストが同じ TFM でないと、`NU1201` になるため) を作る。後付けも同じ。未確認の点 (実機): WinExe のプロジェクトを、テストプロジェクトから参照して、ビルド・実行できること (TEST-PLAN WF4 / WF6)。`--ui-tests flaui` は、PoC のあとに対応するため、今はエラー。
+- 生成コードの `using` は、`dotnet format` (IMPORTS) の並びに合わせる (System が先、残りは名前順。`Program.cs`)。Designer は、生成コード扱いで、Nullable の警告が出ない (実機で確認する: WF1)。
+
+**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) WinForms の UI テストの PoC。(d) `winforms-check` と `rules/winforms-csharp.md`。
 
 ## 5. ファイル形式
 

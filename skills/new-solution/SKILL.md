@@ -1,7 +1,7 @@
 ---
 name: new-solution
 description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ / WPF (MVVM)) を作る。層 (C++ はロジック・データの DLL または静的ライブラリ、WPF は ViewModel・ロジック・データのクラスライブラリ) を作るか、テスト (C++ は GoogleTest、WPF は MSTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest / --tests mstest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
-argument-hint: "[--ui-tests none|flaui] [--type wpf|csharp-dll|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--tfm net8.0] [--spec <仕様書>]"
+argument-hint: "[--ui-tests none|flaui] [--type wpf|winforms|csharp-dll|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--tfm net8.0] [--spec <仕様書>]"
 disable-model-invocation: true
 ---
 
@@ -16,13 +16,14 @@ disable-model-invocation: true
 
 | 軸 | 引数 | 値 |
 |---|---|---|
-| メインの種類 | `--type` | **`wpf` (WPF、MVVM。.NET)** / **`csharp-dll` (C# のクラスライブラリ。.NET。画面なし)** / `mfc` (MFC SDI) / `mfc-mdi` (MFC MDI) / `mfc-dialog` (MFC ダイアログベース) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
+| メインの種類 | `--type` | **`wpf` (WPF、MVVM。.NET)** / **`winforms` (WinForms、MVP。.NET)** / **`csharp-dll` (C# のクラスライブラリ。.NET。画面なし)** / `mfc` (MFC SDI) / `mfc-mdi` (MFC MDI) / `mfc-dialog` (MFC ダイアログベース) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
 | 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。**`wpf` のときは、`viewmodel` (既定の名前 `ViewModels`) も、組み合わせられる** (例: `data,logic,viewmodel`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる。**`wpf` は、`SampleApp.Domain` のように、`.` を含む名前もよい** (規約 3.2 の `Presentation` / `Application` / `Domain` / `Infrastructure`。`wpf-check` が、標準の依存で検査する) |
 | 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし)。全部の層に、同じ種類 |
 | テスト | `--tests` | `none` / `gtest` (C++: 作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) / **`mstest` (WPF: 作った各クラスライブラリに、`<名前>.Tests` と MSTest)** |
 | GoogleTest の入れ方 | `--gtest` | `auto` (既定) / `nuget` / `source` (下の「GoogleTest」) |
 | UI テスト | `--ui-tests` | `none` (既定) / **`flaui` (WPF と、MFC などの C++ の GUI アプリ: `<アプリ名>.UITests` (MSTest + FlaUI) を足す)**。画面を、自動で操作して確かめたいときだけ。**テスト先行 (Red) → ビルド → テスト (Green) の「あとに、追加で」、実行する** (ウォッチャーの `trigger_uitest.flag`、`build-test-loop` の `uitest_once.sh`)。通常のテストには、含まれない。作成と同時に指定でき、**すでにあるソリューションに、後付けもできる** (`--ui-tests flaui` だけを指定)。書き方は、`build-test-loop` の「UI テスト」 |
 
+- **`winforms` (WinForms、MVP):** WPF と同じ経路 (SDK 形式の `.csproj`、`.slnx`、MSTest)。メインは WinForms アプリ (`net8.0-windows`、`UseWindowsForms`、`.slnx` の `DefaultStartup`)。**層は `data` / `logic` だけ** (`viewmodel` はエラー)。**MVP:** `Form` (`MainForm`) は `IMainView` を実装して、値の出し入れとイベントの通知だけをする。**画面の振る舞いは `MainPresenter`** が持つ (WinForms の型を使わない)。`IMainView` / `MainPresenter` は、**ロジック層があればそこ** (`--tests mstest` で `MainPresenterTests` の 4 件が付く)、なければ**アプリの `Presenters/` フォルダ** (テストできない)。`Program.cs` が composition root (`Form` と Presenter を作って結ぶ)。`MainForm.Designer.cs` は、VS のデザイナーの形 (コントロールに `Name` を付ける = UI Automation の `AutomationId`)。**`Form` (View) は、テストしない。** **ロジック層がないとき (`--layers none` / `data`) は、`--tests mstest` で、`<アプリ名>.Tests` が作られ、アプリの `Presenters/` をテストする** (アプリを参照するので、TFM はアプリと同じ `net8.0-windows`。名前空間は `<ルート>.Presenters.Tests`。`Info` クラスがないので、ベースラインは `MainPresenterTests` の 4 件)。**後付けの `--tests mstest` も、同じ** (WPF のアプリは、対象外のまま)。`--ui-tests flaui` は、まだエラー (UI テストの PoC のあとに対応。DESIGN 4.30)。`CLAUDE.md` は、`wpf-check` を挙げず、C# の規約 (`wpf-csharp.md` の C# の部分) を指す。
 - **`csharp-dll` (C# のクラスライブラリ):** WPF と同じ経路 (SDK 形式の `.csproj`、`.slnx`、MSTest、NuGet の復元はビルドが行う)。**メイン自身がクラスライブラリで、テスト (`<メイン>.Tests`) の対象**になる (層がなくても、`--tests mstest` が使える)。`--layers` は `data` / `logic` だけ (`viewmodel` はエラー)。メインは、すべての層を参照する。`DefaultStartup` はない (exe がない)。`--ui-tests` は、エラー。`CLAUDE.md` は、`wpf-check` を挙げず、C# の規約 (`wpf-csharp.md` の C# の部分) を指す。
 - 層とテストは、独立。`--layers logic,data --tests none` (層だけ、テストなし)、`--layers none --tests none` (メインだけ)、などができる。
 - **`--tests gtest` は、テスト対象 (DLL / 静的ライブラリ) が必要。** メインが exe で `--layers none` の組み合わせは、エラー (層を作るか、`--tests none` にする)。メインが dll / lib なら、メイン自身がテスト対象になる。

@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.7.0] 2026-10-24 (単体テストのみ。コンパイルを含めて、実機は未確認)
+
+- **`new-solution --type winforms` を追加 (DESIGN 4.30、段階 2):** WinForms (.NET、MVP) のソリューションを作る。メインは WinForms アプリ (`UseWindowsForms`、`Program.cs` が composition root、`Forms/MainForm.cs` + `MainForm.Designer.cs`)。層は `data` / `logic` だけ。`Form` は `IMainView` を実装し、画面の振る舞いは `MainPresenter` が持つ (ロジック層があればそこ、なければアプリの `Presenters/`)。ロジック層に、`MainPresenterTests` (Fake の View、4 件) が付く。`--ui-tests flaui` は、PoC のあとに対応するため、今はエラー。
+- `add_project.py`: `presenter` の種類 (`lib_files` / `test_files` / `--kind presenter`、`read_lib_info` の `is_presenter`) と、`winforms_app_files` を追加。後付けの `--tests mstest` が、Presenter のあるロジック層に、`MainPresenterTests` を足す。
+- **層を持たない構成 (`--layers none` / `data`) でも、Presenter をテストできる:** ロジック層がないとき、`--tests mstest` は、アプリの `Presenters/` を対象にした `<アプリ名>.Tests` (TFM はアプリと同じ `-windows`、名前空間 `<ルート>.Presenters.Tests`) を作る (`test_files` の `app-presenter`)。後付けも同じ (`libraries_without_tests` が、`Presenters/MainPresenter.cs` のある exe を対象にする。WPF のアプリは、対象外のまま)。`csharp-dll` は、層なしでも、メイン自身がテストの対象 (v2.6.0)。
+- テスト: `tests/new_solution_winforms_test.sh` (29 件)。TEST-PLAN に 2-5 (CD1〜WF5) を追加 (実機は未確認)。
+
 ## [2.6.0] 2026-10-24 (単体テストのみ。実機は未確認)
 
 - **`new-solution --type csharp-dll` を追加 (DESIGN 4.30、段階 1):** C# のクラスライブラリ (.NET) のソリューションを作る。メインがクラスライブラリで、`<メイン>.Tests` (MSTest) の対象になる。`--layers` は `data` / `logic` (`viewmodel` はエラー)、`--ui-tests` はエラー、`.slnx` に `DefaultStartup` なし。`--spec` の「メインの種類」にも使える。後付けの `--tests mstest` は、メイン自身も対象にする (既存の仕組みのまま)。`claude_md_csharp_dll` で、専用の `CLAUDE.md` を作る。
