@@ -441,8 +441,11 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 | WF2 | WF1 のソリューションを VS で開く。`MainForm` を、デザイナーで開く | デザイナーが開く (コントロールが 3 つ並ぶ)。**デザイナーで何か動かして保存しても、`InitializeComponent` が壊れない** (生成した `Designer.cs` が、VS の書式と、合っている) | 未確認 |
 | WF3 | F5 で実行 | ウィンドウが 1 つ開く。名前を入力すると、挨拶が変わり、クリアが押せる。クリアで、空に戻る。閉じると終了 | 未確認 |
 | WF4 | `--type winforms --layers data --tests mstest` (ロジック層なし) で生成 → `build_test_once.sh` | `Presenters/` がアプリの中にある。**`<アプリ名>.Tests` (`net8.0-windows`) が、WinExe のアプリを参照して、ビルドでき**(`NU1201` / `CS0016` が出ない)、`PASSED` (`MainPresenterTests` の 4 件 + `DataLayer.Tests`) | 未確認 |
+| WF0 | **PoC (`poc/winforms-flaui/`):** WinForms アプリを、FlaUI で操作する (別のデスクトップ) | AutomationId = Name。UIA3 で入力 → 挨拶 → クリアが通る。UIA2 も通る。`PrintWindow` が内容を写す | ✔ (2026-10-25 実機。**ビルドと通常のテスト `PASSED` (LogicLayer.Tests の 4 件。`Designer.cs` のコンパイルも通った = WF1 の一部。警告なし)**、UI テスト `PASSED`。`desktop=ClaudeUiTest...`。AutomationId は `NameTextBox` / `GreetingLabel` / `ClearButton` / `MainTable` で、Name と一致。UIA3: 入力で挨拶が変わり (`ClearButton` が有効)、クリアで戻る (無効)。UIA2: 7 手順すべて OK。スクリーンショット 3 枚とも内容が写った (UIA3 の `after-enter` の 1 枚だけ、右下のボタンが範囲外)。起動 1,055 ms) |
 | WF6 | `--type winforms --layers none --tests none` で生成 → ビルド (`SUCCESS`) → `--tests mstest` で後付け → `build_test_once.sh` | `<アプリ名>.Tests` が足され、`.slnx` が壊れず、`PASSED` (4 件)。`CLAUDE.md` の `テスト:` が `あり (MSTest)`。WF4 と同じ、WinExe の参照の確認を兼ねる | 未確認 |
 | WF5 | WF1 のソリューションに、`auto-build` で、わざと `Designer.cs` のイベントハンドラー名を壊す (`NameTextBox_TextChanged` → `NameTextBox_TextChange`) | `CS0103` でビルドが失敗し、Claude が、ハンドラー名を直す (Designer と Form の名前をそろえる) | 未確認 |
+| WF7 | `--type winforms --layers logic --tests mstest --ui-tests flaui` で生成 → `build_test_once.sh` → `uitest_once.sh` | ビルドが通り、通常のテストは `PASSED` (UI テストは含まれない)。UI テストは `PASSED` (3 件: `MainWindow_Opens_WithTitle` / `Greeting_NameEntered_ShowsGreeting` / `ClearButton_Invoked_ClearsName`)。スクリーンショットで、右下のボタンが切れない | 未確認 |
+| WF8 | 層なし (`--layers none --tests none`) の WinForms に、`new_solution.py <フォルダ> --ui-tests flaui` で後付け → ビルド → `uitest_once.sh`。あわせて、WPF (`WpfUi...`) の UI テストで、`--refresh-support-files` 後に、スクリーンショットが崩れない | `PASSED`。WPF / MFC のスクリーンショットも、従来どおり写る (`Screenshots.cs` の大きさの変更の影響がない) | 未確認 |
 
 ## 3. 疑似ウォッチャー (Windows 不要)
 

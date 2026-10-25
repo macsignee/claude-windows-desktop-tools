@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""add_ui_tests.py - 既存のソリューション (WPF / MFC などの C++) に、UI テストのプロジェクト <アプリ名>.UITests (MSTest + FlaUI) を足す。
+"""add_ui_tests.py - 既存のソリューション (WPF / WinForms / MFC などの C++) に、UI テストのプロジェクト <アプリ名>.UITests (MSTest + FlaUI) を足す。
 
 Usage:
   python3 add_ui_tests.py <SLN_DIR> [--app 名前] [--namespace NS] [--tfm net8.0] [--flaui-version 5.0.0]
                           [--mstest-version V] [--testsdk-version V] [--dry-run]
 
   <SLN_DIR>   .sln / .slnx のあるフォルダ
-  --app       UI テストの対象のアプリのプロジェクト名。省略時: .slnx の DefaultStartup、なければ、WPF の exe、なければ、C++ の Application
+  --app       UI テストの対象のアプリのプロジェクト名。省略時: .slnx の DefaultStartup、なければ、WPF / WinForms の exe、なければ、C++ の Application
   --namespace UI テストの名前空間の根 (既定: アプリ名 (. を除く))
 
 作るもの (<アプリ名>.UITests/):
   <アプリ名>.UITests.csproj   MSTest + FlaUI.Core + FlaUI.UIA3 (net8.0-windows)
   UiTestBase.cs               テストごとに、アプリを起動し、終了する。失敗したときは、ウィンドウのスクリーンショットを残す
-  AppLocator.cs               アプリの exe を探す (UITEST_* の環境変数。WPF: bin\\<構成>\\<TFM>\\、C++: <プラットフォーム>\\<構成>\\)
+  AppLocator.cs               アプリの exe を探す (UITEST_* の環境変数。WPF / WinForms: bin\\<構成>\\<TFM>\\、C++: <プラットフォーム>\\<構成>\\)
   Screenshots.cs              PrintWindow によるウィンドウのスクリーンショット (別のデスクトップでも、撮れる)
   UiNative.cs                 デスクトップ名、前面表示、操作の記録 (ui-trace.txt)
-  MainWindowUiTests.cs        ひな形のテスト (WPF の標準の View なら、入力 → 挨拶 → クリア。それ以外は、ウィンドウが開くだけ)
+  MainWindowUiTests.cs        ひな形のテスト (WPF / WinForms の標準の View なら、入力 → 挨拶 → クリア。それ以外は、ウィンドウが開くだけ)
 .slnx / .sln にも登録する。ウォッチャーの trigger_uitest.flag (uitest_once.sh) で実行する。通常のテスト (trigger_test.flag) には含まれない。
 """
 import argparse
@@ -287,6 +287,13 @@ namespace __NS__.UITests;
 internal static class Screenshots
 {
     [DllImport("user32.dll")] private static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect
+    {
+        public int Left, Top, Right, Bottom;
+    }
 
     public static string Dir
     {
@@ -304,7 +311,15 @@ internal static class Screenshots
         var path = Path.Combine(Dir, name + "-window.png");
         var hwnd = window.Properties.NativeWindowHandle.ValueOrDefault;
         var r = window.BoundingRectangle;
-        using var bmp = new System.Drawing.Bitmap(Math.Max(1, r.Width), Math.Max(1, r.Height));
+        // UIA の矩形と、ウィンドウ自身の矩形 (GetWindowRect) の、大きいほうに合わせる (DPI の違いで、UIA の矩形が小さいと、右下が切れる。WinForms の PoC で、1 枚だけ、ボタンが切れた)
+        var width = r.Width;
+        var height = r.Height;
+        if (GetWindowRect(hwnd, out var wr))
+        {
+            width = Math.Max(width, wr.Right - wr.Left);
+            height = Math.Max(height, wr.Bottom - wr.Top);
+        }
+        using var bmp = new System.Drawing.Bitmap(Math.Max(1, width), Math.Max(1, height));
         using (var g = System.Drawing.Graphics.FromImage(bmp))
         {
             var hdc = g.GetHdc();
@@ -377,6 +392,45 @@ public class MainWindowUiTests : UiTestBase
 }
 '''
 
+TESTS_WINFORMS_CS = '''using FlaUI.Core.AutomationElements;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace __NS__.UITests;
+
+/// <summary>ひな形の UI テスト (WinForms の標準の Form: NameTextBox / GreetingLabel / ClearButton。AutomationId は、コントロールの Name)。画面に合わせて、書き換える。</summary>
+[TestClass]
+public class MainWindowUiTests : UiTestBase
+{
+    [TestMethod]
+    public void MainWindow_Opens_WithTitle()
+    {
+        Assert.IsFalse(string.IsNullOrEmpty(MainWindow.Title));
+    }
+
+    [TestMethod]
+    public void Greeting_NameEntered_ShowsGreeting()
+    {
+        var name = Find("NameTextBox").AsTextBox();
+        name.Text = "太郎";   // ValuePattern (キー入力を使わない。TextChanged が起きる)
+
+        Assert.IsTrue(WaitFor(() => Find("GreetingLabel").Name == "こんにちは、太郎 さん"),
+            "挨拶が、変わらない: " + Find("GreetingLabel").Name);
+    }
+
+    [TestMethod]
+    public void ClearButton_Invoked_ClearsName()
+    {
+        var name = Find("NameTextBox").AsTextBox();
+        name.Text = "太郎";
+        Assert.IsTrue(WaitFor(() => Find("ClearButton").IsEnabled), "クリアボタンが、有効にならない");
+
+        Find("ClearButton").AsButton().Invoke();   // InvokePattern (マウスを使わない)
+
+        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.Text)), "クリアしても、入力欄が空にならない");
+    }
+}
+'''
+
 TESTS_GENERIC_CS = '''using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace __NS__.UITests;
@@ -385,6 +439,7 @@ namespace __NS__.UITests;
 /// ひな形の UI テスト。ウィンドウが開くことだけを、確かめる。画面に合わせて、テストを足す。
 ///  - WPF: 操作したいコントロールに、AutomationProperties.AutomationId を付ける。Find("Id") で探し、
 ///    AsTextBox().Text = "..." (ValuePattern) / AsButton().Invoke() (InvokePattern) で操作する。
+///  - WinForms: 操作したいコントロールに、Name を付ける (Name が、AutomationId になる)。使い方は、WPF と同じ。
 ///  - MFC: コントロールの ID (リソースの ID の数値。IDOK = "1"、IDCANCEL = "2") が、AutomationId。IDC_STATIC は、ID で探せない (Name = 表示の文字)。
 /// </summary>
 [TestClass]
@@ -411,7 +466,7 @@ def project_paths(sln_path):
 
 
 def classify(sln_dir, rel):
-    """('wpf' | 'cpp' | None, 名前, TFM)"""
+    """('wpf' | 'winforms' | 'cpp' | None, 名前, TFM)"""
     path = os.path.join(sln_dir, *rel.split('/'))
     name = os.path.splitext(os.path.basename(rel))[0]
     if not os.path.isfile(path):
@@ -421,6 +476,9 @@ def classify(sln_dir, rel):
         if re.search(r'<UseWPF>\s*true\s*</UseWPF>', text, re.I) and re.search(r'<OutputType>\s*(Win)?Exe\s*</OutputType>', text, re.I):
             tfm = re.search(r'<TargetFramework>([^<]+)</TargetFramework>', text)
             return 'wpf', name, tfm.group(1) if tfm else None
+        if re.search(r'<UseWindowsForms>\s*true\s*</UseWindowsForms>', text, re.I) and re.search(r'<OutputType>\s*(Win)?Exe\s*</OutputType>', text, re.I):
+            tfm = re.search(r'<TargetFramework>([^<]+)</TargetFramework>', text)
+            return 'winforms', name, tfm.group(1) if tfm else None
         return None, name, None
     if re.search(r'<ConfigurationType>\s*Application\s*</ConfigurationType>', text):
         return 'cpp', name, None
@@ -434,14 +492,14 @@ def choose_app(sln_dir, sln_path, app_arg):
         for p in apps:
             if p[3] == app_arg:
                 return p
-        die(f'--app {app_arg} が、アプリ (WPF の exe / C++ の Application) として見つからない。候補: {", ".join(p[3] for p in apps) or "なし"}')
+        die(f'--app {app_arg} が、アプリ (WPF / WinForms の exe / C++ の Application) として見つからない。候補: {", ".join(p[3] for p in apps) or "なし"}')
     if not apps:
-        die('UI テストの対象にできるアプリ (WPF の exe / C++ の Application) が、ソリューションにない')
+        die('UI テストの対象にできるアプリ (WPF / WinForms の exe / C++ の Application) が、ソリューションにない')
     started = [p for p in apps if p[1]]
     if started:
         return started[0]
-    wpf = [p for p in apps if p[2] == 'wpf']
-    return (wpf or apps)[0]
+    dotnet_gui = [p for p in apps if p[2] in ('wpf', 'winforms')]
+    return (dotnet_gui or apps)[0]
 
 
 def fill(t, **kv):
@@ -509,6 +567,11 @@ def main():
         if os.path.isfile(xaml):
             t = open(xaml, encoding='utf-8-sig').read()
             standard = all(f'AutomationId="{i}"' in t for i in ('NameTextBox', 'GreetingText', 'ClearButton'))
+    elif kind == 'winforms':
+        designer = os.path.join(sln_dir, app, 'Forms', 'MainForm.Designer.cs')
+        if os.path.isfile(designer):
+            t = open(designer, encoding='utf-8-sig').read()
+            standard = all(f'{i}.Name = "{i}";' in t for i in ('NameTextBox', 'GreetingLabel', 'ClearButton'))
 
     kv = dict(NS=ns, APP=app, TFM=tfm, SDK=a.testsdk_version or AP.TESTSDK_VER, MSTEST=a.mstest_version or AP.MSTEST_VER, FLAUI=a.flaui_version)
     files = {
@@ -517,12 +580,12 @@ def main():
         f'{ui}/AppLocator.cs': fill(LOCATOR_CS, **kv),
         f'{ui}/Screenshots.cs': fill(SHOTS_CS, **kv),
         f'{ui}/UiNative.cs': fill(NATIVE_CS, **kv),
-        f'{ui}/MainWindowUiTests.cs': fill(TESTS_WPF_CS if standard else TESTS_GENERIC_CS, **kv),
+        f'{ui}/MainWindowUiTests.cs': fill((TESTS_WINFORMS_CS if kind == 'winforms' else TESTS_WPF_CS) if standard else TESTS_GENERIC_CS, **kv),
     }
     print(f'ソリューション : {os.path.basename(sln)}')
-    print(f'対象のアプリ   : {app} ({"WPF" if kind == "wpf" else "C++ (MFC など)"}。{rel})')
+    print(f'対象のアプリ   : {app} ({"WPF" if kind == "wpf" else "WinForms" if kind == "winforms" else "C++ (MFC など)"}。{rel})')
     print(f'UI テスト      : {ui} (MSTest {kv["MSTEST"]} + FlaUI {kv["FLAUI"]} (UIA3)、{tfm})')
-    print(f'ひな形のテスト : {"WPF の標準の View (入力 → 挨拶 → クリア)" if standard else "ウィンドウが開くことだけ (画面に合わせて、足す)"}')
+    print(f'ひな形のテスト : {("WPF" if kind == "wpf" else "WinForms") + " の標準の View (入力 → 挨拶 → クリア)" if standard else "ウィンドウが開くことだけ (画面に合わせて、足す)"}')
     for r in files:
         print(f'  + {r}')
     print(f'  ~ {os.path.basename(sln)} (1 プロジェクトを追加)')
@@ -530,6 +593,8 @@ def main():
         print('NOTE: C++ のソリューションに、.NET のプロジェクトが加わる (混在)。ウォッチャーは、C++ と .NET の両方をビルドする (docs/DESIGN.md 4.24)。')
     if kind == 'wpf' and not standard:
         print('NOTE: View に AutomationProperties.AutomationId が、見つからない。操作したいコントロールに、付けること (wpf-check の UI002)。')
+    if kind == 'winforms' and not standard:
+        print('NOTE: 標準の MainForm (NameTextBox / GreetingLabel / ClearButton) ではない。操作したいコントロールに、Name を付けること (Name が AutomationId になる)。')
     if a.dry_run:
         print('NUGET: 初回のビルドで、MSTest と FlaUI を復元する (ホストが nuget.org に届くこと)')
         print('(dry-run: 何も書いていない)')
@@ -545,7 +610,7 @@ def claude_md_section(ui, app):
 - `{ui}` (MSTest + FlaUI.UIA3)。`{app}` の exe を、テストごとに起動して、UIA のパターン (Invoke / Value) で操作する。**マウス・キーボードの入力は使わない。**
 - **流れ: テスト先行 (Red) → 実装 → ビルド → テスト (Green、`build_test_once.sh` が `PASSED`) の「あとに、追加で」、UI テストを実行する。** **全テストが `PASSED` になったら、続けて `uitest_once.sh "$PWD" 900` を実行すること** (`~/.claude/skills/build-test-loop/scripts/uitest_once.sh`。画面を伴う変更のとき。Green になってから 1 回)。UI テストを、先に書く (UI テストファースト) ことは、しない。
 - **通常のテスト (`build_test_once.sh`) には、含まれない。** 別のデスクトップで実行され (`-UiTestDesktop separate`)、ユーザーの画面を乱さない。「マウスとキーボードに触らないで」と頼む必要は、ない。
-- 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
+- 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
 - 書き方の規約と手順: `build-test-loop` の「UI テスト」。
 '''
 

@@ -616,7 +616,14 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - `Program.cs` が composition root。`MainForm.Designer.cs` は VS の形 (`Name` を付ける。UI Automation の `AutomationId`。ハンドラーは Designer の `+=` と Form の名前をそろえる)。`Form` (View) は、WPF と同じく、テストしない。**層を持たない構成 (ロジック層なし) では、アプリの `Presenters/` が、テストの対象:** `--tests mstest` が、`<アプリ名>.Tests` (アプリを参照。TFM は `-windows`。参照先が `<TFM>-windows` のとき、テストが同じ TFM でないと、`NU1201` になるため) を作る。後付けも同じ。未確認の点 (実機): WinExe のプロジェクトを、テストプロジェクトから参照して、ビルド・実行できること (TEST-PLAN WF4 / WF6)。`--ui-tests flaui` は、PoC のあとに対応するため、今はエラー。
 - 生成コードの `using` は、`dotnet format` (IMPORTS) の並びに合わせる (System が先、残りは名前順。`Program.cs`)。Designer は、生成コード扱いで、Nullable の警告が出ない (実機で確認する: WF1)。
 
-**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) WinForms の UI テストの PoC。(d) `winforms-check` と `rules/winforms-csharp.md`。
+**段階 3: WinForms の UI テスト (v2.8.0)。PoC (2026-10-25、実機、別のデスクトップ) の結果:**
+- **`AutomationId` = コントロールの `Name`。** `[Edit] id='NameTextBox'`、`[Text] id='GreetingLabel' name='<表示の文字>'`、`[Button] id='ClearButton' name='クリア'` (無効のときは `IsEnabled=False`)、`[Pane] id='MainTable'`。ウィンドウは `id='MainForm' name='<Form.Text>'`。
+- **UIA3 で、入力 → 挨拶の変化 → クリアが通る** (`ValuePattern` で入れた文字で、`TextChanged` が起き、Presenter が反応する。`Invoke` が動く)。**UIA2 も、7 手順すべて OK** (WPF では、別のデスクトップで UIA2 の `Invoke` が失敗した (4.29)。WinForms は、UIA2 が本来の UIA で、動く)。UIA3 を標準にする。
+- **`PrintWindow` が、内容を写した** (別のデスクトップでも。WPF のような白い画像にならない = **ハードウェアアクセラレーションの切り替えは、WinForms には要らない**)。起動 約 1.1 秒。
+- 気づいた点: UIA3 のテストの 1 枚だけ、右下のボタンが写っていなかった (撮影の範囲が、狭い)。UIA の矩形と `GetWindowRect` の大きいほうに合わせるよう、ひな形 (`Screenshots.cs`) を直した。原因は未確定 (DPI の違いを疑う)。
+- 実装: `add_ui_tests.py` が、`UseWindowsForms` の exe を `winforms` のアプリとして判定する。標準の `MainForm` (`Designer.cs` の `Name`) なら、入力 → 挨拶 → クリアのテスト。層の有無に関係なく使える (FlaUI は、アプリを参照しない)。作成と同時にも、後付けも、できる。
+
+**未実施:** (a) 実機で、`csharp-dll` のソリューションのビルドと、`build-test-loop` の `PASSED` を確認 (TEST-PLAN に項目を足す)。(b) `winforms` の実機のビルド・テスト・デザイナー (TEST-PLAN 2-5)。(c) ~~WinForms の UI テストの PoC~~ → **実機で確認済み (上)**。生成した `<アプリ名>.UITests` の、ビルドと実行 (TEST-PLAN WF7 / WF8) は、未確認。(d) `winforms-check` と `rules/winforms-csharp.md`。
 
 ## 5. ファイル形式
 

@@ -63,9 +63,30 @@ ok "retrofit --tests mstest: LogicLayer's tests include MainPresenterTests" "$([
 D="$(mk Bad1)"
 python3 "$NS" "$D" --type winforms --layers viewmodel --tests none >/dev/null 2>&1; rc=$?
 ok "viewmodel layer is rejected for winforms (rc=2)" "$([ $rc = 2 ] && echo 1 || echo 0)"
+# ---------------------------------------------------------------- UI テスト (FlaUI)
+D="$(mk WfUi)"
+python3 "$NS" "$D" --type winforms --layers logic --tests mstest --ui-tests flaui >/dev/null; rc=$?
+U="$D/WfUi.UITests"
+ok "ui-tests: created together with the solution (rc=0), project registered in the slnx" "$([ $rc = 0 ] && [ -f "$U/WfUi.UITests.csproj" ] && grep -q 'WfUi.UITests/WfUi.UITests.csproj' "$D/WfUi.slnx" && echo 1 || echo 0)"
+ok "ui-tests: net8.0-windows + FlaUI.UIA3 + MSTest, does not reference the app" "$(grep -q 'net8.0-windows' "$U/WfUi.UITests.csproj" && grep -q 'FlaUI.UIA3' "$U/WfUi.UITests.csproj" && grep -q 'MSTest.TestFramework' "$U/WfUi.UITests.csproj" && ! grep -q 'ProjectReference' "$U/WfUi.UITests.csproj" && echo 1 || echo 0)"
+ok "ui-tests: the template targets the WinForms form (NameTextBox / GreetingLabel / ClearButton by AutomationId = Name)" "$(f="$U/MainWindowUiTests.cs"; grep -q 'Find("NameTextBox")' "$f" && grep -q 'Find("GreetingLabel")' "$f" && grep -q 'Find("ClearButton")' "$f" && ! grep -q 'GreetingText' "$f" && echo 1 || echo 0)"
+ok "ui-tests: the controls named by the template exist in the generated Designer.cs" "$(for n in NameTextBox GreetingLabel ClearButton; do grep -q "$n.Name = \"$n\";" "$D/WfUi/Forms/MainForm.Designer.cs" || exit 1; done; echo 1)"
+ok "ui-tests: the screenshot takes the larger of the UIA rectangle and GetWindowRect" "$(grep -q 'GetWindowRect' "$U/Screenshots.cs" && grep -q 'Math.Max(width' "$U/Screenshots.cs" && echo 1 || echo 0)"
+ok "ui-tests: CLAUDE.md has the UI test section and says WinForms uses Name" "$(grep -q '## UI テスト (FlaUI)' "$D/CLAUDE.md" && grep -q 'WinForms: コントロールの `Name`' "$D/CLAUDE.md" && echo 1 || echo 0)"
+ok "ui-tests: the normal MSTest projects are not affected (LogicLayer.Tests exists, no WfUi.Tests)" "$([ -d "$D/LogicLayer.Tests" ] && [ ! -d "$D/WfUi.Tests" ] && echo 1 || echo 0)"
+D="$(mk WfUiLate)"
+python3 "$NS" "$D" --type winforms --layers none --tests none >/dev/null
+python3 "$NS" "$D" --ui-tests flaui >/dev/null; rc=$?
+ok "ui-tests: retrofit on an existing WinForms solution (no layers)" "$([ $rc = 0 ] && [ -f "$D/WfUiLate.UITests/MainWindowUiTests.cs" ] && grep -q 'GreetingLabel' "$D/WfUiLate.UITests/MainWindowUiTests.cs" && echo 1 || echo 0)"
+D="$(mk WfUiCustom)"
+python3 "$NS" "$D" --type winforms --layers none --tests none >/dev/null
+sed -i 's/GreetingLabel.Name = "GreetingLabel";/GreetingLabel.Name = "label1";/' "$D/WfUiCustom/Forms/MainForm.Designer.cs"
+out="$(python3 "$NS" "$D" --ui-tests flaui)"
+ok "ui-tests: a form that is not the standard one gets the generic template and a NOTE about Name" "$(! grep -q 'GreetingLabel' "$D/WfUiCustom.UITests/MainWindowUiTests.cs" && grep -q 'MainWindow_Opens_WithTitle' "$D/WfUiCustom.UITests/MainWindowUiTests.cs" && grep -q 'Name を付ける' <<<"$out" && echo 1 || echo 0)"
 D="$(mk Bad2)"
 python3 "$NS" "$D" --type winforms --layers none --tests none --ui-tests flaui >/dev/null 2>&1; rc=$?
-ok "--ui-tests flaui is rejected for winforms for now (rc=2)" "$([ $rc = 2 ] && echo 1 || echo 0)"
+ok "layers none + tests none + ui-tests: the app + UITests (2 projects)" "$([ $rc = 0 ] && [ "$(grep -c '<Project Path=' "$D/Bad2.slnx")" = 2 ] && echo 1 || echo 0)"
+
 D="$(mk Spec)"; mkdir -p "$D/docs/specs"
 printf '# s\n\n## 構成案\n- メインの種類: winforms\n- 層: logic\n- テスト: mstest\n' > "$D/docs/specs/f.md"
 python3 "$NS" "$D" --spec "$D/docs/specs/f.md" >/dev/null; rc=$?

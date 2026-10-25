@@ -975,8 +975,6 @@ def create_wpf(a, folder, name):
         die('--layer-kind / --gtest / --gtest-from / --toolset は C++ 用。WPF では、指定できない')
     if dll and a.ui_tests == 'flaui':
         die('--ui-tests flaui は、画面のあるアプリ (wpf) 用。csharp-dll には、画面がない')
-    if winforms and a.ui_tests == 'flaui':
-        die('--ui-tests flaui は、WinForms では、まだ使えない (WinForms の UI テストは、PoC のあとに対応する。DESIGN 4.30)')
     if dll or winforms:
         layer_names_all = {k: v for k, v in WPF_LAYER_NAMES.items() if k != 'viewmodel'}
         layers = parse_layers(a.layers, layer_names_all, ('data', 'logic'), AP.PROJ_NAME)
