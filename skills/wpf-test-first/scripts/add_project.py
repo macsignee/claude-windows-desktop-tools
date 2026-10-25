@@ -2,18 +2,18 @@
 """add_project.py - .NET (WPF) のソリューションに、「クラスライブラリ」と、(必要なら) 「対応するテストプロジェクト (MSTest)」を追加する。
 
 Usage: python3 add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]
-                              [--namespace NS] [--uses OTHER ...] [--tfm net8.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
+                              [--namespace NS] [--uses OTHER ...] [--tfm net10.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
 
   SLN_DIR      .sln または .slnx があるフォルダ (Claude Code を起動したフォルダ)
   Name         ライブラリのプロジェクト名 (例: LogicLayer、ViewModels、SampleApp.Domain)。テストは <Name>.Tests になる。
                名前に . が含まれるときは、その名前が、そのまま、名前空間になる (中規模以上の、Presentation / Application / Domain / Infrastructure 用)
   --kind       lib (既定) / data / logic / viewmodel。名前空間の末尾 (Data / Logic / ViewModels) と、viewmodel のときの基底クラス
-               (ObservableObject / RelayCommand / MainViewModel) の有無が変わるだけ。**WPF 非依存のクラスライブラリ** (net8.0) を作る
+               (ObservableObject / RelayCommand / MainViewModel) の有無が変わるだけ。**WPF 非依存のクラスライブラリ** (net10.0) を作る
   --tests      mstest (既定): ライブラリ + テストプロジェクトを作る。none: ライブラリだけ
   --tests-only すでにあるライブラリ <Name> に、テストプロジェクトだけを足す (名前空間・参照は、既存の .csproj から読む)
   --namespace  ルートの名前空間 (既定: ソリューション名)。ライブラリの名前空間は <ルート>.<Data|Logic|ViewModels|名前>
   --uses       このライブラリが、プロジェクト参照する、別のプロジェクトのフォルダ名 (複数可。例: logic が --uses DataLayer)
-  --tfm        対象フレームワーク (既定 net8.0)。WPF のアプリは、末尾に -windows が付く
+  --tfm        対象フレームワーク (既定 net10.0)。WPF のアプリは、末尾に -windows が付く
   --mstest-version / --testsdk-version  MSTest (TestAdapter / TestFramework) と Microsoft.NET.Test.Sdk のバージョン (既定は、実在を確認した版。
                新しい版は、add-package の `nuget versions` で確認して、指定する)
   --dry-run    何も書かず、行う内容だけを表示する
@@ -36,7 +36,7 @@ import uuid
 
 BOM = b'\xef\xbb\xbf'
 CSHARP_SDK_TYPE = '{9A19103F-16F7-4668-BE54-9A1E7A4F7556}'   # SDK 形式の C# プロジェクト
-DEFAULT_TFM = 'net8.0'
+DEFAULT_TFM = 'net10.0'
 MSTEST_VER = '3.6.4'
 TESTSDK_VER = '17.12.0'
 IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')

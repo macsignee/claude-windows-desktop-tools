@@ -113,7 +113,7 @@ disable-model-invocation: true
 - テスト: 未定 (ユーザーに確認する。TDD の練習なら gtest)
 - 名前空間: tdd
 - UIテスト: none (画面がない、または、画面の操作の自動確認は、まだ要らない)
-- TFM: 未定 (.NET のときだけ。決まっていなければ、既定の net8.0)
+- TFM: 未定 (.NET のときだけ。決まっていなければ、既定の net10.0)
 
 ## 変更履歴
 (確定後の変更は、このコマンドが追記する)
@@ -129,11 +129,11 @@ disable-model-invocation: true
 | 層 | 仕様の「置く層」から。ロジック・データの、どちらを使うか (**WPF は、画面の状態・コマンドがあれば、`viewmodel` も**。テストしたい ViewModel は、WPF 非依存のライブラリに置く。**WinForms と `csharp-dll` は、`logic` と `data` だけ**。`viewmodel` は書かない)。層の名前を決めるなら、`logic:OrderLogic,data:OrderData` のように、**空白なし**で書く |
 | テスト | **仕様からは、決まらない。** ユーザーに確認する (TDD の練習が目的なら、C++ は `gtest`、.NET (WPF / WinForms / C# DLL) は `mstest` を勧める) |
 | UI テスト | 画面あり (WPF / WinForms) で、**画面の操作を自動で確かめたい**ときだけ `flaui`。それ以外は `none`。ユーザーに確認する (`csharp-dll` には、使えない) |
-| TFM | .NET のみ。決まっていなければ、書かない (既定の `net8.0`)。 |
+| TFM | .NET のみ。決まっていなければ、書かない (既定の `net10.0`)。 |
 | 名前空間 | フォルダ名の頭文字は、読みにくいことがある。短い名前 (例: `tdd`) を、提案する |
 
 - 案と根拠を示し、仕様書の「構成案」の節に書く (承認を得てから)。**節の形は、上の仕様書の様式のとおり** (`- メインの種類:` / `- 層:` / `- 層の種類:` / `- テスト:` / `- 名前空間:`。`/new-solution --spec` が、機械的に読む)。
-  メインの種類の値: `wpf` / `winforms` / `csharp-dll` / `mfc` (SDI) / `mfc-mdi` / `mfc-dialog` / `win32` / `console` / `dll` / `lib`。層: `none` / `logic` / `data` / `logic,data` (**`wpf` のときは、`viewmodel` も、組み合わせられる**。例: `data,logic,viewmodel`。`winforms` / `csharp-dll` は `logic` / `data` だけ)。層の種類: `dll` / `lib` (C++ のみ。.NET では、書かない)。テスト: `none` / `gtest` (C++) / `mstest` (.NET) / `未定`。UIテスト: `none` / `flaui` (`wpf` / `winforms`、と C++ の GUI)。TFM: `net8.0` など (.NET のみ。C++ では、書かない)。
+  メインの種類の値: `wpf` / `winforms` / `csharp-dll` / `mfc` (SDI) / `mfc-mdi` / `mfc-dialog` / `win32` / `console` / `dll` / `lib`。層: `none` / `logic` / `data` / `logic,data` (**`wpf` のときは、`viewmodel` も、組み合わせられる**。例: `data,logic,viewmodel`。`winforms` / `csharp-dll` は `logic` / `data` だけ)。層の種類: `dll` / `lib` (C++ のみ。.NET では、書かない)。テスト: `none` / `gtest` (C++) / `mstest` (.NET) / `未定`。UIテスト: `none` / `flaui` (`wpf` / `winforms`、と C++ の GUI)。TFM: `net10.0` など (.NET のみ。C++ では、書かない)。
 - **テストは、ユーザーが決めたら、その値を書く。** 決まっていなければ `未定` (`/new-solution` が、質問する)。
 - **そのまま実行できる、`/new-solution --spec docs/specs/<名前>.md` のコマンドを示す** (引数で、明示して上書きもできる)。自動で、実行しない。
 - ソリューションがすでにある場合は、この節は、出さない。

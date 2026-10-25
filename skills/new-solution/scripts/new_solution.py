@@ -6,7 +6,7 @@ Usage:
                                        --tests none|gtest [--layer-kind dll|lib] [--namespace NS] [--toolset v145]
                                        [--gtest auto|nuget|source] [--gtest-from DIR] [--dry-run]
                WPF (.NET): python3 new_solution.py <FOLDER> --type wpf --layers none|data|logic|viewmodel の組み合わせ --tests none|mstest
-                                       [--namespace NS] [--tfm net8.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
+                                       [--namespace NS] [--tfm net10.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
                            (層は、WPF 非依存のクラスライブラリ。viewmodel を作らないと、ViewModel は、アプリの中)
                または、--spec <仕様書> で、仕様書の「構成案」から、省略した項目を読み取る (明示した引数が優先)
   改行コードの規則 (.gitattributes) の確認と追加 (すでにあるプロジェクト用):
@@ -29,7 +29,7 @@ Usage:
   --tests  gtest: 作った DLL / 静的ライブラリ (層と、メインが dll / lib ならメイン) に、<名前>Test (GoogleTest の exe) を作る。none: テストを作らない
   --gtest  GoogleTest の入れ方: auto (既定。パッケージをコピーできれば nuget、なければ source) / nuget / source (ThirdParty/googletest をビルド。
            ソースは、ウォッチャー経由で取得する: gtest_once.sh)
-  --spec   仕様書 (docs/specs/*.md) の「## 構成案」の、次の行を読む: - メインの種類: / - 層: / - 層の種類: / - テスト: / - 名前空間: / - UIテスト: (none | flaui) / - TFM: (.NET のみ。例 net8.0)
+  --spec   仕様書 (docs/specs/*.md) の「## 構成案」の、次の行を読む: - メインの種類: / - 層: / - 層の種類: / - テスト: / - 名前空間: / - UIテスト: (none | flaui) / - TFM: (.NET のみ。例 net10.0)
            新規作成のときは、さらに、仕様書を取り込む (spec_import.py): 仕様書と「元:」のメモを docs/specs/・docs/ideas/ に置く (すでにあれば、そのまま)、
            「具体例」「境界値と異常系」の表から、テストケースの種 docs/specs/<名前>.cases.md を作る、CLAUDE.md に「## 仕様書」の節を足す
 

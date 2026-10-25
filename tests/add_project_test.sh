@@ -23,7 +23,7 @@ ok "slnx: namespace = <solution>.Data (kind data)" "$([ "$(has "$out" '名前空
 ok "slnx: both projects registered, startup mark untouched" "$([ "$(grep -c '<Project Path=' "$D/App.slnx")" = 3 ] && grep -q 'DataLayer/DataLayer.csproj' "$D/App.slnx" && grep -q 'DataLayer.Tests/DataLayer.Tests.csproj' "$D/App.slnx" && grep -q 'App/App.csproj" Id="[0-9a-f-]*" DefaultStartup="true"' "$D/App.slnx" && echo 1 || echo 0)"
 ok "files are BOM + CRLF (cs / csproj) and csproj is well-formed XML" "$(bom_crlf "$D/DataLayer/DataLayer.csproj" && bom_crlf "$D/DataLayer/DataLayerInfo.cs" && bom_crlf "$D/DataLayer.Tests/DataLayerInfoTests.cs" && wellformed "$D/DataLayer.Tests/DataLayer.Tests.csproj" && echo 1 || echo 0)"
 ok "test project: MSTest packages pinned, IsTestProject, reference to the library" "$(f="$D/DataLayer.Tests/DataLayer.Tests.csproj"; grep -q 'Microsoft.NET.Test.Sdk" Version="17.12.0"' "$f" && grep -q 'MSTest.TestAdapter" Version="3.6.4"' "$f" && grep -q 'MSTest.TestFramework" Version="3.6.4"' "$f" && grep -q '<IsTestProject>true' "$f" && grep -q '..\\DataLayer\\DataLayer.csproj' "$f" && echo 1 || echo 0)"
-ok "library csproj has no WPF (no UseWPF) and the default TFM net8.0" "$(f="$D/DataLayer/DataLayer.csproj"; ! grep -q UseWPF "$f" && grep -q '<TargetFramework>net8.0</TargetFramework>' "$f" && echo 1 || echo 0)"
+ok "library csproj has no WPF (no UseWPF) and the default TFM net10.0" "$(f="$D/DataLayer/DataLayer.csproj"; ! grep -q UseWPF "$f" && grep -q '<TargetFramework>net10.0</TargetFramework>' "$f" && echo 1 || echo 0)"
 
 python3 "$AP" "$D" LogicLayer --kind logic --uses DataLayer >/dev/null
 ok "--uses: ProjectReference to DataLayer" "$(grep -q '..\\DataLayer\\DataLayer.csproj' "$D/LogicLayer/LogicLayer.csproj" && echo 1 || echo 0)"
@@ -61,7 +61,7 @@ cat > "$S/App/App.csproj" <<'XML'
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 </Project>

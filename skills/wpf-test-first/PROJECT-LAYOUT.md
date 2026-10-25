@@ -16,17 +16,17 @@ View (WPF アプリ) ──▶ ViewModel ──▶ ロジック ──▶ デー
 
 | プロジェクト | 種類 | TargetFramework | 参照するもの |
 |---|---|---|---|
-| View (WPF アプリ) | WinExe、`UseWPF` | `net8.0-windows` | ViewModel、ロジック、データ (組み立てる側) |
-| `ViewModels` | クラスライブラリ | `net8.0` (**WPF 非依存**) | ロジック |
-| `LogicLayer` | クラスライブラリ | `net8.0` (WPF 非依存) | データ |
-| `DataLayer` | クラスライブラリ | `net8.0` (WPF 非依存) | なし |
-| `<名前>.Tests` | MSTest | `net8.0` | 対応するライブラリ (プロジェクト参照) |
+| View (WPF アプリ) | WinExe、`UseWPF` | `net10.0-windows` | ViewModel、ロジック、データ (組み立てる側) |
+| `ViewModels` | クラスライブラリ | `net10.0` (**WPF 非依存**) | ロジック |
+| `LogicLayer` | クラスライブラリ | `net10.0` (WPF 非依存) | データ |
+| `DataLayer` | クラスライブラリ | `net10.0` (WPF 非依存) | なし |
+| `<名前>.Tests` | MSTest | `net10.0` | 対応するライブラリ (プロジェクト参照) |
 
 - **ロジックは、データ層の実装を知らない。** データ層の**インターフェース** (`IOrderRepository` など) にだけ依存する。実装は、View (アプリ) が組み立てて、ロジックに渡す。これで、ロジックのテストで、データ層をフェイクに差し替えられる。
   (.NET では、インターフェースと実装が、同じ `DataLayer` にあるので、ロジックから `DataLayer` への、プロジェクト参照は、ある。**使うのは、インターフェースだけ**、という規律で守る。厳密に分けたいときは、インターフェースだけの `*.Abstractions` ライブラリを作る。)
 - **テストは、ライブラリ単位。** ライブラリ 1 つに、テストプロジェクト 1 つ。名前は、`<ライブラリ名>.Tests` (ウォッチャーの検出: `Microsoft.NET.Test.Sdk` を参照する、または名前が `Test` / `Tests` で終わる)。
 - **View にテストは作らない。**
-- **ViewModel を、WPF 非依存の、クラスライブラリに置く理由:** `net8.0` (Windows 非依存) のライブラリは、`System.Windows` の型 (`Window` / `MessageBox` / `Application`) を、**そもそも、使えない** (ビルドで落ちる)。型システムが、「ViewModel が、View に依存しない」ことを、強制する。テストも、STA スレッドや `Application` なしで、動く。
+- **ViewModel を、WPF 非依存の、クラスライブラリに置く理由:** `net10.0` (Windows 非依存) のライブラリは、`System.Windows` の型 (`Window` / `MessageBox` / `Application`) を、**そもそも、使えない** (ビルドで落ちる)。型システムが、「ViewModel が、View に依存しない」ことを、強制する。テストも、STA スレッドや `Application` なしで、動く。
   `ICommand` / `INotifyPropertyChanged` / `ObservableCollection<T>` は、WPF 非依存なので、使える。`CommandManager.RequerySuggested` (WPF 専用) は、使えない → `RelayCommand.NotifyCanExecuteChanged()` を、明示的に呼ぶ。
 - ViewModel 層を作らない構成 (`--layers` に `viewmodel` を含めない) では、ViewModel は、アプリの `ViewModels/` フォルダに入る。**そのままでは、テストできない。** テストしたくなったら、`ViewModels` ライブラリを作って、移す。
 

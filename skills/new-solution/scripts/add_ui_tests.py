@@ -2,7 +2,7 @@
 """add_ui_tests.py - 既存のソリューション (WPF / WinForms / MFC などの C++) に、UI テストのプロジェクト <アプリ名>.UITests (MSTest + FlaUI) を足す。
 
 Usage:
-  python3 add_ui_tests.py <SLN_DIR> [--app 名前] [--namespace NS] [--tfm net8.0] [--flaui-version 5.0.0]
+  python3 add_ui_tests.py <SLN_DIR> [--app 名前] [--namespace NS] [--tfm net10.0] [--flaui-version 5.0.0]
                           [--mstest-version V] [--testsdk-version V] [--dry-run]
 
   <SLN_DIR>   .sln / .slnx のあるフォルダ
@@ -10,7 +10,7 @@ Usage:
   --namespace UI テストの名前空間の根 (既定: アプリ名 (. を除く))
 
 作るもの (<アプリ名>.UITests/):
-  <アプリ名>.UITests.csproj   MSTest + FlaUI.Core + FlaUI.UIA3 (net8.0-windows)
+  <アプリ名>.UITests.csproj   MSTest + FlaUI.Core + FlaUI.UIA3 (net10.0-windows)
   UiTestBase.cs               テストごとに、アプリを起動し、終了する。失敗したときは、ウィンドウのスクリーンショットを残す
   AppLocator.cs               アプリの exe を探す (UITEST_* の環境変数。WPF / WinForms: bin\\<構成>\\<TFM>\\、C++: <プラットフォーム>\\<構成>\\)
   Screenshots.cs              PrintWindow によるウィンドウのスクリーンショット (別のデスクトップでも、撮れる)

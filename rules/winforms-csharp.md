@@ -58,13 +58,13 @@ Solution/
     Program.cs               ← composition root
     Forms/                   ← Form と、*.Designer.cs
     Presenters/              ← ロジック層がないときだけ (IMainView / MainPresenter)
-  LogicLayer/                ← Presenter と業務ロジック (WinForms 非依存。net8.0)
-  DataLayer/                 ← データアクセス (net8.0)
+  LogicLayer/                ← Presenter と業務ロジック (WinForms 非依存。net10.0)
+  DataLayer/                 ← データアクセス (net10.0)
   LogicLayer.Tests/ …        ← MSTest
   App.UITests/               ← FlaUI (必要なとき)
 ```
 - **依存の向き: アプリ → ロジック → データ。** 逆向きの参照は禁止 (`winforms-check` の WFL003)。
-- **ロジック層・データ層は、WinForms 非依存** (`net8.0` などの Windows 非依存。`UseWindowsForms` / `-windows` を付けない。`System.Windows.Forms` / `System.Drawing` を使わない)。付けると、ビルドで落ちるのではなく、**黙って、依存が混ざる**ので、`winforms-check` の WFL001 が確かめる。
+- **ロジック層・データ層は、WinForms 非依存** (`net10.0` などの Windows 非依存。`UseWindowsForms` / `-windows` を付けない。`System.Windows.Forms` / `System.Drawing` を使わない)。付けると、ビルドで落ちるのではなく、**黙って、依存が混ざる**ので、`winforms-check` の WFL001 が確かめる。
 - ロジック層がない小さなアプリでは、`IMainView` / `MainPresenter` は、アプリの `Presenters/` に置く。**業務ロジックが増えたら、ロジック層に切り出す。**
 
 ### 3.2 層の名前

@@ -506,7 +506,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、自前の最小実装にした (NuGet に依存しない)。** 理由: (1) **最初のビルドが、ネットワークと、パッケージのバージョンの実在に依存しない** (MSTest だけが、依存する)。(2) CommunityToolkit.Mvvm の版を、推測で固定するのを避ける (実在を確認できない)。(3) `wpf-check` が、プロジェクト内の基底クラスを、解釈できる (`INotifyPropertyChanged` の実装も追える)。CommunityToolkit.Mvvm が欲しければ、`add-package` で足して、置き換える (`CLAUDE.md` に書く)。`RelayCommand` は、`CommandManager.RequerySuggested` (WPF 専用) を使えないので、`NotifyCanExecuteChanged()` を、明示的に呼ぶ。
 - **テストプロジェクトの名前は `<名前>.Tests`** (.NET の慣習。C++ は `<名前>Test`)。ウォッチャーの検出 (`Microsoft.NET.Test.Sdk` を参照、または名前が `Test` / `Tests` で終わる) に合う。`RECOMMENDED-SETTINGS.md` の `ask` のパターン (`*.Tests/**` `*Tests.cs`) にも合う。
 - **MSTest の参照は、`Microsoft.NET.Test.Sdk` + `MSTest.TestAdapter` + `MSTest.TestFramework` の 3 つを、明示する** (メタパッケージ `MSTest` ではなく。メタパッケージの導入時期を、確認できていないため)。既定のバージョンは、**実在を記憶している版** (Test.Sdk 17.12.0、MSTest 3.6.4) で、`--mstest-version` / `--testsdk-version` で上書きできる。**これらの版が、nuget.org に実在することは、まだ確認していない** (TEST-PLAN の WS6)。新しい版は、`add-package` の `nuget versions` で確認する。
-- **既定の TFM は `net8.0`** (LTS。この PC には、SDK 9 / 10 と、ランタイム 8 / 9 / 10 があるので、動く)。`--tfm net10.0` で変えられる (アプリは `-windows` が付く)。
+- **既定の TFM は `net10.0`** (v2.12.0 で、`net8.0` から変更。「明示しない限り、最新」の方針。この PC には、SDK 9 / 10 と、ランタイム 8 / 9 / 10 がある)。`--tfm net8.0` などで変えられる (アプリは `-windows` が付く)。
 - **`.slnx` には、構成 (`Configurations`) を書かない** (.NET だけの `.slnx` の、Visual Studio の既定: Debug / Release、Any CPU)。ウォッチャーは、`-Platform auto` で `AnyCPU` を使う (4.24)。**`/p:Platform="Any CPU"` が、構成を持たない `.slnx` で通るかは、実機で未確認** (WS2)。WPF アプリに `DefaultStartup="true"` (層は、ライブラリで、起動できない)。
 - **`Directory.Build.props` に、`Nullable` / `ImplicitUsings` / `LangVersion` を、まとめる。** 各 `.csproj` は、`TargetFramework` と `RootNamespace` (と、参照・パッケージ) だけ。
 - **`.editorconfig` と `rules/wpf-csharp.md`:** C++ の規約 (`cpp-mfc.md`) と、**同じ方針の項目はそろえた** (UTF-8 BOM + CRLF、スペース 4、Allman、コメントは日本語、`.gitattributes`)。**違う項目:** 定数は PascalCase (.NET の慣習。C++ は大文字)、private フィールドは `_camelCase` (C++ は `m_`)、`C` 接頭辞なし、`Async` の接尾辞。**WPF 固有の規則 (MVVM、層、バインディング、UI スレッド) は、`wpf-check` の検査項目と、対応させた** (規約で決め、`wpf-check` が、静的に確かめる)。
@@ -607,7 +607,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 **決定 (ユーザー、2026-10-24):** (1) 段階分けは、**`csharp-dll` → `winforms` → UI テストの PoC → 検査・規約**。(2) 検査は **`winforms-check` を新規に作る** (`wpf_check.py` は XAML の検査が中心で、1,396 行ある。拡張しない)。規約は **`rules/winforms-csharp.md` を新規に作る**。(3) 層は **`data` / `logic` の 2 つだけ** (ViewModel 層は作らない)。画面の振る舞いは、`logic` 側のインターフェース (`IMainView` など) に出す (3. のダイアログのテストの `IDialogService` と同じ方向)。(4) UI テストは、UIA3 の FlaUI、`AutomationId` は `Name`。生成コードの前に、WinForms の PoC (別のデスクトップ、`Invoke`、`PrintWindow`) を行う (4.29 の決定のとおり)。
 
 **段階 1 の実装 (`--type csharp-dll`。v2.6.0。単体テストのみ。実機は未確認):**
-- メイン自身が、クラスライブラリ (`<フォルダ名>`、`net8.0`)。**テスト (`<メイン>.Tests`) の対象になる** (C++ の `dll` / `lib` と同じ考え方)。層がなくても、`--tests mstest` が使える。メインは、すべての層を参照する。
+- メイン自身が、クラスライブラリ (`<フォルダ名>`、既定 `net10.0`)。**テスト (`<メイン>.Tests`) の対象になる** (C++ の `dll` / `lib` と同じ考え方)。層がなくても、`--tests mstest` が使える。メインは、すべての層を参照する。
 - `--layers` は `data` / `logic` だけ。`--ui-tests` は、エラー (画面がない)。`.slnx` に `DefaultStartup` はない。
 - 経路は WPF と同じ (`create_wpf` を `csharp-dll` にも使う。`add_project.py` の `lib_files` / `test_files` を、そのまま使う)。後付けの `--tests mstest` も、既存の経路で、メイン自身を含めて動く。
 - `CLAUDE.md` は専用 (`claude_md_csharp_dll`)。C# の規約は、`wpf-csharp.md` の C# の部分を指す (WinForms の規約ができるまでの暫定ではなく、画面のない C# には、これで足りる)。
@@ -684,3 +684,8 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **取り込み (`spec_import.py`):** (1) 仕様書と `元:` のメモを `docs/` に置く (すでにあれば何もしない)、(2) 「具体例」「境界値と異常系」の表から、`docs/specs/<名前>.cases.md` (E1.. / B1..。チェックリスト) を作る、(3) `CLAUDE.md` に「## 仕様書」の節を足す。
 - **決めたこと:** ケースの種は、**テストコードにしない**。層への割り当て (仕様書の「置く層」は自由な文章) と、メソッド名 (「インターフェース案」は仮) が、機械では決まらないため。テスト名・入力・期待値への確定は、`/add-feature` の計画 (承認のゲートあり) が行う。既存の `.cases.md` は、上書きしない (チェックを守る)。
 - **見送り:** 「インターフェース案」からのスタブの生成 (形式を構造化する必要がある。必要になったら再検討)。
+
+### 4.32 既定の TFM を、最新 (net10.0) にする (v2.12.0)
+
+**方針: .NET / C# の版は、明示しない限り、最新を使う。** 既定の TFM を `net8.0` から `net10.0` に変えた (`add_project.py` の `DEFAULT_TFM`。`new_solution.py` / `add_ui_tests.py` も、これを使う)。構成案の `TFM:` と `--tfm` で、従来どおり、変えられる (例: `net8.0`)。既存のソリューションは、`.csproj` の `TargetFramework` を読んで合わせるので、影響しない。ホストに SDK 10 が必要 (ない場合は、`--tfm net8.0`)。**最新が上がったら、既定を更新する** (`DEFAULT_TFM` と、tests / SKILL / 規約の記述)。
+- **最新が STS の場合 (v2.12.0):** 既定 (`DEFAULT_TFM`) は、**最新の LTS** にする。最新の版が STS (例: .NET 11) のときは、`/new-solution` が、**ユーザーに質問して決める** (LTS / STS / 指定)。スクリプトは、質問しない (質問は Skill の手順。`--tfm` で明示すれば、そのまま使う)。

@@ -39,7 +39,7 @@ C++ / MFC の規約 (`cpp-mfc.md`) と、同じ方針の項目 (ファイルの�
 | テスト | xUnit、NUnit、MSTest のいずれか |
 
 - 新規プロジェクトでは、特別な理由がない限り .NET Framework ではなく、**現在サポートされている .NET** を使用する。.NET 版 WPF では、最新の .NET API、言語機能、アクセシビリティ、信頼性、ツール改善などの恩恵を受けられる。
-- **ツール群の補足:** `new-solution --type wpf` は、**MSTest** のプロジェクトを作る。ウォッチャー (`dotnet test --logger trx`) と、`wpf-test-first` が検証しているのは、MSTest (v3、VSTest モード) だけ。xUnit / NUnit は、動く見込みだが、未検証。**`TargetFramework` は、プロジェクトの `.csproj` を、先に確認する** (既定は `net8.0`、アプリは `net8.0-windows`。`--tfm` で変えられる)。
+- **ツール群の補足:** `new-solution --type wpf` は、**MSTest** のプロジェクトを作る。ウォッチャー (`dotnet test --logger trx`) と、`wpf-test-first` が検証しているのは、MSTest (v3、VSTest モード) だけ。xUnit / NUnit は、動く見込みだが、未検証。**`TargetFramework` は、プロジェクトの `.csproj` を、先に確認する** (既定は `net10.0`、アプリは `net10.0-windows`。`--tfm` で変えられる)。
 - **パッケージの追加は、`add-package` Skill で行う** (`.csproj` に、名前とバージョンを、推測で書かない。バージョンは、固定する)。
 - **警告を消すための `#pragma warning disable` / `<NoWarn>` / `TreatWarningsAsErrors` の解除は、ユーザーの許可なしに、しない。**
 
@@ -137,7 +137,7 @@ MyApp.slnx
   - `--logic` / `--data` / `--viewmodel` で、名前による推定を、上書きできる。
 - **3.2 の構成は、`new-solution --layers data:SampleApp.Domain,logic:SampleApp.Application,viewmodel:SampleApp.Presentation` のように、`.` 区切りの名前で作れる** (名前が、そのまま、名前空間になる)。`Infrastructure` や、3.2 の細かいフォルダ (`UseCases` `Entities` など) は、`wpf-test-first` の `add_project.py` (名前に `.` を含めてよい) と、手で、足す。
 - 3.1 のフォルダ (`Models` `Services` `Behaviors` `Converters` `Infrastructure`) は、**必要になったときに作る** (空のフォルダを、先に作らない)。生成される小規模の構成は、`Views` / `ViewModels` / `Resources` と `App`。
-- **ViewModel・ロジック・データのクラスライブラリは、WPF 非依存** (`net8.0`、`UseWPF` なし)。ViewModel が `System.Windows` の型を使うと、**ビルドが通らない**ので、型システムが、View への依存を防ぐ。
+- **ViewModel・ロジック・データのクラスライブラリは、WPF 非依存** (`net10.0`、`UseWPF` なし)。ViewModel が `System.Windows` の型を使うと、**ビルドが通らない**ので、型システムが、View への依存を防ぐ。
 - テストは、**ライブラリごと**に `<名前>.Tests` (3.1 の `SampleApp.Tests` は、1 プロジェクトに、まとめた形)。
 
 ## 4. 命名規約

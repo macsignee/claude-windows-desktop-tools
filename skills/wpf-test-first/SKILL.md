@@ -16,7 +16,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 
   | 層 | プロジェクト | 種類 | テスト |
   |---|---|---|---|
-  | View | メインの WPF アプリ | WPF (`net8.0-windows`) | **しない** (画面。ビルドと `wpf-check` と、目視) |
+  | View | メインの WPF アプリ | WPF (`net10.0-windows`) | **しない** (画面。ビルドと `wpf-check` と、目視) |
   | ViewModel | `ViewModels` 等 | クラスライブラリ (**WPF 非依存**) | `<名前>.Tests` (MSTest) |
   | ロジック | `LogicLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
   | データ | `DataLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
@@ -93,7 +93,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
   - `NotImplementedException` を投げるスタブは、**テストが、例外で落ちる** (アサーションの失敗ではない) ので、Red の条件を満たさない。使わない。
 - ViewModel のプロパティのスタブは、**通知を上げない、固定の値を返す** プロパティにする (変更通知のテストが、アサーションで落ちる)。
 - 新しい `.cs` は、SDK 形式なので、`.csproj` に追加しなくてよい (**自動で含まれる**)。置き場所は、そのライブラリのフォルダの下。ファイル名は、型の名前と一致させる。
-- **ViewModel を WPF 非依存のライブラリに置く。** `System.Windows` の型 (`Window` / `MessageBox` / `Application`) を使うと、ライブラリが、ビルドできない (`net8.0` に、ない)。
+- **ViewModel を WPF 非依存のライブラリに置く。** `System.Windows` の型 (`Window` / `MessageBox` / `Application`) を使うと、ライブラリが、ビルドできない (`net10.0` に、ない)。
 - 新しい型に `public` を付ける (`internal` のままだと、テストプロジェクトから見えない: `CS0122`。`InternalsVisibleTo` で、わざと見せているときを除く)。
 
 ### 3. テストを書く (対象の層に対応する `<名前>.Tests` 側)

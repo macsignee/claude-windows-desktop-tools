@@ -18,7 +18,7 @@ for f in WpfUi.UITests.csproj UiTestBase.cs AppLocator.cs Screenshots.cs UiNativ
     ok "WPF: WpfUi.UITests/$f exists" "$([ -f "$T/WpfUi/WpfUi.UITests/$f" ] && echo 1 || echo 0)"
 done
 ok "WPF: slnx has the UITests project" "$(grep -q 'WpfUi.UITests/WpfUi.UITests.csproj' "$T/WpfUi/WpfUi.slnx" && echo 1 || echo 0)"
-ok "WPF: csproj references FlaUI 5.0.0 + MSTest, net8.0-windows" "$(grep -q 'FlaUI.UIA3" Version="5.0.0"' "$T/WpfUi/WpfUi.UITests/WpfUi.UITests.csproj" && grep -q 'MSTest.TestFramework' "$T/WpfUi/WpfUi.UITests/WpfUi.UITests.csproj" && grep -q '<TargetFramework>net8.0-windows</TargetFramework>' "$T/WpfUi/WpfUi.UITests/WpfUi.UITests.csproj" && echo 1 || echo 0)"
+ok "WPF: csproj references FlaUI 5.0.0 + MSTest, net10.0-windows" "$(grep -q 'FlaUI.UIA3" Version="5.0.0"' "$T/WpfUi/WpfUi.UITests/WpfUi.UITests.csproj" && grep -q 'MSTest.TestFramework' "$T/WpfUi/WpfUi.UITests/WpfUi.UITests.csproj" && grep -q '<TargetFramework>net10.0-windows</TargetFramework>' "$T/WpfUi/WpfUi.UITests/WpfUi.UITests.csproj" && echo 1 || echo 0)"
 ok "WPF: standard View -> sample tests use AutomationId (NameTextBox / GreetingText / ClearButton)" "$(grep -q 'Find("NameTextBox")' "$T/WpfUi/WpfUi.UITests/MainWindowUiTests.cs" && grep -q 'ClearButton' "$T/WpfUi/WpfUi.UITests/MainWindowUiTests.cs" && echo 1 || echo 0)"
 ok "WPF: generated View has AutomationIds" "$(grep -q 'AutomationId="NameTextBox"' "$T/WpfUi/WpfUi/Views/MainWindow.xaml" && grep -q 'AutomationId="GreetingText"' "$T/WpfUi/WpfUi/Views/MainWindow.xaml" && grep -q 'AutomationId="ClearButton"' "$T/WpfUi/WpfUi/Views/MainWindow.xaml" && echo 1 || echo 0)"
 ok "WPF: no leftover placeholders (__X__) in generated files" "$(grep -rq '__[A-Z]*__' "$T/WpfUi/WpfUi.UITests" && echo 0 || echo 1)"
