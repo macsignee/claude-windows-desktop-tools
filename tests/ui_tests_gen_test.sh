@@ -82,5 +82,31 @@ ok "unknown --app is rejected" "$([ $rc != 0 ] && echo 1 || echo 0)"
 python3 -I "$UI" "/no/such/dir" >/dev/null 2>&1; rc=$?
 ok "missing folder is rejected" "$([ $rc != 0 ] && echo 1 || echo 0)"
 
+
+# --- UiDialogs.cs (ダイアログ・メニュー・コンボなどの、操作の道具): 3 つのフレームワークで、同じファイルが作られる
+D="$T/WpfUi/WpfUi.UITests/UiDialogs.cs"
+ok "UiDialogs.cs exists in WPF UITests (and is listed in the add_ui_tests output)" "$([ -f "$D" ] && grep -q 'UiDialogs.cs' "$T/o1" && echo 1 || echo 0)"
+ok "UiDialogs: key API present (Click / WaitModal / ExpandMenu / MenuCommand / SelectComboItem / SelectListItem / SetSlider / SetScrollBar / SelectTab / PressDialogButton / AnswerMessageBox / PickFile / FindWindow / DumpTree)" "$(ok_all=1; for m in 'string Click(' 'Window? WaitModal(' 'void ExpandMenu(' 'void MenuCommand(' 'string SelectComboItem(' 'string SelectListItem(' 'string SetSlider(' 'string SetScrollBar(' 'void SelectTab(' 'string PressDialogButton(' 'string AnswerMessageBox(' 'string PickFile(' 'Window? FindWindow(' 'string DumpTree('; do grep -qF "$m" "$D" || ok_all=0; done; echo $ok_all)"
+ok "UiDialogs: switches by FrameworkId / window handle (WPF / WinForm / Win32)" "$(grep -q 'FrameworkId' "$D" && grep -q 'BM_CLICK' "$D" && grep -q 'CB_SETCURSEL' "$D" && grep -q 'WM_COMMAND' "$D" && echo 1 || echo 0)"
+ok "UiDialogs: WPF menu on a separate desktop gives an actionable failure (run_watcher_visible.cmd)" "$(grep -q 'run_watcher_visible.cmd' "$D" && echo 1 || echo 0)"
+ok "UiDialogs: braces are balanced" "$(python3 - "$D" <<'PY'
+import sys
+t=open(sys.argv[1],encoding='utf-8-sig').read()
+print(1 if t.count('{')==t.count('}') and t.count('(')==t.count(')') else 0)
+PY
+)"
+ok "UiDialogs: UTF-8 BOM + CRLF, namespace filled" "$(head -c 3 "$D" | od -An -tx1 | tr -d ' \n' | grep -q '^efbbbf' && grep -q $'\r' "$D" && grep -q 'namespace WpfUi.UITests;' "$D" && echo 1 || echo 0)"
+ok "UiTestBase: OpenModal / WaitWindow wrappers" "$(grep -q 'Window OpenModal(' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && grep -q 'WaitWindow(string title)' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && echo 1 || echo 0)"
+ok "CLAUDE.md: tells to use UiDialogs and the pure-function + smoke-test split" "$(grep -q 'UiDialogs' "$T/WpfUi/CLAUDE.md" && grep -q '煙テスト' "$T/WpfUi/CLAUDE.md" && grep -q 'run_watcher_visible.cmd' "$T/WpfUi/CLAUDE.md" && echo 1 || echo 0)"
+# refresh-support-files は、UiDialogs.cs も、作り直す (古いプロジェクトへ、後から、足せる)
+rm -f "$D"
+python3 -I "$UI" "$T/WpfUi" --refresh-support-files >"$T/o8" 2>&1; rc=$?
+ok "refresh-support-files: UiDialogs.cs is (re)created" "$([ $rc = 0 ] && [ -f "$D" ] && echo 1 || echo 0)"
+# WinForms / MFC (C++) でも、同じファイル
+python3 -I "$NS" "$T/WfUi" --type winforms --layers logic --tests mstest --ui-tests flaui >/dev/null 2>&1
+ok "WinForms: UiDialogs.cs generated" "$([ -f "$T/WfUi/WfUi.UITests/UiDialogs.cs" ] && echo 1 || echo 0)"
+python3 -I "$NS" "$T/MfcUi" --type mfc-dialog --layers logic --tests none --ui-tests flaui >/dev/null 2>&1
+ok "MFC (C++): UiDialogs.cs generated" "$([ -f "$T/MfcUi/MfcUi.UITests/UiDialogs.cs" ] && echo 1 || echo 0)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

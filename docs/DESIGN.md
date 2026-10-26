@@ -689,3 +689,30 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 
 **方針: .NET / C# の版は、明示しない限り、最新を使う。** 既定の TFM を `net8.0` から `net10.0` に変えた (`add_project.py` の `DEFAULT_TFM`。`new_solution.py` / `add_ui_tests.py` も、これを使う)。構成案の `TFM:` と `--tfm` で、従来どおり、変えられる (例: `net8.0`)。既存のソリューションは、`.csproj` の `TargetFramework` を読んで合わせるので、影響しない。ホストに SDK 10 が必要 (ない場合は、`--tfm net8.0`)。**最新が上がったら、既定を更新する** (`DEFAULT_TFM` と、tests / SKILL / 規約の記述)。
 - **最新が STS の場合 (v2.12.0):** 既定 (`DEFAULT_TFM`) は、**最新の LTS** にする。最新の版が STS (例: .NET 11) のときは、`/new-solution` が、**ユーザーに質問して決める** (LTS / STS / 指定)。スクリプトは、質問しない (質問は Skill の手順。`--tfm` で明示すれば、そのまま使う)。
+
+### 4.33 WPF のメニューは、ユーザーのデスクトップで (v2.13.0)
+
+**実機の結果 (2026-10-26、`poc/dialog-flaui-wpf`):** WPF のメニューのポップアップ (別ウィンドウ) は、別のデスクトップ (`CreateDesktop` で作った、入力を受けないデスクトップ) では、作られず、UIA のツリーに出ない (`ExpandCollapse.Expand()` / `LegacyIAccessible` / `WM_SYSCHAR` の 7 通りが、`Collapsed` のまま)。ユーザーのデスクトップ (`run_watcher_visible.cmd`) では、`Expand()` や FlaUI の `AsMenuItem().Expand()` で開く (16 件全通過)。WinForms の `MenuStrip` は、別のデスクトップでも開く。FlaUI の操作スレッドは、すでにアプリと同じデスクトップにいる (`env.txt` の `desktop=` で確認) ので、`SetThreadDesktop` や再取得・待ち方の工夫では、変わらない。
+
+**対応:** `build-test-loop/scripts/wpf_menu_note.sh` が、`UseWPF` のプロジェクトの XAML に、`Menu` / `MenuItem` / `ContextMenu` があるときだけ、`build_once.sh` / `build_test_once.sh` の終了時に、`NOTE:` の 2 行を出す (メニューの開閉を含む UI テストは、`run_watcher_visible.cmd` で。別のデスクトップでは、ボタン・単体テストで)。1 行目と終了コードは、変えない。直近の UI テスト (`ui-trace.txt`) が、`desktop: Default` なら、出さない。ウォッチャー側 (ps1) は、変えない (UI テストを、自動で、ユーザーのデスクトップへ切り替えると、ユーザーの画面を、勝手に使うため)。
+
+### 4.34 ダイアログ・メニュー・コンボなどの UI テストの道具 (`UiDialogs`、v2.14.0)
+
+**PoC (`poc/dialog-flaui*`、WinForms → WPF → MFC。実機、2026-10-25〜26) の結果を、`add_ui_tests.py` の生成物に取り込んだ。**
+- **方針:** 画面の連動の規則 (チェック・ラジオ・ドロップダウン・スクロールバー・3 状態チェック・タブ・リスト・メニューなど) は、**純粋な関数** (入力の状態 → 各コントロールの有効・無効・文言) に置き、**単体テスト (表) で網羅**する。UI テストは、ダイアログごとに、**煙テスト 1 件** (開く → 規則の結果が実画面に反映 → OK / キャンセルの結果がメインに返る)。
+- **生成物:** `<アプリ>.UITests/UiDialogs.cs` (ツール所有のファイル。`--refresh-support-files` で、既存のプロジェクトへも、足せる)、`UiTestBase` の `OpenModal` / `WaitModalClosed` / `WaitWindow` / `WaitWindowClosed`。**フレームワークの切り替えは、実行時** (要素の `FrameworkId` = `WPF` / `WinForm` / `Win32`、ウィンドウハンドルの有無) なので、生成時に、種類を知る必要がない。
+- **道具と、フレームワークごとの方法 (実機で確認):**
+
+| 操作 | WinForms | WPF | MFC (Win32) |
+|---|---|---|---|
+| ダイアログを開くボタン (`Click`) | `BM_CLICK` の `PostMessage` | `Invoke` を別スレッド | `BM_CLICK` の `PostMessage` |
+| メニューを開く (`ExpandMenu`) | `Expand` | `Expand` (**ユーザーのデスクトップだけ**。別のデスクトップは、分かりやすい失敗) | Alt + ニーモニックの `PostMessage` (`#32768` を確認) |
+| メニューのコマンド | アプリ側で、`BeginInvoke` で遅らせる → `Invoke` | `Invoke` | `MenuCommand` (`WM_COMMAND`) |
+| コンボ (`SelectComboItem`) | `CB_SETCURSEL` + `CBN_SELCHANGE` (項目の一覧を渡す) | `ComboBox.Select` | 同左 |
+| リスト (`SelectListItem`) | `LB_SETCURSEL` + `LBN_SELCHANGE` | `Select` | 同左 |
+| スライダー (`SetSlider`) | `RangeValue` → `LegacyIAccessible` → `TBM_SETPOS` (読み戻しで確認) | `RangeValue` | 同左 |
+| スクロールバー (`SetScrollBar`) | `RangeValue` → `SBM_SETPOS` + `WM_HSCROLL` (`SBM_GETPOS` で読む。MFC の `RangeValue` は、0〜100 に正規化) | 同左 | 同左 |
+| MessageBox / ファイルダイアログ (`AnswerMessageBox` / `PickFile`) | `GetDlgItem` で探して `BM_CLICK` (UIA では、ボタンのハンドルが 0) | 同左 | 同左 (ID: はい 6・いいえ 7、ファイル名 1148 / 1001、ボタン 1 / 2) |
+
+- **規約への反映:** WinForms の規約 6.3 に、「メニューの `Click` の中で、ダイアログを、直接開かない (`BeginInvoke`)」「`Name` / `AccessibleName` を付ける」を追記した。`build-test-loop/SKILL.md` に、使い方と、実機の注意を追記した。生成される `CLAUDE.md` の「UI テスト」の節にも、同じ指針を入れた。
+- **見送り (第 2 弾以降):** ListView / DataGrid、NumericUpDown、DateTimePicker、TreeView。`winforms-check` / `wpf-check` / `mfc-check` への、ダイアログ関連の検査 (メニューの `Click` から、直接の `ShowDialog` など) は、必要になったら、足す。

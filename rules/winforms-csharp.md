@@ -116,6 +116,9 @@ Solution/
 ### 6.3 ダイアログ
 - **`MessageBox` / `OpenFileDialog` / `SaveFileDialog` / モーダル・モードレスの Form を、Presenter から直接開かない。** インターフェース (`IDialogService` など) に分け、Form (または、アプリ側の実装クラス) が実装する。Presenter のテストで、偽物に差し替えられる。
 - ダイアログの Form (`ShowDialog()`) は、`using` で、破棄する。
+- **ダイアログを開く処理は、メニュー (`ToolStripMenuItem`) の `Click` の中で、直接 `ShowDialog` / `MessageBox.Show` を呼ばず、`BeginInvoke` で、`Click` の処理が終わってから、行う。** UIA の `Invoke` (UI テスト・支援技術) は、`Click` の処理が終わるまで戻らず、その中で、ダイアログが閉じるまで戻らないと、以後の UIA の呼び出しが、すべて止まる (実機で確認)。通常のボタン (ウィンドウを持つ) は、UI テストが `BM_CLICK` で押すので、直接でよい。
+- **Form に、`IView` のプロパティなど、公開プロパティを足したら、`[Browsable(false)]` と `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` を付ける** (.NET 9 以降の WinForms 解析 `WFO1000` が、デザイナーが保存しない公開プロパティを、ビルドエラーにする)。
+- **UI テストと支援技術のために、入力欄・ボタンには、`Name` (= AutomationId) を付け、直前の `Label` の文字が UIA の名前になることがあるので、`AccessibleName` を付ける。**
 - (`winforms-check` の WFL002。)
 
 ### 6.4 UserControl

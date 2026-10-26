@@ -743,12 +743,13 @@ internal static class Program
 
 def main_form_cs(ns, presenter_ns):
     # using System.Windows.Forms を、明示する (ImplicitUsings に頼ると、VS が Form と認識しなかった。実機で確認)。System が先、残りは名前の順
-    usings = "\n".join(f"using {u};" for u in ["System.Windows.Forms"] + sorted({presenter_ns}))
+    usings = "\n".join(f"using {u};" for u in ["System.ComponentModel", "System.Windows.Forms"] + sorted({presenter_ns}))
     return f'''{usings}
 
 namespace {ns}.Forms;
 
-/// <summary>メイン画面。View 固有の処理だけを書く (業務ロジックは、Presenter に置く)。</summary>
+/// <summary>メイン画面。View 固有の処理だけを書く (業務ロジックは、Presenter に置く)。
+/// IMainView のプロパティは、デザイナーが保存しない値なので、[DesignerSerializationVisibility(Hidden)] を付ける (.NET 9 以降の WinForms 解析 WFO1000 が、ビルドエラーにする)。</summary>
 public partial class MainForm : Form, IMainView
 {{
     public MainForm()
@@ -760,17 +761,23 @@ public partial class MainForm : Form, IMainView
 
     public event EventHandler? ClearRequested;
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string PersonName
     {{
         get => NameTextBox.Text;
         set => NameTextBox.Text = value;
     }}
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string Greeting
     {{
         set => GreetingLabel.Text = value;
     }}
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool CanClear
     {{
         set => ClearButton.Enabled = value;

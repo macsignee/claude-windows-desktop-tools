@@ -2,6 +2,20 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.14.0] 2026-10-26 (Skill 側。UI テストの道具 `UiDialogs` の取り込み。単体テストのみ。生成された C# は、実機でコンパイルしていない)
+
+- **`add_ui_tests.py` が、`<アプリ>.UITests/UiDialogs.cs` を、作る** (WinForms / WPF / MFC で、実機で確かめた、ダイアログ・メニュー・コンボ・リスト・スライダー・スクロールバー・タブ・MessageBox・ファイルダイアログの操作を、`FrameworkId` とウィンドウハンドルの有無で、自動で切り替える)。`UiTestBase` に、`OpenModal` / `WaitModalClosed` / `WaitWindow` / `WaitWindowClosed` を足した。`--refresh-support-files` が、`UiDialogs.cs` も、作る (既存のプロジェクトへ、足せる)。WPF のメニューを、別のデスクトップで開こうとすると、`run_watcher_visible.cmd` を案内する失敗にする。
+- 生成される `CLAUDE.md` の「UI テスト (FlaUI)」の節に、`UiDialogs` の使い方、「連動の規則は、純粋な関数の単体テスト、UI テストは、ダイアログごとに、煙テスト 1 件」、メニューの注意を追記。`build-test-loop/SKILL.md` に、「ダイアログ・メニュー・コンボなどの UI テスト」の節を追加。`rules/winforms-csharp.md` 6.3 に、「メニューの `Click` で、ダイアログを直接開かない (`BeginInvoke`)」「`AccessibleName`」を追記。DESIGN 4.34 (フレームワークごとの方法の表)。
+- テスト: `tests/ui_tests_gen_test.sh` に 11 件 (43 件)。
+- **実機で確認 (`UiHelpWf` / `UiHelpWpf` / `UiHelpMfc`、2026-10-26):** `UiDialogs.cs` を含む UITests のコンパイルは、3 つとも成功。WPF は、ひな形の UI テスト 3 件が通り、MFC は 1 件が通った。
+- **修正 (実機で見つかった、既存の不具合): WinForms のメインの `MainForm.cs` が、`error WFO1000` でビルドできなかった** (既定の TFM を `net10.0` にしたため。.NET 9 以降の WinForms 解析が、デザイナーが保存しない公開プロパティ (`IMainView` の `PersonName` / `Greeting` / `CanClear`) を、エラーにする)。生成する `MainForm.cs` の 3 つのプロパティに、`[Browsable(false)]` と `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` を付けた (`using System.ComponentModel;` を足した)。`tests/new_solution_winforms_test.sh` に 1 件 (40 → 41 件)。`rules/winforms-csharp.md` にも、追記。
+
+## [2.13.0] 2026-10-26 (Skill 側。WPF のメニューがあるときの、ウォッチャーの使い方の通知。単体テストのみ)
+
+- **`build-test-loop/scripts/wpf_menu_note.sh` (新規):** `UseWPF` のプロジェクトの XAML に、`Menu` / `MenuItem` / `ContextMenu` があるときだけ、「メニューの開閉を含む UI テストは、ウォッチャーを `run_watcher_visible.cmd` で起動して実行する (別のデスクトップでは、WPF のメニューのポップアップが開かない)」を、`NOTE:` の 2 行で知らせる。`build_once.sh` (auto-build) と `build_test_once.sh` (`uitest_once.sh` を含む) が、終了時に呼ぶ。**1 行目と終了コードは、変えない。** `bin` / `obj` の XAML と、WPF でないプロジェクトは、対象外。直近の UI テストが `desktop: Default` なら、出さない。
+- `build-test-loop/SKILL.md` と `auto-build/SKILL.md` に、`NOTE:` が出たときの扱い (ユーザーに伝える) を追記。DESIGN 4.33。
+- テスト: `tests/wpf_menu_note_test.sh` (新規、11 件)。
+
 ## [2.12.0] 2026-10-25 (Skill 側。既定の TFM を、`net8.0` から `net10.0` に。単体テストのみ。実機は未確認)
 
 - **新規作成の既定の TFM が `net10.0` になった** (アプリは `net10.0-windows`、ライブラリとテストは `net10.0`)。方針: 明示しない限り、最新。`--tfm` / 構成案の `TFM:` で、変えられる。**ホストに SDK 10 が必要。** 既存のソリューションは、`.csproj` から TFM を読むので、影響しない (`add_project.py` / `add_ui_tests.py`)。
