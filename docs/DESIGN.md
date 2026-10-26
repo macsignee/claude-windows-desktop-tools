@@ -506,7 +506,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、自前の最小実装にした (NuGet に依存しない)。** 理由: (1) **最初のビルドが、ネットワークと、パッケージのバージョンの実在に依存しない** (MSTest だけが、依存する)。(2) CommunityToolkit.Mvvm の版を、推測で固定するのを避ける (実在を確認できない)。(3) `wpf-check` が、プロジェクト内の基底クラスを、解釈できる (`INotifyPropertyChanged` の実装も追える)。CommunityToolkit.Mvvm が欲しければ、`add-package` で足して、置き換える (`CLAUDE.md` に書く)。`RelayCommand` は、`CommandManager.RequerySuggested` (WPF 専用) を使えないので、`NotifyCanExecuteChanged()` を、明示的に呼ぶ。
 - **テストプロジェクトの名前は `<名前>.Tests`** (.NET の慣習。C++ は `<名前>Test`)。ウォッチャーの検出 (`Microsoft.NET.Test.Sdk` を参照、または名前が `Test` / `Tests` で終わる) に合う。`RECOMMENDED-SETTINGS.md` の `ask` のパターン (`*.Tests/**` `*Tests.cs`) にも合う。
 - **MSTest の参照は、`Microsoft.NET.Test.Sdk` + `MSTest.TestAdapter` + `MSTest.TestFramework` の 3 つを、明示する** (メタパッケージ `MSTest` ではなく。メタパッケージの導入時期を、確認できていないため)。既定のバージョンは、**実在を記憶している版** (Test.Sdk 17.12.0、MSTest 3.6.4) で、`--mstest-version` / `--testsdk-version` で上書きできる。**これらの版が、nuget.org に実在することは、まだ確認していない** (TEST-PLAN の WS6)。新しい版は、`add-package` の `nuget versions` で確認する。
-- **既定の TFM は `net8.0`** (LTS。この PC には、SDK 9 / 10 と、ランタイム 8 / 9 / 10 があるので、動く)。`--tfm net10.0` で変えられる (アプリは `-windows` が付く)。
+- **既定の TFM は `net10.0`** (v2.12.0 で、`net8.0` から変更。「明示しない限り、最新」の方針。この PC には、SDK 9 / 10 と、ランタイム 8 / 9 / 10 がある)。`--tfm net8.0` などで変えられる (アプリは `-windows` が付く)。
 - **`.slnx` には、構成 (`Configurations`) を書かない** (.NET だけの `.slnx` の、Visual Studio の既定: Debug / Release、Any CPU)。ウォッチャーは、`-Platform auto` で `AnyCPU` を使う (4.24)。**`/p:Platform="Any CPU"` が、構成を持たない `.slnx` で通るかは、実機で未確認** (WS2)。WPF アプリに `DefaultStartup="true"` (層は、ライブラリで、起動できない)。
 - **`Directory.Build.props` に、`Nullable` / `ImplicitUsings` / `LangVersion` を、まとめる。** 各 `.csproj` は、`TargetFramework` と `RootNamespace` (と、参照・パッケージ) だけ。
 - **`.editorconfig` と `rules/wpf-csharp.md`:** C++ の規約 (`cpp-mfc.md`) と、**同じ方針の項目はそろえた** (UTF-8 BOM + CRLF、スペース 4、Allman、コメントは日本語、`.gitattributes`)。**違う項目:** 定数は PascalCase (.NET の慣習。C++ は大文字)、private フィールドは `_camelCase` (C++ は `m_`)、`C` 接頭辞なし、`Async` の接尾辞。**WPF 固有の規則 (MVVM、層、バインディング、UI スレッド) は、`wpf-check` の検査項目と、対応させた** (規約で決め、`wpf-check` が、静的に確かめる)。
@@ -607,7 +607,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 **決定 (ユーザー、2026-10-24):** (1) 段階分けは、**`csharp-dll` → `winforms` → UI テストの PoC → 検査・規約**。(2) 検査は **`winforms-check` を新規に作る** (`wpf_check.py` は XAML の検査が中心で、1,396 行ある。拡張しない)。規約は **`rules/winforms-csharp.md` を新規に作る**。(3) 層は **`data` / `logic` の 2 つだけ** (ViewModel 層は作らない)。画面の振る舞いは、`logic` 側のインターフェース (`IMainView` など) に出す (3. のダイアログのテストの `IDialogService` と同じ方向)。(4) UI テストは、UIA3 の FlaUI、`AutomationId` は `Name`。生成コードの前に、WinForms の PoC (別のデスクトップ、`Invoke`、`PrintWindow`) を行う (4.29 の決定のとおり)。
 
 **段階 1 の実装 (`--type csharp-dll`。v2.6.0。単体テストのみ。実機は未確認):**
-- メイン自身が、クラスライブラリ (`<フォルダ名>`、`net8.0`)。**テスト (`<メイン>.Tests`) の対象になる** (C++ の `dll` / `lib` と同じ考え方)。層がなくても、`--tests mstest` が使える。メインは、すべての層を参照する。
+- メイン自身が、クラスライブラリ (`<フォルダ名>`、既定 `net10.0`)。**テスト (`<メイン>.Tests`) の対象になる** (C++ の `dll` / `lib` と同じ考え方)。層がなくても、`--tests mstest` が使える。メインは、すべての層を参照する。
 - `--layers` は `data` / `logic` だけ。`--ui-tests` は、エラー (画面がない)。`.slnx` に `DefaultStartup` はない。
 - 経路は WPF と同じ (`create_wpf` を `csharp-dll` にも使う。`add_project.py` の `lib_files` / `test_files` を、そのまま使う)。後付けの `--tests mstest` も、既存の経路で、メイン自身を含めて動く。
 - `CLAUDE.md` は専用 (`claude_md_csharp_dll`)。C# の規約は、`wpf-csharp.md` の C# の部分を指す (WinForms の規約ができるまでの暫定ではなく、画面のない C# には、これで足りる)。
@@ -675,3 +675,44 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **プレビュー版 VS の対応 (`VC_INCLUDE_PRERELEASE`):** 不要と判断して削除。
 - **テストの作業フォルダを `%TEMP%` にする:** プロジェクトのフォルダ基準の相対パスで、データを読むテストが、失敗する恐れがある。
   既定は、テスト exe のフォルダ。必要なら `-TestWorkingDir` で指定する。
+
+### 4.31 仕様書の、new_solution への取り込み (2026-10-25、v2.11.0)
+
+`/brainstorm` → `/update-from-ideas` の成果 (仕様書) を、`new_solution.py --spec` が、構成案を読むだけでなく、ソリューションへ取り込む。
+
+- **構成案のキー:** `メインの種類` / `層` / `層の種類` / `テスト` / `名前空間` に、`UIテスト` (`none` | `flaui`) と `TFM` (.NET のみ。C++ では読み飛ばす) を足した。引数で明示したものが優先 (従来どおり)。
+- **取り込み (`spec_import.py`):** (1) 仕様書と `元:` のメモを `docs/` に置く (すでにあれば何もしない)、(2) 「具体例」「境界値と異常系」の表から、`docs/specs/<名前>.cases.md` (E1.. / B1..。チェックリスト) を作る、(3) `CLAUDE.md` に「## 仕様書」の節を足す。
+- **決めたこと:** ケースの種は、**テストコードにしない**。層への割り当て (仕様書の「置く層」は自由な文章) と、メソッド名 (「インターフェース案」は仮) が、機械では決まらないため。テスト名・入力・期待値への確定は、`/add-feature` の計画 (承認のゲートあり) が行う。既存の `.cases.md` は、上書きしない (チェックを守る)。
+- **見送り:** 「インターフェース案」からのスタブの生成 (形式を構造化する必要がある。必要になったら再検討)。
+
+### 4.32 既定の TFM を、最新 (net10.0) にする (v2.12.0)
+
+**方針: .NET / C# の版は、明示しない限り、最新を使う。** 既定の TFM を `net8.0` から `net10.0` に変えた (`add_project.py` の `DEFAULT_TFM`。`new_solution.py` / `add_ui_tests.py` も、これを使う)。構成案の `TFM:` と `--tfm` で、従来どおり、変えられる (例: `net8.0`)。既存のソリューションは、`.csproj` の `TargetFramework` を読んで合わせるので、影響しない。ホストに SDK 10 が必要 (ない場合は、`--tfm net8.0`)。**最新が上がったら、既定を更新する** (`DEFAULT_TFM` と、tests / SKILL / 規約の記述)。
+- **最新が STS の場合 (v2.12.0):** 既定 (`DEFAULT_TFM`) は、**最新の LTS** にする。最新の版が STS (例: .NET 11) のときは、`/new-solution` が、**ユーザーに質問して決める** (LTS / STS / 指定)。スクリプトは、質問しない (質問は Skill の手順。`--tfm` で明示すれば、そのまま使う)。
+
+### 4.33 WPF のメニューは、ユーザーのデスクトップで (v2.13.0)
+
+**実機の結果 (2026-10-26、`poc/dialog-flaui-wpf`):** WPF のメニューのポップアップ (別ウィンドウ) は、別のデスクトップ (`CreateDesktop` で作った、入力を受けないデスクトップ) では、作られず、UIA のツリーに出ない (`ExpandCollapse.Expand()` / `LegacyIAccessible` / `WM_SYSCHAR` の 7 通りが、`Collapsed` のまま)。ユーザーのデスクトップ (`run_watcher_visible.cmd`) では、`Expand()` や FlaUI の `AsMenuItem().Expand()` で開く (16 件全通過)。WinForms の `MenuStrip` は、別のデスクトップでも開く。FlaUI の操作スレッドは、すでにアプリと同じデスクトップにいる (`env.txt` の `desktop=` で確認) ので、`SetThreadDesktop` や再取得・待ち方の工夫では、変わらない。
+
+**対応:** `build-test-loop/scripts/wpf_menu_note.sh` が、`UseWPF` のプロジェクトの XAML に、`Menu` / `MenuItem` / `ContextMenu` があるときだけ、`build_once.sh` / `build_test_once.sh` の終了時に、`NOTE:` の 2 行を出す (メニューの開閉を含む UI テストは、`run_watcher_visible.cmd` で。別のデスクトップでは、ボタン・単体テストで)。1 行目と終了コードは、変えない。直近の UI テスト (`ui-trace.txt`) が、`desktop: Default` なら、出さない。ウォッチャー側 (ps1) は、変えない (UI テストを、自動で、ユーザーのデスクトップへ切り替えると、ユーザーの画面を、勝手に使うため)。
+
+### 4.34 ダイアログ・メニュー・コンボなどの UI テストの道具 (`UiDialogs`、v2.14.0)
+
+**PoC (`poc/dialog-flaui*`、WinForms → WPF → MFC。実機、2026-10-25〜26) の結果を、`add_ui_tests.py` の生成物に取り込んだ。**
+- **方針:** 画面の連動の規則 (チェック・ラジオ・ドロップダウン・スクロールバー・3 状態チェック・タブ・リスト・メニューなど) は、**純粋な関数** (入力の状態 → 各コントロールの有効・無効・文言) に置き、**単体テスト (表) で網羅**する。UI テストは、ダイアログごとに、**煙テスト 1 件** (開く → 規則の結果が実画面に反映 → OK / キャンセルの結果がメインに返る)。
+- **生成物:** `<アプリ>.UITests/UiDialogs.cs` (ツール所有のファイル。`--refresh-support-files` で、既存のプロジェクトへも、足せる)、`UiTestBase` の `OpenModal` / `WaitModalClosed` / `WaitWindow` / `WaitWindowClosed`。**フレームワークの切り替えは、実行時** (要素の `FrameworkId` = `WPF` / `WinForm` / `Win32`、ウィンドウハンドルの有無) なので、生成時に、種類を知る必要がない。
+- **道具と、フレームワークごとの方法 (実機で確認):**
+
+| 操作 | WinForms | WPF | MFC (Win32) |
+|---|---|---|---|
+| ダイアログを開くボタン (`Click`) | `BM_CLICK` の `PostMessage` | `Invoke` を別スレッド | `BM_CLICK` の `PostMessage` |
+| メニューを開く (`ExpandMenu`) | `Expand` | `Expand` (**ユーザーのデスクトップだけ**。別のデスクトップは、分かりやすい失敗) | Alt + ニーモニックの `PostMessage` (`#32768` を確認) |
+| メニューのコマンド | アプリ側で、`BeginInvoke` で遅らせる → `Invoke` | `Invoke` | `MenuCommand` (`WM_COMMAND`) |
+| コンボ (`SelectComboItem`) | `CB_SETCURSEL` + `CBN_SELCHANGE` (項目の一覧を渡す) | `ComboBox.Select` | 同左 |
+| リスト (`SelectListItem`) | `LB_SETCURSEL` + `LBN_SELCHANGE` | `Select` | 同左 |
+| スライダー (`SetSlider`) | `RangeValue` → `LegacyIAccessible` → `TBM_SETPOS` (読み戻しで確認) | `RangeValue` | 同左 |
+| スクロールバー (`SetScrollBar`) | `RangeValue` → `SBM_SETPOS` + `WM_HSCROLL` (`SBM_GETPOS` で読む。MFC の `RangeValue` は、0〜100 に正規化) | 同左 | 同左 |
+| MessageBox / ファイルダイアログ (`AnswerMessageBox` / `PickFile`) | `GetDlgItem` で探して `BM_CLICK` (UIA では、ボタンのハンドルが 0) | 同左 | 同左 (ID: はい 6・いいえ 7、ファイル名 1148 / 1001、ボタン 1 / 2) |
+
+- **規約への反映:** WinForms の規約 6.3 に、「メニューの `Click` の中で、ダイアログを、直接開かない (`BeginInvoke`)」「`Name` / `AccessibleName` を付ける」を追記した。`build-test-loop/SKILL.md` に、使い方と、実機の注意を追記した。生成される `CLAUDE.md` の「UI テスト」の節にも、同じ指針を入れた。
+- **見送り (第 2 弾以降):** ListView / DataGrid、NumericUpDown、DateTimePicker、TreeView。`winforms-check` / `wpf-check` / `mfc-check` への、ダイアログ関連の検査 (メニューの `Click` から、直接の `ShowDialog` など) は、必要になったら、足す。

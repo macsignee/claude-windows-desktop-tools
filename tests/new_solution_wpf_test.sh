@@ -25,7 +25,7 @@ ok "full: all projects exist (app, 3 layers, 3 test projects)" "$(for p in MyApp
 ok "full: slnx has 7 projects, the WPF app is the default startup" "$([ "$(grep -c '<Project Path=' "$D/MyApp.slnx")" = 7 ] && grep -q 'MyApp/MyApp.csproj" Id="[0-9a-f-]*" DefaultStartup="true"' "$D/MyApp.slnx" && echo 1 || echo 0)"
 ok "full: dependency chain app -> {ViewModels,Logic,Data}, ViewModels -> Logic -> Data, Data -> none" "$(r() { grep -o '\.\.\\[A-Za-z.]*\\' "$1" | tr -d '.\\' | sort | tr '\n' ' '; }
     [ "$(r "$D/ViewModels/ViewModels.csproj")" = "LogicLayer " ] && [ "$(r "$D/LogicLayer/LogicLayer.csproj")" = "DataLayer " ] && [ -z "$(r "$D/DataLayer/DataLayer.csproj")" ] && [ "$(r "$D/MyApp/MyApp.csproj")" = "DataLayer LogicLayer ViewModels " ] && echo 1 || echo 0)"
-ok "full: app is WinExe + UseWPF + net8.0-windows; layers are plain net8.0 without UseWPF" "$(grep -q '<OutputType>WinExe' "$D/MyApp/MyApp.csproj" && grep -q 'net8.0-windows' "$D/MyApp/MyApp.csproj" && grep -q '<UseWPF>true' "$D/MyApp/MyApp.csproj" && ! grep -q 'UseWPF\|windows' "$D/ViewModels/ViewModels.csproj" "$D/LogicLayer/LogicLayer.csproj" "$D/DataLayer/DataLayer.csproj" && echo 1 || echo 0)"
+ok "full: app is WinExe + UseWPF + net10.0-windows; layers are plain net10.0 without UseWPF" "$(grep -q '<OutputType>WinExe' "$D/MyApp/MyApp.csproj" && grep -q 'net10.0-windows' "$D/MyApp/MyApp.csproj" && grep -q '<UseWPF>true' "$D/MyApp/MyApp.csproj" && ! grep -q 'UseWPF\|windows' "$D/ViewModels/ViewModels.csproj" "$D/LogicLayer/LogicLayer.csproj" "$D/DataLayer/DataLayer.csproj" && echo 1 || echo 0)"
 ok "full: namespaces MyApp / MyApp.Data / MyApp.Logic / MyApp.ViewModels, tests <ns>.Tests" "$(grep -q 'namespace MyApp.Data;' "$D/DataLayer/DataLayerInfo.cs" && grep -q 'namespace MyApp.Logic.Tests;' "$D/LogicLayer.Tests/LogicLayerInfoTests.cs" && grep -q 'namespace MyApp.ViewModels;' "$D/ViewModels/MainViewModel.cs" && grep -q 'x:Class="MyApp.Views.MainWindow"' "$D/MyApp/Views/MainWindow.xaml" && echo 1 || echo 0)"
 ok "full: the window refers to the ViewModels assembly (clr-namespace ...;assembly=ViewModels)" "$(grep -q 'clr-namespace:MyApp.ViewModels;assembly=ViewModels' "$D/MyApp/Views/MainWindow.xaml" && echo 1 || echo 0)"
 ok "full: XAML and csproj are well-formed XML" "$(for f in MyApp/App.xaml MyApp/Resources/Styles.xaml MyApp/Views/MainWindow.xaml MyApp/MyApp.csproj ViewModels.Tests/ViewModels.Tests.csproj Directory.Build.props; do wellformed "$D/$f" || exit 1; done; echo 1)"
@@ -96,7 +96,7 @@ err "layer name with a bad character" --type wpf --layers 'data:Bad..Name' --tes
 err "bad tfm" --type wpf --layers logic --tests none --tfm net8
 err "bad namespace" --type wpf --layers logic --tests none --namespace '1bad'
 err "bad MSTest version" --type wpf --layers logic --tests mstest --mstest-version '3.0; calc'
-err "--tfm with a C++ type" --type console --layers none --tests none --tfm net8.0
+err "--tfm with a C++ type" --type console --layers none --tests none --tfm net10.0
 D="$(mk Exists)"; mkdir "$D/LogicLayer"
 out="$(python3 "$NS" "$D" --type wpf --layers logic --tests none)"; rc=$?
 ok "an existing project folder -> rc=3, nothing overwritten" "$([ $rc = 3 ] && [ ! -f "$D/Exists.slnx" ] && echo 1 || echo 0)"

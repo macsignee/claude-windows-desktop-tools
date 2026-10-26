@@ -6,7 +6,7 @@ Usage:
                                        --tests none|gtest [--layer-kind dll|lib] [--namespace NS] [--toolset v145]
                                        [--gtest auto|nuget|source] [--gtest-from DIR] [--dry-run]
                WPF (.NET): python3 new_solution.py <FOLDER> --type wpf --layers none|data|logic|viewmodel の組み合わせ --tests none|mstest
-                                       [--namespace NS] [--tfm net8.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
+                                       [--namespace NS] [--tfm net10.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
                            (層は、WPF 非依存のクラスライブラリ。viewmodel を作らないと、ViewModel は、アプリの中)
                または、--spec <仕様書> で、仕様書の「構成案」から、省略した項目を読み取る (明示した引数が優先)
   改行コードの規則 (.gitattributes) の確認と追加 (すでにあるプロジェクト用):
@@ -29,7 +29,9 @@ Usage:
   --tests  gtest: 作った DLL / 静的ライブラリ (層と、メインが dll / lib ならメイン) に、<名前>Test (GoogleTest の exe) を作る。none: テストを作らない
   --gtest  GoogleTest の入れ方: auto (既定。パッケージをコピーできれば nuget、なければ source) / nuget / source (ThirdParty/googletest をビルド。
            ソースは、ウォッチャー経由で取得する: gtest_once.sh)
-  --spec   仕様書 (docs/specs/*.md) の「## 構成案」の、次の行を読む: - メインの種類: / - 層: / - 層の種類: / - テスト: / - 名前空間:
+  --spec   仕様書 (docs/specs/*.md) の「## 構成案」の、次の行を読む: - メインの種類: / - 層: / - 層の種類: / - テスト: / - 名前空間: / - UIテスト: (none | flaui) / - TFM: (.NET のみ。例 net10.0)
+           新規作成のときは、さらに、仕様書を取り込む (spec_import.py): 仕様書と「元:」のメモを docs/specs/・docs/ideas/ に置く (すでにあれば、そのまま)、
+           「具体例」「境界値と異常系」の表から、テストケースの種 docs/specs/<名前>.cases.md を作る、CLAUDE.md に「## 仕様書」の節を足す
 
 組み合わせの注意: メインが exe で --layers none のとき、--tests gtest は、テスト対象がないので、エラー (終了コード 2)。
           メインが dll / lib なら、メイン自身がテスト対象。
@@ -1295,8 +1297,10 @@ def add_tests_mode(a, folder, name, sln_name):
     print('完了。')
 
 
-SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace'}
-SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib'), 'tests': ('none', 'gtest', 'mstest')}
+SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace',
+             'UIテスト': 'ui_tests', 'TFM': 'tfm'}
+SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib'),
+                'tests': ('none', 'gtest', 'mstest'), 'ui_tests': ('none', 'flaui')}
 
 
 def read_spec_config(path):
@@ -1329,10 +1333,30 @@ def apply_spec(a):
     cfg = read_spec_config(a.spec)
     used = []
     for key, val in cfg.items():
+        if key == 'tfm' and (a.type or cfg.get('type')) not in DOTNET_TYPES:
+            print(f'注意: 構成案の TFM ({val}) は、.NET 用。C++ では、読み飛ばす')
+            continue
+        if key == 'tfm' and not re.match(r'^net\d+\.\d+$', val):
+            die(f'構成案の値が不正: TFM: {val} (例: net8.0)')
         if getattr(a, key, None) is None:
             setattr(a, key, val)
             used.append(f'{key}={val}')
     print(f'構成案 ({a.spec}) から読み取った: {", ".join(used) if used else "(なし。すべて、引数で指定済み、または、構成案で未定)"}')
+
+
+def import_spec(a, folder):
+    """--spec の仕様書を、新しいソリューションへ取り込む (spec_import.py。仕様書・メモの配置、テストケースの種、CLAUDE.md の節)。"""
+    sys.path.insert(0, HERE)
+    import spec_import as SI
+    label = {'gtest': 'GoogleTest (自動テスト)', 'mstest': 'MSTest (自動テスト)'}.get(a.tests)
+    p = SI.plan(folder, a.spec, label)
+    print('仕様書の取り込み:')
+    for ln in SI.describe(p):
+        print(ln)
+    if a.dry_run:
+        print('(dry-run: 何も書いていない)')
+        return
+    SI.apply(folder, p)
 
 
 def main():
@@ -1393,6 +1417,8 @@ def main():
         create_mode(a, folder, name)
         if a.ui_tests == 'flaui':
             add_ui_tests_flaui(folder, a.dry_run, new=True)
+        if a.spec:
+            import_spec(a, folder)
 
 
 if __name__ == '__main__':

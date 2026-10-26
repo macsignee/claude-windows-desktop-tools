@@ -25,6 +25,10 @@ case "$TIMEOUT" in
     ''|*[!0-9]*) echo "BAD_ARGS: timeout must be a positive integer (seconds): $TIMEOUT"; exit 2 ;;
 esac
 
+# 終了時 (どの結果のときも): WPF の XAML にメニューがあれば、ユーザーのデスクトップのウォッチャーを使う旨を、知らせる (1 行目と終了コードは、変えない)
+note="$(dirname "${BASH_SOURCE[0]}")/../../build-test-loop/scripts/wpf_menu_note.sh"
+[ -f "$note" ] && trap 'bash "$note" "$DIR"' EXIT
+
 FLAG="$DIR/trigger_build.flag"
 RESULT="$DIR/build_result.txt"
 ERRLOG="$DIR/build_error.log"

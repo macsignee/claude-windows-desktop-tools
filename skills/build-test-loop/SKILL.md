@@ -91,6 +91,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 使い方、出力の形、`FAILED` / `ENV_ERROR` / `TEST_TIMEOUT` の読み方は、`build_test_once.sh` と同じ。`run_in_background: true` で実行し、完了通知を待つ。
 
 - **別のデスクトップで実行される** (ウォッチャーの既定。`WATCH_UI_DESKTOP=default` で、ユーザーのデスクトップ。下の「目で確かめる」)。ウィンドウは、ユーザーの画面に出ず、操作は UIA のパターンなので、**ユーザーに「触らないで」と頼む必要は、ない**。ユーザーのデスクトップで実行する設定のときだけ、フォーカスが奪われることがある、と伝える。
+- **WPF のメニュー (実機で確認、2026-10-26):** WPF のメニューのポップアップは、**別のデスクトップ (ウォッチャーの既定) では、開かない** (`Expand()` も、状態が `Collapsed` のまま。ユーザーのデスクトップでは、開く)。WinForms / MFC のメニューは、別のデスクトップでも開く (WinForms は確認済み)。**WPF のプロジェクトの XAML に、メニュー (`Menu` / `MenuItem` / `ContextMenu`) があると、`build_once.sh` / `build_test_once.sh` (と、`uitest_once.sh`) の出力の最後に、`NOTE:` の 2 行が出る** (`scripts/wpf_menu_note.sh`。1 行目と終了コードは、変わらない。メニューがなければ、出ない。直近の UI テストが、ユーザーのデスクトップ (`desktop: Default`) なら、出ない)。**`NOTE:` が出たら、ユーザーに伝える:** メニューの開閉を含む UI テストは、ウォッチャーを `run_watcher_visible.cmd` で起動して、実行する。別のデスクトップでは、ボタン・単体テスト (規則と Presenter / ViewModel) で、確かめる。
 - ウォッチャーが古い (UI テスト未対応) と、`WATCHER_NOT_RUNNING`。`~/src/copy-host-tools.sh` で再配置して、ウォッチャーを起動し直す。
 
 ### 動いたことを、確かめる (トレースと、目で見るモード)
@@ -120,6 +121,13 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 - **要素は AutomationId で探す** (`Find("NameTextBox")`)。**操作は UIA のパターン** (`Find("Id").AsTextBox().Text = "..."` (Value)、`.AsButton().Invoke()` (Invoke))。**マウス・キーボードの入力 (`Click()`、`Keyboard.Type`) は使わない** (別のデスクトップで動かず、ユーザーの作業と干渉する)。**待ちは `WaitFor(() => 条件)`** (固定の `Thread.Sleep` を使わない)。UIA3 を使う (UIA2 は、別のデスクトップで `Invoke` が失敗する)。
 - 操作したいコントロールに AutomationId がなければ、**XAML に付ける** (ユーザーの了承を得てから)。名前は、役割が分かるもの。同じ画面の操作が増えたら、Page Object にまとめる。
 - 名前: `対象_条件_期待`。既存のファイルの文字コード・改行に合わせる (新規は UTF-8 BOM 付き、CRLF)。
+
+### ダイアログ・メニュー・コンボなどの UI テスト (`UiDialogs`)
+- **生成される `UiDialogs.cs` (と、`UiTestBase.OpenModal` / `WaitWindow`) を使う。** WinForms / WPF / MFC で、実機で確かめた方法が、要素の `FrameworkId` と、ウィンドウハンドルの有無で、**自動で切り替わる** (`Invoke` / `Select` を、自分で直接呼ばない)。既存のプロジェクトへは、`add_ui_tests.py <フォルダ> --refresh-support-files` で、足せる。
+- **何を、どこで、確かめるか:** 画面の連動の規則 (チェックで入力欄が有効になる、ラジオで項目が変わる、不正な入力でエラーが出る、など) は、**純粋な関数の単体テスト** (表で網羅)。UI テストは、**ダイアログごとに、煙テスト 1 件** (開く → 規則の結果が、実画面に反映されている → OK / キャンセルの結果が、メインに返る)。
+- 道具の一覧: `Click` / `WaitModal` / `WaitModalClosed` (ダイアログを開く、MessageBox・ファイルダイアログも同じ)、`WaitWindow` (モードレス)、`ExpandMenu` / `CollapseMenu` / `FindMenuItem` / `MenuCommand`、`SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、`SelectListItem`、`SetSlider`、`SetScrollBar`、`SelectTab`、`AnswerMessageBox`、`PickFile`、`DumpTree` (診断。深さと数に上限)。
+- **注意 (実機で確認):** (1) ウィンドウを持つボタンは `BM_CLICK` の `PostMessage` (UIA の `Invoke` は、`ShowDialog` / `DoModal` の中で戻らず、WinForms / MFC では、以後の UIA が止まる)。(2) WinForms のメニュー項目は、アプリ側で、ダイアログを開く処理を、`BeginInvoke` で遅らせる。MFC のメニューは、`MenuCommand` (`WM_COMMAND`)。(3) **WPF のメニューは、別のデスクトップでは、開かない** (ウォッチャーを `run_watcher_visible.cmd` で起動する。ビルドの出力の `NOTE:` を参照)。(4) キーボード・マウスの入力は、別のデスクトップでは、拒否される。(5) MFC のスクロールバーは、UIA の値が 0〜100 に正規化される (位置は、`SetScrollBar` / `ScrollBarValue` が、`SBM_GETPOS` で扱う)。
+- **コントロールに、`AccessibleName` / `AutomationProperties.Name` を付ける** (WinForms は、直前の `Label` の文字が、UIA の名前になる)。
 
 ### 注意
 - 実行の前後に、ウォッチャーが、テストが残したアプリのプロセスを終了する (別のデスクトップのときは、ジョブオブジェクトで、すべて終了する)。

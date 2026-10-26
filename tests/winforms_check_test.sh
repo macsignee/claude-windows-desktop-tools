@@ -85,7 +85,7 @@ expect m11 WFL004 0 "new Service in a Form"
 # ---------------------------------------------------------------- 層
 mut m12 WfApp "LogicLayer/MainPresenter.cs" 's = s.replace("        Refresh();\n    }\n\n    private void OnNameChanged", "        MessageBox.Show(\"x\");\n        Refresh();\n    }\n\n    private void OnNameChanged", 1)'
 expect m12 WFL001 1 "WinForms type (MessageBox) in the logic layer"
-mut m13 WfApp "LogicLayer/LogicLayer.csproj" 's = s.replace("<TargetFramework>net8.0</TargetFramework>", "<TargetFramework>net8.0-windows</TargetFramework>\n    <UseWindowsForms>true</UseWindowsForms>")'
+mut m13 WfApp "LogicLayer/LogicLayer.csproj" 's = s.replace("<TargetFramework>net10.0</TargetFramework>", "<TargetFramework>net10.0-windows</TargetFramework>\n    <UseWindowsForms>true</UseWindowsForms>")'
 expect m13 WFL001 1 "logic layer csproj depends on WinForms"
 mut m14 WfApp "LogicLayer/LogicLayer.csproj" 's = s.replace("</Project>", "  <ItemGroup>\n    <ProjectReference Include=\"..\\WfApp\\WfApp.csproj\" />\n  </ItemGroup>\n</Project>")'
 expect m14 WFL003 1 "logic layer references the app"

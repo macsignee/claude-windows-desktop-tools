@@ -58,13 +58,13 @@ Solution/
     Program.cs               ← composition root
     Forms/                   ← Form と、*.Designer.cs
     Presenters/              ← ロジック層がないときだけ (IMainView / MainPresenter)
-  LogicLayer/                ← Presenter と業務ロジック (WinForms 非依存。net8.0)
-  DataLayer/                 ← データアクセス (net8.0)
+  LogicLayer/                ← Presenter と業務ロジック (WinForms 非依存。net10.0)
+  DataLayer/                 ← データアクセス (net10.0)
   LogicLayer.Tests/ …        ← MSTest
   App.UITests/               ← FlaUI (必要なとき)
 ```
 - **依存の向き: アプリ → ロジック → データ。** 逆向きの参照は禁止 (`winforms-check` の WFL003)。
-- **ロジック層・データ層は、WinForms 非依存** (`net8.0` などの Windows 非依存。`UseWindowsForms` / `-windows` を付けない。`System.Windows.Forms` / `System.Drawing` を使わない)。付けると、ビルドで落ちるのではなく、**黙って、依存が混ざる**ので、`winforms-check` の WFL001 が確かめる。
+- **ロジック層・データ層は、WinForms 非依存** (`net10.0` などの Windows 非依存。`UseWindowsForms` / `-windows` を付けない。`System.Windows.Forms` / `System.Drawing` を使わない)。付けると、ビルドで落ちるのではなく、**黙って、依存が混ざる**ので、`winforms-check` の WFL001 が確かめる。
 - ロジック層がない小さなアプリでは、`IMainView` / `MainPresenter` は、アプリの `Presenters/` に置く。**業務ロジックが増えたら、ロジック層に切り出す。**
 
 ### 3.2 層の名前
@@ -116,6 +116,9 @@ Solution/
 ### 6.3 ダイアログ
 - **`MessageBox` / `OpenFileDialog` / `SaveFileDialog` / モーダル・モードレスの Form を、Presenter から直接開かない。** インターフェース (`IDialogService` など) に分け、Form (または、アプリ側の実装クラス) が実装する。Presenter のテストで、偽物に差し替えられる。
 - ダイアログの Form (`ShowDialog()`) は、`using` で、破棄する。
+- **ダイアログを開く処理は、メニュー (`ToolStripMenuItem`) の `Click` の中で、直接 `ShowDialog` / `MessageBox.Show` を呼ばず、`BeginInvoke` で、`Click` の処理が終わってから、行う。** UIA の `Invoke` (UI テスト・支援技術) は、`Click` の処理が終わるまで戻らず、その中で、ダイアログが閉じるまで戻らないと、以後の UIA の呼び出しが、すべて止まる (実機で確認)。通常のボタン (ウィンドウを持つ) は、UI テストが `BM_CLICK` で押すので、直接でよい。
+- **Form に、`IView` のプロパティなど、公開プロパティを足したら、`[Browsable(false)]` と `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` を付ける** (.NET 9 以降の WinForms 解析 `WFO1000` が、デザイナーが保存しない公開プロパティを、ビルドエラーにする)。
+- **UI テストと支援技術のために、入力欄・ボタンには、`Name` (= AutomationId) を付け、直前の `Label` の文字が UIA の名前になることがあるので、`AccessibleName` を付ける。**
 - (`winforms-check` の WFL002。)
 
 ### 6.4 UserControl
