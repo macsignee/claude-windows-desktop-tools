@@ -38,5 +38,9 @@ ok "cmd: starts even when no solution exists (the 'no .sln' error remains only w
 ok "cmd: passes -SolutionPath only when a solution was found (SLN_ARG)" "$(grep -q '^set "SLN_ARG="' <<<"$c" && grep -q '^if defined SLN_FILE set SLN_ARG=-SolutionPath "%SLN_FILE%"' <<<"$c" && grep -q -- '-TargetDir "%PROJECT_DIR%" %SLN_ARG% -Platform' <<<"$c" && ! grep -q -- '-SolutionPath "%SLN_FILE%" -Platform' <<<"$c" && echo 1 || echo 0)"
 ok "cmd: the solution display does not use a parenthesized block (a file name with ')' must not break it)" "$(grep -q '^if defined SLN_FILE echo  Solution:' <<<"$c" && grep -q '^if not defined SLN_FILE echo  Solution:' <<<"$c" && echo 1 || echo 0)"
 
+ok "ps1: -UiTestTimeoutSec defaults from WATCH_UI_TIMEOUT_SEC (600 when unset); an explicit argument wins" "$(ps | grep -qF '[int]$UiTestTimeoutSec = $(if ($env:WATCH_UI_TIMEOUT_SEC) { [int]$env:WATCH_UI_TIMEOUT_SEC } else { 600 })' && echo 1 || echo 0)"
+ok "ps1: the UI test banner still shows the timeout" "$(ps | grep -qF 'timeout ${UiTestTimeoutSec}s' && echo 1 || echo 0)"
+
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

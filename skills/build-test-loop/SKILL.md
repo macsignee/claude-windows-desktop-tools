@@ -94,6 +94,10 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 - **WPF のメニュー (実機で確認、2026-10-26):** WPF のメニューのポップアップは、**別のデスクトップ (ウォッチャーの既定) では、開かない** (`Expand()` も、状態が `Collapsed` のまま。ユーザーのデスクトップでは、開く)。WinForms / MFC のメニューは、別のデスクトップでも開く (WinForms は確認済み)。**WPF のプロジェクトの XAML に、メニュー (`Menu` / `MenuItem` / `ContextMenu`) があると、`build_once.sh` / `build_test_once.sh` (と、`uitest_once.sh`) の出力の最後に、`NOTE:` の 2 行が出る** (`scripts/wpf_menu_note.sh`。1 行目と終了コードは、変わらない。メニューがなければ、出ない。直近の UI テストが、ユーザーのデスクトップ (`desktop: Default`) なら、出ない)。**`NOTE:` が出たら、ユーザーに伝える:** メニューの開閉を含む UI テストは、ウォッチャーを `run_watcher_visible.cmd` で起動して、実行する。別のデスクトップでは、ボタン・単体テスト (規則と Presenter / ViewModel) で、確かめる。
 - ウォッチャーが古い (UI テスト未対応) と、`WATCHER_NOT_RUNNING`。`~/src/copy-host-tools.sh` で再配置して、ウォッチャーを起動し直す。
 
+### UI テストが多いとき (`TEST_TIMEOUT`)
+- ウォッチャーの、UI テストの制限は、**テストプロジェクト 1 つあたり、既定 600 秒** (`uitest_once.sh` に渡す秒数 (既定 900) とは、別)。UI テストが多い (ダイアログ・ListView・グリッドなどの調査) と、`TEST_TIMEOUT` (`=== ...: TIMEOUT after 600s (killed) ===`) で、プロセスごと強制終了され、結果ファイル (trx) も、`ui-trace.txt` も、残らない。
+- **対処:** (1) ユーザーに、ウォッチャーを、環境変数 `WATCH_UI_TIMEOUT_SEC` を設定して、起動し直してもらう (`set WATCH_UI_TIMEOUT_SEC=1800` → `run_watcher.cmd ...`)。起動画面の `UI test` の行に、`timeout 1800s` と出る。(2) 1 つのテストに、操作を詰め込まず、**分割する** (特に、項目が多い ListView の `FindAllDescendants` の繰り返しは、遅い)。(3) 調査のログは、**1 行ごとに、すぐ書く** (外から強制終了されても、それまでの結果が、残る)。
+
 ### 動いたことを、確かめる (トレースと、目で見るモード)
 - `uitest_once.sh` は、最後に、**操作の記録 (`.claude-logs/ui-screenshots/ui-trace.txt`)** から、テストごとの結果の行 (`=== テスト名: Passed` など) を出す。**UI テストが、実際に、起動して、操作したことの確認**に使う (`PASSED` と出ても、テストが 0 件でないこと、狙いのテストが動いたことを、行で確かめる)。記録は、`find: <AutomationId>` (探した要素)、`launched: <exe>`、`=== <テスト名>: start (desktop: ..., slowmo: ... ms)` などで、全文は、Read で読める。
 - **ユーザーが「目で確かめたい」と言うとき:** ユーザーのデスクトップで、操作の間に待ちを入れて、実行する。**ユーザーに、ウォッチャーを `run_watcher_visible.cmd` で、起動し直してもらう** (`WATCH_UI_DESKTOP=default`、`WATCH_UI_SLOWMO_MS=800` が、設定される。待ちは、`set WATCH_UI_SLOWMO_MS=1500` で変えられる)。ウィンドウが、画面に出て、入力や、ボタンが、順番に動くのが見える。**実行中、ユーザーは、PC を、快適には使えない** (マウスやキーボードの入力が、フォーカスを持つテスト対象のアプリに入ることがある)。確かめ終わったら、通常の `run_watcher.cmd` (別のデスクトップ) に戻す。

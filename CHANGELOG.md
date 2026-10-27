@@ -2,6 +2,11 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.15.0] 2026-10-26 (ホスト側の変更。Linux では検証できない。単体の静的テストのみ。実機は未確認)
+
+- **`watch_and_build.ps1`: `-UiTestTimeoutSec` の既定値を、環境変数 `WATCH_UI_TIMEOUT_SEC` から読む** (なければ 600。明示した引数が優先)。UI テストが多く、600 秒で `TEST_TIMEOUT` (強制終了) になるとき、`set WATCH_UI_TIMEOUT_SEC=1800` で長くできる。起動画面の `UI test` の行に、`timeout N s` と出る (既存の表示)。
+- `host-tools/README.md`、`build-test-loop/SKILL.md` (「UI テストが多いとき」の節。分割・ログの 1 行ごとの書き出しも)、DESIGN 4.35 を更新。
+
 ## [2.14.0] 2026-10-26 (Skill 側。UI テストの道具 `UiDialogs` の取り込み。単体テストのみ。生成された C# は、実機でコンパイルしていない)
 
 - **`add_ui_tests.py` が、`<アプリ>.UITests/UiDialogs.cs` を、作る** (WinForms / WPF / MFC で、実機で確かめた、ダイアログ・メニュー・コンボ・リスト・スライダー・スクロールバー・タブ・MessageBox・ファイルダイアログの操作を、`FrameworkId` とウィンドウハンドルの有無で、自動で切り替える)。`UiTestBase` に、`OpenModal` / `WaitModalClosed` / `WaitWindow` / `WaitWindowClosed` を足した。`--refresh-support-files` が、`UiDialogs.cs` も、作る (既存のプロジェクトへ、足せる)。WPF のメニューを、別のデスクトップで開こうとすると、`run_watcher_visible.cmd` を案内する失敗にする。

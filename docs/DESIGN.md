@@ -716,3 +716,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 
 - **規約への反映:** WinForms の規約 6.3 に、「メニューの `Click` の中で、ダイアログを、直接開かない (`BeginInvoke`)」「`Name` / `AccessibleName` を付ける」を追記した。`build-test-loop/SKILL.md` に、使い方と、実機の注意を追記した。生成される `CLAUDE.md` の「UI テスト」の節にも、同じ指針を入れた。
 - **見送り (第 2 弾以降):** ListView / DataGrid、NumericUpDown、DateTimePicker、TreeView。`winforms-check` / `wpf-check` / `mfc-check` への、ダイアログ関連の検査 (メニューの `Click` から、直接の `ShowDialog` など) は、必要になったら、足す。
+
+### 4.35 UI テストの制限時間を、環境変数で変える (v2.15.0)
+
+実機の調査 (2026-10-26、`poc/dialog-flaui`、ListView の 5 種類の表示形式などで、UI テストが多くなった) で、ウォッチャーの UI テストの制限 (`-UiTestTimeoutSec`、テストプロジェクト 1 つあたり、既定 600 秒) に達して、`dotnet test` のプロセスごと強制終了された (finally も実行されず、trx も `ui-trace.txt` も残らない)。`uitest_once.sh` の秒数 (既定 900) は、Skill 側の待ち時間で、別物。→ `watch_and_build.ps1` の `-UiTestTimeoutSec` の既定値を、**環境変数 `WATCH_UI_TIMEOUT_SEC`** (なければ 600) から読む (`WATCH_UI_DESKTOP` / `WATCH_UI_SLOWMO_MS` と同じ作り)。明示した引数が、優先。UI テストの側の対策 (分割、ログの 1 行ごとの書き出し) は、`build-test-loop/SKILL.md` に記録した。**ホスト側 (ps1) の変更なので、Linux で検証できない。** `tests/host_tools_static_test.sh` は、文字列による構造の確認だけ。

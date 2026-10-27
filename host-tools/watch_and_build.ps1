@@ -108,8 +108,9 @@ param(
     # テスト1本あたりの制限時間 (秒)
     [int]$TestTimeoutSec = 120,
 
-    # UI テスト (trigger_uitest.flag) の、テストプロジェクト 1 つあたりの制限時間 (秒)。アプリの起動と操作を含むので、通常のテストより長い
-    [int]$UiTestTimeoutSec = 600,
+    # UI テスト (trigger_uitest.flag) の、テストプロジェクト 1 つあたりの制限時間 (秒)。アプリの起動と操作を含むので、通常のテストより長い。
+    # 省略時: 環境変数 WATCH_UI_TIMEOUT_SEC、なければ 600。UI テストが多いプロジェクト (ダイアログの調査など) で、600 秒を超えて強制終了されるときに、長くする (例: set WATCH_UI_TIMEOUT_SEC=1800)。
+    [int]$UiTestTimeoutSec = $(if ($env:WATCH_UI_TIMEOUT_SEC) { [int]$env:WATCH_UI_TIMEOUT_SEC } else { 600 }),
 
     # UI テストを実行するデスクトップ。省略時: 環境変数 WATCH_UI_DESKTOP、なければ separate。
     # separate: 別のデスクトップ (Win32 の CreateDesktop)。ユーザーの画面に、ウィンドウが出ず、フォーカスも奪わない。
