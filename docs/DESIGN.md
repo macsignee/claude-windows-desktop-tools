@@ -591,7 +591,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **PoC の途中経過 (2026-10-20 実機):** 別のデスクトップで、(1) **`dotnet test` の起動と実行は、動いた** (`CreateDesktop` + `CreateProcess` + ジョブオブジェクト)。(2) **UIA3 は、WPF / MFC とも、要素が取れ、`Value` / `Invoke` の操作が通った。** (3) **UIA2 は、ツリーは取れたが、`Invoke` が失敗** (`InvalidOperationException`)。UIA3 を既定にする。(0) **ユーザーの画面には、ウィンドウが出ず、入力も途切れなかった (ユーザーの報告) = 案 B の目的は達成。** (4) **`Capture` (画面のコピー) は、黒い画像になった** → `PrintWindow` に変更: **MFC は、内容が写った。WPF は、クライアント領域が白** (ハードウェアアクセラレーションの描画)。→ **UI テストの間だけ、ウォッチャーが、HKCU の `Avalon.Graphics\DisableHWAcceleration=1` を設定し (WPF は、プロセスの起動時に読む)、終わったら元に戻す。** アプリのコードは、変えない。**元の値は、変更する前に、ファイル (`%LOCALAPPDATA%\claude-watcher\wpf-hwaccel-backup.txt`) に記録し、終わったら復元して記録を消す。ウォッチャーが途中で異常終了して、記録が残っていたら、次の起動時に復元する** (ユーザーの提案)。(5) **UIA2 は、別のデスクトップで `Invoke` が失敗し、`LegacyIAccessible` も使えない → UIA3 を標準にする。**
 
 **段階 2 の実装 (v2.5.0):**
-- **流れ (ユーザーの決定、2026-10-21):** **UI テストファースト (UI テストを先に書く) は、しない。テスト先行 (Red) → ビルド → テスト (Green) の「あとに、追加で」、UI テストを実行する。** 専用の Skill (`ui-test-first`) は、作らない (作ってあったものを削除)。手順は `build-test-loop` の「UI テスト」(Green のあと、UI テストのプロジェクトがあれば、`uitest_once.sh`。失敗したらスクリーンショットを読む。書き方の規約)、`add-feature` の検証 (全体) にも追加。`scripts/add_ui_tests.py` (`new-solution/scripts/`) が、`<アプリ名>.UITests` を生成する。対象のアプリは、`.slnx` の `DefaultStartup`、なければ WPF の exe、なければ C++ の Application (`--app` で指定)。WPF は `UseWPF` と `OutputType` で、C++ は `ConfigurationType = Application` で、判定する。
+- **流れ (ユーザーの決定、2026-10-21。2026-10-27 に、取り下げ: 4.38):** **UI テストファースト (UI テストを先に書く) は、しない。テスト先行 (Red) → ビルド → テスト (Green) の「あとに、追加で」、UI テストを実行する。** 専用の Skill (`ui-test-first`) は、作らない (作ってあったものを削除)。手順は `build-test-loop` の「UI テスト」(Green のあと、UI テストのプロジェクトがあれば、`uitest_once.sh`。失敗したらスクリーンショットを読む。書き方の規約)、`add-feature` の検証 (全体) にも追加。`scripts/add_ui_tests.py` (`new-solution/scripts/`) が、`<アプリ名>.UITests` を生成する。対象のアプリは、`.slnx` の `DefaultStartup`、なければ WPF の exe、なければ C++ の Application (`--app` で指定)。WPF は `UseWPF` と `OutputType` で、C++ は `ConfigurationType = Application` で、判定する。
 - **ひな形:** `UiTestBase` (テストごとに `Application.Launch` → `GetMainWindow`、`TestCleanup` で、失敗したときだけ、PrintWindow でスクリーンショット → `Close` / `Kill`)、`AppLocator` (環境変数 `UITEST_SOLUTION_DIR` / `UITEST_CONFIGURATION` / `UITEST_PLATFORM`。WPF は `bin\<構成>\<TFM>\<アプリ>.exe`、C++ は `<プラットフォーム>\<構成>\<アプリ>.exe`)、`Screenshots`。**標準の WPF の View (AutomationId あり) なら、入力 → 挨拶 → クリアのテスト**、そうでなければ、ウィンドウが開くだけのテスト。
 - **`new-solution --ui-tests flaui`:** 作成の後に、`add_ui_tests.py` を呼ぶ (後付けは、`--ui-tests flaui` だけ)。
 - **`wpf-check` UI002:** UI テストのプロジェクトがあるとき、操作するコントロールに AutomationId がない (warning)。
@@ -716,6 +716,15 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 
 - **規約への反映:** WinForms の規約 6.3 に、「メニューの `Click` の中で、ダイアログを、直接開かない (`BeginInvoke`)」「`Name` / `AccessibleName` を付ける」を追記した。`build-test-loop/SKILL.md` に、使い方と、実機の注意を追記した。生成される `CLAUDE.md` の「UI テスト」の節にも、同じ指針を入れた。
 - **見送り (第 2 弾以降):** ListView / DataGrid、NumericUpDown、DateTimePicker、TreeView。`winforms-check` / `wpf-check` / `mfc-check` への、ダイアログ関連の検査 (メニューの `Click` から、直接の `ShowDialog` など) は、必要になったら、足す。
+
+### 4.38 UI テストを、ビルド → テストの流れから切り離し、`/ui-test-first` のループを作る (v2.18.0)
+
+要望 (ユーザー、2026-10-27): 「UI テストは、制限時間をかなり長く取らないと難しい状況が想定される。UI テストを、ビルド → テストの流れとは別に指定できるようにする (一連での動作を、既定にしない)。UI をテストファーストで組み上げる流れを作り、**プロンプトで UI を作りつつ、テストケースを作り、UI テストを実行する、というループ**を作りたい」。
+
+- **方針の変更 (2026-10-21 の決定を、取り下げる):** 以前は、「UI テストファーストは、しない。Green の『あとに、追加で』、UI テストを実行する。専用の Skill (`ui-test-first`) は、作らない」だった。**今回: (1) UI テストは、ビルド → テスト (`build_test_once.sh`) の流れに、含めない** (`PASSED` になっても、自動で、続けて実行しない)。実行するのは、**ユーザーが求めたとき**と、**`/ui-test-first` のループの中**だけ。(2) **UI テストファーストを、このループが担う。** `add-feature` / `cpp-test-first` / `wpf-test-first` / `build-test-loop` / `new-solution` の Skill と、`rules/winforms-csharp.md`、生成される `CLAUDE.md` の記述を、そろえて、変更した。
+- **`uitest_once.sh` の指定 (flag の中身として、ウォッチャーに渡る。再起動は、要らない):** `--filter "式"` (`filter=`。`dotnet test --filter`。UI のループで、いま書いたテストだけを、繰り返し実行する)、`--ui-timeout 秒` (`timeout=`。ウォッチャーが UI テストのプロジェクトを強制終了するまでの時間。780 秒以上なら、Skill 側の待ち時間も、`秒 + 120` に、自動で延ばす)。`uitest.settings` にも、`timeout=` を書ける (プロジェクトごとの既定)。**制限時間の優先順:** flag > `uitest.settings` > `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC` (既定 600)。**filter は、flag だけ** (1 回ごとの指定。引用符・バッククォート・改行は、拒否する: 引数への注入を防ぐ)。ウォッチャーの画面の `[UI]` の行に、`timeout` と `filter` も出る。
+- **`ui-test-first` Skill (新規、`disable-model-invocation: true` = スラッシュコマンドのみ):** 計画 (部品の識別の名前、操作と期待の具体例、`--filter` / `--ui-timeout`。**ここで、1 回、承認を取る**) → UI テストを先に書く (Red) → 最小の View (名前つきの部品だけ) → ビルド → `--filter` で実行して Red を確認 → 実装 → 同じ `--filter` で Green → 全 UI テスト (filter なし) を 1 回 + 静的な検査 → 次のサイクルか報告。失敗したら、スクリーンショットを画像で読む。**期待値を弱めない。同じ失敗が 3 回続いたら、止めて報告する。** 連動の規則は、従来どおり、純粋な関数の単体テスト (`build_test_once.sh`) で、先に作る。`uitest.settings` が `visible` なら、実行の前に、ユーザーに、触らないよう伝える。
+- **確認できていないこと:** ウォッチャーの `filter=` / `timeout=` (ホスト側 (ps1)。Linux では検証できない。`tests/host_tools_static_test.sh` は、文字列の確認だけ)。`/ui-test-first` のループを、実機で、実際に回すこと。
 
 ### 4.37 ダイアログの UI テスト: 第 2 弾の取り込み (v2.17.0)
 

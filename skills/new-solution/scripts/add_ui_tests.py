@@ -1197,7 +1197,9 @@ def settings_text(kind):
             f'# {why}\n'
             f'desktop={desktop}\n'
             f'# slowmo: 操作の間の待ち (ミリ秒)。目で確かめるときだけ (例: 800)\n'
-            f'slowmo=0\n')
+            f'slowmo=0\n'
+            f'# timeout: ウォッチャーが、このプロジェクトの UI テストを強制終了するまでの時間 (秒。既定 600)。UI テストが多い、重いときは、書く。1 回だけなら、uitest_once.sh --ui-timeout\n'
+            f'# timeout=1800\n')
 
 
 def fill(t, **kv):
@@ -1315,7 +1317,7 @@ def main():
 def claude_md_section(ui, app):
     return f'''## UI テスト (FlaUI)
 - `{ui}` (MSTest + FlaUI.UIA3)。`{app}` の exe を、テストごとに起動して、UIA のパターン (Invoke / Value) で操作する。**マウス・キーボードの入力は使わない。**
-- **流れ: テスト先行 (Red) → 実装 → ビルド → テスト (Green、`build_test_once.sh` が `PASSED`) の「あとに、追加で」、UI テストを実行する。** **全テストが `PASSED` になったら、続けて `uitest_once.sh "$PWD" 900` を実行すること** (`~/.claude/skills/build-test-loop/scripts/uitest_once.sh`。画面を伴う変更のとき。Green になってから 1 回)。UI テストを、先に書く (UI テストファースト) ことは、しない。
+- **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れには、含めない** (遅く、制限時間を長く取る必要がある)。**ユーザーが求めたとき**だけ、`uitest_once.sh "$PWD" 900` (`~/.claude/skills/build-test-loop/scripts/uitest_once.sh`) で、別に実行する。**画面を、プロンプトで作りながら、UI テストを先に書いて、繰り返し実行するときは、`/ui-test-first`。** 実行を絞るには `--filter "FullyQualifiedName~クラス名"`、制限時間を長くするには `--ui-timeout 1800`、または `uitest.settings` の `timeout=`。
 - **通常のテスト (`build_test_once.sh`) には、含まれない。** 別のデスクトップで実行され (`-UiTestDesktop separate`)、ユーザーの画面を乱さない。「マウスとキーボードに触らないで」と頼む必要は、ない。
 - 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
 - **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `Invoke` を別スレッド。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。

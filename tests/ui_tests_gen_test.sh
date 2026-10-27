@@ -24,7 +24,7 @@ ok "WPF: generated View has AutomationIds" "$(grep -q 'AutomationId="NameTextBox
 ok "WPF: no leftover placeholders (__X__) in generated files" "$(grep -rq '__[A-Z]*__' "$T/WpfUi/WpfUi.UITests" && echo 0 || echo 1)"
 ok "WPF: files are UTF-8 BOM + CRLF" "$(head -c 3 "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" | od -An -tx1 | tr -d ' \n' | grep -q '^efbbbf' && grep -q $'\r' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && echo 1 || echo 0)"
 ok "WPF: CLAUDE.md has the UI test section" "$(grep -q '## UI テスト (FlaUI)' "$T/WpfUi/CLAUDE.md" && echo 1 || echo 0)"
-ok "WPF: CLAUDE.md tells to run uitest_once.sh after Green (imperative)" "$(grep -q 'uitest_once.sh "$PWD" 900' "$T/WpfUi/CLAUDE.md" && grep -q 'UI テストファースト' "$T/WpfUi/CLAUDE.md" && echo 1 || echo 0)"
+ok "WPF: CLAUDE.md says UI tests are NOT part of build -> test, run on request (uitest_once.sh), /ui-test-first for the loop, --filter / --ui-timeout" "$(grep -q 'ビルド → テスト (`build_test_once.sh`) の流れには、含めない' "$T/WpfUi/CLAUDE.md" && grep -q 'uitest_once.sh "$PWD" 900' "$T/WpfUi/CLAUDE.md" && grep -q '/ui-test-first' "$T/WpfUi/CLAUDE.md" && grep -q -- '--filter' "$T/WpfUi/CLAUDE.md" && grep -q -- '--ui-timeout' "$T/WpfUi/CLAUDE.md" && ! grep -q '続けて `uitest_once.sh' "$T/WpfUi/CLAUDE.md" && echo 1 || echo 0)"
 # --refresh-claude-md: 古い節 (流れの指示がない) を、最新にする。後ろの節は、残る
 python3 - "$T/WpfUi/CLAUDE.md" <<'PY'
 import sys,re

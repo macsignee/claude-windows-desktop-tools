@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.18.0] 2026-10-27 (ホスト側と Skill 側。UI テストを、ビルド → テストの流れから切り離し、`/ui-test-first` のループを作る。ホスト側は実機で未確認)
+
+- **方針の変更:** **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れに、含めない。** `PASSED` になっても、自動で、続けて実行しない。ユーザーが求めたときと、`/ui-test-first` のループの中だけ、`uitest_once.sh` で、別に実行する。`add-feature` / `cpp-test-first` / `wpf-test-first` / `build-test-loop` / `new-solution` の Skill、`rules/winforms-csharp.md`、生成される `CLAUDE.md` の記述を、そろえて変更した (以前の「Green のあとに、続けて実行する」「UI テストファーストは、しない」は、取り下げ。DESIGN 4.38)。
+- **`/ui-test-first` (新規 Skill):** 画面を、プロンプトで作りながら、UI テストを先に書き、`--filter` で絞って、繰り返し実行する (計画で 1 回承認 → Red → 最小の View → 実装 → Green → 全 UI テストの回帰)。
+- **`uitest_once.sh` に `--filter 式` と `--ui-timeout 秒` を追加** (flag の `filter=` / `timeout=` として、ウォッチャーへ。`--ui-timeout` が 780 以上なら、待ち時間は、`秒 + 120`)。**`watch_and_build.ps1`:** flag と `uitest.settings` の、`timeout=` (UI テストの制限時間。優先順: flag > `uitest.settings` > `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC`) と、flag の `filter=` (`dotnet test --filter`。UI テストのプロジェクトだけ。引用符・バッククォート・改行は、拒否) を読む。`[UI]` の行に、`timeout` と `filter` を表示。生成される `uitest.settings` に、`timeout=` の説明 (コメント) を足した。
+- 生成される `CLAUDE.md` の「進め方」に、`/ui-test-first` を追加。README の Skill の説明を更新。
+- テスト: `tests/ui_test_first_skill_test.sh` (新規、13 件)、`tests/uitest_once_test.sh` に 3 件 (16 件)、`tests/host_tools_static_test.sh` に 3 件 (27 件)、`tests/ui_tests_gen_test.sh` の文言を更新。
+
 ## [2.17.0] 2026-10-27 (Skill 側。ダイアログの UI テストの、第 2 弾の取り込み。単体テストのみ。生成した C# は、実機でコンパイルしていない)
 
 - **`UiDialogs.cs` に、実機の PoC (WinForms / WPF / MFC) で確かめた方法を取り込んだ:** `SendMessage` を 5 秒のタイムアウトつきに (固まったアプリへの同期 SendMessage で、テストごと殺されるのを防ぐ)。`SelectTab(tab, 名前, 全タブの名前...)` / `SelectTab(tab, 順番)` (**WinForms / MFC は、タブの名前を、並び順で全部渡す**。UIA の TabItem は、信用できない)。`ClickColumnHeader` / `ListItems` / `SetNumeric` / `ToggleTreeNode` / `OpenDropDown` / `FindCalendar` / `PostKey` / `FocusAndKeys` / `Vk`。`PressDialogButton` は、失敗したら `ForceCloseDialog` で閉じる。`GetAppWindow` (入力インジケーターの小窓を除く。`UiTestBase` が使う)。**契約の変更:** `SelectTab(tab, name)` は、WinForms / MFC では、全タブの名前を、渡さないと、失敗する (WPF は、従来どおり)。

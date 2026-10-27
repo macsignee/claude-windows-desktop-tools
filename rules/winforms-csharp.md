@@ -179,7 +179,7 @@ Solution/
 
 ### 13.2 UI テスト (FlaUI)
 - **操作するコントロールの `Name` が、`AutomationId`** (4.2)。`Find("NameTextBox")` で探し、`AsTextBox().Text = "..."` (ValuePattern) / `AsButton().Invoke()` (InvokePattern) で操作する。**マウス・キーボードの入力は、使わない。**
-- **流れ: テスト先行 (Red) → 実装 → ビルド → テスト (Green) の「あとに、追加で」、UI テストを実行する** (`build-test-loop` の「UI テスト」、`uitest_once.sh`)。UI テストファースト (UI テストを先に書く) は、しない。
+- **流れ: UI テストは、ビルド → テスト (Green) の流れに、含めない。** ユーザーが求めたとき (`build-test-loop` の「UI テスト」、`uitest_once.sh`)、または、画面を、プロンプトで作りながら、UI テストを先に書いて、繰り返し実行するとき (`/ui-test-first`) に、別に実行する。
 - 失敗したら、`.claude-logs/ui-screenshots/*.png` を、画像として読んで、画面の状態を見る。**期待値を、画面の実際の状態に合わせて直すのは、仕様変更のときだけ。アサーションを、弱めない。**
 
 ## 14. 禁止事項

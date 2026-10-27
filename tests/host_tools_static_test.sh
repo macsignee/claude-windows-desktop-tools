@@ -48,5 +48,9 @@ ok "ps1: the default desktop comes from the UI test project's uitest.settings (n
 ok "ps1: precedence = flag > watcher setting (-UiTestDesktop / WATCH_UI_DESKTOP) > uitest.settings > separate" "$(ps | awk '/if \(\$fl.Desktop\)/{a=NR} /elseif \(\$UiTestDesktop -in/{b=NR} /elseif \(\$proj.Desktop\)/{c=NR} /default \(no uitest.settings\)/{d=NR} END{exit !(a && b>a && c>b && d>=c)}' && echo 1 || echo 0)"
 ok "ps1: Invoke-Tests and the software rendering use the resolved per-run desktop and slow-motion" "$(ps | grep -qF '$script:UiRun.Desktop -eq "separate"' && ps | grep -qF '$script:UiRun.SlowMoMs' && ! ps | grep -qF '($Ui -and $UiTestDesktop' && echo 1 || echo 0)"
 
+ok "ps1: the flag / uitest.settings can carry timeout= and filter= (the filter is the flag's only; quotes and backticks are rejected)" "$(ps | grep -qF "'^timeout\\s*=\\s*(\\d+)\$'" && ps | grep -qF "'^filter\\s*=\\s*([^\"\`]+)\$'" && echo 1 || echo 0)"
+ok "ps1: the per-run timeout drives the UI test limit; the filter is passed to dotnet test as --filter (UI projects only)" "$(ps | grep -qF '$limit = if ($Ui) { $script:UiRun.TimeoutSec }' && ps | grep -qF "' --filter \"' + \$filter" && ps | grep -qF '$(if ($Ui) { $script:UiRun.Filter } else { "" })' && echo 1 || echo 0)"
+ok "ps1: precedence of the UI test timeout = flag > uitest.settings > -UiTestTimeoutSec / WATCH_UI_TIMEOUT_SEC" "$(ps | awk '/\$limit = if \(\$null -ne \$fl.TimeoutSec\)/{f=1} f&&/\$proj.TimeoutSec/{g=1} f&&/else \{ \$UiTestTimeoutSec \}/{h=1} END{exit !(f&&g&&h)}' && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
