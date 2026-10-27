@@ -16,6 +16,7 @@ Usage:
   Screenshots.cs              PrintWindow によるウィンドウのスクリーンショット (別のデスクトップでも、撮れる)
   UiNative.cs                 デスクトップ名、前面表示、操作の記録 (ui-trace.txt)
   UiDialogs.cs                ダイアログ・メニュー・コンボ・スライダーなどの、操作の道具 (WinForms / WPF / MFC で、実機で確かめた方法を、FrameworkId で、自動で切り替える)
+  uitest.settings             UI テストの既定 (desktop=visible: ユーザーのデスクトップ / separate: 別のデスクトップ、slowmo=N)。WPF は visible (WPF のメニューは、別のデスクトップで開かない)、それ以外は separate。ウォッチャーが読む
   MainWindowUiTests.cs        ひな形のテスト (WPF / WinForms の標準の View なら、入力 → 挨拶 → クリア。それ以外は、ウィンドウが開くだけ)
 .slnx / .sln にも登録する。ウォッチャーの trigger_uitest.flag (uitest_once.sh) で実行する。通常のテスト (trigger_test.flag) には含まれない。
 """
@@ -309,7 +310,7 @@ namespace __NS__.UITests;
 ///    WinForms / MFC では、以後の UIA の呼び出しが、すべて止まる (WPF は止まらない)。ウィンドウを持つボタンは、BM_CLICK を PostMessage (非同期) で押す。
 ///  - メニュー項目は、ウィンドウを持たない。WinForms (ToolStrip) は、アプリ側で、ダイアログを開く処理を BeginInvoke で遅らせる。
 ///    MFC (Win32 のメニュー) は、UIA の Invoke では、コマンドが動かない → フレームへ WM_COMMAND (コマンド ID) を PostMessage する (MenuCommand)。
-///  - WPF のメニューのポップアップは、別のデスクトップ (ウォッチャーの既定) では、開かない。ウォッチャーを run_watcher_visible.cmd で起動して、実行する。
+///  - WPF のメニューのポップアップは、別のデスクトップでは、開かない。WPF の UI テストは、既定で、ユーザーのデスクトップで動く (uitest_once.sh --visible で、明示もできる。古いウォッチャーは、run_watcher_visible.cmd)。
 ///  - Win32 のコンボ / リスト: UIA の選択は、不安定 (コンボの展開は、ツリーを壊す) / 通知 (SELCHANGE) が、アプリへ飛ばない。Win32 メッセージで選ぶ。
 ///  - キーボード・マウスの入力 (SendInput) は、別のデスクトップでは、拒否される。
 /// </summary>
@@ -473,7 +474,7 @@ internal static class UiDialogs
         {
             throw new AssertFailedException(
                 $"メニュー '{menuName}' が、展開しても、サブ項目が出ない。WPF のメニューのポップアップは、別のデスクトップでは、開かない (desktop: {UiNative.DesktopName()})。" +
-                "ウォッチャーを run_watcher_visible.cmd (ユーザーのデスクトップ) で起動して、実行する");
+                "WPF の UI テストは、既定で、ユーザーのデスクトップで動く (新しいウォッチャー)。uitest_once.sh --visible で実行する (ウォッチャーが古いときは、再配置して再起動、または run_watcher_visible.cmd)");
         }
 
         Thread.Sleep(200);
@@ -990,6 +991,19 @@ def choose_app(sln_dir, sln_path, app_arg):
     return (dotnet_gui or apps)[0]
 
 
+def settings_text(kind):
+    # フレームワークごとの違いは、ウォッチャーでなく、このファイルが持つ (WPF のメニューのポップアップは、別のデスクトップで開かない: DESIGN 4.36)
+    desktop = 'visible' if kind == 'wpf' else 'separate'
+    why = ('WPF のメニューのポップアップは、別のデスクトップでは、開かない (実機で確認)。メニューを使わなければ、separate でよい'
+           if kind == 'wpf' else 'ウィンドウが画面に出ず、PC を普通に使える。目で確かめたいときは、uitest_once.sh --visible')
+    return (f'# UI テストの既定 (ウォッチャーが読む)。1 回ごとの指定 (uitest_once.sh --visible / --separate) が、これより優先される。\n'
+            f'# desktop: visible = ユーザーのデスクトップ (実行中は、PC に触らない) / separate (または invisible) = 別のデスクトップ\n'
+            f'# {why}\n'
+            f'desktop={desktop}\n'
+            f'# slowmo: 操作の間の待ち (ミリ秒)。目で確かめるときだけ (例: 800)\n'
+            f'slowmo=0\n')
+
+
 def fill(t, **kv):
     for k, v in kv.items():
         t = t.replace(f'__{k}__', v)
@@ -1028,11 +1042,17 @@ def main():
         sup = {f'{ui}/UiTestBase.cs': fill(BASE_CS, **kv0), f'{ui}/AppLocator.cs': fill(LOCATOR_CS, **kv0),
                f'{ui}/Screenshots.cs': fill(SHOTS_CS, **kv0), f'{ui}/UiNative.cs': fill(NATIVE_CS, **kv0),
                f'{ui}/UiDialogs.cs': fill(DIALOGS_CS, **kv0)}
+        settings_rel = f'{ui}/uitest.settings'
+        settings_new = not os.path.exists(os.path.join(sln_dir, settings_rel))   # 既存の設定 (利用者の選択) は、上書きしない
         for r in sup:
             print(f'  ~ {r}')
+        if settings_new:
+            print(f'  + {settings_rel} (desktop={"visible" if kind == "wpf" else "separate"})')
         if a.dry_run:
             print('(dry-run: 何も書いていない)')
             return
+        if settings_new:
+            sup[settings_rel] = settings_text(kind)
         AP.write_files(sln_dir, sup)
         print(update_claude_md(sln_dir, ui, app, refresh=True))
         print('完了。テストの本体 (MainWindowUiTests.cs) は、変えていない。')
@@ -1070,6 +1090,7 @@ def main():
         f'{ui}/Screenshots.cs': fill(SHOTS_CS, **kv),
         f'{ui}/UiNative.cs': fill(NATIVE_CS, **kv),
         f'{ui}/UiDialogs.cs': fill(DIALOGS_CS, **kv),
+        f'{ui}/uitest.settings': settings_text(kind),
         f'{ui}/MainWindowUiTests.cs': fill((TESTS_WINFORMS_CS if kind == 'winforms' else TESTS_WPF_CS) if standard else TESTS_GENERIC_CS, **kv),
     }
     print(f'ソリューション : {os.path.basename(sln)}')
@@ -1103,7 +1124,8 @@ def claude_md_section(ui, app):
 - 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
 - **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `Invoke` を別スレッド。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。
 - **画面の連動の規則 (チェックで入力欄が有効になる、など) は、純粋な関数の単体テストで確かめる。UI テストは、ダイアログごとに、煙テスト 1 件** (開く → 規則の結果が、実画面に反映されている → OK / キャンセルの結果が、メインに返る)。
-- **メニュー:** WPF のメニューは、別のデスクトップ (既定) では、ポップアップが開かない → ウォッチャーを `run_watcher_visible.cmd` で起動して実行する (`UiDialogs.ExpandMenu` が、分かりやすい失敗にする)。WinForms は、ダイアログを開く処理を、アプリ側で `BeginInvoke` で遅らせる。MFC は、`UiDialogs.MenuCommand` (`WM_COMMAND`)。
+- **どのデスクトップで実行するか:** `{ui}/uitest.settings` の `desktop=visible` (ユーザーのデスクトップ。実行中は、PC に触らない) / `separate` (別のデスクトップ)。作成時に、WPF は visible、それ以外は separate が入る。1 回だけ変えるには、`uitest_once.sh --visible` / `--separate` (`--invisible`)。
+- **メニュー:** WPF のメニューは、別のデスクトップでは、ポップアップが開かない → WPF は、`uitest.settings` が visible (`uitest_once.sh --visible` で、明示もできる。古いウォッチャーは、`run_watcher_visible.cmd`。`UiDialogs.ExpandMenu` が、分かりやすい失敗にする)。WinForms は、ダイアログを開く処理を、アプリ側で `BeginInvoke` で遅らせる。MFC は、`UiDialogs.MenuCommand` (`WM_COMMAND`)。
 - 書き方の規約と手順: `build-test-loop` の「UI テスト」。
 '''
 

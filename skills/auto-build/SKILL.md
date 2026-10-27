@@ -39,7 +39,7 @@ bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
 | `ENV_ERROR` | 4 | 環境エラー (VS/vswhere/引数など) | **ソースを直さず**、内容を報告して停止。**`no Visual Studio with C++ x86/x64 tools found` のとき: C++ ツールのない VS では、C++ のビルドができない。自動では追加できないので、ユーザーに、Visual Studio Installer で「変更」→「C++ によるデスクトップ開発」の追加を依頼して、待つ。逆に、.NET / WPF のビルドで `MSB4236` / `NETSDK1045` / `NETSDK1141` (または `dotnet` が見つからない) のときは、「.NET デスクトップ開発」の追加 (または .NET SDK のインストール) を依頼して、待つ (`build_error.log` に、その案内の行が付く)** |
 | `WATCHER_NOT_RUNNING` | 3 | フラグが回収されない | 停止し、`run_watcher.cmd` の起動をユーザーに依頼 |
 
-**出力の最後に `NOTE:` の行が出たとき (WPF の XAML にメニューがある):** 結果 (1 行目) と終了コードは、変わらない。ユーザーに、「メニューの開閉を含む UI テストは、ウォッチャーを `run_watcher_visible.cmd` (ユーザーのデスクトップ) で起動して実行する。別のデスクトップ (既定) では、WPF のメニューのポップアップが、開かない」と伝える (`build-test-loop` の「UI テスト」を参照)。
+**出力の最後に `NOTE:` の行が出たとき (WPF の XAML にメニューがある):** 結果 (1 行目) と終了コードは、変わらない。`NOTE:` の指示に従う (UI テストのプロジェクトの `uitest.settings` に `desktop=visible` を書く / 設定に従い、ユーザーのデスクトップで実行されるので、実行中は、PC に触らないよう、ユーザーに伝える。2 行目が出たら、ウォッチャーが古い可能性)。WPF のメニューは、別のデスクトップでは、開かない (`build-test-loop` の「UI テスト」を参照)。
 | `TIMEOUT` | 5 | 完了マーカーが出ない | 停止して報告 (長いビルドなら timeout を延ばして1回だけ再試行可) |
 
 ## エラー出力の読み方 (要約形式)

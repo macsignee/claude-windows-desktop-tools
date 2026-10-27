@@ -108,5 +108,19 @@ ok "WinForms: UiDialogs.cs generated" "$([ -f "$T/WfUi/WfUi.UITests/UiDialogs.cs
 python3 -I "$NS" "$T/MfcUi" --type mfc-dialog --layers logic --tests none --ui-tests flaui >/dev/null 2>&1
 ok "MFC (C++): UiDialogs.cs generated" "$([ -f "$T/MfcUi/MfcUi.UITests/UiDialogs.cs" ] && echo 1 || echo 0)"
 
+# uitest.settings: UI テストの既定 (ウォッチャーが読む)。WPF は visible (WPF のメニューは別のデスクトップで開かない)、それ以外は separate
+sv() { sed 's/\r$//; s/^\xEF\xBB\xBF//; s/#.*$//' "$1" | grep -E '^[[:space:]]*desktop[[:space:]]*=' | tr -d ' \n'; }
+ok "uitest.settings: WPF -> desktop=visible" "$([ "$(sv "$T/WpfUi/WpfUi.UITests/uitest.settings")" = 'desktop=visible' ] && echo 1 || echo 0)"
+ok "uitest.settings: WinForms -> desktop=separate" "$([ "$(sv "$T/WfUi/WfUi.UITests/uitest.settings")" = 'desktop=separate' ] && echo 1 || echo 0)"
+ok "uitest.settings: MFC (C++) -> desktop=separate" "$([ "$(sv "$T/MfcUi/MfcUi.UITests/uitest.settings")" = 'desktop=separate' ] && echo 1 || echo 0)"
+ok "uitest.settings: has slowmo=0 and explains the options (comments)" "$(grep -q '^slowmo=0' "$T/WpfUi/WpfUi.UITests/uitest.settings" && grep -q 'uitest_once.sh --visible' "$T/WfUi/WfUi.UITests/uitest.settings" && echo 1 || echo 0)"
+# refresh-support-files: 既存の設定 (利用者の選択) は、上書きしない。なければ、足す
+printf 'desktop=separate\n' > "$T/WpfUi/WpfUi.UITests/uitest.settings"
+python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1
+ok "refresh-support-files: an existing uitest.settings is kept" "$([ "$(sv "$T/WpfUi/WpfUi.UITests/uitest.settings")" = 'desktop=separate' ] && echo 1 || echo 0)"
+rm -f "$T/WpfUi/WpfUi.UITests/uitest.settings"
+python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1
+ok "refresh-support-files: a missing uitest.settings is added (WPF: visible)" "$([ "$(sv "$T/WpfUi/WpfUi.UITests/uitest.settings")" = 'desktop=visible' ] && echo 1 || echo 0)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

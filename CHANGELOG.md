@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.16.0] 2026-10-27 (ホスト側と Skill 側。UI テストのデスクトップの既定を、UI テストのプロジェクトの `uitest.settings` に持たせ、1 回ごとに、Claude から指定できる。ホスト側は実機で未確認)
+
+- **`<アプリ>.UITests/uitest.settings` (新規):** UI テストを実行するデスクトップの既定 (`desktop=visible` = ユーザーのデスクトップ / `separate` (別名 `invisible`) = 別のデスクトップ、`slowmo=N`)。**`add_ui_tests.py` (と `new_solution.py --ui-tests flaui`) が、プロジェクトを作るときに書く: WPF は `visible`** (WPF のメニューのポップアップが、別のデスクトップでは、開かないため)、**それ以外は `separate`**。`--refresh-support-files` は、なければ足し、あれば上書きしない。WPF とそれ以外の切り替えを、ウォッチャーの判定でなく、このファイルに統一した。
+- **`uitest_once.sh` に、`--visible` / `--separate` (別名 `--invisible`。WPF でも、別のデスクトップにする) / `--slowmo N` を追加** (ウォッチャーを `run_watcher_visible.cmd` に切り替えなくてよい)。指定は、`trigger_uitest.flag` の中身 (`desktop=visible|separate`、`slowmo=N`) として渡る (`build_test_once.sh` の環境変数 `BUILD_TEST_FLAG_CONTENT`)。`--visible` と `--separate` の同時指定、数字でない `--slowmo` は、`BAD_ARGS` (終了コード 2)。指定がなければ、フラグは空 (従来どおり)。
+- **`watch_and_build.ps1`: `-UiTestDesktop` の既定値を `auto` に (`WATCH_UI_DESKTOP` の既定も同じ。`visible` = `default`、`invisible` = `separate` の別名を追加)。** 優先順: flag の指定 > `-UiTestDesktop` / `WATCH_UI_DESKTOP` (`default` / `separate`) > UI テストのプロジェクトの `uitest.settings` (複数あれば、1 つでも visible なら visible) > separate。`slowmo=` も同じ順。フラグは、消す前に読む。実行ごとに、`[UI] desktop: ... (理由)` を表示。**ウォッチャーに、フレームワークの判定はない。**
+- **契約の変更:** ウォッチャーは、`uitest.settings` がないプロジェクトを、別のデスクトップで実行する (従来どおり)。**既存の WPF の UI テストのプロジェクトは、`uitest.settings` を足す (`add_ui_tests.py <フォルダ> --refresh-support-files`) まで、別のデスクトップのまま。**
+- `wpf_menu_note.sh` の文言を変更 (`uitest.settings` に `desktop=visible` がなければ「書く」、あれば「設定に従い、ユーザーのデスクトップで実行される。触らない」。別のデスクトップの記録があるときだけ、2 行目)。`UiDialogs.cs` の失敗メッセージと、生成される `CLAUDE.md` の記述も、同様。`build-test-loop/SKILL.md` (実行前に、ユーザーに、触らないよう伝える)、`auto-build/SKILL.md`、`host-tools/README.md`、DESIGN 4.36 を更新。
+- テスト: `tests/uitest_once_test.sh` (13 件)、`tests/wpf_menu_note_test.sh` (13 件)、`tests/ui_tests_gen_test.sh` に `uitest.settings` の 6 件 (49 件)、`tests/host_tools_static_test.sh` に文字列の確認を追加 (24 件)。
+
 ## [2.15.0] 2026-10-26 (ホスト側の変更。Linux では検証できない。単体の静的テストのみ。実機は未確認)
 
 - **`watch_and_build.ps1`: `-UiTestTimeoutSec` の既定値を、環境変数 `WATCH_UI_TIMEOUT_SEC` から読む** (なければ 600。明示した引数が優先)。UI テストが多く、600 秒で `TEST_TIMEOUT` (強制終了) になるとき、`set WATCH_UI_TIMEOUT_SEC=1800` で長くできる。起動画面の `UI test` の行に、`timeout N s` と出る (既存の表示)。

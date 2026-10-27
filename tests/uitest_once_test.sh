@@ -41,6 +41,32 @@ ok "an old watcher that only handles trigger_test.flag -> WATCHER_NOT_RUNNING (r
 ok "the message names trigger_uitest.flag and tells to update the watcher" "$(echo "$out" | grep -q "^trigger_uitest.flag was not picked up" && echo "$out" | grep -q "old version" && echo 1 || echo 0)"
 rm -f "$T/trigger_uitest.flag"
 
+# 2b. 1 回ごとの指定 (--visible / --separate / --slowmo) は、フラグの中身になる。指定がなければ、中身は空 (ウォッチャーが、決める)
+capture_watcher() {
+    while true; do
+        if [ -f "$T/trigger_uitest.flag" ]; then
+            cp "$T/trigger_uitest.flag" "$T/captured.txt"; rm -f "$T/trigger_uitest.flag"
+            printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"
+        fi
+        sleep 0.2
+    done
+}
+rm -rf "$T/.claude-logs" "$T/build_result.txt" "$T/test_result.txt"
+capture_watcher & W=$!
+bash "$SCRIPT" "$T" 30 --visible --slowmo 800 >/dev/null
+ok "--visible --slowmo 800: the flag carries desktop=visible and slowmo=800" "$([ "$(grep -c . "$T/captured.txt")" = 2 ] && grep -qx 'desktop=visible' "$T/captured.txt" && grep -qx 'slowmo=800' "$T/captured.txt" && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" --separate 30 >/dev/null
+ok "--separate (options may come before the timeout): desktop=separate only" "$([ "$(cat "$T/captured.txt")" = 'desktop=separate' ] && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" --invisible 30 >/dev/null
+ok "--invisible is an alias of --separate: desktop=separate" "$([ "$(cat "$T/captured.txt")" = 'desktop=separate' ] && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 >/dev/null
+ok "no option: the flag is empty (the watcher decides: WPF -> your desktop, else separate)" "$([ ! -s "$T/captured.txt" ] && echo 1 || echo 0)"
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+out="$(bash "$SCRIPT" "$T" --visible --separate)"; rc=$?
+ok "--visible with --separate -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
+out="$(bash "$SCRIPT" "$T" --slowmo abc)"; rc=$?
+ok "--slowmo with a non-number -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
+
 # 3. 引数不正
 out="$(bash "$SCRIPT" /no/such/dir)"; rc=$?
 ok "BAD_ARGS for a missing folder (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"

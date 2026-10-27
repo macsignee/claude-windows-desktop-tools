@@ -16,11 +16,17 @@ wpf_proj() {  # $1=folder $2=xaml の中身
     printf '%s\n' "$2" > "$1/App/Views/MainWindow.xaml"
 }
 
-# 1. WPF + <Menu>: 知らせる (NOTE が 2 行。終了コード 0)
+# 1. WPF + <Menu> (UI テストの記録なし): 知らせる (NOTE が 1 行。既定でユーザーのデスクトップで実行される旨と、ファイル名。終了コード 0)
 D="$T/a"; wpf_proj "$D" '<Window><DockPanel><Menu><MenuItem Header="File" /></Menu></DockPanel></Window>'
 out="$(bash "$NOTE" "$D")"; rc=$?
 ok "menu: rc=0" $([ $rc = 0 ] && echo 1 || echo 0)
-ok "menu: 2 NOTE lines mention run_watcher_visible.cmd and the file" "$([ "$(echo "$out" | grep -c '^NOTE:')" = 2 ] && echo "$out" | grep -q 'run_watcher_visible.cmd' && echo "$out" | grep -q 'MainWindow.xaml' && echo 1 || echo 0)"
+ok "menu without uitest.settings: 1 NOTE line asks to write desktop=visible in uitest.settings, names the file" "$([ "$(echo "$out" | grep -c '^NOTE:')" = 1 ] && echo "$out" | grep -q 'uitest.settings' && echo "$out" | grep -q 'desktop=visible を書く' && echo "$out" | grep -q 'MainWindow.xaml' && echo 1 || echo 0)"
+# 1b. uitest.settings に desktop=visible がある (コメントの中の visible は、数えない): 「設定に従う」の 1 行
+D="$T/a2"; wpf_proj "$D" '<Window><Menu /></Window>'; mkdir -p "$D/App.UITests"; printf '# desktop=visible\ndesktop=separate\n' > "$D/App.UITests/uitest.settings"
+ok "settings with desktop=separate (a visible in a comment does not count): still asks to write desktop=visible" "$(bash "$NOTE" "$D" | grep -q 'desktop=visible を書く' && echo 1 || echo 0)"
+printf 'desktop=visible   # WPF のメニュー\nslowmo=0\n' > "$D/App.UITests/uitest.settings"
+out="$(bash "$NOTE" "$D")"
+ok "settings with desktop=visible: 1 NOTE line says it follows uitest.settings (no request to write)" "$([ "$(echo "$out" | grep -c '^NOTE:')" = 1 ] && echo "$out" | grep -q 'uitest.settings (desktop=visible) に従い' && ! echo "$out" | grep -q 'を書く' && echo 1 || echo 0)"
 
 # 2. WPF + MenuItem だけ / ContextMenu でも知らせる
 D="$T/b"; wpf_proj "$D" '<Window><Button><Button.ContextMenu><ContextMenu><MenuItem Header="x"/></ContextMenu></Button.ContextMenu></Button></Window>'
@@ -40,11 +46,12 @@ D="$T/e"; wpf_proj "$D" '<Window />'; mkdir -p "$D/App/obj/Debug"; printf '<Menu
 ok "obj xaml ignored: silent" "$([ -z "$(bash "$NOTE" "$D")" ] && echo 1 || echo 0)"
 
 # 6. 直近の UI テストが、ユーザーのデスクトップ (desktop: Default) で動いていたら、知らせない。別のデスクトップなら、知らせる
-D="$T/f"; wpf_proj "$D" '<Window><Menu /></Window>'; mkdir -p "$D/.claude-logs/ui-screenshots"
+D="$T/f"; wpf_proj "$D" '<Window><Menu /></Window>'; mkdir -p "$D/.claude-logs/ui-screenshots" "$D/App.UITests"; printf 'desktop=visible\n' > "$D/App.UITests/uitest.settings"
 printf '12:00:00.000 === A: start (desktop: Default, slowmo: 800 ms)\n' > "$D/.claude-logs/ui-screenshots/ui-trace.txt"
 ok "visible watcher trace: silent" "$([ -z "$(bash "$NOTE" "$D")" ] && echo 1 || echo 0)"
 printf '12:00:00.000 === A: start (desktop: Default, slowmo: 0 ms)\n12:01:00.000 === B: start (desktop: ClaudeUiTest123, slowmo: 0 ms)\n' > "$D/.claude-logs/ui-screenshots/ui-trace.txt"
-ok "latest run on a separate desktop: noted" "$(bash "$NOTE" "$D" | grep -q '^NOTE:' && echo 1 || echo 0)"
+out="$(bash "$NOTE" "$D")"
+ok "latest run on a separate desktop: 2 NOTE lines (settings say visible, but it ran elsewhere), the second names --visible" "$([ "$(echo "$out" | grep -c '^NOTE:')" = 2 ] && echo "$out" | tail -n 1 | grep -q -- '--visible' && echo 1 || echo 0)"
 
 # 7. 引数なし / 存在しないフォルダ: 何も出さず、rc=0
 ok "bad args: silent, rc=0" "$(out="$(bash "$NOTE" "$T/none")"; [ $? = 0 ] && [ -z "$out" ] && [ -z "$(bash "$NOTE")" ] && echo 1 || echo 0)"
