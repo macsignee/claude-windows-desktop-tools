@@ -724,7 +724,8 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **`UiDialogs.cs` (`add_ui_tests.py` の `DIALOGS_CS`):** (1) `SendMessage` を、すべて `SendMessageTimeout` (SMTO_ABORTIFHUNG、5 秒) に (固まったアプリへの同期 SendMessage が、テストごと、ウォッチャーの制限時間で殺された)。(2) `SelectTab(tab, 名前, 全タブの名前...)` / `SelectTab(tab, 順番)`: ウィンドウを持つ Tab は、UIA の TabItem が信用できない → `TCM_GETCURSEL` + 矢印キー。WPF は、UIA。(3) `ClickColumnHeader`、`ListItems`、`SetNumeric`、`ToggleTreeNode`、`OpenDropDown`、`FindCalendar`、`PostKey` / `FocusAndKeys` / `Vk`。(4) `PressDialogButton` は、失敗したら `ForceCloseDialog` (開いたまま残ると、次のステップが前のダイアログを読む)。(5) `GetAppWindow`: `App.GetMainWindow` が、まれに入力インジケーターの小窓を返す (MFC で確認) → そのクラスを除く。`UiTestBase` が使う。
 - **`winforms-check` WFD008:** `ListView` の `CheckBoxes = true` と `View.Tile` (タイルは、`NotSupportedException`。未処理だと、UI が止まる)。**`wpf-check` UI004:** UI テストがあるとき、`CheckBox` を `Click` だけで受けている (UIA の Toggle は、`Click` を起こさない)。
 - **規約:** `rules/winforms-csharp.md` 6.3.1 (ListView のタイル、未処理の例外の受け口、UI テストで操作するコントロールの注意)、`rules/wpf-csharp.md` (データのクラスの `ToString()`、`Checked` / `Unchecked`、仮想化、WPF の UI テストは、ユーザーのデスクトップ)。
-- **確認できていないこと:** 生成した C# の、実機でのコンパイル (この環境に dotnet がない)。TaskDialog の WPF / MFC。
+- **実機で確認 (2026-10-27、使い捨てのソリューション `UiV17Wf` / `UiV17Wpf` / `UiV17Mfc`):** 生成した C# (`UiDialogs.cs` の新しい部分、`UiTestBase.cs` の `GetAppWindow`) が、WinForms / WPF / MFC で、コンパイルできた (警告 0)。ひな形の UI テストが通った (WinForms 3、WPF 3、MFC 1)。`uitest.settings` の既定 (WPF = visible、他 = separate) どおりに、デスクトップが選ばれた (`ui-trace.txt`: WPF = `Default`、他 = `ClaudeUiTest...`)。新しい道具 (`SelectTab` など) 自体は、ひな形のテストが呼ばないので、PoC の実機の結果が、根拠。
+- **確認できていないこと:** TaskDialog の WPF / MFC。新しい道具を、生成したソリューションの、タブ・リストなどのある画面で使うこと (そういう画面ができたとき)。
 
 ### 4.36 UI テストのデスクトップ: プロジェクトの `uitest.settings` が既定を持ち、1 回ごとの指定で上書きする (v2.16.0)
 
