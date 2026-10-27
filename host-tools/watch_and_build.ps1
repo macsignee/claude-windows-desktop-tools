@@ -108,15 +108,19 @@ param(
     # テスト1本あたりの制限時間 (秒)
     [int]$TestTimeoutSec = 120,
 
-    # UI テスト (trigger_uitest.flag) の、テストプロジェクト 1 つあたりの制限時間 (秒)。アプリの起動と操作を含むので、通常のテストより長い
-    [int]$UiTestTimeoutSec = 600,
+    # UI テスト (trigger_uitest.flag) の、テストプロジェクト 1 つあたりの制限時間 (秒)。アプリの起動と操作を含むので、通常のテストより長い。
+    # 省略時: 環境変数 WATCH_UI_TIMEOUT_SEC、なければ 600。UI テストが多いプロジェクト (ダイアログの調査など) で、600 秒を超えて強制終了されるときに、長くする (例: set WATCH_UI_TIMEOUT_SEC=1800)。
+    [int]$UiTestTimeoutSec = $(if ($env:WATCH_UI_TIMEOUT_SEC) { [int]$env:WATCH_UI_TIMEOUT_SEC } else { 600 }),
 
-    # UI テストを実行するデスクトップ。省略時: 環境変数 WATCH_UI_DESKTOP、なければ separate。
+    # UI テストを実行するデスクトップ。省略時: 環境変数 WATCH_UI_DESKTOP、なければ auto。
+    # **1 回ごとの指定が、これより優先される:** trigger_uitest.flag の中身に `desktop=visible` / `desktop=separate` と書く (uitest_once.sh --visible / --separate)。
+    # auto:     UI テストのプロジェクトの uitest.settings (desktop=visible|separate) に従う。ファイルがなければ、別のデスクトップ (separate)。
+    #           (フレームワークごとの違い (WPF のメニューは、別のデスクトップで開かない、など) は、このファイルが持つ。add_ui_tests.py が、WPF には visible を書く。)
     # separate: 別のデスクトップ (Win32 の CreateDesktop)。ユーザーの画面に、ウィンドウが出ず、フォーカスも奪わない。
     #           テストが起動して残ったアプリは、ジョブオブジェクトで、すべて終了する。UI テストの間だけ、WPF をソフトウェアレンダリングにする。
-    # default:  ユーザーのデスクトップ (ウィンドウが見え、フォーカスを奪うことがある)。
-    [ValidateSet("default","separate")]
-    [string]$UiTestDesktop = $(if ($env:WATCH_UI_DESKTOP) { $env:WATCH_UI_DESKTOP } else { "separate" }),
+    # default:  ユーザーのデスクトップ (ウィンドウが見え、フォーカスを奪うことがある)。visible は、default の別名。invisible は、separate の別名 (WPF でも、別のデスクトップにしたいとき)。
+    [ValidateSet("auto","default","visible","separate","invisible")]
+    [string]$UiTestDesktop = $(if ($env:WATCH_UI_DESKTOP) { $env:WATCH_UI_DESKTOP } else { "auto" }),
 
     # UI テストの、操作の間隔 (ミリ秒)。0 より大きいと、テストは、要素を探すたびに、その時間だけ待ち、最後の状態も 2 倍の時間だけ見せる。
     # ユーザーのデスクトップ (-UiTestDesktop default) で、操作の様子を、目で確かめるときに使う (例: 800)。省略時: 環境変数 WATCH_UI_SLOWMO_MS、なければ 0。
@@ -283,6 +287,8 @@ if (-not $createdNew) {
 $TriggerFile     = Join-Path $TargetDir "trigger_build.flag"
 $TestTriggerFile = Join-Path $TargetDir "trigger_test.flag"
 $UiTestTriggerFile = Join-Path $TargetDir "trigger_uitest.flag"
+if ($UiTestDesktop -eq "visible") { $UiTestDesktop = "default" }
+if ($UiTestDesktop -eq "invisible") { $UiTestDesktop = "separate" }
 $ResultFile      = Join-Path $TargetDir "build_result.txt"
 $ErrorLog        = Join-Path $TargetDir "build_error.log"
 $TestResultFile  = Join-Path $TargetDir "test_result.txt"
@@ -1195,19 +1201,71 @@ function Stop-SolutionProcesses {
     }
 }
 
+# UI テストのプロジェクトの、既定の設定 (プロジェクトのフォルダの uitest.settings。`desktop=visible|separate` と `slowmo=N`)。
+# フレームワークごとの違い (WPF のメニューは、別のデスクトップで開かない、など) は、ウォッチャーでなく、このファイルが持つ (add_ui_tests.py が、プロジェクトを作るときに、書く)。
+# UI テストのプロジェクトが複数あるときは、1 つでも visible なら visible (visible は、どのコントロールでも動くため)。slowmo は、最大。
+# 戻り値: @{ Desktop = ''|'default'|'separate'; SlowMoMs = $null|int; Source = string }
+function Read-UiProjectSettings {
+    $desktop = ""
+    $slow = $null
+    $src = @()
+    foreach ($p in @(Find-DotnetTestProjects -Ui)) {
+        $f = Join-Path (Split-Path -Parent $p) "uitest.settings"
+        if (-not (Test-Path -LiteralPath $f)) { continue }
+        $src += (Split-Path -Leaf (Split-Path -Parent $p)) + "/uitest.settings"
+        $kv = ConvertFrom-UiSettingsText ([System.IO.File]::ReadAllText($f))
+        if ($kv.Desktop -eq "default") { $desktop = "default" } elseif ($kv.Desktop -eq "separate" -and $desktop -ne "default") { $desktop = "separate" }
+        if ($null -ne $kv.SlowMoMs -and ($null -eq $slow -or $kv.SlowMoMs -gt $slow)) { $slow = $kv.SlowMoMs }
+    }
+
+    return @{ Desktop = $desktop; SlowMoMs = $slow; Source = ($src -join ", ") }
+}
+
+# `desktop=...` と `slowmo=...` の行 (flag の中身と、uitest.settings で共通。# から行末は、コメント)。desktop: visible → default、invisible → separate。
+function ConvertFrom-UiSettingsText([string]$text) {
+    $desktop = ""
+    $slow = $null
+    foreach ($line in @("$text" -split "[\r\n]+")) {
+        $l = (($line -replace '^\uFEFF', '') -replace '#.*$', '').Trim()
+        if ($l -match '^desktop\s*=\s*(\w+)$') {
+            $w = $Matches[1].ToLowerInvariant()
+            if ($w -eq "visible") { $w = "default" }
+            if ($w -eq "invisible") { $w = "separate" }
+            if ($w -in @("default", "separate")) { $desktop = $w }
+        }
+        elseif ($l -match '^slowmo\s*=\s*(\d+)$') { $slow = [int]$Matches[1] }
+    }
+
+    return @{ Desktop = $desktop; SlowMoMs = $slow }
+}
+
+# trigger_uitest.flag の中身 (1 回ごとの指定) と、ウォッチャーの設定と、プロジェクトの uitest.settings から、この回の UI テストの設定を決める。
+# 優先順: flag の desktop= > ウォッチャーの -UiTestDesktop / WATCH_UI_DESKTOP (auto 以外) > プロジェクトの uitest.settings > separate。
+# slowmo= も、flag > uitest.settings > ウォッチャーの -UiTestSlowMoMs。戻り値: @{ Desktop = 'default'|'separate'; SlowMoMs = int; Reason = string }
+function Resolve-UiRun([string]$flagText) {
+    $fl = ConvertFrom-UiSettingsText $flagText
+    $proj = Read-UiProjectSettings
+    if ($fl.Desktop) { $desktop = $fl.Desktop; $reason = "trigger_uitest.flag" }
+    elseif ($UiTestDesktop -in @("default", "separate")) { $desktop = $UiTestDesktop; $reason = "watcher setting (-UiTestDesktop / WATCH_UI_DESKTOP)" }
+    elseif ($proj.Desktop) { $desktop = $proj.Desktop; $reason = $proj.Source }
+    else { $desktop = "separate"; $reason = "default (no uitest.settings)" }
+    $slow = if ($null -ne $fl.SlowMoMs) { $fl.SlowMoMs } elseif ($null -ne $proj.SlowMoMs) { $proj.SlowMoMs } else { $UiTestSlowMoMs }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; Reason = $reason }
+}
+
 # ビルド成功後のテスト実行 (GoogleTest の exe と、.NET のテストプロジェクト)。test_result.txt を最後に書く。
 # -Ui: UI テストのプロジェクトだけを実行する (GoogleTest の exe は、実行しない)。環境変数 UITEST_* で、テストに実行環境を渡す。
 function Invoke-Tests([switch]$Ui) {
     New-Item -ItemType Directory -Path $TestResultsDir -Force | Out-Null
     $limit = if ($Ui) { $UiTestTimeoutSec } else { $TestTimeoutSec }
-    $script:UiSeparateDesktop = ($Ui -and $UiTestDesktop -eq "separate")
+    $script:UiSeparateDesktop = ($Ui -and $script:UiRun.Desktop -eq "separate")
     if ($Ui) {
         New-Item -ItemType Directory -Path $UiScreenshotDir -Force | Out-Null
         $env:UITEST_SOLUTION_DIR = $SolutionDir
         $env:UITEST_CONFIGURATION = $Configuration
         $env:UITEST_PLATFORM = $Platform
         $env:UITEST_SCREENSHOT_DIR = $UiScreenshotDir
-        $env:UITEST_SLOWMO_MS = "$UiTestSlowMoMs"
+        $env:UITEST_SLOWMO_MS = "$($script:UiRun.SlowMoMs)"
     }
     $exes = if ($Ui) { @() } else { @(Find-TestExes) }
     $projects = @(Find-DotnetTestProjects -Ui:$Ui)
@@ -1389,7 +1447,7 @@ Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
 Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
 Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch)" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (GoogleTest, timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
-Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop, timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
+Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop [auto = uitest.settings of the UI test project, else separate; override per run with desktop=visible|separate in the flag], timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
 Write-Host " Proxy        : $(if ($proxyUrl) { $proxyUrl + ' (from the HTTPS_PROXY / HTTP_PROXY environment variable)' } else { '(none: the system proxy settings are used)' })" -ForegroundColor Cyan
 Write-Host " dotnet test  : $DotnetExe  (projects: $(@(Find-DotnetTestProjects).Count))" -ForegroundColor Cyan
 Write-Host " QuickEdit    : $QuickEditStatus" -ForegroundColor Cyan
@@ -1442,6 +1500,12 @@ while ($true) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected ($mode)! Starting build..." -ForegroundColor Yellow
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState   # 起動後に、ソリューションができた・プロジェクトが増えた (テストの後付けなど) 場合に備え、トリガーごとに、決め直す
+        if ($runUiTests) {
+            $uiFlagText = ""
+            try { $uiFlagText = Get-Content -LiteralPath $UiTestTriggerFile -Raw -ErrorAction Stop } catch { $uiFlagText = "" }   # フラグを消す前に、1 回ごとの指定 (desktop= / slowmo=) を読む
+            $script:UiRun = Resolve-UiRun $uiFlagText
+            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms" -ForegroundColor Cyan
+        }
         Remove-Item -LiteralPath $TriggerFile, $(if ($runUiTests) { $UiTestTriggerFile } else { $TestTriggerFile }) -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         Remove-Item -LiteralPath $ResultFile, $ErrorLog, $TestResultFile, $TestErrorLog, $BuildLog, $ErrorsOnly, $WarnsOnly, $TestLog -ErrorAction SilentlyContinue
@@ -1522,7 +1586,7 @@ while ($true) {
                 Write-TestMarker "BUILD_FAILED"
             } else {
                 try {
-                    if ($runUiTests -and $UiTestDesktop -eq "separate") { Set-WpfSoftwareRendering }
+                    if ($runUiTests -and $script:UiRun.Desktop -eq "separate") { Set-WpfSoftwareRendering }
                     Invoke-Tests -Ui:$runUiTests
                 } catch {
                     Write-Host "[TEST] ENV_ERROR: $($_.Exception.Message)" -ForegroundColor Red

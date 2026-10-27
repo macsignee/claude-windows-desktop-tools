@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # uitest_once.sh - ホスト側ウォッチャーに「ビルド + UI テスト (FlaUI など) 実行」を1回させ、完了まで待って結果を返す。
 #
-# Usage: uitest_once.sh <solution_dir> [timeout_sec=900]
+# Usage: uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>]
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
+#   --visible:  この 1 回だけ、ユーザーのデスクトップで実行する (ウィンドウが見える。実行中、ユーザーは PC に触らない)。
+#   --separate (別名 --invisible): この 1 回だけ、別のデスクトップで実行する (WPF でも。ウィンドウが画面に出ない。WPF のメニューは、開かない)。
+#   --slowmo N: 操作の間に N ミリ秒の待ちを入れる (目で確かめるとき。例: 800)。
+#   どちらも付けないとき (標準): ウォッチャーが決める。WPF のソリューションは、ユーザーのデスクトップ。それ以外は、別のデスクトップ。
+#   (指定は、ウォッチャーを切り替えずに、trigger_uitest.flag の中身 (desktop= / slowmo=) として渡す。ウォッチャーが、新しい版である必要がある。)
 #
 # build_test_once.sh と同じ出力 (1行目と終了コード。PASSED のときの要約の行も同じ) の、UI テスト版。違いは次のとおり。
 #   - フラグは trigger_uitest.flag。実行するのは、UI テストのプロジェクト (名前が UITests / UiTests で終わる、または FlaUI を参照)
@@ -11,14 +16,31 @@
 #   - 実行中は、ユーザーが、マウスとキーボードに触らない (画面のロック・RDP の切断・最小化も避ける)。
 #   - 失敗時のスクリーンショット (.claude-logs/ui-screenshots/*.png) があれば、最後に一覧を出す。Read ツールで、画像として読める。
 #   - 操作の記録 (ui-trace.txt) があれば、テストごとの結果の行を出す (UI テストが、実際に動いたことの確認)。
-#   - ユーザーのデスクトップで、目で確かめるには、ウォッチャーを run_watcher_visible.cmd で起動する (操作の間に待ちが入る)。
+#   - ユーザーのデスクトップで、目で確かめるには、--visible --slowmo 800 (ウォッチャーを、起動し直さなくてよい)。
 set -u
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIR="${1:-}"
-TIMEOUT="${2:-900}"
+DIR=""
+TIMEOUT=900
+flag_content=""
+positional=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --visible)  flag_content="${flag_content}desktop=visible"$'\n' ;;
+        --separate|--invisible) flag_content="${flag_content}desktop=separate"$'\n' ;;
+        --slowmo)
+            shift
+            case "${1:-}" in ''|*[!0-9]*) echo "BAD_ARGS: --slowmo needs a number (milliseconds): ${1:-}"; exit 2 ;; esac
+            flag_content="${flag_content}slowmo=$1"$'\n' ;;
+        *)
+            positional=$((positional + 1))
+            if [ "$positional" -eq 1 ]; then DIR="$1"; elif [ "$positional" -eq 2 ]; then TIMEOUT="$1"; fi ;;
+    esac
+    shift
+done
+case "$flag_content" in *desktop=visible*desktop=separate*|*desktop=separate*desktop=visible*) echo "BAD_ARGS: --visible and --separate cannot be used together"; exit 2 ;; esac
 
-out="$(BUILD_TEST_FLAG=trigger_uitest.flag bash "$here/build_test_once.sh" "$DIR" "$TIMEOUT")"
+out="$(BUILD_TEST_FLAG=trigger_uitest.flag BUILD_TEST_FLAG_CONTENT="${flag_content%$'\n'}" bash "$here/build_test_once.sh" "$DIR" "$TIMEOUT")"
 rc=$?
 printf '%s\n' "$out"
 

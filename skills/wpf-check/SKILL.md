@@ -73,6 +73,7 @@ wpf-check: error 2 / warning 1 (3 projects: WpfApp, MyApp.ViewModels, MyApp.Logi
 | EXC002 | warning | `catch (Exception ex) { throw ex; }` | `throw;` にする (スタックトレースを保つ)。 |
 | NAM001 | warning | `bool` のプロパティ・フィールドに、`Flag` / `Status` / `Check` という名前を付けている | `IsXxx` / `HasXxx` / `CanXxx` にする。 |
 | UI003 | warning | `UserControl` が、`DataContext="{Binding RelativeSource={RelativeSource Self}}"` で、自分自身を `DataContext` にしている | 依存関係プロパティで、値を受け取る。 |
+| UI004 | warning | UI テストのプロジェクト (`*.UITests`) があるとき、`CheckBox` / `ToggleButton` / `RadioButton` を、`Click` だけで受けている (`Checked` / `Unchecked` / `Command` がない) | **UIA の `Toggle` (UI テスト・支援技術) は、`Click` を起こさず、`Checked` / `Unchecked` だけを起こす** (実機で確認)。`Checked` / `Unchecked` (または、バインディング) で受ける。 |
 | XAML001 | info | XAML を、XML として解析できなかった | ビルドが、詳しいエラーを出す。そのファイルは、検査から外れている。 |
 
 ## ループのルール

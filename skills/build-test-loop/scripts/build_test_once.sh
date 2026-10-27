@@ -102,7 +102,8 @@ first_line_is_env_error() {  # $1=file
 rm -f "$BUILD_RESULT" "$BUILD_ERR" "$TEST_RESULT" "$TEST_ERR"
 rm -f "$DIR/.claude-logs/build_summary.json" "$DIR/.claude-logs/test_summary.json"   # 前回の要約 (JSON) も消す (今回の結果と取り違えない。ENV_ERROR / PASSED では更新されないため)
 rm -rf "$DIR/.claude-logs/test-results"   # 前回の、構造化された結果 (XML / trx) も、古い結果の誤読を防ぐために消す
-touch "$FLAG"
+# BUILD_TEST_FLAG_CONTENT があれば、フラグの中身にする (uitest_once.sh の --visible / --separate / --slowmo。ウォッチャーが、1 回ごとの指定として読む)
+if [ -n "${BUILD_TEST_FLAG_CONTENT:-}" ]; then printf '%s\n' "$BUILD_TEST_FLAG_CONTENT" > "$FLAG"; else touch "$FLAG"; fi
 
 elapsed=0
 picked_up=0

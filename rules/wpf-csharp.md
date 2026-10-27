@@ -312,6 +312,12 @@ private void Window_Loaded(object sender, RoutedEventArgs e)
 WPF のコマンド機構は、入力操作と実行ロジックを分離するための仕組みである。
 - **ツール群の補足:** コマンドは、`ICommand` を実装した**プロパティ** (`RelayCommand` など)。メソッドを、バインドしない (WPF は、メソッドを、バインドできない)。実行できる条件が変わったら、`NotifyCanExecuteChanged()`。
 
+### ツール群の補足: UI テスト (FlaUI) のための、View の作り方 (実機で確認)
+- **リスト・グリッド・ツリーの項目のデータのクラスに、`ToString()` を実装する** (または、項目のスタイルで `AutomationProperties.Name` を `{Binding}` する)。**ないと、UIA の項目の名前が、データの型名 (`WpfDlg.FileRow`) になり、UI テストが名前で探せない。**
+- **チェックボックス (`CheckBox`) の変更は、`Click` でなく、`Checked` / `Unchecked` (または、バインディング) で受ける。** UIA の `Toggle` (UI テスト・支援技術) は、`Click` を起こさず、`Checked` / `Unchecked` だけを起こす。`Click` だけで受けると、画面のラベルなどが、更新されない。
+- **仮想化:** `ListView` / `DataGrid` は、画面に見える項目だけが、UIA のツリーに出る (UI テストは、`Scroll` で出す)。数量などの入力は、`NumericUpDown` が WPF にないので、`TextBox` + `RepeatButton` で作るなら、**範囲の丸めは、規則 (ViewModel) で行う** (`TextBox` の文字は、範囲外のまま残る)。
+- **UI テストを、ユーザーのデスクトップで実行する:** WPF のメニューのポップアップは、別のデスクトップでは、開かない。UI テストのプロジェクトの `uitest.settings` を `desktop=visible` にする (`add_ui_tests.py` が、WPF には、そう書く)。
+
 ### 6.4 DataContext
 XAML 内で、無制限に `DataContext` を上書きしてはいけない。
 

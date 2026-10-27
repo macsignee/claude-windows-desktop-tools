@@ -38,5 +38,15 @@ ok "cmd: starts even when no solution exists (the 'no .sln' error remains only w
 ok "cmd: passes -SolutionPath only when a solution was found (SLN_ARG)" "$(grep -q '^set "SLN_ARG="' <<<"$c" && grep -q '^if defined SLN_FILE set SLN_ARG=-SolutionPath "%SLN_FILE%"' <<<"$c" && grep -q -- '-TargetDir "%PROJECT_DIR%" %SLN_ARG% -Platform' <<<"$c" && ! grep -q -- '-SolutionPath "%SLN_FILE%" -Platform' <<<"$c" && echo 1 || echo 0)"
 ok "cmd: the solution display does not use a parenthesized block (a file name with ')' must not break it)" "$(grep -q '^if defined SLN_FILE echo  Solution:' <<<"$c" && grep -q '^if not defined SLN_FILE echo  Solution:' <<<"$c" && echo 1 || echo 0)"
 
+ok "ps1: -UiTestTimeoutSec defaults from WATCH_UI_TIMEOUT_SEC (600 when unset); an explicit argument wins" "$(ps | grep -qF '[int]$UiTestTimeoutSec = $(if ($env:WATCH_UI_TIMEOUT_SEC) { [int]$env:WATCH_UI_TIMEOUT_SEC } else { 600 })' && echo 1 || echo 0)"
+ok "ps1: the UI test banner still shows the timeout" "$(ps | grep -qF 'timeout ${UiTestTimeoutSec}s' && echo 1 || echo 0)"
+
+ok "ps1: -UiTestDesktop defaults to auto (WATCH_UI_DESKTOP overrides); visible is accepted as an alias of default" "$(ps | grep -qF '[ValidateSet("auto","default","visible","separate","invisible")]' && ps | grep -qF '} else { "auto" }' && ps | grep -qF 'if ($UiTestDesktop -eq "visible") { $UiTestDesktop = "default" }' && echo 1 || echo 0)"
+ok "ps1: invisible is accepted as an alias of separate (parameter and the flag)" "$(ps | grep -qF 'if ($UiTestDesktop -eq "invisible") { $UiTestDesktop = "separate" }' && ps | grep -qF 'if ($w -eq "invisible") { $w = "separate" }' && echo 1 || echo 0)"
+ok "ps1: the per-run settings are read from trigger_uitest.flag BEFORE the flag is removed" "$(ps | awk '/Get-Content -LiteralPath \$UiTestTriggerFile -Raw/{r=NR} /Remove-Item -LiteralPath \$TriggerFile/{d=NR} END{exit !(r && d && r<d)}' && echo 1 || echo 0)"
+ok "ps1: the default desktop comes from the UI test project's uitest.settings (no WPF special case in the watcher); the flag's desktop= / slowmo= win" "$(ps | grep -qF 'Read-UiProjectSettings' && ps | grep -qF '"uitest.settings"' && ps | grep -qF 'ConvertFrom-UiSettingsText' && ps | grep -qF "desktop\\s*=" && ps | grep -qF "slowmo\\s*=" && ! ps | grep -qF 'Test-SolutionUsesWpf' && echo 1 || echo 0)"
+ok "ps1: precedence = flag > watcher setting (-UiTestDesktop / WATCH_UI_DESKTOP) > uitest.settings > separate" "$(ps | awk '/if \(\$fl.Desktop\)/{a=NR} /elseif \(\$UiTestDesktop -in/{b=NR} /elseif \(\$proj.Desktop\)/{c=NR} /default \(no uitest.settings\)/{d=NR} END{exit !(a && b>a && c>b && d>=c)}' && echo 1 || echo 0)"
+ok "ps1: Invoke-Tests and the software rendering use the resolved per-run desktop and slow-motion" "$(ps | grep -qF '$script:UiRun.Desktop -eq "separate"' && ps | grep -qF '$script:UiRun.SlowMoMs' && ! ps | grep -qF '($Ui -and $UiTestDesktop' && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

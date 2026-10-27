@@ -35,6 +35,7 @@ XAML は、XML として読む。C# は、軽い字句解析で、型・プロ�
   EXC002 warning catch した例外の `throw ex;` (スタックトレースが失われる。`throw;` にする)
   NAM001 warning bool に、Flag / Status / Check という曖昧な名前を付けている (IsXxx / HasXxx / CanXxx にする)
   UI002  warning UI テストのプロジェクト (*.UITests) があるとき、操作できるコントロール (Button / TextBox など) に AutomationId (または x:Name) がない
+  UI004  warning UI テストのプロジェクト (*.UITests) があるとき、CheckBox / ToggleButton を、Click だけで受けている (UIA の Toggle は、Click を起こさず、Checked / Unchecked だけを起こす)
   UI003  warning UserControl が、自分自身を DataContext に設定している (親から継承される DataContext を壊す)
   XAML001 info   XAML を、XML として解析できなかった (そのファイルの検査を省略)
 
@@ -1295,9 +1296,25 @@ def check_ui_automation_ids(world, pr, doc):
         pr.add("UI002", "warning", f"<{n.local}> に AutomationId がない (UI テストで探せない。AutomationProperties.AutomationId を付ける)", doc.rel, n.line)
 
 
+def check_toggle_click(world, pr, doc):
+    """UI004: UI テストのプロジェクトがあるとき、CheckBox / ToggleButton / RadioButton を、Click だけで受けている (実機で確認: UIA の Toggle は Click を起こさない)。"""
+    if not getattr(world, "ui_tests", False) or not pr.use_wpf:
+        return
+    for n in doc.root.walk():
+        if n.local not in ("CheckBox", "ToggleButton", "RadioButton"):
+            continue
+        if not n.attrs.get("Click"):
+            continue
+        if any(n.attrs.get(a) for a in ("Checked", "Unchecked", "Indeterminate", "Command")):
+            continue
+        pr.add("UI004", "warning", f"<{n.local}> を、Click だけで受けている (UI テスト・支援技術の Toggle は、Click を起こさず、Checked / Unchecked だけを起こす。Checked / Unchecked (または、バインディング) で受ける)",
+               doc.rel, attr_line(doc, n, "Click"))
+
+
 def check_xaml_rules(world, pr, doc):
     """XAML の規則: UserControl が、自分自身を DataContext にしない。UI テストがあるとき、操作するコントロールに AutomationId がある。"""
     check_ui_automation_ids(world, pr, doc)
+    check_toggle_click(world, pr, doc)
     root = doc.root
     if root.local != "UserControl":
         return
