@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.17.0] 2026-10-27 (Skill 側。ダイアログの UI テストの、第 2 弾の取り込み。単体テストのみ。生成した C# は、実機でコンパイルしていない)
+
+- **`UiDialogs.cs` に、実機の PoC (WinForms / WPF / MFC) で確かめた方法を取り込んだ:** `SendMessage` を 5 秒のタイムアウトつきに (固まったアプリへの同期 SendMessage で、テストごと殺されるのを防ぐ)。`SelectTab(tab, 名前, 全タブの名前...)` / `SelectTab(tab, 順番)` (**WinForms / MFC は、タブの名前を、並び順で全部渡す**。UIA の TabItem は、信用できない)。`ClickColumnHeader` / `ListItems` / `SetNumeric` / `ToggleTreeNode` / `OpenDropDown` / `FindCalendar` / `PostKey` / `FocusAndKeys` / `Vk`。`PressDialogButton` は、失敗したら `ForceCloseDialog` で閉じる。`GetAppWindow` (入力インジケーターの小窓を除く。`UiTestBase` が使う)。**契約の変更:** `SelectTab(tab, name)` は、WinForms / MFC では、全タブの名前を、渡さないと、失敗する (WPF は、従来どおり)。
+- **`winforms-check` WFD008 (新規):** `ListView` の `CheckBoxes = true` と `View.Tile`。 **`wpf-check` UI004 (新規):** UI テストがあるとき、`CheckBox` を `Click` だけで受けている。
+- 規約: `rules/winforms-csharp.md` 6.3.1、`rules/wpf-csharp.md`。`build-test-loop/SKILL.md` に、「コントロール別の、実機の結果の表」と、第 2 弾の道具。生成される `CLAUDE.md` の UI テストの節にも追記。`docs/NEXT-STEPS.md` の「ダイアログのテスト」を、完了に。DESIGN 4.37。
+- テスト: `tests/ui_tests_gen_test.sh` に 6 件、`tests/winforms_check_test.sh` に WFD008 の 2 件、`tests/wpf_check_test.sh` に UI004 の 2 件。
+
 ## [2.16.0] 2026-10-27 (ホスト側と Skill 側。UI テストのデスクトップの既定を、UI テストのプロジェクトの `uitest.settings` に持たせ、1 回ごとに、Claude から指定できる。ホスト側は実機で未確認)
 
 - **`<アプリ>.UITests/uitest.settings` (新規):** UI テストを実行するデスクトップの既定 (`desktop=visible` = ユーザーのデスクトップ / `separate` (別名 `invisible`) = 別のデスクトップ、`slowmo=N`)。**`add_ui_tests.py` (と `new_solution.py --ui-tests flaui`) が、プロジェクトを作るときに書く: WPF は `visible`** (WPF のメニューのポップアップが、別のデスクトップでは、開かないため)、**それ以外は `separate`**。`--refresh-support-files` は、なければ足し、あれば上書きしない。WPF とそれ以外の切り替えを、ウォッチャーの判定でなく、このファイルに統一した。

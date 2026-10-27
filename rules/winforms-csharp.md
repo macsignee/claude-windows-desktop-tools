@@ -121,6 +121,12 @@ Solution/
 - **UI テストと支援技術のために、入力欄・ボタンには、`Name` (= AutomationId) を付け、直前の `Label` の文字が UIA の名前になることがあるので、`AccessibleName` を付ける。**
 - (`winforms-check` の WFL002。)
 
+### 6.3.1 リスト・ツリー・日付などの注意 (実機で確認。UI テストの道具は `UiDialogs`)
+- **`ListView` は、`View = View.Tile` (並べて表示) と `CheckBoxes = true` を、同時にできない** (`NotSupportedException`。**未処理だと、モーダルの例外ダイアログで UI スレッドが止まり、UI テストが固まる**)。タイルにするときは、`CheckBoxes = false` にして、戻すときに、元に戻す。
+- **`Program.cs` に、未処理の例外の受け口を置く** (9.1。`Application.SetUnhandledExceptionMode(CatchException)` と `ThreadException`)。例外のダイアログが出ず、UI テストが固まらない (ログに残る)。
+- **UI テストで操作するコントロール:** 列ヘッダーによる並べ替え (`ColumnClick`) は、UIA の `Invoke` では起きない (UI テストは、ヘッダーへ `PostMessage`)。`TabControl` の `TabPage` は、UIA の `TabItem` が信用できない (UI テストは、順番で選ぶ)。`ToolStrip` の項目は、`AutomationId` が空 (表示名で探される)。**`TreeView` のチェックは、`AfterCheck` で受ける** (UI テストは、`Space` キーで切り替える)。**`DateTimePicker`** は、`ValueChanged` で受ける (チェック付きは、チェックの切り替えでも、`ValueChanged` が起きるとは、限らない)。
+- (`winforms-check` の WFD008 が、`ListView` の `CheckBoxes = true` と `View.Tile` の組み合わせを、検出する。)
+
 ### 6.4 UserControl
 - 再利用する UserControl は、**値のプロパティとイベントで、親とやり取りする**。親の Form を、直接参照しない。
 - UserControl も、Presenter を持てる (小さな画面部品ごとに、`IView` を実装する)。

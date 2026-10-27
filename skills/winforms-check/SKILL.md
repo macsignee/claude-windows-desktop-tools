@@ -52,6 +52,7 @@ winforms-check: error 1 / warning 1 (3 projects: WfApp, LogicLayer, DataLayer)
 | WFD005 | warning | UI テストのプロジェクト (`*.UITests`) があるとき、操作するコントロールに `Name` がない | `x.Name = "x";` を足す。**AutomationId が空になり、FlaUI が探せない。** |
 | WFD006 | warning | `InitializeComponent()` を、`Designer.cs` 以外に書いている | `*.Designer.cs` に移す (デザイナーが開けなくなる・書き換える)。 |
 | WFD007 | warning | `InitializeComponent()` の中に、`if` / `for` / `while` / `switch` / `try` がある | 宣言 (代入と `Add`) だけにする。処理は、コンストラクターの、`InitializeComponent()` のあとに書く。 |
+| WFD008 | warning | `Designer.cs` で `CheckBoxes = true` の `ListView` を、`View.Tile` (並べて表示) にしている (そのコントロールの `CheckBoxes` を、コード側で切り替えていない) | **タイルは `CheckBoxes` と両立しない (`NotSupportedException`。未処理だと、例外のダイアログで UI スレッドが止まり、UI テストが固まる)。** タイルのときは、`CheckBoxes = false` にして、戻すときに、元に戻す。 |
 | WFT001 | warning | `Application.DoEvents()` を使っている | `async` / `await` に分ける (再入で、状態が壊れる)。 |
 | WFT002 | warning | Form / UserControl のコードで、`Thread.Sleep()` を呼んでいる | `await Task.Delay` にする (UI が固まる)。 |
 | WFT003 | error | `Control.CheckForIllegalCrossThreadCalls = false` | 外す。別スレッドからは、`Invoke` / `BeginInvoke`、または `async` / `await`。 |

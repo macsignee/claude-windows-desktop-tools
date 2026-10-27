@@ -717,6 +717,15 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
 - **規約への反映:** WinForms の規約 6.3 に、「メニューの `Click` の中で、ダイアログを、直接開かない (`BeginInvoke`)」「`Name` / `AccessibleName` を付ける」を追記した。`build-test-loop/SKILL.md` に、使い方と、実機の注意を追記した。生成される `CLAUDE.md` の「UI テスト」の節にも、同じ指針を入れた。
 - **見送り (第 2 弾以降):** ListView / DataGrid、NumericUpDown、DateTimePicker、TreeView。`winforms-check` / `wpf-check` / `mfc-check` への、ダイアログ関連の検査 (メニューの `Click` から、直接の `ShowDialog` など) は、必要になったら、足す。
 
+### 4.37 ダイアログの UI テスト: 第 2 弾の取り込み (v2.17.0)
+
+実機の PoC (2026-10-25〜27、WinForms / WPF / MFC。`poc/dialog-flaui*`、コミットしない) の結果を、`UiDialogs.cs` と、規約・チェック・Skill に取り込んだ。根拠 (コントロールごとの、実機の結果) は `poc/dialog-flaui/README.md`、要約の表は `build-test-loop/SKILL.md`。
+
+- **`UiDialogs.cs` (`add_ui_tests.py` の `DIALOGS_CS`):** (1) `SendMessage` を、すべて `SendMessageTimeout` (SMTO_ABORTIFHUNG、5 秒) に (固まったアプリへの同期 SendMessage が、テストごと、ウォッチャーの制限時間で殺された)。(2) `SelectTab(tab, 名前, 全タブの名前...)` / `SelectTab(tab, 順番)`: ウィンドウを持つ Tab は、UIA の TabItem が信用できない → `TCM_GETCURSEL` + 矢印キー。WPF は、UIA。(3) `ClickColumnHeader`、`ListItems`、`SetNumeric`、`ToggleTreeNode`、`OpenDropDown`、`FindCalendar`、`PostKey` / `FocusAndKeys` / `Vk`。(4) `PressDialogButton` は、失敗したら `ForceCloseDialog` (開いたまま残ると、次のステップが前のダイアログを読む)。(5) `GetAppWindow`: `App.GetMainWindow` が、まれに入力インジケーターの小窓を返す (MFC で確認) → そのクラスを除く。`UiTestBase` が使う。
+- **`winforms-check` WFD008:** `ListView` の `CheckBoxes = true` と `View.Tile` (タイルは、`NotSupportedException`。未処理だと、UI が止まる)。**`wpf-check` UI004:** UI テストがあるとき、`CheckBox` を `Click` だけで受けている (UIA の Toggle は、`Click` を起こさない)。
+- **規約:** `rules/winforms-csharp.md` 6.3.1 (ListView のタイル、未処理の例外の受け口、UI テストで操作するコントロールの注意)、`rules/wpf-csharp.md` (データのクラスの `ToString()`、`Checked` / `Unchecked`、仮想化、WPF の UI テストは、ユーザーのデスクトップ)。
+- **確認できていないこと:** 生成した C# の、実機でのコンパイル (この環境に dotnet がない)。TaskDialog の WPF / MFC。
+
 ### 4.36 UI テストのデスクトップ: プロジェクトの `uitest.settings` が既定を持ち、1 回ごとの指定で上書きする (v2.16.0)
 
 以前は、ユーザーのデスクトップで実行するには、ウォッチャーを `run_watcher_visible.cmd` で起動し直す必要があった (ウォッチャーの起動時に決まり、Claude からは、変えられない)。WPF の実機の調査 (2026-10-26〜27、`poc/dialog-flaui-wpf`) で、WPF のメニューのポップアップが、別のデスクトップでは、開かないため、WPF の UI テストは、毎回、切り替えが必要になった。要望 (ユーザー、2026-10-27): 「バッチを切り替えず、Claude から設定したい。標準は visible でなく、指定があるときだけ visible。ただし、WPF は、標準で visible」。続いて: 「WPF とそれ以外の visible の切り替えを、統一できないか。UI テストの中で、既定を設定する形で」。

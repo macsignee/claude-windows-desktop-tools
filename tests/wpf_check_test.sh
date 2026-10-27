@@ -389,6 +389,13 @@ find "$T/ui2/WpfApp" -name '*.xaml' -exec sed -i -E 's/<(TextBox|PasswordBox|Com
 out="$(check "$T/ui2")"
 ok "UI002: AutomationId / x:Name given -> no UI002" "$([ "$(has "$out" 'UI002')" = 0 ] && echo 1 || echo 0)"
 
+# UI004: UI テストがあるとき、CheckBox を Click だけで受けている
+mutate ui3; cp -r "$T/ui1/MyApp.UITests" "$T/ui3/MyApp.UITests"
+printf '%s' '<Window x:Class="WpfApp.ClickWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"><StackPanel><CheckBox AutomationProperties.AutomationId="a" Click="OnA" /><CheckBox AutomationProperties.AutomationId="b" Click="OnB" Checked="OnB" Unchecked="OnB" /></StackPanel></Window>' > "$T/ui3/WpfApp/ClickWindow.xaml"
+out="$(check "$T/ui3")"; rc=$?
+ok "UI004: a CheckBox handled only by Click (with a UITests project) -> one warning (rc=0)" "$([ $rc = 0 ] && [ "$(has "$out" 'warning UI004')" = 1 ] && [ "$(echo "$out" | grep -c 'UI004')" -le 2 ] && echo 1 || echo 0)"
+ok "UI004: not reported without a UITests project" "$([ "$(has "$(check "$T/clean")" 'UI004')" = 0 ] && echo 1 || echo 0)"
+
 # ---------------------------------------------------------------- 5. 層
 mutate l0; edit "$T/l0" MyApp.ViewModels/MyApp.ViewModels.csproj '<TargetFramework>net8.0</TargetFramework>' '<TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF>'
 out="$(check "$T/l0")"; rc=$?

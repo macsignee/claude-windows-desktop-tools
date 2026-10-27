@@ -108,8 +108,7 @@ public abstract class UiTestBase
         var exe = AppLocator.Find(AppName);
         App = Application.Launch(exe);
         Automation = new UIA3Automation();
-        MainWindow = App.GetMainWindow(Automation, TimeSpan.FromSeconds(15))
-            ?? throw new InvalidOperationException("メインウィンドウが、15 秒以内に出ない: " + exe);
+        MainWindow = UiDialogs.GetAppWindow(App, Automation, TimeSpan.FromSeconds(15));
         UiTrace.Write($"launched: {exe} (title: {MainWindow.Title})");
         if (SlowMoMs > 0) UiNative.BringToFront(MainWindow);   // ユーザーのデスクトップで、見えるように、前面に出す
     }
@@ -317,7 +316,9 @@ namespace __NS__.UITests;
 internal static class UiDialogs
 {
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-    [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+    [DllImport("user32.dll")] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string? text);
+    [DllImport("user32.dll")] private static extern bool ScreenToClient(IntPtr hWnd, ref System.Drawing.Point pt);
     [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern int GetDlgCtrlID(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern IntPtr GetDlgItem(IntPtr hDlg, int id);
@@ -326,8 +327,38 @@ internal static class UiDialogs
     private const uint WM_KEYDOWN = 0x0100, WM_KEYUP = 0x0101, WM_SYSKEYDOWN = 0x0104, WM_SYSKEYUP = 0x0105, WM_SYSCHAR = 0x0106;
     private const uint BM_CLICK = 0x00F5, CB_SETCURSEL = 0x014E, LB_SETCURSEL = 0x0186;
     private const uint TBM_GETPOS = 0x0400, TBM_SETPOS = 0x0405, SBM_SETPOS = 0x00E0, SBM_GETPOS = 0x00E1;
+    private const uint WM_CLOSE = 0x0010, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202, TCM_GETCURSEL = 0x130B, UDM_SETPOS32 = 0x0471;
+
+    /// <summary>キー (仮想キーコード)。PostKey に渡す。</summary>
+    public static class Vk
+    {
+        public const int Space = 0x20, Return = 0x0D, PageUp = 0x21, PageDown = 0x22, Left = 0x25, Up = 0x26, Right = 0x27, Down = 0x28, F4 = 0x73;
+    }
+
+    /// <summary>SendMessage (同期) は、相手のアプリの UI スレッドが固まる (未処理の例外のダイアログで止まる、など) と、永久に戻らず、テストのプロセスごと、
+    /// ウォッチャーの制限時間で、強制終了される (実機で確認: ListView を「並べて表示」に切り替える処理で、28 分間、止まった)。5 秒で、あきらめて、失敗にする。</summary>
+    private static IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (SendMessageTimeout(hWnd, msg, wParam, lParam, 0x0002 /* SMTO_ABORTIFHUNG */, 5000, out var result) == IntPtr.Zero)
+        {
+            throw new AssertFailedException($"SendMessage(0x{msg:X}) が、5 秒で応答しない (アプリが固まっている。未処理の例外のダイアログが、出ている可能性)");
+        }
+
+        return result;
+    }
 
     // ---------------------------------------------------------------- 判定と待ち
+
+    /// <summary>アプリのメインウィンドウ。**App.GetMainWindow は、まれに、アプリのウィンドウでなく、入力インジケーターの小窓 (UAC_InputIndicatorOverlayWnd) を返す**
+    /// (実機で確認: MFC の既存のテストが、不安定に失敗した。失敗時の main が、その小窓だった)。そのクラスを除き、タイトルのあるトップレベルのウィンドウを選ぶ。</summary>
+    public static Window GetAppWindow(Application app, AutomationBase automation, TimeSpan? timeout = null)
+    {
+        var limit = timeout ?? TimeSpan.FromSeconds(15);
+        var found = WaitFor(() => app.GetAllTopLevelWindows(automation)
+            .FirstOrDefault(w => w.Properties.ClassName.ValueOrDefault != "UAC_InputIndicatorOverlayWnd" && !string.IsNullOrEmpty(w.Title)), limit);
+        return found ?? app.GetMainWindow(automation, TimeSpan.FromSeconds(5))
+            ?? throw new InvalidOperationException("メインウィンドウが、出ない");
+    }
 
     /// <summary>"WPF" / "WinForm" / "Win32" (MFC を含む)。</summary>
     public static string Framework(AutomationElement e)
@@ -634,12 +665,167 @@ internal static class UiDialogs
         throw new AssertFailedException($"{what}を {expected} にできない。試した方法: " + string.Join(" / ", tried));
     }
 
-    /// <summary>タブを、名前で選ぶ (WinForms / WPF / MFC とも、UIA の SelectTabItem で、切り替わる)。選ばれていないタブの中の要素は、UIA のツリーに出ない。</summary>
-    public static void SelectTab(AutomationElement tab, string name)
+    /// <summary>タブを、名前で選ぶ。WPF: UIA の SelectTabItem。**WinForms / MFC (ウィンドウを持つ Tab): UIA の TabItem は、信用できない**
+    /// (実機で確認: 選択中のタブが、一覧から消える / 最後のタブが、出ない / Select() が、1 つ右隣のタブを選ぶ)。
+    /// ネイティブの TCM_GETCURSEL で、いまの位置を聞き、左右の矢印キー (PostMessage) で動かして、TCM_GETCURSEL で、確かめる。
+    /// そのため、WinForms / MFC では、**タブの名前を、並び順で全部渡す** (`SelectTab(tab, "ガイド", "サイズ", "ガイド")`)。
+    /// 選ばれていないタブの中の要素は、UIA のツリーに出ない。</summary>
+    public static void SelectTab(AutomationElement tab, string name, params string[] tabNamesInOrder)
     {
-        tab.AsTab().SelectTabItem(name);
+        var hwnd = Hwnd(tab);
+        if (hwnd == IntPtr.Zero)
+        {
+            tab.AsTab().SelectTabItem(name);
+            Thread.Sleep(300);
+            return;
+        }
+
+        var index = Array.IndexOf(tabNamesInOrder, name);
+        if (index < 0)
+        {
+            throw new AssertFailedException($"WinForms / MFC の Tab は、タブの名前を、並び順で、全部渡すこと (name='{name}'、渡された: [{string.Join(", ", tabNamesInOrder)}])");
+        }
+
+        SelectTab(tab, index);
+    }
+
+    /// <summary>タブを、順番 (0 始まり) で選ぶ (ウィンドウを持つ Tab: TCM_GETCURSEL + 矢印キー。WPF: UIA の TabItem の SelectionItem)。</summary>
+    public static void SelectTab(AutomationElement tab, int index)
+    {
+        var hwnd = Hwnd(tab);
+        if (hwnd == IntPtr.Zero)
+        {
+            var items = tab.FindAllDescendants(cf => cf.ByControlType(ControlType.TabItem));
+            if (index >= items.Length) throw new AssertFailedException($"タブ {index} がない (TabItem x{items.Length})");
+            items[index].Patterns.SelectionItem.Pattern.Select();
+            Thread.Sleep(300);
+            return;
+        }
+
+        try { tab.Focus(); } catch (Exception) { /* フォーカスできなくても、キーは、送る */ }
+        Thread.Sleep(200);
+        var path = new List<int>();
+        for (var guard = 0; guard < 20; guard++)
+        {
+            var cur = (int)SendMessage(hwnd, TCM_GETCURSEL, IntPtr.Zero, IntPtr.Zero);
+            path.Add(cur);
+            if (cur == index) return;
+            PostKey(hwnd, cur < index ? Vk.Right : Vk.Left);
+            Thread.Sleep(150);
+        }
+
+        throw new AssertFailedException($"タブ {index} に、移れない (TCM_GETCURSEL の経路: {string.Join("->", path)})");
+    }
+
+    // ---------------------------------------------------------------- キー・列ヘッダー・スピン・ツリーのチェック・日付 (実機の PoC の第 2 弾で確かめた方法)
+
+    /// <summary>ウィンドウへ、キー (Vk.*) を、PostMessage する (別のデスクトップでも動く。SendInput は、別のデスクトップでは拒否される)。</summary>
+    public static void PostKey(IntPtr hwnd, int vk)
+    {
+        if (hwnd == IntPtr.Zero) throw new AssertFailedException("ウィンドウハンドルが、ない (WPF の要素には、キーを PostMessage できない)");
+        PostMessage(hwnd, WM_KEYDOWN, (IntPtr)vk, IntPtr.Zero);
+        PostMessage(hwnd, WM_KEYUP, (IntPtr)vk, IntPtr.Zero);
+        Thread.Sleep(250);
+    }
+
+    public static void PostKey(AutomationElement e, int vk) => PostKey(Hwnd(e), vk);
+
+    /// <summary>要素にフォーカスして、キーを順に送る (ウィンドウを持つ要素)。例: チェック付きの DateTimePicker は、フォーカスが先にチェックへ来るので、Vk.Right で日付の欄へ進んでから Vk.Up。</summary>
+    public static void FocusAndKeys(AutomationElement e, params int[] vks)
+    {
+        try { e.Focus(); } catch (Exception) { /* フォーカスできなくても、続ける */ }
+        Thread.Sleep(250);
+        foreach (var vk in vks) PostKey(e, vk);
+    }
+
+    /// <summary>ListView の項目。GridView の WPF ListView は、DataGrid として出て、項目は DataItem。それ以外 (WinForms / MFC / WPF のアイコン表示) は、ListItem。</summary>
+    public static AutomationElement[] ListItems(AutomationElement list) =>
+        list.FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem).Or(cf.ByControlType(ControlType.DataItem)));
+
+    /// <summary>ListView の列ヘッダーを、クリックする (並べ替え)。ウィンドウを持つ ListView (WinForms / MFC): UIA の Invoke / DoDefaultAction は、ColumnClick を起こさない
+    /// (実機で確認) ので、ヘッダー (SysHeader32) へ、WM_LBUTTONDOWN / UP を PostMessage する。WPF の GridViewColumnHeader: UIA の Invoke。</summary>
+    public static void ClickColumnHeader(AutomationElement list, AutomationElement header)
+    {
+        var hList = Hwnd(list);
+        if (hList == IntPtr.Zero)
+        {
+            header.Patterns.Invoke.Pattern.Invoke();
+            return;
+        }
+
+        var hHeader = FindWindowEx(hList, IntPtr.Zero, "SysHeader32", null);
+        if (hHeader == IntPtr.Zero) throw new AssertFailedException("SysHeader32 が、見つからない");
+        var r = header.BoundingRectangle;
+        var pt = new System.Drawing.Point(r.Left + r.Width / 2, r.Top + r.Height / 2);
+        ScreenToClient(hHeader, ref pt);
+        var lp = (IntPtr)((pt.Y << 16) | (pt.X & 0xFFFF));
+        PostMessage(hHeader, WM_LBUTTONDOWN, (IntPtr)1, lp);
+        PostMessage(hHeader, WM_LBUTTONUP, IntPtr.Zero, lp);
         Thread.Sleep(300);
     }
+
+    /// <summary>数値の入力 (スピン / NumericUpDown / WPF の TextBox + RepeatButton) の、いまの値 (Value パターンの文字、なければ RangeValue)。</summary>
+    public static int NumericValue(AutomationElement e)
+    {
+        if (e.Patterns.Value.IsSupported && int.TryParse(e.Patterns.Value.Pattern.Value.Value, out var v)) return v;
+        return (int)e.Patterns.RangeValue.Pattern.Value.Value;
+    }
+
+    /// <summary>数値の入力を設定する。edit: 値を読む要素 (MFC: バディの編集欄 / WinForms: NumericUpDown 自身 / WPF: TextBox)。spin: スピン自身 (なければ null)。
+    /// 試す順: spin の RangeValue (WinForms の NumericUpDown。編集欄への SetValue は、フォーカスが外れるまで、確定しない) → UDM_SETPOS32 (MFC のスピン。編集欄が追従し、EN_CHANGE が飛ぶ)
+    /// → edit の Value.SetValue (MFC / WPF)。**MFC のスピンの上下ボタンの Invoke は、値が変わらず、RangeValue もない** (実機で確認)。範囲外は、アプリの規則に従う (WPF の TextBox は、そのまま)。</summary>
+    public static string SetNumeric(AutomationElement edit, int value, AutomationElement? spin = null)
+    {
+        var methods = new List<(string Name, Action Do)>();
+        if (spin != null)
+        {
+            methods.Add(("RangeValue.SetValue (スピン)", () => spin!.Patterns.RangeValue.Pattern.SetValue(value)));
+            methods.Add(("UDM_SETPOS32", () => SendMessage(Hwnd(spin!), UDM_SETPOS32, IntPtr.Zero, (IntPtr)value)));
+        }
+
+        methods.Add(("Value.SetValue (編集欄)", () => edit.Patterns.Value.Pattern.SetValue(value.ToString())));
+        return TryUntil("数値", value, methods.ToArray(), () => NumericValue(edit));
+    }
+
+    /// <summary>ツリーのノードのチェックを、切り替える。WPF: ノードの中の CheckBox の Toggle (アプリは、Checked / Unchecked で受けること。Click は、起こらない)。
+    /// ウィンドウを持つ TreeView (WinForms / MFC): **UIA の Toggle パターンは、あっても、ToggleState が変わらないことがある (MFC: 変わらない)** ので、
+    /// ノードを選んで、ツリーへ Vk.Space を PostMessage する (TVN_KEYDOWN / KeyDown が、アプリに届く)。</summary>
+    public static void ToggleTreeNode(AutomationElement tree, AutomationElement node)
+    {
+        var hwnd = Hwnd(tree);
+        if (hwnd == IntPtr.Zero)
+        {
+            var box = node.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox)) ?? throw new AssertFailedException("ノードの中に、CheckBox がない");
+            box.Patterns.Toggle.Pattern.Toggle();
+            return;
+        }
+
+        node.Patterns.SelectionItem.Pattern.Select();
+        Thread.Sleep(250);
+        PostKey(hwnd, Vk.Space);
+    }
+
+    /// <summary>日付ピッカーの、ドロップダウン (カレンダー) を、開く。ExpandCollapse があれば Expand (WPF の DatePicker / WinForms の DateTimePicker)。
+    /// なければ (MFC のネイティブの CDateTimeCtrl は、UIA で Pane、Legacy だけ)、フォーカスして Vk.F4。</summary>
+    public static void OpenDropDown(AutomationElement picker)
+    {
+        if (picker.Patterns.ExpandCollapse.IsSupported)
+        {
+            picker.Patterns.ExpandCollapse.Pattern.Expand();
+        }
+        else
+        {
+            FocusAndKeys(picker, Vk.F4);
+        }
+
+        Thread.Sleep(500);
+    }
+
+    /// <summary>開いているカレンダー (デスクトップ直下を探す。ポップアップの、別のウィンドウ)。ウィンドウを持つ (SysMonthCal32): そのハンドルへ、PostKey (Vk.PageDown = 次の月、矢印 = 日、Vk.Return = 確定)。
+    /// **ウィンドウを持つ DateTimePicker のカレンダーは、UIA の Invoke / DoDefaultAction (日のセル、次月ボタン) が効かない** (実機で確認)。
+    /// WPF のカレンダー: 日のセルは、Button (クラス CalendarDayButton、名前は '2026年1月15日')。Invoke / SelectionItem で選ぶ。</summary>
+    public static AutomationElement? FindCalendar(AutomationBase automation) =>
+        automation.GetDesktop().FindFirstDescendant(cf => cf.ByClassName("SysMonthCal32").Or(cf.ByControlType(ControlType.Calendar)));
 
     // ---------------------------------------------------------------- OS 標準のダイアログ (MessageBox・ファイルダイアログ)
 
@@ -675,7 +861,17 @@ internal static class UiDialogs
             catch (Exception ex) { tried.Add($"{name}: {ex.GetType().Name}: {ex.Message}"); }
         }
 
+        // 閉じないまま残ると、次のステップが、前のダイアログを読む (実機で確認: 結果が 1 段ずつずれた)。強制的に閉じてから、失敗にする
+        ForceCloseDialog(dialog);
         throw new AssertFailedException($"ダイアログのボタン {id} で、閉じない。試した方法: " + string.Join(" / ", tried));
+    }
+
+    /// <summary>ダイアログを、強制的に閉じる (WM_CLOSE)。ボタンの押下に失敗したとき、開いたまま残らないように。</summary>
+    public static void ForceCloseDialog(AutomationElement dialog)
+    {
+        var hwnd = Hwnd(dialog);
+        if (hwnd != IntPtr.Zero) PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+        Thread.Sleep(300);
     }
 
     /// <summary>MessageBox の、文言 (Static の文字を、連結)。</summary>
@@ -1123,6 +1319,8 @@ def claude_md_section(ui, app):
 - **通常のテスト (`build_test_once.sh`) には、含まれない。** 別のデスクトップで実行され (`-UiTestDesktop separate`)、ユーザーの画面を乱さない。「マウスとキーボードに触らないで」と頼む必要は、ない。
 - 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
 - **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `Invoke` を別スレッド。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。
+- **リスト・ツリー・スピン・日付・タブも、`UiDialogs` を使う:** `ListItems` / `ClickColumnHeader` (列ヘッダーの並べ替え) / `SetNumeric` (スピン) / `ToggleTreeNode` (ツリーのチェック) / `OpenDropDown` + `FindCalendar` (日付のカレンダー) / `PostKey` + `Vk.*` (キー) / `SelectTab` (**WinForms / MFC は、タブの名前を、並び順で、全部渡す**)。`SendMessage` は、すべて 5 秒のタイムアウトつき。フレームワークごとの違いの表: `build-test-loop` の「コントロール別の、実機の結果の表」。
+- **アプリ側 (View) の注意:** WPF は、リスト・ツリーの項目のデータのクラスに `ToString()` を実装し、チェックは `Checked` / `Unchecked` で受ける (UIA の Toggle は Click を起こさない)。WinForms は、`ListView` のタイル (`View.Tile`) のとき、`CheckBoxes = false` にする (両立しない)。`wpf-check` (UI004) / `winforms-check` (WFD008) が、検出する。
 - **画面の連動の規則 (チェックで入力欄が有効になる、など) は、純粋な関数の単体テストで確かめる。UI テストは、ダイアログごとに、煙テスト 1 件** (開く → 規則の結果が、実画面に反映されている → OK / キャンセルの結果が、メインに返る)。
 - **どのデスクトップで実行するか:** `{ui}/uitest.settings` の `desktop=visible` (ユーザーのデスクトップ。実行中は、PC に触らない) / `separate` (別のデスクトップ)。作成時に、WPF は visible、それ以外は separate が入る。1 回だけ変えるには、`uitest_once.sh --visible` / `--separate` (`--invisible`)。
 - **メニュー:** WPF のメニューは、別のデスクトップでは、ポップアップが開かない → WPF は、`uitest.settings` が visible (`uitest_once.sh --visible` で、明示もできる。古いウォッチャーは、`run_watcher_visible.cmd`。`UiDialogs.ExpandMenu` が、分かりやすい失敗にする)。WinForms は、ダイアログを開く処理を、アプリ側で `BeginInvoke` で遅らせる。MFC は、`UiDialogs.MenuCommand` (`WM_COMMAND`)。

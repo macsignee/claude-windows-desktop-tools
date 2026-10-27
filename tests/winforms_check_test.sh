@@ -72,6 +72,16 @@ expect m6 WFD006 1 "InitializeComponent outside Designer.cs"
 mut m7 WfApp "$DES" 's = s.replace("        SuspendLayout();\n", "        SuspendLayout();\n        if (DesignMode) { }\n", 1)'
 expect m7 WFD007 0 "control statement in InitializeComponent"
 
+# WFD008: ListView の CheckBoxes = true と View.Tile (タイルは CheckBoxes と両立しない)
+rm -rf "$T/m7b"; cp -r "$T/WfApp" "$T/m7b"
+printf 'using System.Windows.Forms;\n\nnamespace WfApp.Forms;\n\npartial class ListForm\n{\n    private ListView FileList;\n\n    private void InitializeComponent()\n    {\n        FileList = new ListView();\n        FileList.Name = "FileList";\n        FileList.CheckBoxes = true;\n        Controls.Add(FileList);\n    }\n}\n' > "$T/m7b/WfApp/Forms/ListForm.Designer.cs"
+printf 'using System.Windows.Forms;\n\nnamespace WfApp.Forms;\n\npartial class ListForm : Form\n{\n    public ListForm() { InitializeComponent(); }\n\n    private void Tile() { FileList.View = View.Tile; }\n}\n' > "$T/m7b/WfApp/Forms/ListForm.cs"
+expect m7b WFD008 0 "ListView CheckBoxes = true and View.Tile"
+cp "$T/m7b/WfApp/Forms/ListForm.cs" "$T/m7b/ListForm.cs.bak"
+printf 'using System.Windows.Forms;\n\nnamespace WfApp.Forms;\n\npartial class ListForm : Form\n{\n    public ListForm() { InitializeComponent(); }\n\n    private void Tile() { FileList.CheckBoxes = false; FileList.View = View.Tile; }\n}\n' > "$T/m7b/WfApp/Forms/ListForm.cs"
+out="$(chk "$T/m7b")"
+ok "WFD008 is not reported when CheckBoxes is switched off in the code" "$([ "$(has "$out" WFD008)" = 0 ] && echo 1 || echo 0)"
+
 # ---------------------------------------------------------------- スレッド・UI
 mut m8 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private void Busy() { Application.DoEvents(); }\n\n    public event EventHandler? NameChanged;")'
 expect m8 WFT001 0 "Application.DoEvents"

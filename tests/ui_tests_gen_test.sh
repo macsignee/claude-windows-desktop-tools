@@ -121,6 +121,13 @@ ok "refresh-support-files: an existing uitest.settings is kept" "$([ "$(sv "$T/W
 rm -f "$T/WpfUi/WpfUi.UITests/uitest.settings"
 python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1
 ok "refresh-support-files: a missing uitest.settings is added (WPF: visible)" "$([ "$(sv "$T/WpfUi/WpfUi.UITests/uitest.settings")" = 'desktop=visible' ] && echo 1 || echo 0)"
+# 第 2 弾の取り込み (実機の PoC: WinForms / WPF / MFC) で、UiDialogs に足した道具
+D="$T/WpfUi/WpfUi.UITests/UiDialogs.cs"
+ok "UiDialogs (batch 2): new helpers present" "$(ok_all=1; for m in 'void PostKey(IntPtr hwnd, int vk)' 'void FocusAndKeys(' 'AutomationElement[] ListItems(' 'void ClickColumnHeader(' 'int NumericValue(' 'string SetNumeric(' 'void ToggleTreeNode(' 'void OpenDropDown(' 'AutomationElement? FindCalendar(' 'void ForceCloseDialog(' 'Window GetAppWindow(' 'void SelectTab(AutomationElement tab, int index)' 'class Vk'; do grep -qF "$m" "$D" || ok_all=0; done; echo $ok_all)"
+ok "UiDialogs: SendMessage goes through SendMessageTimeout (5 s), no raw SendMessage import" "$(grep -q 'SendMessageTimeout' "$D" && ! grep -q 'static extern IntPtr SendMessage(IntPtr' "$D" && grep -q '5000' "$D" && echo 1 || echo 0)"
+ok "UiDialogs: SelectTab for windowed tabs uses TCM_GETCURSEL + arrow keys (UIA TabItem is unreliable), WPF uses UIA" "$(grep -q 'TCM_GETCURSEL' "$D" && grep -q 'params string\[\] tabNamesInOrder' "$D" && echo 1 || echo 0)"
+ok "UiDialogs: PressDialogButton closes the dialog by force when it fails" "$(awk '/public static string PressDialogButton/{f=1} f&&/ForceCloseDialog\(dialog\)/{ok=1} /public static string MessageBoxText/{f=0} END{exit !ok}' "$D" && echo 1 || echo 0)"
+ok "UiTestBase: the main window is chosen by UiDialogs.GetAppWindow (not the input indicator overlay)" "$(grep -q 'UiDialogs.GetAppWindow(App, Automation' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && grep -q 'UAC_InputIndicatorOverlayWnd' "$D" && echo 1 || echo 0)"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

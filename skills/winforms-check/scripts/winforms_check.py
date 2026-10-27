@@ -16,6 +16,8 @@ C# は、軽い字句解析 (コメントと文字列を除いて、正規表現
   WFD005 warning UI テストのプロジェクト (*.UITests) があるとき、操作するコントロールに Name がない (AutomationId が空になる)
   WFD006 warning InitializeComponent() を、Designer.cs 以外に書いている (デザイナーが、開けなくなる・書き換える)
   WFD007 warning InitializeComponent() の中に、制御構文 (if / for / while / switch / try) がある (デザイナーが、読めなくなる。宣言だけにする)
+  WFD008 warning ListView の CheckBoxes = true (Designer.cs) と、View.Tile (並べて表示) を、同じコントロールに使っている (タイルは CheckBoxes と両立せず、NotSupportedException。
+                 未処理だと、例外のダイアログで UI スレッドが止まり、UI テストが固まる)。タイルのときは、CheckBoxes = false にする
   WFT001 warning Application.DoEvents() を使っている (再入。処理を、async / await に分ける)
   WFT002 warning Form / UserControl のコードで、Thread.Sleep() を呼んでいる (UI が固まる)
   WFT003 error   Control.CheckForIllegalCrossThreadCalls = false (スレッドの誤りを、隠す。Invoke / BeginInvoke、または、async / await にする)
@@ -267,6 +269,20 @@ def check_designer(pr, path, raw, code, ui_tests):
         pr.add("WFD007", "warning", f"InitializeComponent() の中に、{m.group(1)} がある (デザイナーが読めなくなる。宣言 (代入と Add) だけにする。処理は、コンストラクターに書く)", rel, line_of(m.start()))
 
 
+def check_listview_tile(pr):
+    """WFD008: Designer.cs で CheckBoxes = true の ListView を、View.Tile にしている (実機で確認: NotSupportedException。例外のダイアログで、UI が止まる)。
+    Designer.cs 以外で、そのコントロールの CheckBoxes に、true 以外 (= false など、切り替える処理) を代入していれば、対応済みとみなす。"""
+    for path, _raw, code, des in pr.cs:
+        if not des:
+            continue
+        for m in re.finditer(r"(?<![\w.])(?:this\.)?(\w+)\.CheckBoxes\s*=\s*true\b", code):
+            var = m.group(1)
+            uses_tile = [p2 for p2, _r2, c2, _d2 in pr.cs if re.search(r"\bView\.Tile\b", c2) and re.search(r"\b" + re.escape(var) + r"\b", c2)]
+            handled = any(re.search(r"\b" + re.escape(var) + r"\.CheckBoxes\s*=\s*(?!true\b)", c2) for p2, _r2, c2, d2 in pr.cs if not d2)
+            if uses_tile and not handled:
+                pr.add("WFD008", "warning", f"{var} (ListView) は、CheckBoxes = true で、View.Tile も使っている ({pr.rel(uses_tile[0])})。タイルは、CheckBoxes と両立しない (NotSupportedException)。タイルのときは、{var}.CheckBoxes = false にする", pr.rel(path), lineno(code, m.start()))
+
+
 def check_forms(pr, ui_files):
     """InitializeComponent を持つクラスの、コンストラクターが、呼んでいるか (WFD001)。Designer.cs 以外の InitializeComponent (WFD006)。"""
     for path, raw, code, des in pr.cs:
@@ -381,6 +397,7 @@ def run(root, names):
             if des:
                 check_designer(pr, path, raw, code, ui_tests)
         check_forms(pr, None)
+        check_listview_tile(pr)
         if pr.use_wf or pr.checked:
             check_ui_code(pr)
     check_layering(projects, names)

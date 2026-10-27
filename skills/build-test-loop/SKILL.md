@@ -130,8 +130,27 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 - **生成される `UiDialogs.cs` (と、`UiTestBase.OpenModal` / `WaitWindow`) を使う。** WinForms / WPF / MFC で、実機で確かめた方法が、要素の `FrameworkId` と、ウィンドウハンドルの有無で、**自動で切り替わる** (`Invoke` / `Select` を、自分で直接呼ばない)。既存のプロジェクトへは、`add_ui_tests.py <フォルダ> --refresh-support-files` で、足せる。
 - **何を、どこで、確かめるか:** 画面の連動の規則 (チェックで入力欄が有効になる、ラジオで項目が変わる、不正な入力でエラーが出る、など) は、**純粋な関数の単体テスト** (表で網羅)。UI テストは、**ダイアログごとに、煙テスト 1 件** (開く → 規則の結果が、実画面に反映されている → OK / キャンセルの結果が、メインに返る)。
 - 道具の一覧: `Click` / `WaitModal` / `WaitModalClosed` (ダイアログを開く、MessageBox・ファイルダイアログも同じ)、`WaitWindow` (モードレス)、`ExpandMenu` / `CollapseMenu` / `FindMenuItem` / `MenuCommand`、`SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、`SelectListItem`、`SetSlider`、`SetScrollBar`、`SelectTab`、`AnswerMessageBox`、`PickFile`、`DumpTree` (診断。深さと数に上限)。
+- **第 2 弾 (ListView・スピン・ツリー・日付・タブ) の道具:** `ListItems` (ListItem と DataItem の両方) / `ClickColumnHeader` (列ヘッダー。WinForms / MFC は `SysHeader32` へ PostMessage、WPF は Invoke) / `SetNumeric` (スピン・NumericUpDown・TextBox) / `ToggleTreeNode` (ツリーのチェック) / `OpenDropDown` + `FindCalendar` (日付ピッカーのカレンダー) / `PostKey` + `Vk.*` + `FocusAndKeys` (キー。別のデスクトップでも動く PostMessage) / `SelectTab` (**WinForms / MFC は、タブの名前を、並び順で、全部渡す**。UIA の TabItem は信用できない) / `ForceCloseDialog` (`PressDialogButton` が失敗したときに自動で呼ぶ) / `GetAppWindow` (`UiTestBase` が使う。入力インジケーターの小窓を除く)。**`SendMessage` は、すべて 5 秒のタイムアウトつき** (固まったアプリに、同期の SendMessage をすると、テストごと、ウォッチャーの制限時間で殺される)。
 - **注意 (実機で確認):** (1) ウィンドウを持つボタンは `BM_CLICK` の `PostMessage` (UIA の `Invoke` は、`ShowDialog` / `DoModal` の中で戻らず、WinForms / MFC では、以後の UIA が止まる)。(2) WinForms のメニュー項目は、アプリ側で、ダイアログを開く処理を、`BeginInvoke` で遅らせる。MFC のメニューは、`MenuCommand` (`WM_COMMAND`)。(3) **WPF のメニューは、別のデスクトップでは、開かない** (WPF の UI テストは、既定で、ユーザーのデスクトップ。ビルドの出力の `NOTE:` を参照)。(4) キーボード・マウスの入力は、別のデスクトップでは、拒否される。(5) MFC のスクロールバーは、UIA の値が 0〜100 に正規化される (位置は、`SetScrollBar` / `ScrollBarValue` が、`SBM_GETPOS` で扱う)。
 - **コントロールに、`AccessibleName` / `AutomationProperties.Name` を付ける** (WinForms は、直前の `Label` の文字が、UIA の名前になる)。
+
+
+### コントロール別の、実機の結果の表 (WinForms / WPF / MFC。`poc/dialog-flaui/README.md` に、根拠)
+| 対象 | WinForms | WPF | MFC (Win32) |
+|---|---|---|---|
+| タブ | UIA の TabItem は信用できない (選択中が消える / 最後が出ない / 1 つ右を選ぶ) → `TCM_GETCURSEL` + 矢印キー | UIA の `SelectTabItem` | WinForms と同じ (Win32) |
+| ListView の表示形式 | 5 形式とも、同じ ListItem。**タイルは `CheckBoxes` と両立しない (例外)** | 形式の切り替えがない (GridView + ItemsPanel / ItemTemplate で作る)。GridView は DataGrid として出て、項目は DataItem | 5 形式とも、同じ。タイルは、共通コントロール v6 のマニフェストが要る |
+| ListView の項目 | 60 件すべて出る。`Invoke` / `Toggle` / `SelectionItem` / `ScrollItem` | **仮想化**で一部だけ (Scroll で出す)。**名前はデータの型名 → `ToString()` を実装**。項目自身に Toggle はなく、中の CheckBox | WinForms と同じ。60 件すべて |
+| 列ヘッダーの並べ替え | `SysHeader32` へ `WM_LBUTTONDOWN/UP` を PostMessage (UIA の Invoke は効かない) | `HeaderItem` の Invoke | WinForms と同じ |
+| チェックの通知 | `ItemChecked` | **`Checked` / `Unchecked` で受ける** (UIA の Toggle は `Click` を起こさない) | `LVN_ITEMCHANGED` (リスト) |
+| チェック付きツリー | `Toggle` | ノードの中の CheckBox の `Toggle` | **UIA の Toggle は ToggleState が変わらない → 項目を選んで `VK_SPACE` (`TVN_KEYDOWN`)** |
+| スピン / 数値 | NumericUpDown: `RangeValue` が効く。編集欄は、フォーカスが外れるまで確定しない。範囲外は自身で丸める | TextBox + RepeatButton (範囲の丸めは、規則が行う) | **上下ボタンの Invoke は効かず、RangeValue もない** → 編集欄の `SetValue`、`UDM_SETPOS32` |
+| 日付ピッカー | `Value` / `ExpandCollapse` あり。フォーカス後に、矢印キーと数字 (PostMessage)。チェック付きは、`Right` で日付の欄へ | `DatePicker` 自身への `SetValue` が効く (内側の `PART_TextBox` は不可) | **Pane (Legacy だけ)**。フォーカス後に矢印キー |
+| ドロップダウンのカレンダー | UIA の Invoke / DoDefaultAction は効かない → `PageDown` / 矢印 / `Enter` (PostMessage) | 日のセルは `Button` (`CalendarDayButton`、名前は `2026年1月15日`)。Invoke / SelectionItem。**別のデスクトップでも、ツリーに出る** | `VK_F4` で開き、WinForms と同じキー |
+| MessageBox の OK | OK だけの MessageBox の OK は **id 2** (OK・キャンセルは 1 / 2) | 同じ | 同じ |
+| TaskDialog | ボタンは `CommandButton_6` など。UIA の Invoke は例外 → ウィンドウハンドルへ `BM_CLICK` | (未確認) | (未確認) |
+| ToolStrip / StatusStrip | `AutomationId` が空 → `ControlType` と表示名で探す | - | - |
+| 主ウィンドウ | `App.GetMainWindow` が、まれに入力インジケーターの小窓を返す (MFC で確認) → `GetAppWindow` | 同じ | 同じ |
 
 ### 注意
 - 実行の前後に、ウォッチャーが、テストが残したアプリのプロセスを終了する (別のデスクトップのときは、ジョブオブジェクトで、すべて終了する)。
