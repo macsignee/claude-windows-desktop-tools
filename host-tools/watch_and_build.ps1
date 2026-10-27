@@ -1088,10 +1088,11 @@ function Invoke-TestExe($exe) {
 
 # .NET のテストプロジェクト。ビルドは、ソリューションのビルドで済んでいるので --no-build。
 # trx を、.claude-logs\test-results\<プロジェクト名>.trx に残す。
-function Invoke-DotnetTest([string]$project, [string]$dotnetPath, [int]$timeoutSec = 0) {
+function Invoke-DotnetTest([string]$project, [string]$dotnetPath, [int]$timeoutSec = 0, [string]$filter = "") {
     $name = [System.IO.Path]::GetFileNameWithoutExtension($project)
     $argString = 'test "' + $project + '" --no-build -c ' + $Configuration +
         ' --results-directory "' + $TestResultsDir + '" --logger "trx;LogFileName=' + $name + '.trx"'
+    if ($filter) { $argString += ' --filter "' + $filter + '"' }   # UI テストの、1 回ごとの絞り込み (flag の filter=)
     if ($DotnetTestArgs) { $argString += " " + $DotnetTestArgs }
     return Invoke-TestProcess $dotnetPath $argString (Split-Path -Parent $project) $timeoutSec
 }
@@ -1208,6 +1209,7 @@ function Stop-SolutionProcesses {
 function Read-UiProjectSettings {
     $desktop = ""
     $slow = $null
+    $timeout = $null
     $src = @()
     foreach ($p in @(Find-DotnetTestProjects -Ui)) {
         $f = Join-Path (Split-Path -Parent $p) "uitest.settings"
@@ -1216,15 +1218,19 @@ function Read-UiProjectSettings {
         $kv = ConvertFrom-UiSettingsText ([System.IO.File]::ReadAllText($f))
         if ($kv.Desktop -eq "default") { $desktop = "default" } elseif ($kv.Desktop -eq "separate" -and $desktop -ne "default") { $desktop = "separate" }
         if ($null -ne $kv.SlowMoMs -and ($null -eq $slow -or $kv.SlowMoMs -gt $slow)) { $slow = $kv.SlowMoMs }
+        if ($null -ne $kv.TimeoutSec -and ($null -eq $timeout -or $kv.TimeoutSec -gt $timeout)) { $timeout = $kv.TimeoutSec }
     }
 
-    return @{ Desktop = $desktop; SlowMoMs = $slow; Source = ($src -join ", ") }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Source = ($src -join ", ") }
 }
 
-# `desktop=...` と `slowmo=...` の行 (flag の中身と、uitest.settings で共通。# から行末は、コメント)。desktop: visible → default、invisible → separate。
+# `desktop=...` / `slowmo=...` / `timeout=...` / `filter=...` の行 (flag の中身と、uitest.settings で共通。# から行末は、コメント)。desktop: visible → default、invisible → separate。
+# timeout: UI テストのプロジェクト 1 つあたりの制限時間 (秒)。filter: dotnet test の --filter の式 (flag だけで使う。引用符・改行は、拒否する)。
 function ConvertFrom-UiSettingsText([string]$text) {
     $desktop = ""
     $slow = $null
+    $timeout = $null
+    $filter = ""
     foreach ($line in @("$text" -split "[\r\n]+")) {
         $l = (($line -replace '^\uFEFF', '') -replace '#.*$', '').Trim()
         if ($l -match '^desktop\s*=\s*(\w+)$') {
@@ -1234,9 +1240,11 @@ function ConvertFrom-UiSettingsText([string]$text) {
             if ($w -in @("default", "separate")) { $desktop = $w }
         }
         elseif ($l -match '^slowmo\s*=\s*(\d+)$') { $slow = [int]$Matches[1] }
+        elseif ($l -match '^timeout\s*=\s*(\d+)$') { $timeout = [int]$Matches[1] }
+        elseif ($l -match '^filter\s*=\s*([^"`]+)$') { $filter = $Matches[1].Trim() }
     }
 
-    return @{ Desktop = $desktop; SlowMoMs = $slow }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter }
 }
 
 # trigger_uitest.flag の中身 (1 回ごとの指定) と、ウォッチャーの設定と、プロジェクトの uitest.settings から、この回の UI テストの設定を決める。
@@ -1250,14 +1258,16 @@ function Resolve-UiRun([string]$flagText) {
     elseif ($proj.Desktop) { $desktop = $proj.Desktop; $reason = $proj.Source }
     else { $desktop = "separate"; $reason = "default (no uitest.settings)" }
     $slow = if ($null -ne $fl.SlowMoMs) { $fl.SlowMoMs } elseif ($null -ne $proj.SlowMoMs) { $proj.SlowMoMs } else { $UiTestSlowMoMs }
-    return @{ Desktop = $desktop; SlowMoMs = $slow; Reason = $reason }
+    # 制限時間: flag > uitest.settings > -UiTestTimeoutSec / WATCH_UI_TIMEOUT_SEC。filter は、flag だけ (1 回ごとの指定)
+    $limit = if ($null -ne $fl.TimeoutSec) { $fl.TimeoutSec } elseif ($null -ne $proj.TimeoutSec) { $proj.TimeoutSec } else { $UiTestTimeoutSec }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $fl.Filter; Reason = $reason }
 }
 
 # ビルド成功後のテスト実行 (GoogleTest の exe と、.NET のテストプロジェクト)。test_result.txt を最後に書く。
 # -Ui: UI テストのプロジェクトだけを実行する (GoogleTest の exe は、実行しない)。環境変数 UITEST_* で、テストに実行環境を渡す。
 function Invoke-Tests([switch]$Ui) {
     New-Item -ItemType Directory -Path $TestResultsDir -Force | Out-Null
-    $limit = if ($Ui) { $UiTestTimeoutSec } else { $TestTimeoutSec }
+    $limit = if ($Ui) { $script:UiRun.TimeoutSec } else { $TestTimeoutSec }
     $script:UiSeparateDesktop = ($Ui -and $script:UiRun.Desktop -eq "separate")
     if ($Ui) {
         New-Item -ItemType Directory -Path $UiScreenshotDir -Force | Out-Null
@@ -1335,7 +1345,7 @@ function Invoke-Tests([switch]$Ui) {
         foreach ($proj in $projects) {
             $name = [System.IO.Path]::GetFileNameWithoutExtension($proj)
             Write-Host "[TEST] Running dotnet test: $name (timeout ${limit}s)..." -ForegroundColor Yellow
-            $r = Invoke-DotnetTest $proj $dotnetPath $limit
+            $r = Invoke-DotnetTest $proj $dotnetPath $limit $(if ($Ui) { $script:UiRun.Filter } else { "" })
             $all += @("=== $name (dotnet test) ===") + @($r.Output)
             $r.Output | ForEach-Object { Write-Host $_ }
             $trx = Join-Path $TestResultsDir "$name.trx"
@@ -1504,7 +1514,7 @@ while ($true) {
             $uiFlagText = ""
             try { $uiFlagText = Get-Content -LiteralPath $UiTestTriggerFile -Raw -ErrorAction Stop } catch { $uiFlagText = "" }   # フラグを消す前に、1 回ごとの指定 (desktop= / slowmo=) を読む
             $script:UiRun = Resolve-UiRun $uiFlagText
-            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms" -ForegroundColor Cyan
+            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms, timeout: $($script:UiRun.TimeoutSec) s, filter: $(if ($script:UiRun.Filter) { $script:UiRun.Filter } else { '(all)' })" -ForegroundColor Cyan
         }
         Remove-Item -LiteralPath $TriggerFile, $(if ($runUiTests) { $UiTestTriggerFile } else { $TestTriggerFile }) -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null

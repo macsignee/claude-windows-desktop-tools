@@ -61,7 +61,13 @@ bash "$SCRIPT" "$T" --invisible 30 >/dev/null
 ok "--invisible is an alias of --separate: desktop=separate" "$([ "$(cat "$T/captured.txt")" = 'desktop=separate' ] && echo 1 || echo 0)"
 bash "$SCRIPT" "$T" 30 >/dev/null
 ok "no option: the flag is empty (the watcher decides: WPF -> your desktop, else separate)" "$([ ! -s "$T/captured.txt" ] && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 --filter "FullyQualifiedName~LoginDialog&TestCategory=ui" --ui-timeout 1800 >/dev/null
+ok "--filter and --ui-timeout: the flag carries filter=... and timeout=1800 (one per line)" "$([ "$(grep -c . "$T/captured.txt")" = 2 ] && grep -qx 'filter=FullyQualifiedName~LoginDialog&TestCategory=ui' "$T/captured.txt" && grep -qx 'timeout=1800' "$T/captured.txt" && echo 1 || echo 0)"
 kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+out="$(bash "$SCRIPT" "$T" --filter 'A"B')"; rc=$?
+ok "--filter with a quote -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
+out="$(bash "$SCRIPT" "$T" --ui-timeout abc)"; rc=$?
+ok "--ui-timeout with a non-number -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
 out="$(bash "$SCRIPT" "$T" --visible --separate)"; rc=$?
 ok "--visible with --separate -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
 out="$(bash "$SCRIPT" "$T" --slowmo abc)"; rc=$?
