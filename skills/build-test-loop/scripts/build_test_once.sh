@@ -17,7 +17,7 @@ set -u
 
 DIR="${1:-}"
 TIMEOUT="${2:-300}"
-PICKUP_WAIT=15   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期)
+PICKUP_WAIT="${CLAUDE_PICKUP_WAIT:-15}"   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期。テスト用に、環境変数 CLAUDE_PICKUP_WAIT で変えられる)
 MAX_DETAIL=60    # 詳細ログの最大行数 (トークン節約)
 
 if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
@@ -98,30 +98,51 @@ first_line_is_env_error() {  # $1=file
     [ -f "$1" ] && head -n 1 "$1" | sed 's/^\xEF\xBB\xBF//' | grep -q '^\[ENVIRONMENT ERROR'
 }
 
+
+# 実行 ID (v2.20.0): この実行のフラグに、実行 ID (run=...) を書く。ウォッチャーは、結果のマーカーを書く直前に、同じ ID を .claude-logs/run_id.txt に書く。
+# 前の実行 (TIMEOUT で、あきらめたが、ウォッチャーは、まだ続けていた実行) が、あとで書いた、古いマーカーを、今回の結果と取り違えないための照合。
+# run_id.txt がない = 古いウォッチャー (この機能より前) → 照合なし (従来どおり)。
+RUN_ID="$(date +%s)-$$-$RANDOM"
+RUN_ID_FILE="$DIR/.claude-logs/run_id.txt"
+BUSY_FILE="$DIR/.claude-logs/watcher_busy.txt"   # ウォッチャーが、処理中の間だけ、ある (処理の開始時に作り、終了時に消す)
+
+result_ready() {  # $1=マーカーのファイル。マーカーがあり、かつ、実行 ID が、この実行のものか (古いウォッチャーなら、マーカーだけ)
+    [ -f "$1" ] || return 1
+    [ -f "$RUN_ID_FILE" ] || return 0
+    [ "$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$RUN_ID_FILE" | head -n 1)" = "run=$RUN_ID" ]
+}
+
+watcher_busy() {  # ウォッチャーが、別の処理 (ビルド・テスト・パッケージ操作など) の最中か (60 分以内に、始まったもの)
+    [ -f "$BUSY_FILE" ] && [ -n "$(find "$BUSY_FILE" -mmin -60 2>/dev/null)" ]
+}
+
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
-rm -f "$BUILD_RESULT" "$BUILD_ERR" "$TEST_RESULT" "$TEST_ERR"
+rm -f "$BUILD_RESULT" "$BUILD_ERR" "$TEST_RESULT" "$TEST_ERR" "$RUN_ID_FILE"
 rm -f "$DIR/.claude-logs/build_summary.json" "$DIR/.claude-logs/test_summary.json"   # 前回の要約 (JSON) も消す (今回の結果と取り違えない。ENV_ERROR / PASSED では更新されないため)
 rm -rf "$DIR/.claude-logs/test-results"   # 前回の、構造化された結果 (XML / trx) も、古い結果の誤読を防ぐために消す
 # BUILD_TEST_FLAG_CONTENT があれば、フラグの中身にする (uitest_once.sh の --visible / --separate / --slowmo。ウォッチャーが、1 回ごとの指定として読む)
-if [ -n "${BUILD_TEST_FLAG_CONTENT:-}" ]; then printf '%s\n' "$BUILD_TEST_FLAG_CONTENT" > "$FLAG"; else touch "$FLAG"; fi
+# 1 行目は、実行 ID (run=...。ウォッチャーが、結果と一緒に、返す)。
+{ printf 'run=%s\n' "$RUN_ID"; if [ -n "${BUILD_TEST_FLAG_CONTENT:-}" ]; then printf '%s\n' "$BUILD_TEST_FLAG_CONTENT"; fi; } > "$FLAG"
 
 elapsed=0
 picked_up=0
-while [ ! -f "$TEST_RESULT" ]; do
+while ! result_ready "$TEST_RESULT"; do
     if [ "$picked_up" -eq 0 ]; then
         if [ ! -f "$FLAG" ]; then
             picked_up=1
-        elif [ "$elapsed" -ge "$PICKUP_WAIT" ]; then
+        elif [ "$elapsed" -ge "$PICKUP_WAIT" ] && ! watcher_busy; then
             rm -f "$FLAG"
             echo "WATCHER_NOT_RUNNING"
-            echo "$(basename "$FLAG") was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            echo "$(basename "$FLAG") was not picked up within ${PICKUP_WAIT}s, and the watcher does not look busy. Ask the user to start run_watcher.cmd (or check that it targets this folder: $DIR)."
             case "$(basename "$FLAG")" in trigger_uitest.flag) echo "If the watcher is running, it may be an old version without UI test support: run ~/src/copy-host-tools.sh and restart the watcher (run_watcher.cmd)." ;; esac
             exit 3
         fi
     fi
     if [ "$elapsed" -ge "$TIMEOUT" ]; then
+        # 回収されていないフラグは、取り下げる (あとで、思いがけず、実行されない)。回収されていれば、ウォッチャーは、続けている
+        if [ -f "$FLAG" ]; then rm -f "$FLAG"; fi
         echo "TIMEOUT"
-        echo "test_result.txt did not appear within ${TIMEOUT}s."
+        echo "test_result.txt (for this run) did not appear within ${TIMEOUT}s. The watcher may still be working (busy file: $(watcher_busy && echo present || echo absent)). Do NOT start another run until the watcher is idle: report and stop."
         exit 5
     fi
     sleep 1

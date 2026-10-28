@@ -27,6 +27,8 @@ disable-model-invocation: true
 
 - ユーザーが、`run_watcher.cmd` を起動済みであること (なければ、ビルドの段階で `WATCHER_NOT_RUNNING` になる。その時点で、起動を依頼する)。
 
+- **止めどき (回数、再試行、やってはいけないこと) は、`build-test-loop` の「止めどき」に従う** (タスクごとに、実行は、5 回まで。1 回の依頼の全体で、合計 15 回を超えたら、止めて、報告する。`TIMEOUT` / `ENV_ERROR` / `WATCHER_NOT_RUNNING` は、再試行せず、停止して報告する)。
+
 ## 手順
 
 ### 0a. 最初に、改行コードの規則 (`.gitattributes`) を確認する (**必ず、実行する。読み取りだけ**)

@@ -119,8 +119,9 @@ public abstract class UiTestBase
         while (sw.Elapsed.TotalSeconds < hold && !App.HasExited) Thread.Sleep(200);
     }
 
-    /// <summary>いまの画面を、PNG に保存する (.claude-logs/ui-screenshots/{名前}-window.png)。Claude が、画像として読める (別のデスクトップでも、撮れる)。</summary>
-    protected void Snap(string name) => Screenshots.Save(MainWindow, name);
+    /// <summary>いまの画面を、PNG に保存する (.claude-logs/ui-screenshots/{名前}-window.png)。Claude が、画像として読める (別のデスクトップでも、撮れる)。
+    /// window を渡すと、そのウィンドウ (OpenModal が返した、ダイアログなど) を撮る。省略すると、メインウィンドウ。</summary>
+    protected void Snap(string name, Window? window = null) => Screenshots.Save(window ?? MainWindow, name);
 
     [TestInitialize]
     public void StartApp()
@@ -159,8 +160,9 @@ public abstract class UiTestBase
         catch (Exception)
         {
         }
-        Automation.Dispose();
-        App.Dispose();
+        // StartApp が、途中で失敗したときも (Automation / App が null)、後始末と、結果の記録を、落とさない
+        Automation?.Dispose();
+        App?.Dispose();
         UiTrace.Write($"=== {TestContext.TestName}: {outcome}");
     }
 
@@ -169,8 +171,18 @@ public abstract class UiTestBase
     {
         UiTrace.Write($"find: {automationId}");
         if (SlowMoMs > 0) Thread.Sleep(SlowMoMs);
-        var element = MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId))
-            ?? throw new AssertFailedException($"AutomationId '{automationId}' の要素が、見つからない");
+        // 起動直後・画面の切り替え直後は、まだ、描画されていない: 5 秒まで、探し直す (偽の Red を、避ける)
+        AutomationElement? element = null;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        do
+        {
+            try { element = MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId)); }
+            catch (Exception) { /* UIA が、一時的に失敗する (開く途中・閉じる途中) */ }
+            if (element != null) break;
+            Thread.Sleep(150);
+        }
+        while (sw.ElapsedMilliseconds < 5000);
+        if (element == null) throw new AssertFailedException($"AutomationId '{automationId}' の要素が、5 秒探しても、見つからない");
         Highlight(element);
         return element;
     }
@@ -350,7 +362,7 @@ namespace __NS__.UITests;
 ///  - Win32 のコンボ / リスト: UIA の選択は、不安定 (コンボの展開は、ツリーを壊す) / 通知 (SELCHANGE) が、アプリへ飛ばない。Win32 メッセージで選ぶ。
 ///  - キーボード・マウスの入力 (SendInput) は、別のデスクトップでは、拒否される。
 /// </summary>
-internal static class UiDialogs
+internal static partial class UiDialogs
 {
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
