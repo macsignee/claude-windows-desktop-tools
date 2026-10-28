@@ -731,9 +731,23 @@ gtest の vcpkg 一元化 (NEXT-STEPS) の前に、現在の Skill / ガイド�
 - **UI: ほか (中・低):** `Preview` の名前を `Preview_<画面>` にそろえた (`Name~Preview_<画面>`)。回帰の実行は `TestCategory!=Preview` (Preview は、アサーションがなく、必ず通るので、件数に混ぜない)。`Snap(名前, ウィンドウ)` で、ダイアログも撮れる。`Find` は、5 秒まで、探し直す (起動直後の偽の Red を避ける)。`StopApp` は、`StartApp` が失敗しても、落ちない。ループの既定は `--separate`、メニューを開くテストは、別クラスにして `--visible` (別のデスクトップでは、メニューが開かず、偽の Red になる)。visible で出す前に、ユーザーの了承を待つ。`UiDialogs` は `partial` (プロジェクト固有の道具は、`UiDialogsExtra.cs` に。`--refresh-support-files` が上書きしない)。`TEST_TIMEOUT` のとき、`ui-trace.txt` の最後の行を読む手順、`[Timeout]` の、新規の付与は可・既存の延長は不可、`ui-trace.txt` は、`TEST_TIMEOUT` でも残る、の訂正。フラグの解析: `filter=` を、コメントを除く前に読む (`#` を含められる)、末尾が `\` の値と CR を拒否、UTF-8 で読む。
 - **直していない (記録):** `--filter` の 0 件が、新しい SDK (Microsoft.Testing.Platform) で exit 8 になる場合の判定 (未検証。今の SDK では `ENV_ERROR`)。UI プロジェクトが複数で、フィルターが一部にしか一致しない場合 (一致しなかった側が 0 件になり、全体が `ENV_ERROR`)。`Stop-SolutionProcesses` が、ユーザーの手元のアプリも終了させる点 (Skill に、注意を書いた)。`--no-build` が、プラットフォーム違いの古い DLL を実行する可能性の一般的な検出。`timeout=0` が、既定に戻る点。
 - **実機で確認 (2026-10-28):** (1) `run_id.txt` に `run=<ID>` が書かれ、終了後に `watcher_busy.txt` が消える。(2) UI テストの実行中は、`watcher_busy.txt` が `build + UI test run=...` の形で存在し、その間のビルドは、`WATCHER_NOT_RUNNING` ではなく、`TIMEOUT` (rc 5。「Do NOT start another run」「busy file: present」) になり、回収されていないフラグは、取り下げられる。(3) その直後の `build_test_once.sh` は、自分の実行の結果 (通常のテスト 7 件) を受け取り、`run_id.txt` は、前の実行と違う値になった。(4) ウォッチャーが止まっているとき: `WATCHER_NOT_RUNNING` (rc 3。「does not look busy」「targets this folder」)、`uitest_once.sh` は、前回の画像と「Passed」を表示しない、フラグも残らない。(5) gtest: `GTEST_FILTER=NoSuchTest*` で、`DataLayerTest.exe` / `LogicLayerTest.exe` とも 0 件になり、`ENV_ERROR` (rc 4。「0 tests were run」)。
+- **GTEST_* の除去 (v2.20.1、実機で未確認):** gtest の 0 件の確認に使った `GTEST_FILTER=NoSuchTest*` が、親のコマンドプロンプトに残り、GoogleTest の vcpkg 化の PoC で、全テストが 0 件になった。GoogleTest は `GTEST_*` を自動で読むので、ウォッチャーは起動時にこれらを消す (表示あり)。絞り込みは `-TestArgs`。
 - **確認できていないこと:** gtest の 0 件の確認のあと、`GTEST_FILTER` を外して、`PASSED` に戻ることの報告 (通常の経路は、既存の実機の確認で、通っている)。実際の C++ のテストで、新しいテストを足し忘れたときの流れ。
 - **パスの大文字小文字 (実機で見つかり、修正済み。コンソールの Claude が、配置先で、先に直した変更を、リポジトリに取り込んだ):** WSL の `/mnt/c` は、大文字小文字を、区別しないが、保持するファイルシステムで、`[ -d ]` は、通る。しかし、**Claude Code のサンドボックスの書き込み許可は、パスの文字列を、大文字小文字を区別して比較する**ので、実際のフォルダ名と違うパス (`/mnt/c/workspace/...` と `/mnt/c/Workspace/...`) では、`rm` やフラグの書き込みが `Read-only file system` で失敗し、**古い結果を、今回の結果として、読んでしまう** (UI テストの古い結果が、`PASSED` と誤報された)。→ `build_once.sh` / `build_test_once.sh` / `package_once.sh` / `gtest_once.sh` が、冒頭で、`resolve_true_case` により、引数のパスを、**実際の大文字小文字に、直す** (親ディレクトリを `find -iname` で列挙する。`[ -e ]` は、このマウントでは、区別しないので、使えない)。以後、依頼文のパスの大文字小文字は、気にしなくてよい。
 - **(以前の記述) 実機で、見つかった注意:** コンソールの Claude が、小文字のパス (`/mnt/c/workspace/...`) と、実際の大文字のパス (`/mnt/c/Workspace/...`) の食い違いで、サンドボックスの書き込み制限に当たり、古い結果を、読んでしまうことがある (UI テストの古い結果が、`PASSED` と誤って報告された)。依頼文では、**サンドボックスが許可しているほうの、小文字のパス**を使い、**実行の前に、`pwd` と `ls -d` で、その場所が、書き込める (結果ファイルが、更新される) ことを、確かめさせる**。
+
+### 4.41 GoogleTest の既定を vcpkg にする (v2.21.0)
+
+**決定:** 新しい C++ のソリューションの GoogleTest は、vcpkg (マニフェストモード、`x64-windows-static-md`) で入れる。NuGet 方式 (旧) と source 方式 (`ThirdParty\googletest`) は、残す。**根拠: 実機の PoC (2026-10-28、gtest 1.18.0、`docs/NEXT-STEPS.md`)。**
+
+- **なぜ vcpkg か:** (1) 版が `builtin-baseline` で固定され、再現できる。(2) NuGet の gtest は 1.8.1.8 で止まっている。コピーして使う方式は、元になる `packages\` が必要で、PoC では x64 の lib が欠けていた。(3) source 方式は、`gtest` プロジェクトを自分で持ち、ビルドごとにコンパイルする。(4) vcpkg の統合が、構成ごとの `lib` を自動でリンクする。
+- **条件 (PoC で判明):** `gtest_main` は `lib\manual-link\` にあり、自動ではリンクされない → テスト exe ごとに `main.cpp`。C++17 以上。ライブラリ名は `gtestd.lib` ではなく、構成ごとのフォルダの `gtest.lib`。
+- **生成する場所:** テスト exe の `.vcxproj` にだけ Vcpkg の設定を入れる (DLL には入れない。マニフェストは、ソリューション直下の 1 つ)。`cpp_pkg.py setup` は、設定済みを飛ばすので、あとから `add-package` で、ほかのライブラリを足せる。
+- **並列ビルド:** `/m` で複数のノードが `vcpkg install` を始めても、`--x-wait-for-lock` で待つ。インストールの実体は 1 回 (PoC で確認)。
+- **高速化は、既定のバイナリキャッシュだけ:** 初回 35 秒 (vcpkg 自身は 22 秒) が、キャッシュありで 12 秒 (同 0.2 秒)。短縮は約 23 秒で、共有フォルダや事前の温めは、手間に見合わない。大きなライブラリ向けに、`VCPKG_BINARY_SOURCES` の設定を、手順書に残す。
+- **取り込まなかったこと:** ウォッチャーで gtest を実行する前に、環境変数 `GTEST_*` を消す (v2.20.1、`gtest-env-clean` ブランチ)。
+- **実機で確認 (2026-10-28、TEST-PLAN N3v):** 生成物で、baseline と install (初回 60 秒) → Debug / Release とも `PASSED`、キャッシュからの復元 (28 秒)、層の追加 (3 件)、`cpp_pkg.py setup` との共存。
+- **未確認:** 別のソリューションからの共有キャッシュの復元 (PoC の `files` の復元までは確認)。`package_once.sh` / `gtest_once.sh` への実行 ID の照合。
 
 ### 4.39 目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す (v2.19.0)
 

@@ -14,7 +14,8 @@ Usage:
 
   setup          <dir>/vcpkg.json を作り (なければ)、<dir> 以下の .vcxproj に、vcpkg のマニフェストモードの設定を足す
                  (VcpkgEnableManifest と、プラットフォーム別のトリプレット。既定は static-md = 静的ライブラリ + 動的 CRT /MD)。
-                 gtest (ThirdParty のソースの静的ライブラリ) は、除く。--project で、対象を限る。.gitignore に vcpkg_installed/ を足す。
+                 gtest (ThirdParty のソースの静的ライブラリ) は、除く。--project で、対象を限る。
+                 vcpkg 方式の GoogleTest (add_layer.py / new_solution.py が作るテスト exe) は、設定済みなので、飛ばす。.gitignore に vcpkg_installed/ を足す。
                  何度実行しても、同じ結果 (設定のあるプロジェクトは、飛ばす)。
   add / remove   vcpkg.json の dependencies を、足す / 消す。ポート名の実在は、確認しない (vcpkg install が確認する)。
   include-dir    .vcxproj の、すべての構成の AdditionalIncludeDirectories に、パスを足す (ThirdParty のヘッダー用)。

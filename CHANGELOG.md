@@ -2,6 +2,19 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.21.0] 2026-10-28 (Skill 側。GoogleTest の既定を vcpkg に変更。PoC と、生成物の実機での確認済み)
+
+- **`--gtest auto` の既定を、vcpkg にした** (`new_solution.py` / `add_layer.py`)。判定: 既存の `gtest` プロジェクト → source / `packages\` に GoogleTest の NuGet パッケージがある (すでに旧方式) → nuget / **それ以外 → vcpkg**。以前の「兄弟フォルダの `packages\` をコピーできれば nuget」は、`--gtest nuget` を明示したときだけ。`--gtest vcpkg` を追加。
+- **vcpkg 方式の生成物:** ソリューション直下の `vcpkg.json` に `gtest` (ネットワークは使わない。`builtin-baseline` は、ウォッチャー経由の `package_once.sh "vcpkg baseline" "vcpkg install"` で入る)、テスト exe の `.vcxproj` に `<PropertyGroup Label="Vcpkg">` (`x64-windows-static-md`)、テスト exe ごとに `main.cpp` (`gtest_main` は自動でリンクされないため)、`.gitignore` に `vcpkg_installed/`、`CLAUDE.md` に vcpkg の節。DLL の `.vcxproj` には、Vcpkg の設定を入れない。出力: `GTEST_MODE: vcpkg` / `GTEST_VCPKG: present | no-baseline | to-add`。
+- **メインの exe の保護 (`protect_main_exes`):** vcpkg 方式のテスト exe を、アプリの exe と取り違えないよう、`vcxproj` のコメントの `GoogleTest` で、除く。
+- **互換:** `cpp_pkg.py setup` は、vcpkg 方式のテスト exe を「設定済み」として飛ばし、ほかのプロジェクトに足す。nuget 方式・source 方式は、従来どおり使える。
+- **違い:** 出力の「Running main() from ...」の行が出ない。`gtestd.lib` ではなく、構成ごとの `gtest.lib`。GoogleTest は C++17 以上が必要 (生成するプロジェクトは C++20)。結果の要約 (`PASSED` / `FAILED`) の形は、変わらない。
+- **高速化:** vcpkg の既定のバイナリキャッシュのみ (PoC: 初回 35 秒、キャッシュありの再実行 12 秒)。共有フォルダ (`VCPKG_BINARY_SOURCES`) は、大きなライブラリ向けの任意の設定。
+- **Skill:** `add-package` の「GoogleTest は対象外」を改め、`TIMEOUT` は「報告して止まる」(v2.20.0 の止めどきと整合。以前は「1 回だけ再試行」)。`new-solution` / `cpp-test-first` / `DLL-LAYOUT.md` を更新。
+## [2.20.1] 2026-10-28 (ホスト側。実機で未確認)
+
+- **ウォッチャーの起動時に、環境変数 `GTEST_*` を消す** (`GTEST_FILTER`、`GTEST_REPEAT`、`GTEST_SHUFFLE` など)。GoogleTest はこれらを自動で読むため、親のコマンドプロンプトに `GTEST_FILTER=NoSuchTest*` が残ると、全テストが 0 件になり、`ENV_ERROR` になる (GoogleTest の vcpkg 化の PoC で、原因の特定に時間がかかった)。消したときは `[ENV] removed ...` を表示する。絞り込みは、`-TestArgs --gtest_filter=...`。0 件の `ENV_ERROR` のメッセージにも、この旨を追記。
+
 ## [2.20.0] 2026-10-28 (ホスト側と Skill 側。自動修正ループの堅牢化: 批判的レビューの指摘への対応。ホスト側は実機で未確認)
 
 - **実行 ID の照合:** スクリプト (`build_once.sh` / `build_test_once.sh` / `uitest_once.sh`) が、フラグの 1 行目に `run=<ID>` を書き、ウォッチャーが、結果のマーカーを書く直前に、同じ ID を `.claude-logs/run_id.txt` に書く。スクリプトは、一致する結果だけを受け取る (前の実行が、あとから書いた、古い結果を、今回の結果と取り違えない)。古いウォッチャーは、書かない → 従来どおり。**`TIMEOUT` (rc 5) は、再試行せず、停止して報告する** (以前は「1 回だけ再試行可」)。`TIMEOUT` のとき、回収されていないフラグは、取り下げる。

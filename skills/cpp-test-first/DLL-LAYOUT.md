@@ -57,10 +57,11 @@ MFC を使わない、純粋な計算・ロジックだけの DLL を作る場�
    - 対応する DLL への `ProjectReference` (これで、インポートライブラリが、自動でリンクされる)。
    - `AdditionalIncludeDirectories` に、テスト対象の DLL のヘッダのフォルダ (と、ロジック側なら、データ層のインターフェースのフォルダ)。
    - MFC 拡張 DLL を参照するテストの場合: テスト exe 自身も `<UseOfMfc>Dynamic</UseOfMfc>` にする (同じ共有 MFC ランタイムにリンクするため)。MFC を使わない DLL だけを参照するテストは、従来どおり MFC なしでよい。
-4. **GoogleTest:** NuGet パッケージ `Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn` (動的 CRT 版。`/MD` `/MDd` と合わせる)。
-   - `packages.config` と、`.vcxproj` の `Import` / `EnsureNuGetPackageBuildImports` を、テスト exe ごとに持つ。
-   - **ウォッチャーの MSBuild は、NuGet の復元をしない。** `packages/` に、パッケージが展開済みである必要がある (Visual Studio で、1 回ビルドすれば、復元される)。
-   - `gtest_main` がリンクされるので、`main()` は書かない。
+4. **GoogleTest (既定は vcpkg):** `vcpkg.json` (ソリューション直下) の `gtest`、トリプレット `x64-windows-static-md` (静的ライブラリ + 動的 CRT。`/MD` `/MDd` と合わせる)。
+   - テスト exe の `.vcxproj` に、`<PropertyGroup Label="Vcpkg">` (`VcpkgEnableManifest`、`VcpkgTriplet`) がある。ライブラリのインクルードとリンクは、vcpkg の MSBuild 統合が、自動で行う (構成ごとに `debug\lib` / `lib` の `*.lib`)。
+   - **`gtest_main` は、自動ではリンクされない** (`lib\manual-link\` にある)。テスト exe ごとに、自前の **`main.cpp`** (`InitGoogleTest` と `RUN_ALL_TESTS`) を置く。このため、出力に「Running main() from ...」の行は出ない。
+   - 取得は、ウォッチャー経由 (`package_once.sh "vcpkg baseline" "vcpkg install"`)。`builtin-baseline` で版を固定する。バイナリキャッシュが効くので、2 回目以降は速い。GoogleTest は C++17 以上が必要 (生成するプロジェクトは C++20)。
+   - 旧方式 (NuGet `Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn` 1.8.1.8: `packages.config` とコピー) は、すでにその方式のソリューションだけ。`gtest_main` がリンクされるので、`main()` は書かない。
 5. **ランタイム:** すべてのプロジェクトで、同じ CRT (動的 `/MD` `/MDd`) にそろえる。DLL の境界で `std::string` や `std::vector` を渡すため。
 6. **PlatformToolset / C++ 標準 / 文字セット** は、全プロジェクトで同じにする。
 
@@ -79,11 +80,12 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" CoreLib --kind 
 - **`--tests none|gtest`** (既定 `gtest`): 層とテストは、独立した軸。`none` は、DLL だけ (テスト・GoogleTest は、作らない)。
 - **`--tests-only`**: すでにある DLL (または静的ライブラリ) `<Name>` に、`<Name>Test` だけを足す。名前空間と参照は、既存のファイルから読む。
 - **`--kind dll|lib`** (既定 `dll`): `lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
-- **GoogleTest:** テストを作るとき、`packages\` になければ、兄弟フォルダ (`../*/packages/`) か `--gtest-from` の既存のものを、**コピー**する (ネットワークは使わない)。出力: `GTEST_PACKAGE`。
+- **GoogleTest:** テストを作るとき、vcpkg 方式なら、`vcpkg.json` に gtest を入れ、`.gitignore` に `vcpkg_installed/` を足す (ネットワークは使わない。出力: `GTEST_VCPKG`)。nuget 方式 (旧) なら、`packages\` になければ、兄弟フォルダ (`../*/packages/`) か `--gtest-from` の既存のものを、**コピー**する (出力: `GTEST_PACKAGE`)。
 - **メインの exe を、保護する:** テストを作るとき、exe で、名前が `Test` / `Tests` で終わるメインのプロジェクト (GoogleTest を使わないもの) に、`<TargetName>$(ProjectName)_Main</TargetName>` を足す。ウォッチャーが、`*Test.exe` を、テストとして実行するため。
-- **`--gtest auto|nuget|source`** (既定 `auto`): GoogleTest の入れ方。`nuget`: NuGet のパッケージを、コピーして使う (オフライン)。`source`: `ThirdParty/googletest` のソースを、ソリューション内の静的ライブラリ `gtest` としてビルドする
-  (NuGet 不要。ソースは、ウォッチャー経由で取得する: `/new-solution` の `gtest_once.sh`)。`auto`: すでに `gtest` プロジェクトがあれば `source`、パッケージをコピーできれば `nuget`、どちらもなければ `source` (取得が必要)。
-  層を足すときは、**すでにあるソリューションと同じ方式**になる (`gtest` プロジェクトの有無で、判定される)。
+- **`--gtest auto|vcpkg|source|nuget`** (既定 `auto`): GoogleTest の入れ方。`vcpkg`: 上の 4.。`source`: `ThirdParty/googletest` のソースを、ソリューション内の静的ライブラリ `gtest` としてビルドする
+  (vcpkg が使えないとき。ソースは、ウォッチャー経由で取得する: `/new-solution` の `gtest_once.sh`)。`nuget`: 旧方式 (NuGet のパッケージを、コピーして使う)。
+  `auto`: すでに `gtest` プロジェクトがあれば `source`、`packages\` に NuGet の GoogleTest があれば `nuget`、それ以外は `vcpkg`。
+  層を足すときは、**すでにあるソリューションと同じ方式**になる (`gtest` プロジェクト・`packages\` の有無で、判定される)。
 - 最初のソリューション作成と、この組み合わせの指定は、`/new-solution` (`new_solution.py`) が行う。層の名前・種類 (`--layers logic:OrderLogic` / `--layer-kind lib`) も、そちらで指定できる。
 
 - DLL (`<Name>`) と、テスト exe (`<Name>Test`) を作り、`.sln` / `.slnx` に追加する。`--dry-run` で、内容だけを見られる。
@@ -96,7 +98,7 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" CoreLib --kind 
   上の「MFC 拡張 DLL のプロジェクト設定」が必要な場合は、**生成したあとで、`.vcxproj` を手動編集する** (`UseOfMfc`、プリプロセッサ定義、拡張 DLL の定型コードを追加)。この追加編集は、毎回、ユーザーに内容を示してから行う。
 
 **作ったあと:**
-1. `GTEST_PACKAGE: missing` なら、Visual Studio での NuGet の復元を、ユーザーに依頼する (ウォッチャーは、復元しない)。
+1. `GTEST_VCPKG: no-baseline` なら、ウォッチャー経由で、`package_once.sh "vcpkg baseline" "vcpkg install"` を実行する (初回のみ)。`GTEST_PACKAGE: missing` (旧方式) なら、Visual Studio での NuGet の復元を、ユーザーに依頼する (ウォッチャーは、復元しない)。
 2. **ベースライン (ビルドと、ベースライン用の 1 件のテストが通ること) を確認する。** 通らなければ、環境や構成の問題を、先に直す。**この状態を作る前に、本物のテストを書かない。**
 3. ビルド確認用の `<Name>ModuleInfo` とそのテストは、本物の機能とテストが入ったら、削除してよい (ユーザーに伝える)。
 4. 通ったら、`cpp-test-first` の手順 (Red) に進む。

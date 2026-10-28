@@ -147,5 +147,9 @@ for f in "$WTF" "$CTF"; do
 done
 ok "ui-test-first: Preview_<screen> naming + the regression run excludes Preview; --separate is the loop default (menu tests are separate); TEST_TIMEOUT: read ui-trace, 1 extension, stop on 2; user consent for visible; UiDialogsExtra for project-specific helpers" "$(grep -q 'Preview_<画面>' "$UTF" && grep -q 'TestCategory!=Preview' "$UTF" && grep -q -- '--separate' "$UTF" && grep -q 'MenuUiTests' "$UTF" && grep -q '最後の 10 行' "$UTF" && grep -q '2 回続いたら' "$UTF" && grep -q '了承' "$UTF" && grep -q 'UiDialogsExtra.cs' "$UTF" && ! grep -q '<画面>_Preview' "$UTF" && echo 1 || echo 0)"
 
+# ---- GTEST_* 環境変数の除去
+WP="$ROOT/host-tools/watch_and_build.ps1"
+ok "watcher: GTEST_* environment variables are removed at startup (a leftover GTEST_FILTER made every test run 0 tests), with a notice" "$(grep -q "Name -like 'GTEST_\*'" "$WP" && grep -q 'RemovedGtestEnv' "$WP" && grep -q 'removed from the watcher process' "$WP" && echo 1 || echo 0)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
