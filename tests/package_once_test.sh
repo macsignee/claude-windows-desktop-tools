@@ -18,7 +18,7 @@ fake_watcher() {
     local handler="$1"
     while true; do
         if [ -f "$T/trigger_package.flag" ]; then
-            cp "$T/trigger_package.flag" "$T/flag.copy"
+            cp "$T/trigger_package.flag" "$T/flag.full"; grep -v "^# run=" "$T/trigger_package.flag" > "$T/flag.copy"
             rm -f "$T/trigger_package.flag"
             sleep 1
             "$handler"

@@ -320,6 +320,7 @@ $PackageLog         = Join-Path $LogDir "package.log"
 
 # ---------- GoogleTest のソース取得 (trigger_gtest.flag) ----------
 function Write-GtestMarker($value) {
+    Write-RunId
     try {
         [System.IO.File]::WriteAllText($GtestResultFile, $value)
         Write-Host "[MARKER] $value -> $GtestResultFile" -ForegroundColor DarkGray
@@ -445,6 +446,7 @@ $RePkgTag     = '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
 $RePkgName    = '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
 
 function Write-PackageMarker($value) {
+    Write-RunId
     try {
         [System.IO.File]::WriteAllText($PackageResultFile, $value)
         Write-Host "[MARKER] $value -> $PackageResultFile" -ForegroundColor DarkGray
@@ -851,7 +853,7 @@ function Write-UiTiming([string]$what) {
 function Get-RunIdFromFlag([string]$path) {
     try {
         $t = Get-Content -LiteralPath $path -Raw -ErrorAction Stop
-        if ($t -and $t -match '(?m)^run=(\S+)') { return $Matches[1] }
+        if ($t -and $t -match '(?m)^#?\s*run=(\S+)') { return $Matches[1] }   # build 系: 1 行目 run=<ID> / gtest・package: コメント行 # run=<ID> (古いウォッチャーが、操作やタグと取り違えない形)
     } catch { }
     return ""
 }
@@ -1566,7 +1568,10 @@ while ($true) {
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState
         $gtestTagLine = ""
+        $script:CurrentRunId = Get-RunIdFromFlag $GtestTriggerFile   # Skill 側 (gtest_once.sh) の実行 ID。タグは 1 行目 (空のこともある)、ID は 2 行目 (# run=...)
+        Set-WatcherBusy "gtest fetch run=$($script:CurrentRunId)"
         try { $gtestTagLine = "$(Get-Content -LiteralPath $GtestTriggerFile -TotalCount 1 -ErrorAction Stop)" } catch { }
+        if ($gtestTagLine -match '^\s*#') { $gtestTagLine = "" }
         Remove-Item -LiteralPath $GtestTriggerFile, $GtestResultFile, $GtestErrorLog -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         try {
@@ -1585,6 +1590,8 @@ while ($true) {
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState
         $packageLines = @()
+        $script:CurrentRunId = Get-RunIdFromFlag $PackageTriggerFile   # Skill 側 (package_once.sh) の実行 ID (コメント行 # run=...。操作としては、無視される)
+        Set-WatcherBusy "package run=$($script:CurrentRunId)"
         try { $packageLines = @(Get-Content -LiteralPath $PackageTriggerFile -ErrorAction Stop) } catch { }
         Remove-Item -LiteralPath $PackageTriggerFile, $PackageResultFile, $PackageErrorLog, $PackageOutputFile -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null

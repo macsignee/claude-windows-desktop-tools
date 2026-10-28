@@ -749,6 +749,17 @@ gtest の vcpkg 一元化 (NEXT-STEPS) の前に、現在の Skill / ガイド�
 - **実機で確認 (2026-10-28、TEST-PLAN N3v):** 生成物で、baseline と install (初回 60 秒) → Debug / Release とも `PASSED`、キャッシュからの復元 (28 秒)、層の追加 (3 件)、`cpp_pkg.py setup` との共存。
 - **未確認:** 別のソリューションからの共有キャッシュの復元 (PoC の `files` の復元までは確認)。`package_once.sh` / `gtest_once.sh` への実行 ID の照合。
 
+### 4.42 package_once.sh / gtest_once.sh の実行 ID の照合 (v2.21.1)
+
+v2.20.0 の批判的レビューで、`build_once.sh` / `build_test_once.sh` / `uitest_once.sh` にだけ入れ、残していた項目。`package_once.sh` の `vcpkg install` は、特に長く (`--timeout 1800` など)、`TIMEOUT` であきらめたあと、ウォッチャーが続けて書く、古い結果を、次の実行の結果と取り違える危険があった。
+
+- **フラグの形:** 古いウォッチャーを壊さないよう、実行 ID は **コメント行** (`# run=<ID>`)。package は、各行が操作で、`#` の行は、古いウォッチャーも無視する (先頭に置く)。gtest は、1 行目がタグ (古いウォッチャーは、1 行目だけを読む) なので、ID は 2 行目。build 系は、1 行目の `run=<ID>` のまま (その 1 行目を、古いウォッチャーは、使わない)。
+- **照合:** ウォッチャーは、マーカーを書く直前に、`.claude-logs\run_id.txt` に、同じ ID を書く (`Write-GtestMarker` / `Write-PackageMarker` の先頭で `Write-RunId`)。スクリプトは、ID が一致するマーカーだけを、結果とする。`run_id.txt` がない = 古いウォッチャー → 従来どおり、マーカーだけ。
+- **処理中の印:** ウォッチャーは、gtest / package でも、処理の間だけ `watcher_busy.txt` を置く (v2.20.0 で、build 系にだけあった `Set-WatcherBusy` の説明は、`gtest fetch run=<ID>` / `package run=<ID>`)。スクリプトは、処理中なら、`WATCHER_NOT_RUNNING` と誤報せず、`TIMEOUT` では、回収されていないフラグを取り下げる。
+- **`TIMEOUT` の扱い:** `add-package` の Skill は、v2.21.0 で「報告して止まる」に直した。スクリプトのメッセージも、同じ (ユーザーが了承すれば、`--timeout` を延ばして、もう一度)。
+- **互換性の組み合わせ:** 新 Skill + 古いウォッチャー: フラグのコメントは、無視される。`run_id.txt` は、書かれない (または、古い ID のまま) → 照合なし (従来どおり)。ただし、**古い `run_id.txt` が残っていると、一致しない**ので、スクリプトは、フラグを置く前に、`run_id.txt` を消す。古い Skill + 新しいウォッチャー: ID がないので、`run_id.txt` は書かれず、従来どおり。
+- **未確認:** 実機 (ウォッチャーは、PowerShell のため、WSL では動かせない)。疑似ウォッチャーでの検証 (`tests/loop_hardening_test.sh`) のみ。
+
 ### 4.39 目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す (v2.19.0)
 
 要望 (ユーザー、2026-10-27): 「UI テストファーストの際、実際の UI を、目視で確認しながらの作業になる。UI テストは、裏で行いたいが、UI の目視確認はしたい。指示があったタイミングで、その段階での UI を見るための方法が欲しい」。

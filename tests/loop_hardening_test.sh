@@ -151,5 +151,95 @@ ok "ui-test-first: Preview_<screen> naming + the regression run excludes Preview
 WP="$ROOT/host-tools/watch_and_build.ps1"
 ok "watcher: GTEST_* environment variables are removed at startup (a leftover GTEST_FILTER made every test run 0 tests), with a notice" "$(grep -q "Name -like 'GTEST_\*'" "$WP" && grep -q 'RemovedGtestEnv' "$WP" && grep -q 'removed from the watcher process' "$WP" && echo 1 || echo 0)"
 
+# ---- package_once.sh / gtest_once.sh の実行 ID の照合 (v2.20.1)
+PKG="$ROOT/skills/add-package/scripts/package_once.sh"
+GT="$ROOT/skills/new-solution/scripts/gtest_once.sh"
+rid() { sed 's/\r$//' "$1" | grep -m1 -E '^#? *run=' | sed -E 's/^#? *run=//'; }   # フラグの、実行 ID (run=... または # run=...)
+
+# package: 一致する ID のマーカーを受け取る。フラグには、# run=<ID> のコメント行があり、操作の行は、そのまま
+fake_pkg() {  # $1=結果  $2=ID を書くか (id / stale / none)
+    while true; do
+        if [ -f "$T/trigger_package.flag" ]; then
+            id="$(rid "$T/trigger_package.flag")"; cp "$T/trigger_package.flag" "$T/pkg_flag.copy"; rm -f "$T/trigger_package.flag"
+            case "$2" in
+                stale) printf 'run=OLD-RUN\r\n' > "$T/.claude-logs/run_id.txt"; printf OK > "$T/package_result.txt"; sleep 3 ;;
+            esac
+            printf 'hello\n' > "$T/package_output.txt"
+            [ "$2" != none ] && printf 'run=%s\r\n' "$id" > "$T/.claude-logs/run_id.txt"
+            [ "$1" = FAILED ] && { printf 'ERROR: no such package\n' > "$T/package_error.log"; }
+            printf '%s' "$1" > "$T/package_result.txt"
+        fi
+        sleep 0.2
+    done
+}
+fake_pkg OK id & W=$!
+out="$(bash "$PKG" "$T" "vcpkg search fmt")"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "package_once: a result with the matching run id is accepted (OK, rc=0); the flag has a '# run=' comment line before the operation" "$([ $rc = 0 ] && [ "$(echo "$out" | head -n 1)" = OK ] && [ "$(head -n 1 "$T/pkg_flag.copy" | cut -c1-6)" = "# run=" ] && [ "$(sed -n 2p "$T/pkg_flag.copy")" = "vcpkg search fmt" ] && echo 1 || echo 0)"
+rm -f "$T/package_result.txt" "$T/package_output.txt" "$T/.claude-logs/run_id.txt"
+
+fake_pkg FAILED stale & W=$!
+out="$(bash "$PKG" "$T" "vcpkg search fmt")"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "package_once: a stale OK written by an older run (other run id) is NOT taken; the real FAILED is reported (rc=1)" "$([ $rc = 1 ] && [ "$(echo "$out" | head -n 1)" = FAILED ] && echo 1 || echo 0)"
+rm -f "$T/package_result.txt" "$T/package_output.txt" "$T/package_error.log" "$T/.claude-logs/run_id.txt"
+
+fake_pkg OK none & W=$!
+out="$(bash "$PKG" "$T" "vcpkg search fmt")"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "package_once: an old watcher (no run_id.txt) still works (marker only)" "$([ $rc = 0 ] && [ "$(echo "$out" | head -n 1)" = OK ] && echo 1 || echo 0)"
+rm -f "$T/package_result.txt" "$T/package_output.txt" "$T/.claude-logs/run_id.txt"
+
+printf 'package run=other\r\nstarted=now\r\n' > "$T/.claude-logs/watcher_busy.txt"
+out="$(CLAUDE_PICKUP_WAIT=2 bash "$PKG" "$T" --timeout 5 "vcpkg search fmt")"; rc=$?
+ok "package_once: watcher busy -> no WATCHER_NOT_RUNNING; TIMEOUT (rc=5) says not to start another run; the unpicked flag is withdrawn" "$([ $rc = 5 ] && [ "$(echo "$out" | head -n 1)" = TIMEOUT ] && echo "$out" | grep -q 'Do NOT start another run' && [ ! -f "$T/trigger_package.flag" ] && echo 1 || echo 0)"
+rm -f "$T/.claude-logs/watcher_busy.txt"
+out="$(CLAUDE_PICKUP_WAIT=2 bash "$PKG" "$T" "vcpkg search fmt")"; rc=$?
+ok "package_once: not busy and not picked up -> WATCHER_NOT_RUNNING (rc=3), the flag is removed" "$([ $rc = 3 ] && [ "$(echo "$out" | head -n 1)" = WATCHER_NOT_RUNNING ] && [ ! -f "$T/trigger_package.flag" ] && echo 1 || echo 0)"
+
+# gtest: フラグの 1 行目は、タグのまま (古いウォッチャーが、1 行目だけを読んでも、動く)。2 行目が、# run=<ID>
+fake_gt() {  # $1=ID を書くか (id / stale / none)
+    while true; do
+        if [ -f "$T/trigger_gtest.flag" ]; then
+            id="$(rid "$T/trigger_gtest.flag")"; cp "$T/trigger_gtest.flag" "$T/gt_flag.copy"; rm -f "$T/trigger_gtest.flag"
+            case "$1" in
+                stale) printf 'run=OLD-RUN\r\n' > "$T/.claude-logs/run_id.txt"; printf OK > "$T/gtest_result.txt"; sleep 3 ;;
+            esac
+            [ "$1" != none ] && printf 'run=%s\r\n' "$id" > "$T/.claude-logs/run_id.txt"
+            if [ "$1" = stale ]; then printf 'ERROR: git clone failed\n' > "$T/gtest_error.log"; printf FAILED > "$T/gtest_result.txt"; else printf OK > "$T/gtest_result.txt"; fi
+        fi
+        sleep 0.2
+    done
+}
+fake_gt id & W=$!
+out="$(bash "$GT" "$T" v1.17.0 30)"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "gtest_once: matching run id accepted (OK, rc=0); flag line 1 = the tag, line 2 = '# run=<ID>'" "$([ $rc = 0 ] && [ "$(echo "$out" | head -n 1)" = OK ] && [ "$(sed -n 1p "$T/gt_flag.copy")" = v1.17.0 ] && [ "$(sed -n 2p "$T/gt_flag.copy" | cut -c1-6)" = "# run=" ] && echo 1 || echo 0)"
+rm -f "$T/gtest_result.txt" "$T/.claude-logs/run_id.txt"
+fake_gt id & W=$!
+out="$(bash "$GT" "$T" "" 30)"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "gtest_once: no tag -> flag line 1 is empty (an old watcher reads the default tag), line 2 is the run id" "$([ $rc = 0 ] && [ -z "$(sed -n 1p "$T/gt_flag.copy" | tr -d '\r')" ] && [ "$(sed -n 2p "$T/gt_flag.copy" | cut -c1-6)" = "# run=" ] && echo 1 || echo 0)"
+rm -f "$T/gtest_result.txt" "$T/.claude-logs/run_id.txt"
+fake_gt stale & W=$!
+out="$(bash "$GT" "$T" "" 30)"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "gtest_once: a stale OK written by an older run is NOT taken; the real FAILED is reported (rc=1)" "$([ $rc = 1 ] && [ "$(echo "$out" | head -n 1)" = FAILED ] && echo 1 || echo 0)"
+rm -f "$T/gtest_result.txt" "$T/gtest_error.log" "$T/.claude-logs/run_id.txt"
+fake_gt none & W=$!
+out="$(bash "$GT" "$T" "" 30)"; rc=$?
+kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+ok "gtest_once: an old watcher (no run_id.txt) still works (marker only)" "$([ $rc = 0 ] && [ "$(echo "$out" | head -n 1)" = OK ] && echo 1 || echo 0)"
+rm -f "$T/gtest_result.txt" "$T/.claude-logs/run_id.txt"
+printf 'gtest fetch run=other\r\nstarted=now\r\n' > "$T/.claude-logs/watcher_busy.txt"
+out="$(CLAUDE_PICKUP_WAIT=2 bash "$GT" "$T" "" 5)"; rc=$?
+ok "gtest_once: watcher busy -> TIMEOUT (rc=5), not WATCHER_NOT_RUNNING; the unpicked flag is withdrawn" "$([ $rc = 5 ] && [ "$(echo "$out" | head -n 1)" = TIMEOUT ] && [ ! -f "$T/trigger_gtest.flag" ] && echo 1 || echo 0)"
+rm -f "$T/.claude-logs/watcher_busy.txt"
+
+# ウォッチャー (ps1): gtest / package のフラグから、実行 ID を読み、マーカーの直前に run_id.txt を書く。# run= の行は、操作でもタグでもない
+WP="$ROOT/host-tools/watch_and_build.ps1"
+ok "watcher: Get-RunIdFromFlag accepts the comment form '# run=<ID>'; the gtest / package blocks read it; both marker writers call Write-RunId first" "$(grep -q "match '(?m)^#?\\\\s\*run=" "$WP" && grep -q 'CurrentRunId = Get-RunIdFromFlag \$GtestTriggerFile' "$WP" && grep -q 'CurrentRunId = Get-RunIdFromFlag \$PackageTriggerFile' "$WP" && awk '/^function Write-GtestMarker/{f=1} f&&/Write-RunId/{print "1"; exit} f&&/^}/{exit}' "$WP" | grep -q 1 && awk '/^function Write-PackageMarker/{f=1} f&&/Write-RunId/{print "1"; exit} f&&/^}/{exit}' "$WP" | grep -q 1 && echo 1 || echo 0)"
+ok "watcher: a gtest flag whose first line is the comment (no tag) falls back to the default tag" "$(grep -q "gtestTagLine -match '\^\\\\s\*#'" "$WP" && echo 1 || echo 0)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

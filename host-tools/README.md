@@ -61,10 +61,11 @@ run_watcher.cmd <プロジェクトフォルダ> [ソリューション] [Platfo
 ### GoogleTest のソースを取得する (`trigger_gtest.flag`)
 ビルド・テストとは独立の、3 つ目のフラグ。**Windows 側が GitHub に届く**必要がある (git があれば `git clone --depth 1`、なければ zip のダウンロード)。
 ```
-Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空なら -GtestTag の既定)
+Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空なら -GtestTag の既定。2 行目に、実行 ID のコメント `# run=<ID>`)
 ホスト: <プロジェクトフォルダ>\ThirdParty\googletest\ に、include\ src\ LICENSE VERSION.txt を置く
         gtest_result.txt = OK / FAILED (最後に書く)。FAILED のときは、gtest_error.log
 ```
+- **実行 ID (v2.20.1):** `gtest_once.sh` と `package_once.sh` は、フラグに実行 ID を書く (gtest: 2 行目の `# run=<ID>`、package: 先頭のコメント行 `# run=<ID>`。古いウォッチャーは、コメントを、タグや操作と取り違えない)。ウォッチャーは、結果のマーカーを書く直前に、同じ ID を `.claude-logs\run_id.txt` に書く。処理の間は、`.claude-logs\watcher_busy.txt` もある (build / test と同じ。v2.20.0)。
 - 同じタグが、すでに置かれていれば、何もせずに `OK`。
 - タグは、`v1.17.0` / `release-1.12.1` の形だけ許可する。
 - 手動でも、フラグ (空のファイル) を、プロジェクトフォルダに置けば、取得できる。ソースは、手でコピーしてもよい (`ThirdParty\googletest\include` と `src`)。

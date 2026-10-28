@@ -11,14 +11,14 @@
 #   OK                   rc=0  取得済み (または、すでに同じタグがある)
 #   FAILED               rc=1  取得失敗 (2行目以降に gtest_error.log。環境の問題。ソースの問題ではない)
 #   WATCHER_NOT_RUNNING  rc=3  フラグが回収されない = ウォッチャー未起動
-#   TIMEOUT              rc=5  完了マーカーが出ない
+#   TIMEOUT              rc=5  完了マーカー (この実行のもの) が出ない。ウォッチャーは、続けているかもしれない: 報告して止まる
 #   (引数/フォルダ不正)   rc=2
 set -u
 
 DIR="${1:-}"
 TAG="${2:-}"
 TIMEOUT="${3:-180}"
-PICKUP_WAIT=15   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期)
+PICKUP_WAIT="${CLAUDE_PICKUP_WAIT:-15}"   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期)
 
 if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
     echo "BAD_ARGS: project dir not found: $DIR"
@@ -79,26 +79,46 @@ show_log() {
     return 0
 }
 
+
+# 実行 ID (v2.20.1 / build_once.sh と同じ仕組み): フラグの 2 行目に、実行 ID をコメント行 (# run=...) で書く (1 行目は、タグのまま。古いウォッチャーは、1 行目だけを読む)。
+# ウォッチャーは、結果のマーカーを書く直前に、同じ ID を .claude-logs/run_id.txt に書く。前の実行 (TIMEOUT であきらめたが、ウォッチャーは続けていた)
+# が、あとで書いた、古いマーカーを、今回の結果と取り違えないための照合。run_id.txt がない = 古いウォッチャー → 照合なし (従来どおり)。
+RUN_ID="$(date +%s)-$$-$RANDOM"
+RUN_ID_FILE="$DIR/.claude-logs/run_id.txt"
+BUSY_FILE="$DIR/.claude-logs/watcher_busy.txt"   # ウォッチャーが、処理中の間だけ、ある
+
+result_ready() {  # $1=マーカーのファイル。マーカーがあり、かつ、実行 ID が、この実行のものか (古いウォッチャーなら、マーカーだけ)
+    [ -f "$1" ] || return 1
+    [ -f "$RUN_ID_FILE" ] || return 0
+    [ "$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$RUN_ID_FILE" | head -n 1)" = "run=$RUN_ID" ]
+}
+
+watcher_busy() {  # ウォッチャーが、別の処理の最中か (60 分以内に、始まったもの)
+    [ -f "$BUSY_FILE" ] && [ -n "$(find "$BUSY_FILE" -mmin -60 2>/dev/null)" ]
+}
+
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
-rm -f "$RESULT" "$ERRLOG"
-if [ -n "$TAG" ]; then printf '%s\n' "$TAG" > "$FLAG"; else : > "$FLAG"; fi
+rm -f "$RESULT" "$ERRLOG" "$RUN_ID_FILE"
+printf '%s\n# run=%s\n' "$TAG" "$RUN_ID" > "$FLAG"
 
 elapsed=0
 picked_up=0
-while [ ! -f "$RESULT" ]; do
+while ! result_ready "$RESULT"; do
     if [ "$picked_up" -eq 0 ]; then
         if [ ! -f "$FLAG" ]; then
             picked_up=1
-        elif [ "$elapsed" -ge "$PICKUP_WAIT" ]; then
+        elif [ "$elapsed" -ge "$PICKUP_WAIT" ] && ! watcher_busy; then
             rm -f "$FLAG"
             echo "WATCHER_NOT_RUNNING"
-            echo "trigger_gtest.flag was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            echo "trigger_gtest.flag was not picked up within ${PICKUP_WAIT}s, and the watcher does not look busy. Ask the user to start run_watcher.cmd (or check that it targets this folder: $DIR)."
             exit 3
         fi
     fi
     if [ "$elapsed" -ge "$TIMEOUT" ]; then
+        # 回収されていないフラグは、取り下げる。回収されていれば、ウォッチャーは、続けている
+        if [ -f "$FLAG" ]; then rm -f "$FLAG"; fi
         echo "TIMEOUT"
-        echo "gtest_result.txt did not appear within ${TIMEOUT}s."
+        echo "gtest_result.txt (for this run) did not appear within ${TIMEOUT}s. The watcher may still be working (busy file: $(watcher_busy && echo present || echo absent)). Do NOT start another run until the watcher is idle: report and stop."
         exit 5
     fi
     sleep 1
