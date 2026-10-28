@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.21.1] 2026-10-28 (ホスト側と Skill 側。実機で未確認)
+
+- **`package_once.sh` / `gtest_once.sh` に、実行 ID の照合と、処理中の印を入れた** (v2.20.0 で、`build_once.sh` などに入れたものと同じ)。フラグに、実行 ID を **コメント行** で書く (gtest: 2 行目の `# run=<ID>`。1 行目は、タグのまま。package: 先頭の `# run=<ID>`。古いウォッチャーは、コメントを、タグや操作と取り違えない。新しい Skill と古いウォッチャーの組み合わせでも動く)。ウォッチャーは、結果のマーカーの直前に、同じ ID を `run_id.txt` に書く。古い実行 (`TIMEOUT` であきらめたが、ウォッチャーは続けていた `vcpkg install` など) が、あとで書いたマーカーを、今回の結果と取り違えない。
+- **ウォッチャーが処理中 (`watcher_busy.txt`) のときは、`WATCHER_NOT_RUNNING` と誤報しない。** `TIMEOUT` では、回収されていないフラグを取り下げ、メッセージに「ウォッチャーが空くまで、次の実行をしない」と書く。`CLAUDE_PICKUP_WAIT` で、回収の待ち時間を変えられる (既定 15 秒)。
+- **ウォッチャー:** `Get-RunIdFromFlag` が、コメント形式 (`# run=<ID>`) も読む。gtest / package のブロックが ID を読み、`Write-GtestMarker` / `Write-PackageMarker` が、マーカーの直前に `Write-RunId` を呼ぶ。gtest のフラグの 1 行目がコメントなら、既定のタグ。
+
 ## [2.21.0] 2026-10-28 (Skill 側。GoogleTest の既定を vcpkg に変更。PoC と、生成物の実機での確認済み)
 
 - **`--gtest auto` の既定を、vcpkg にした** (`new_solution.py` / `add_layer.py`)。判定: 既存の `gtest` プロジェクト → source / `packages\` に GoogleTest の NuGet パッケージがある (すでに旧方式) → nuget / **それ以外 → vcpkg**。以前の「兄弟フォルダの `packages\` をコピーできれば nuget」は、`--gtest nuget` を明示したときだけ。`--gtest vcpkg` を追加。
