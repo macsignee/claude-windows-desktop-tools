@@ -17,6 +17,7 @@ Usage:
   UiNative.cs                 デスクトップ名、前面表示、操作の記録 (ui-trace.txt)
   UiDialogs.cs                ダイアログ・メニュー・コンボ・スライダーなどの、操作の道具 (WinForms / WPF / MFC で、実機で確かめた方法を、FrameworkId で、自動で切り替える)
   uitest.settings             UI テストの既定 (desktop=visible: ユーザーのデスクトップ / separate: 別のデスクトップ、slowmo=N)。WPF は visible (WPF のメニューは、別のデスクトップで開かない)、それ以外は separate。ウォッチャーが読む
+  PreviewUiTests.cs           目視確認 (プレビュー) 用のテスト。いまの画面を、ユーザーのデスクトップに出す (uitest_once.sh --filter "TestCategory=Preview" --preview)
   MainWindowUiTests.cs        ひな形のテスト (WPF / WinForms の標準の View なら、入力 → 挨拶 → クリア。それ以外は、ウィンドウが開くだけ)
 .slnx / .sln にも登録する。ウォッチャーの trigger_uitest.flag (uitest_once.sh) で実行する。通常のテスト (trigger_test.flag) には含まれない。
 """
@@ -101,16 +102,36 @@ public abstract class UiTestBase
     private static int SlowMoMs =>
         int.TryParse(Environment.GetEnvironmentVariable("UITEST_SLOWMO_MS"), out var ms) && ms > 0 ? ms : 0;
 
+    /// <summary>環境変数 UITEST_HOLD_SEC (uitest_once.sh の --hold / --preview)。目視確認のために、HoldForViewing が、画面を見せる秒数 (0 = 見せない)。</summary>
+    private static int HoldSec =>
+        int.TryParse(Environment.GetEnvironmentVariable("UITEST_HOLD_SEC"), out var s) && s > 0 ? s : 0;
+
+    /// <summary>**いまの画面を、ユーザーに、目で見せる** (目視確認)。UI テストは、いつもは、裏 (別のデスクトップ) で実行し、見たいときだけ、
+    /// `uitest_once.sh --preview` (= --visible --hold 60) で、このテストを、ユーザーのデスクトップで実行する。テストが、画面を、見せたい状態にしてから、これを呼ぶ。
+    /// UITEST_HOLD_SEC 秒だけ待つ (指定がなければ、すぐ戻る)。ユーザーが、アプリのウィンドウを閉じると、早く終わる。</summary>
+    protected void HoldForViewing(string what = "")
+    {
+        var hold = HoldSec;
+        UiTrace.Write($"hold for viewing: {hold} s {what}");
+        if (hold <= 0) return;
+        if (UiNative.DesktopName() == "Default") UiNative.BringToFront(MainWindow);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.Elapsed.TotalSeconds < hold && !App.HasExited) Thread.Sleep(200);
+    }
+
+    /// <summary>いまの画面を、PNG に保存する (.claude-logs/ui-screenshots/{名前}-window.png)。Claude が、画像として読める (別のデスクトップでも、撮れる)。</summary>
+    protected void Snap(string name) => Screenshots.Save(MainWindow, name);
+
     [TestInitialize]
     public void StartApp()
     {
-        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms)");
+        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms{(Presenting ? ", present" : "")})");
         var exe = AppLocator.Find(AppName);
         App = Application.Launch(exe);
         Automation = new UIA3Automation();
         MainWindow = UiDialogs.GetAppWindow(App, Automation, TimeSpan.FromSeconds(15));
         UiTrace.Write($"launched: {exe} (title: {MainWindow.Title})");
-        if (SlowMoMs > 0) UiNative.BringToFront(MainWindow);   // ユーザーのデスクトップで、見えるように、前面に出す
+        if (SlowMoMs > 0 || Presenting) UiNative.BringToFront(MainWindow);   // ユーザーのデスクトップで、見えるように、前面に出す
     }
 
     [TestCleanup]
@@ -148,13 +169,29 @@ public abstract class UiTestBase
     {
         UiTrace.Write($"find: {automationId}");
         if (SlowMoMs > 0) Thread.Sleep(SlowMoMs);
-        return MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId))
+        var element = MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId))
             ?? throw new AssertFailedException($"AutomationId '{automationId}' の要素が、見つからない");
+        Highlight(element);
+        return element;
+    }
+
+    /// <summary>環境変数 UITEST_PRESENT = 1 (uitest_once.sh の --present)。UI テストを、デモ (プレゼン) として、再生するモード。</summary>
+    private static bool Presenting => Environment.GetEnvironmentVariable("UITEST_PRESENT") == "1";
+
+    /// <summary>プレゼンのモードのとき、これから操作する要素を、赤い枠で囲む (見ている人に、何を操作するかを、示す)。ふだんは、何もしない。
+    /// Find と OpenModal が、呼ぶ。Find を通さずに、操作する要素は、自分で呼ぶ。</summary>
+    protected void Highlight(AutomationElement element)
+    {
+        if (!Presenting) return;
+        try { element.DrawHighlight(false, System.Drawing.Color.Red, TimeSpan.FromMilliseconds(Math.Max(SlowMoMs, 600))); }
+        catch (Exception) { /* 枠が描けなくても、テストを止めない */ }
     }
 
     /// <summary>ダイアログを開くボタン / メニュー項目を押して、モーダルなダイアログが、出るのを待つ (UiDialogs.Click が、フレームワークに合う方法で、押す)。MessageBox・ファイルダイアログも、同じ。</summary>
     protected Window OpenModal(AutomationElement opener)
     {
+        Highlight(opener);
+        if (Presenting && SlowMoMs > 0) Thread.Sleep(SlowMoMs);
         var how = UiDialogs.Click(opener);
         UiTrace.Write($"open modal: {opener.Name} ({how})");
         return UiDialogs.WaitModal(MainWindow) ?? throw new AssertFailedException("モーダルなダイアログが、main.ModalWindows に出ない");
@@ -1187,6 +1224,30 @@ def choose_app(sln_dir, sln_path, app_arg):
     return (dotnet_gui or apps)[0]
 
 
+PREVIEW_CS = '''using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace __NS__.UITests;
+
+/// <summary>目視確認 (プレビュー) 用のテスト。アサーションは、置かない: 画面を、見せたい状態にして、HoldForViewing を呼ぶだけ。
+/// UI テストは、いつもは、裏 (別のデスクトップ) で実行する。見たいときだけ、次のように、ユーザーのデスクトップに出す:
+///   uitest_once.sh "$PWD" --filter "TestCategory=Preview" --preview        (60 秒。--preview 120 で、120 秒。ウィンドウを閉じると、早く終わる)
+/// 画面 (ダイアログなど) を足したら、その画面を開くプレビューを、ここに足す (/ui-test-first)。HoldForViewing の前に、Snap("名前") で、Claude 用の画像も残せる。
+/// 通常の実行 (--preview なし) では、HoldForViewing が、すぐ戻るので、速い。
+/// </summary>
+[TestClass]
+public class PreviewUiTests : UiTestBase
+{
+    [TestMethod]
+    [TestCategory("Preview")]
+    public void Preview_MainWindow()
+    {
+        Snap("preview-main");
+        HoldForViewing("メインウィンドウ");
+    }
+}
+'''
+
+
 def settings_text(kind):
     # フレームワークごとの違いは、ウォッチャーでなく、このファイルが持つ (WPF のメニューのポップアップは、別のデスクトップで開かない: DESIGN 4.36)
     desktop = 'visible' if kind == 'wpf' else 'separate'
@@ -1246,11 +1307,17 @@ def main():
             print(f'  ~ {r}')
         if settings_new:
             print(f'  + {settings_rel} (desktop={"visible" if kind == "wpf" else "separate"})')
+        preview_rel = f'{ui}/PreviewUiTests.cs'
+        preview_new = not os.path.exists(os.path.join(sln_dir, preview_rel))   # 既存のテスト (利用者が足したプレビュー) は、上書きしない
+        if preview_new:
+            print(f'  + {preview_rel}')
         if a.dry_run:
             print('(dry-run: 何も書いていない)')
             return
         if settings_new:
             sup[settings_rel] = settings_text(kind)
+        if preview_new:
+            sup[preview_rel] = fill(PREVIEW_CS, **kv0)
         AP.write_files(sln_dir, sup)
         print(update_claude_md(sln_dir, ui, app, refresh=True))
         print('完了。テストの本体 (MainWindowUiTests.cs) は、変えていない。')
@@ -1289,6 +1356,7 @@ def main():
         f'{ui}/UiNative.cs': fill(NATIVE_CS, **kv),
         f'{ui}/UiDialogs.cs': fill(DIALOGS_CS, **kv),
         f'{ui}/uitest.settings': settings_text(kind),
+        f'{ui}/PreviewUiTests.cs': fill(PREVIEW_CS, **kv),
         f'{ui}/MainWindowUiTests.cs': fill((TESTS_WINFORMS_CS if kind == 'winforms' else TESTS_WPF_CS) if standard else TESTS_GENERIC_CS, **kv),
     }
     print(f'ソリューション : {os.path.basename(sln)}')
@@ -1321,6 +1389,7 @@ def claude_md_section(ui, app):
 - **通常のテスト (`build_test_once.sh`) には、含まれない。** 別のデスクトップで実行され (`-UiTestDesktop separate`)、ユーザーの画面を乱さない。「マウスとキーボードに触らないで」と頼む必要は、ない。
 - 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
 - **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `Invoke` を別スレッド。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。
+- **目視確認 (プレビュー):** UI テストは、いつもは、裏 (別のデスクトップ) で実行する。**見たいときだけ、その画面を、ユーザーのデスクトップに出す:** `uitest_once.sh "$PWD" --filter "TestCategory=Preview" --preview` (`PreviewUiTests.cs` の、アサーションのないテストが、画面を見せたい状態にして、`HoldForViewing()` で、60 秒、見せる。ウィンドウを閉じると、早く終わる)。画面を足したら、その画面のプレビューを、`PreviewUiTests.cs` に足す。`Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。
 - **リスト・ツリー・スピン・日付・タブも、`UiDialogs` を使う:** `ListItems` / `ClickColumnHeader` (列ヘッダーの並べ替え) / `SetNumeric` (スピン) / `ToggleTreeNode` (ツリーのチェック) / `OpenDropDown` + `FindCalendar` (日付のカレンダー) / `PostKey` + `Vk.*` (キー) / `SelectTab` (**WinForms / MFC は、タブの名前を、並び順で、全部渡す**)。`SendMessage` は、すべて 5 秒のタイムアウトつき。フレームワークごとの違いの表: `build-test-loop` の「コントロール別の、実機の結果の表」。
 - **アプリ側 (View) の注意:** WPF は、リスト・ツリーの項目のデータのクラスに `ToString()` を実装し、チェックは `Checked` / `Unchecked` で受ける (UIA の Toggle は Click を起こさない)。WinForms は、`ListView` のタイル (`View.Tile`) のとき、`CheckBoxes = false` にする (両立しない)。`wpf-check` (UI004) / `winforms-check` (WFD008) が、検出する。
 - **画面の連動の規則 (チェックで入力欄が有効になる、など) は、純粋な関数の単体テストで確かめる。UI テストは、ダイアログごとに、煙テスト 1 件** (開く → 規則の結果が、実画面に反映されている → OK / キャンセルの結果が、メインに返る)。

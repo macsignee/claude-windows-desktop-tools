@@ -129,5 +129,15 @@ ok "UiDialogs: SelectTab for windowed tabs uses TCM_GETCURSEL + arrow keys (UIA 
 ok "UiDialogs: PressDialogButton closes the dialog by force when it fails" "$(awk '/public static string PressDialogButton/{f=1} f&&/ForceCloseDialog\(dialog\)/{ok=1} /public static string MessageBoxText/{f=0} END{exit !ok}' "$D" && echo 1 || echo 0)"
 ok "UiTestBase: the main window is chosen by UiDialogs.GetAppWindow (not the input indicator overlay)" "$(grep -q 'UiDialogs.GetAppWindow(App, Automation' "$T/WpfUi/WpfUi.UITests/UiTestBase.cs" && grep -q 'UAC_InputIndicatorOverlayWnd' "$D" && echo 1 || echo 0)"
 
+# 目視確認 (プレビュー): UI テストは裏で実行し、見たいときだけ、画面を、ユーザーのデスクトップに出す
+B="$T/WpfUi/WpfUi.UITests/UiTestBase.cs"; PV="$T/WpfUi/WpfUi.UITests/PreviewUiTests.cs"
+ok "UiTestBase: HoldForViewing (UITEST_HOLD_SEC, ends early when the app exits) and Snap" "$(grep -q 'UITEST_HOLD_SEC' "$B" && grep -q 'void HoldForViewing(' "$B" && grep -q 'App.HasExited' "$B" && grep -q 'void Snap(string name)' "$B" && echo 1 || echo 0)"
+ok "PreviewUiTests.cs generated: [TestCategory(\"Preview\")], calls HoldForViewing, no assertions" "$([ -f "$PV" ] && grep -q 'TestCategory("Preview")' "$PV" && grep -q 'HoldForViewing(' "$PV" && ! grep -q 'Assert\.' "$PV" && grep -q -- '--preview' "$PV" && echo 1 || echo 0)"
+ok "no unescaped < > inside the generated XML doc comments of UiTestBase (CS1570)" "$(! grep -E '^\s*///.*<[a-z]+>-' "$B" && echo 1 || echo 0)"
+ok "UiTestBase: present mode (UITEST_PRESENT) highlights the element before it is used (Find / OpenModal), does nothing otherwise" "$(grep -q 'UITEST_PRESENT' "$B" && grep -q 'void Highlight(AutomationElement element)' "$B" && grep -q 'DrawHighlight(' "$B" && grep -q 'Highlight(element);' "$B" && grep -q 'Highlight(opener);' "$B" && echo 1 || echo 0)"
+rm -f "$PV"
+python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1
+ok "refresh-support-files: a missing PreviewUiTests.cs is added, an existing one is kept" "$([ -f "$PV" ] && echo '// mine' > "$PV" && python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1 && [ "$(cat "$PV")" = '// mine' ] && echo 1 || echo 0)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

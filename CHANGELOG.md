@@ -2,6 +2,19 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.19.0] 2026-10-27 (ホスト側と Skill 側。目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す。ホスト側は実機で未確認)
+
+- **`UiTestBase` に `HoldForViewing()` と `Snap(名前)` を追加** (生成される `UiTestBase.cs`)。`HoldForViewing` は、環境変数 `UITEST_HOLD_SEC` の秒数だけ、いまの画面を見せる (指定がなければ、すぐ戻る。ウィンドウを閉じると、早く終わる)。`Snap` は、裏でも、PNG を残す。**`PreviewUiTests.cs` (新規。`[TestCategory("Preview")]`、アサーションなし) を生成する。** `--refresh-support-files` は、なければ足し、あれば上書きしない。
+- **`uitest_once.sh` に `--hold 秒` と `--preview [秒]` を追加** (`--preview` = `--visible --hold 60`)。flag の `hold=` として、ウォッチャーへ。**`watch_and_build.ps1`:** `hold=` (flag だけ) を読み、環境変数 `UITEST_HOLD_SEC` でテストへ渡す。制限時間は、`hold + 120` 秒以上に、自動で延ばす。`[UI]` の行に `hold` も表示。
+- **`uitest_once.sh --present` (デモとして再生):** `--visible` + `--slowmo 800` (指定がなければ) + `present=1` (flag)。ウォッチャーが、環境変数 `UITEST_PRESENT` でテストへ渡す (ユーザーのデスクトップに、強制)。`UiTestBase.Find` / `OpenModal` が、操作する要素を、赤い枠で囲む (`Highlight`)。`--separate` とは、同時に使えない。**再生するのは、`--filter` で指定したテストだけ** (`--filter` が必須。ないと BAD_ARGS。ウォッチャーも、`filter=` がなければ、`present=1` を無視する)。
+- `ui-test-first` Skill に「目視確認」の節 (裏で回す側は `--separate`、見せるときは `--preview`、見せる前に告知、Claude 用の `Snap`)。`build-test-loop/SKILL.md`、生成される `CLAUDE.md` にも追記。DESIGN 4.39。
+- **ウォッチャー: `--filter` に一致するテストが 0 件のときの、`ENV_ERROR` の文言を、専用のものに** (`no test matches the filter: ...` と、式の書き方の注意。以前は、「GoogleTest / アダプタの不備」を疑わせる汎用の文言だった)。終了コードと、1 行目 (`ENV_ERROR`) は、変えない。
+- **ウォッチャー: UI テストの各段階の時刻を、`.claude-logs\ui-timing.txt` に残す** (トリガーの検知、ビルド完了、WPF の描画設定、`Invoke-Tests`、`dotnet test` の開始・終了、デスクトップ用のランナーの初回のコンパイル)。ビルド完了から UI テスト開始までに、長い空白 (実機で、14.5 分が、1 回だけ) があったときの、原因の切り分け用。実行ごとに、作り直す。
+- **修正 (リリース前に、実機で発見):** 空の `trigger_uitest.flag` で、ウォッチャーが落ちた (`Get-Content -Raw` が `$null` を返し、`$null -replace` が配列になって `Trim()` が失敗)。`$null` を `""` にしてから使う。静的テストを追加。
+- **既存のプロジェクトは、`--refresh-support-files` で、`UiTestBase.cs` を更新する** (旧い版のままだと、`--present` の赤い枠が出ず、操作の間隔が約 3 倍になる)。
+- **実機で確認 (WPF = 2026-10-27、WinForms と MFC = 2026-10-28。赤い枠は、目視):** `--refresh-support-files`、`--filter`、`--ui-timeout`、`--present` (赤い枠、`--filter` 必須)、`--preview` / `--preview 20` (ウィンドウを閉じると、早く終わる)、`--separate`。`--filter` が 0 件のときは、`ENV_ERROR` (終了コード 4)。WinForms も、MFC も、同じ項目を確認した (2026-10-28。MFC の赤い枠も、目視)。3 つのフレームワークで、実機で確認済み。
+- テスト: `tests/ui_tests_gen_test.sh` に 5 件 (59)、`tests/uitest_once_test.sh` に 9 件 (25)、`tests/host_tools_static_test.sh` に 3 件 (30)、`tests/ui_test_first_skill_test.sh` に 3 件 (16)。
+
 ## [2.18.0] 2026-10-27 (ホスト側と Skill 側。UI テストを、ビルド → テストの流れから切り離し、`/ui-test-first` のループを作る。ホスト側は実機で未確認)
 
 - **方針の変更:** **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れに、含めない。** `PASSED` になっても、自動で、続けて実行しない。ユーザーが求めたときと、`/ui-test-first` のループの中だけ、`uitest_once.sh` で、別に実行する。`add-feature` / `cpp-test-first` / `wpf-test-first` / `build-test-loop` / `new-solution` の Skill、`rules/winforms-csharp.md`、生成される `CLAUDE.md` の記述を、そろえて変更した (以前の「Green のあとに、続けて実行する」「UI テストファーストは、しない」は、取り下げ。DESIGN 4.38)。

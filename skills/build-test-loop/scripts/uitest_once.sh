@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # uitest_once.sh - ホスト側ウォッチャーに「ビルド + UI テスト (FlaUI など) 実行」を1回させ、完了まで待って結果を返す。
 #
-# Usage: uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>]
+# Usage: uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present]
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
 #   --visible:  この 1 回だけ、ユーザーのデスクトップで実行する (ウィンドウが見える。実行中、ユーザーは PC に触らない)。
 #   --separate (別名 --invisible): この 1 回だけ、別のデスクトップで実行する (WPF でも。ウィンドウが画面に出ない。WPF のメニューは、開かない)。
@@ -10,6 +10,12 @@
 #                式に、引用符・改行は、使えない。絞った結果が 0 件のときは、テストが実行されない (式の誤りに、注意)。
 #   --ui-timeout N: ウォッチャーが、UI テストのプロジェクト 1 つを、強制終了するまでの時間 (秒)。既定は、uitest.settings の timeout= → ウォッチャーの設定 (既定 600)。
 #                   N が 780 以上のときは、この待ち時間 (timeout_sec) も、N + 120 に、自動で延ばす (指定がなければ)。
+#   --hold N: テストが、最後の状態を、N 秒だけ、見せてから、終わる (目視確認。UiTestBase.HoldForViewing を呼ぶテストだけが、見せる。ユーザーが、アプリのウィンドウを閉じると、早く終わる)。
+#             --visible と組み合わせて、**UI テストを、いつもは裏 (別のデスクトップ) で実行し、見たいときだけ、その画面を、ユーザーのデスクトップに出す**。
+#   --preview [N]: --visible --hold N (既定 60 秒) の省略形。**--filter "TestCategory=Preview" など、画面を出すテストと組み合わせる。** N は、数字なら、続けて書く (--preview 120)。
+#   --present: **UI テストを、デモ (プレゼン) として、ユーザーのデスクトップで、ゆっくり再生する。** --visible と、--slowmo 800 (指定がなければ) と、
+#              操作する要素を赤い枠で囲む (UiTestBase の Find / OpenModal が描く) の、組み合わせ。**再生するのは、--filter で指定したテストだけ** (--filter が必須。
+#              指定がなければ、全部を、ゆっくり再生してしまうので、BAD_ARGS)。--separate とは、同時に使えない。
 #   UI テストは、ビルド → テスト (build_test_once.sh) の流れには、含まれない。UI の作成のループ (/ui-test-first) や、ユーザーが求めたときに、このスクリプトで実行する。
 #   どちらも付けないとき (標準): ウォッチャーが決める。WPF のソリューションは、ユーザーのデスクトップ。それ以外は、別のデスクトップ。
 #   (指定は、ウォッチャーを切り替えずに、trigger_uitest.flag の中身 (desktop= / slowmo=) として渡す。ウォッチャーが、新しい版である必要がある。)
@@ -30,6 +36,8 @@ TIMEOUT=""
 flag_content=""
 positional=0
 ui_timeout=""
+hold=""
+present=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --visible)  flag_content="${flag_content}desktop=visible"$'\n' ;;
@@ -42,6 +50,16 @@ while [ $# -gt 0 ]; do
             shift
             case "${1:-}" in ''|*\"*|*$'\n'*|*'`'*) echo "BAD_ARGS: --filter needs a non-empty expression without quotes, backticks or newlines: ${1:-}"; exit 2 ;; esac
             flag_content="${flag_content}filter=$1"$'\n' ;;
+        --hold)
+            shift
+            case "${1:-}" in ''|*[!0-9]*) echo "BAD_ARGS: --hold needs a number (seconds): ${1:-}"; exit 2 ;; esac
+            hold="$1"
+            flag_content="${flag_content}hold=$1"$'\n' ;;
+        --preview)
+            flag_content="${flag_content}desktop=visible"$'\n'
+            case "${2:-}" in ''|*[!0-9]*) hold="${hold:-60}" ;; *) shift; hold="$1" ;; esac
+            flag_content="${flag_content}hold=$hold"$'\n' ;;
+        --present) present=1 ;;
         --ui-timeout)
             shift
             case "${1:-}" in ''|*[!0-9]*) echo "BAD_ARGS: --ui-timeout needs a number (seconds): ${1:-}"; exit 2 ;; esac
@@ -57,6 +75,14 @@ done
 if [ -z "$TIMEOUT" ]; then
     TIMEOUT=900
     if [ -n "$ui_timeout" ] && [ "$((ui_timeout + 120))" -gt "$TIMEOUT" ]; then TIMEOUT="$((ui_timeout + 120))"; fi
+    if [ -n "$hold" ] && [ "$((hold + 300))" -gt "$TIMEOUT" ]; then TIMEOUT="$((hold + 300))"; fi
+fi
+if [ -n "$present" ]; then
+    case "$flag_content" in *filter=*) ;; *) echo "BAD_ARGS: --present plays only the tests you specify: add --filter \"<式>\" (e.g. --filter \"FullyQualifiedName~LoginDialog\")"; exit 2 ;; esac
+    case "$flag_content" in *desktop=separate*) echo "BAD_ARGS: --present needs your desktop; it cannot be used with --separate"; exit 2 ;; esac
+    case "$flag_content" in *desktop=visible*) ;; *) flag_content="${flag_content}desktop=visible"$'\n' ;; esac
+    case "$flag_content" in *slowmo=*) ;; *) flag_content="${flag_content}slowmo=800"$'\n' ;; esac
+    flag_content="${flag_content}present=1"$'\n'
 fi
 case "$flag_content" in *desktop=visible*desktop=separate*|*desktop=separate*desktop=visible*) echo "BAD_ARGS: --visible and --separate cannot be used together"; exit 2 ;; esac
 

@@ -63,7 +63,25 @@ bash "$SCRIPT" "$T" 30 >/dev/null
 ok "no option: the flag is empty (the watcher decides: WPF -> your desktop, else separate)" "$([ ! -s "$T/captured.txt" ] && echo 1 || echo 0)"
 bash "$SCRIPT" "$T" 30 --filter "FullyQualifiedName~LoginDialog&TestCategory=ui" --ui-timeout 1800 >/dev/null
 ok "--filter and --ui-timeout: the flag carries filter=... and timeout=1800 (one per line)" "$([ "$(grep -c . "$T/captured.txt")" = 2 ] && grep -qx 'filter=FullyQualifiedName~LoginDialog&TestCategory=ui' "$T/captured.txt" && grep -qx 'timeout=1800' "$T/captured.txt" && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 --preview --filter "TestCategory=Preview" >/dev/null
+ok "--preview: the flag carries desktop=visible and hold=60 (+ the filter)" "$(grep -qx 'desktop=visible' "$T/captured.txt" && grep -qx 'hold=60' "$T/captured.txt" && grep -qx 'filter=TestCategory=Preview' "$T/captured.txt" && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 --preview 120 >/dev/null
+ok "--preview 120: hold=120" "$(grep -qx 'hold=120' "$T/captured.txt" && ! grep -qx 'hold=60' "$T/captured.txt" && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 --hold 45 --visible >/dev/null
+ok "--hold 45 --visible: hold=45 and desktop=visible" "$(grep -qx 'hold=45' "$T/captured.txt" && grep -qx 'desktop=visible' "$T/captured.txt" && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 --present --filter "Name~Greeting" >/dev/null
+ok "--present: desktop=visible, slowmo=800 (default), present=1 (+ the filter)" "$(grep -qx 'desktop=visible' "$T/captured.txt" && grep -qx 'slowmo=800' "$T/captured.txt" && grep -qx 'present=1' "$T/captured.txt" && grep -qx 'filter=Name~Greeting' "$T/captured.txt" && echo 1 || echo 0)"
+bash "$SCRIPT" "$T" 30 --slowmo 1500 --present --filter "Name~X" >/dev/null
+ok "--present keeps an explicit --slowmo (1500, no 800)" "$(grep -qx 'slowmo=1500' "$T/captured.txt" && ! grep -qx 'slowmo=800' "$T/captured.txt" && echo 1 || echo 0)"
 kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+out="$(bash "$SCRIPT" "$T" --present)"; rc=$?
+ok "--present without --filter -> BAD_ARGS (rc=2; plays only the specified tests)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo "$out" | grep -q -- '--filter' && echo 1 || echo 0)"
+out="$(bash "$SCRIPT" "$T" --present --separate --filter "Name~X")"; rc=$?
+ok "--present with --separate -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
+out="$(bash "$SCRIPT" "$T" --hold x)"; rc=$?
+ok "--hold with a non-number -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
+out="$(bash "$SCRIPT" "$T" --preview --separate)"; rc=$?
+ok "--preview with --separate -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
 out="$(bash "$SCRIPT" "$T" --filter 'A"B')"; rc=$?
 ok "--filter with a quote -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
 out="$(bash "$SCRIPT" "$T" --ui-timeout abc)"; rc=$?
