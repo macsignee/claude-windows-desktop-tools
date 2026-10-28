@@ -48,7 +48,7 @@ ok "ps1: the default desktop comes from the UI test project's uitest.settings (n
 ok "ps1: precedence = flag > watcher setting (-UiTestDesktop / WATCH_UI_DESKTOP) > uitest.settings > separate" "$(ps | awk '/if \(\$fl.Desktop\)/{a=NR} /elseif \(\$UiTestDesktop -in/{b=NR} /elseif \(\$proj.Desktop\)/{c=NR} /default \(no uitest.settings\)/{d=NR} END{exit !(a && b>a && c>b && d>=c)}' && echo 1 || echo 0)"
 ok "ps1: Invoke-Tests and the software rendering use the resolved per-run desktop and slow-motion" "$(ps | grep -qF '$script:UiRun.Desktop -eq "separate"' && ps | grep -qF '$script:UiRun.SlowMoMs' && ! ps | grep -qF '($Ui -and $UiTestDesktop' && echo 1 || echo 0)"
 
-ok "ps1: the flag / uitest.settings can carry timeout= and filter= (the filter is the flag's only; quotes and backticks are rejected)" "$(ps | grep -qF "'^timeout\\s*=\\s*(\\d+)\$'" && ps | grep -qF "'^filter\\s*=\\s*([^\"\`]+)\$'" && echo 1 || echo 0)"
+ok "ps1: the flag / uitest.settings can carry timeout= and filter= (filter is read before comments are stripped; quotes, backticks and a trailing backslash are rejected)" "$(ps | grep -qF "'^timeout\\s*=\\s*(\\d+)\$'" && ps | grep -qF "'^\\s*filter\\s*=\\s*([^\"\`]+?)\\s*\$'" && ps | grep -qF "notmatch '\\\\\$'" && echo 1 || echo 0)"
 ok "ps1: the per-run timeout drives the UI test limit; the filter is passed to dotnet test as --filter (UI projects only)" "$(ps | grep -qF '$limit = if ($Ui) { $script:UiRun.TimeoutSec }' && ps | grep -qF "' --filter \"' + \$filter" && ps | grep -qF '$(if ($Ui) { $script:UiRun.Filter } else { "" })' && echo 1 || echo 0)"
 ok "ps1: precedence of the UI test timeout = flag > uitest.settings > -UiTestTimeoutSec / WATCH_UI_TIMEOUT_SEC" "$(ps | awk '/\$limit = if \(\$null -ne \$fl.TimeoutSec\)/{f=1} f&&/\$proj.TimeoutSec/{g=1} f&&/else \{ \$UiTestTimeoutSec \}/{h=1} END{exit !(f&&g&&h)}' && echo 1 || echo 0)"
 
@@ -63,6 +63,11 @@ ok "ps1: a UI filter that matches no test gets its own ENV_ERROR message (not th
 ok "ps1: UI test phases are timestamped into .claude-logs\\ui-timing.txt (trigger, build done, rendering setting, Invoke-Tests, dotnet test start / end, desktop runner compile)" "$(ok_all=1; for m in 'function Write-UiTiming' 'ui-timing.txt' 'trigger detected; settings resolved' 'build done; starting the UI test phase' 'WPF rendering setting done' 'Invoke-Tests: found' 'dotnet test start:' 'dotnet test end:' 'Initialize-UiDesktopRunner: compiling'; do ps | grep -qF "$m" || ok_all=0; done; echo $ok_all)"
 
 ok "ps1: an empty trigger_uitest.flag (Get-Content -Raw returns \$null) is turned into \"\" before it is used (\$null -replace gives an array and Trim() fails)" "$(ps | awk '/Get-Content -LiteralPath \$UiTestTriggerFile -Raw/{r=NR} /if \(\$null -eq \$uiFlagText\) \{ \$uiFlagText = "" \}/{g=NR} /\$script:UiRun = Resolve-UiRun/{u=NR} /\(\$uiFlagText -replace/{t=NR} END{exit !(r && g>r && u>g && t>g)}' && echo 1 || echo 0)"
+
+ok "ps1: the run id is read from the flag before it is removed, written to run_id.txt before every result marker (build marker and test marker)" "$(ps | awk '/\$script:CurrentRunId = Get-RunIdFromFlag/{r=NR} /Remove-Item -LiteralPath \$TriggerFile/{d=NR} /^function Write-TestMarker/{t=NR} /^        Write-RunId$/{b=NR} END{exit !(r && d && r<d && t && b)}' && ps | grep -qF 'Write-RunId' && ps | awk '/^function Write-TestMarker/{f=1} f&&/Write-RunId/{ok=1;exit} END{exit !ok}' && echo 1 || echo 0)"
+ok "ps1: watcher_busy.txt is set when a trigger is picked up (build / test / gtest fetch / package), cleared at the end and at start-up" "$(c=$(ps | grep -c 'Clear-WatcherBusy'); s=$(ps | grep -c 'Set-WatcherBusy'); [ "$c" -ge 5 ] && [ "$s" -ge 4 ] && echo 1 || echo 0)"
+ok "ps1: a gtest run with '[  PASSED  ] 0 tests' is an ENV_ERROR (0 tests were run)" "$(ps | grep -qF '0 tests were run ([  PASSED  ] 0 tests)' && ps | grep -qF "PASSED\\s+\\]\\s+0\\s+tests?" && echo 1 || echo 0)"
+ok "ps1: the UI flag is read as UTF-8 (Get-Content -Encoding UTF8)" "$(ps | grep -qF 'Get-Content -LiteralPath $UiTestTriggerFile -Raw -Encoding UTF8' && echo 1 || echo 0)"
 
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

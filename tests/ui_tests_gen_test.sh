@@ -131,13 +131,16 @@ ok "UiTestBase: the main window is chosen by UiDialogs.GetAppWindow (not the inp
 
 # 目視確認 (プレビュー): UI テストは裏で実行し、見たいときだけ、画面を、ユーザーのデスクトップに出す
 B="$T/WpfUi/WpfUi.UITests/UiTestBase.cs"; PV="$T/WpfUi/WpfUi.UITests/PreviewUiTests.cs"
-ok "UiTestBase: HoldForViewing (UITEST_HOLD_SEC, ends early when the app exits) and Snap" "$(grep -q 'UITEST_HOLD_SEC' "$B" && grep -q 'void HoldForViewing(' "$B" && grep -q 'App.HasExited' "$B" && grep -q 'void Snap(string name)' "$B" && echo 1 || echo 0)"
+ok "UiTestBase: HoldForViewing (UITEST_HOLD_SEC, ends early when the app exits) and Snap" "$(grep -q 'UITEST_HOLD_SEC' "$B" && grep -q 'void HoldForViewing(' "$B" && grep -q 'App.HasExited' "$B" && grep -q 'void Snap(string name, Window? window = null)' "$B" && echo 1 || echo 0)"
 ok "PreviewUiTests.cs generated: [TestCategory(\"Preview\")], calls HoldForViewing, no assertions" "$([ -f "$PV" ] && grep -q 'TestCategory("Preview")' "$PV" && grep -q 'HoldForViewing(' "$PV" && ! grep -q 'Assert\.' "$PV" && grep -q -- '--preview' "$PV" && echo 1 || echo 0)"
 ok "no unescaped < > inside the generated XML doc comments of UiTestBase (CS1570)" "$(! grep -E '^\s*///.*<[a-z]+>-' "$B" && echo 1 || echo 0)"
 ok "UiTestBase: present mode (UITEST_PRESENT) highlights the element before it is used (Find / OpenModal), does nothing otherwise" "$(grep -q 'UITEST_PRESENT' "$B" && grep -q 'void Highlight(AutomationElement element)' "$B" && grep -q 'DrawHighlight(' "$B" && grep -q 'Highlight(element);' "$B" && grep -q 'Highlight(opener);' "$B" && echo 1 || echo 0)"
 rm -f "$PV"
 python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1
 ok "refresh-support-files: a missing PreviewUiTests.cs is added, an existing one is kept" "$([ -f "$PV" ] && echo '// mine' > "$PV" && python3 -I "$UI" "$T/WpfUi" --refresh-support-files >/dev/null 2>&1 && [ "$(cat "$PV")" = '// mine' ] && echo 1 || echo 0)"
+
+ok "UiTestBase: Find retries for 5 s (no false Red right after launch); StopApp is null-safe (Automation? / App?); Snap can take a dialog window" "$(grep -q 'while (sw.ElapsedMilliseconds < 5000)' "$B" && grep -q 'Automation?.Dispose()' "$B" && grep -q 'App?.Dispose()' "$B" && grep -q '5 秒探しても' "$B" && echo 1 || echo 0)"
+ok "UiDialogs is a partial class (project-specific helpers go in a separate file; --refresh-support-files overwrites UiDialogs.cs)" "$(grep -q 'internal static partial class UiDialogs' "$T/WpfUi/WpfUi.UITests/UiDialogs.cs" && echo 1 || echo 0)"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

@@ -45,7 +45,7 @@ rm -f "$T/trigger_uitest.flag"
 capture_watcher() {
     while true; do
         if [ -f "$T/trigger_uitest.flag" ]; then
-            cp "$T/trigger_uitest.flag" "$T/captured.txt"; rm -f "$T/trigger_uitest.flag"
+            grep -v '^run=' "$T/trigger_uitest.flag" > "$T/captured.txt"; grep '^run=' "$T/trigger_uitest.flag" > "$T/captured_run.txt"; rm -f "$T/trigger_uitest.flag"
             printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt"
         fi
         sleep 0.2

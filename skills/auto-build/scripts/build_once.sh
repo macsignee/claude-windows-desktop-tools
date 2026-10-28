@@ -14,7 +14,7 @@ set -u
 
 DIR="${1:-}"
 TIMEOUT="${2:-180}"
-PICKUP_WAIT=15   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期)
+PICKUP_WAIT="${CLAUDE_PICKUP_WAIT:-15}"   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期。テスト用に、環境変数 CLAUDE_PICKUP_WAIT で変えられる)
 
 if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
     echo "BAD_ARGS: project dir not found: $DIR"
@@ -65,27 +65,47 @@ show_warnings_line() {
     return 0
 }
 
+
+# 実行 ID (v2.20.0): この実行のフラグに、実行 ID (run=...) を書く。ウォッチャーは、結果のマーカーを書く直前に、同じ ID を .claude-logs/run_id.txt に書く。
+# 前の実行 (TIMEOUT で、あきらめたが、ウォッチャーは、まだ続けていた実行) が、あとで書いた、古いマーカーを、今回の結果と取り違えないための照合。
+# run_id.txt がない = 古いウォッチャー (この機能より前) → 照合なし (従来どおり)。
+RUN_ID="$(date +%s)-$$-$RANDOM"
+RUN_ID_FILE="$DIR/.claude-logs/run_id.txt"
+BUSY_FILE="$DIR/.claude-logs/watcher_busy.txt"   # ウォッチャーが、処理中の間だけ、ある (処理の開始時に作り、終了時に消す)
+
+result_ready() {  # $1=マーカーのファイル。マーカーがあり、かつ、実行 ID が、この実行のものか (古いウォッチャーなら、マーカーだけ)
+    [ -f "$1" ] || return 1
+    [ -f "$RUN_ID_FILE" ] || return 0
+    [ "$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$RUN_ID_FILE" | head -n 1)" = "run=$RUN_ID" ]
+}
+
+watcher_busy() {  # ウォッチャーが、別の処理 (ビルド・テスト・パッケージ操作など) の最中か (60 分以内に、始まったもの)
+    [ -f "$BUSY_FILE" ] && [ -n "$(find "$BUSY_FILE" -mmin -60 2>/dev/null)" ]
+}
+
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
-rm -f "$RESULT" "$ERRLOG"
+rm -f "$RESULT" "$ERRLOG" "$RUN_ID_FILE"
 rm -f "$DIR/.claude-logs/build_summary.json"   # 前回の要約 (JSON) も消す (SUCCESS / ENV_ERROR では更新されないため、古い結果が残る)
-touch "$FLAG"
+printf 'run=%s\n' "$RUN_ID" > "$FLAG"
 
 elapsed=0
 picked_up=0
-while [ ! -f "$RESULT" ]; do
+while ! result_ready "$RESULT"; do
     if [ "$picked_up" -eq 0 ]; then
         if [ ! -f "$FLAG" ]; then
             picked_up=1
-        elif [ "$elapsed" -ge "$PICKUP_WAIT" ]; then
+        elif [ "$elapsed" -ge "$PICKUP_WAIT" ] && ! watcher_busy; then
             rm -f "$FLAG"
             echo "WATCHER_NOT_RUNNING"
-            echo "trigger_build.flag was not picked up within ${PICKUP_WAIT}s. Ask the user to start run_watcher.cmd."
+            echo "trigger_build.flag was not picked up within ${PICKUP_WAIT}s, and the watcher does not look busy. Ask the user to start run_watcher.cmd (or check that it targets this folder: $DIR)."
             exit 3
         fi
     fi
     if [ "$elapsed" -ge "$TIMEOUT" ]; then
+        # 回収されていないフラグは、取り下げる (あとで、思いがけず、実行されない)。回収されていれば、ウォッチャーは、続けている
+        if [ -f "$FLAG" ]; then rm -f "$FLAG"; fi
         echo "TIMEOUT"
-        echo "build_result.txt did not appear within ${TIMEOUT}s."
+        echo "build_result.txt (for this run) did not appear within ${TIMEOUT}s. The watcher may still be working (busy file: $(watcher_busy && echo present || echo absent)). Do NOT start another run until the watcher is idle: report and stop."
         exit 5
     fi
     sleep 1

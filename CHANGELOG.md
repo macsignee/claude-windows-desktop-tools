@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.20.0] 2026-10-28 (ホスト側と Skill 側。自動修正ループの堅牢化: 批判的レビューの指摘への対応。ホスト側は実機で未確認)
+
+- **実行 ID の照合:** スクリプト (`build_once.sh` / `build_test_once.sh` / `uitest_once.sh`) が、フラグの 1 行目に `run=<ID>` を書き、ウォッチャーが、結果のマーカーを書く直前に、同じ ID を `.claude-logs/run_id.txt` に書く。スクリプトは、一致する結果だけを受け取る (前の実行が、あとから書いた、古い結果を、今回の結果と取り違えない)。古いウォッチャーは、書かない → 従来どおり。**`TIMEOUT` (rc 5) は、再試行せず、停止して報告する** (以前は「1 回だけ再試行可」)。`TIMEOUT` のとき、回収されていないフラグは、取り下げる。
+- **処理中の印:** ウォッチャーが、処理 (ビルド・テスト・gtest 取得・パッケージ操作) の間だけ、`.claude-logs/watcher_busy.txt` を置く (起動時に、残りを消す)。処理中は、`WATCHER_NOT_RUNNING` (rc 3) とは言わず、`TIMEOUT` まで待つ。`WATCHER_NOT_RUNNING` のメッセージに、対象のフォルダの確認を足した。
+- **gtest の `[  PASSED  ] 0 tests.` を `ENV_ERROR` に** (テストが 1 件も実行されていない)。
+- **Skill:** `build-test-loop` に「止めどき」の節 (回数の数え方、再試行しないもの、`TEST_TIMEOUT` の 2 回、**実装側の細工の禁止**、テストファイルの編集は機械的な追従だけ、実行 ID の説明)。`auto-build` / `build-test-loop` の表に、`TIMEOUT` (停止) と `BAD_ARGS` を整理。`wpf-test-first` / `cpp-test-first` に、ベースライン (Red の前)、**Green の完了条件 (新しいテストが、実際に実行されたこと)**、バグ修正ではスタブを置かない。`add-feature` に、止めどきの参照。
+- **UI:** `uitest_once.sh` は、テストまで届いた実行 (rc 0 / 1 / 7) だけ、スクリーンショットと trace を表示する。待ち時間の既定 = 600 + UI テストのプロジェクトの数 × (`--ui-timeout`、なければ 600) + `--hold` + 120 (最低 900)。`--filter` の、末尾の `\` と CR を拒否。ウォッチャーは、フラグを UTF-8 で読み、`filter=` を、コメントを除く前に読む (`#` を含められる)。`UiTestBase`: `Find` が 5 秒まで探し直す、`StopApp` が null に強い、`Snap(名前, ウィンドウ)`。`UiDialogs` は `partial`。`ui-test-first`: `Preview_<画面>`、回帰は `TestCategory!=Preview`、ループの既定は `--separate` (メニューを開くテストは、別クラスで `--visible`)、visible の了承、`TEST_TIMEOUT` の扱い (`ui-trace.txt` の最後の行、延長は 1 回、2 回続いたら停止)、MFC の ID の探し方、後始末。
+- DESIGN 4.40 (指摘と、直した内容、直していないこと)。
+- テスト: `tests/loop_hardening_test.sh` (新規、20 件)、`tests/host_tools_static_test.sh` (37 件)、`tests/ui_tests_gen_test.sh` (61 件)、`tests/uitest_once_test.sh`。
+
 ## [2.19.0] 2026-10-27 (ホスト側と Skill 側。目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す。ホスト側は実機で未確認)
 
 - **`UiTestBase` に `HoldForViewing()` と `Snap(名前)` を追加** (生成される `UiTestBase.cs`)。`HoldForViewing` は、環境変数 `UITEST_HOLD_SEC` の秒数だけ、いまの画面を見せる (指定がなければ、すぐ戻る。ウィンドウを閉じると、早く終わる)。`Snap` は、裏でも、PNG を残す。**`PreviewUiTests.cs` (新規。`[TestCategory("Preview")]`、アサーションなし) を生成する。** `--refresh-support-files` は、なければ足し、あれば上書きしない。

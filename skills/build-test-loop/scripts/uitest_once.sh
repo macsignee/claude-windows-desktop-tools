@@ -9,7 +9,7 @@
 #   --filter 式: dotnet test の --filter の式で、UI テストを絞る (例: "FullyQualifiedName~LoginDialog")。UI を作りながら、いま書いたテストだけを、繰り返し実行するとき。
 #                式に、引用符・改行は、使えない。絞った結果が 0 件のときは、テストが実行されない (式の誤りに、注意)。
 #   --ui-timeout N: ウォッチャーが、UI テストのプロジェクト 1 つを、強制終了するまでの時間 (秒)。既定は、uitest.settings の timeout= → ウォッチャーの設定 (既定 600)。
-#                   N が 780 以上のときは、この待ち時間 (timeout_sec) も、N + 120 に、自動で延ばす (指定がなければ)。
+#   待ち時間 (timeout_sec。指定がなければ): 600 (ビルド) + UI テストのプロジェクトの数 × (--ui-timeout、なければ 600) + --hold + 120。最低 900。
 #   --hold N: テストが、最後の状態を、N 秒だけ、見せてから、終わる (目視確認。UiTestBase.HoldForViewing を呼ぶテストだけが、見せる。ユーザーが、アプリのウィンドウを閉じると、早く終わる)。
 #             --visible と組み合わせて、**UI テストを、いつもは裏 (別のデスクトップ) で実行し、見たいときだけ、その画面を、ユーザーのデスクトップに出す**。
 #   --preview [N]: --visible --hold N (既定 60 秒) の省略形。**--filter "TestCategory=Preview" など、画面を出すテストと組み合わせる。** N は、数字なら、続けて書く (--preview 120)。
@@ -48,7 +48,7 @@ while [ $# -gt 0 ]; do
             flag_content="${flag_content}slowmo=$1"$'\n' ;;
         --filter)
             shift
-            case "${1:-}" in ''|*\"*|*$'\n'*|*'`'*) echo "BAD_ARGS: --filter needs a non-empty expression without quotes, backticks or newlines: ${1:-}"; exit 2 ;; esac
+            case "${1:-}" in ''|*\"*|*$'\n'*|*$'\r'*|*'`'*|*\\) echo "BAD_ARGS: --filter needs a non-empty expression without quotes, backticks, newlines or a trailing backslash: ${1:-}"; exit 2 ;; esac
             flag_content="${flag_content}filter=$1"$'\n' ;;
         --hold)
             shift
@@ -72,10 +72,13 @@ while [ $# -gt 0 ]; do
     shift
 done
 # 待ち時間 (Skill 側) の既定: 900 秒。--ui-timeout が長いときは、それより、長くする (ウォッチャーが、先に、時間切れにしてくれるように)
+# 待ち時間 (Skill 側) の既定: ビルド (最大 600 秒) + UI テストのプロジェクトの数 × 制限時間 (--ui-timeout、なければ 600 秒) + 見せる時間 (--hold) + 余裕 120 秒。最低 900 秒。
+# (ウォッチャーが、先に、時間切れにして、結果を返すように、Skill 側の待ちを、それより長くする。短いと、TIMEOUT (rc 5) になり、古い結果の誤読につながる)
 if [ -z "$TIMEOUT" ]; then
-    TIMEOUT=900
-    if [ -n "$ui_timeout" ] && [ "$((ui_timeout + 120))" -gt "$TIMEOUT" ]; then TIMEOUT="$((ui_timeout + 120))"; fi
-    if [ -n "$hold" ] && [ "$((hold + 300))" -gt "$TIMEOUT" ]; then TIMEOUT="$((hold + 300))"; fi
+    n_ui="$(find "$DIR" \( -name bin -o -name obj -o -name .git -o -name .claude-logs -o -name node_modules \) -prune -o -type f \( -iname '*UITests.csproj' -o -iname '*UiTests.csproj' \) -print 2>/dev/null | wc -l | tr -d ' ')"
+    [ "${n_ui:-0}" -ge 1 ] || n_ui=1
+    TIMEOUT=$((600 + ${ui_timeout:-600} * n_ui + ${hold:-0} + 120))
+    [ "$TIMEOUT" -ge 900 ] || TIMEOUT=900
 fi
 if [ -n "$present" ]; then
     case "$flag_content" in *filter=*) ;; *) echo "BAD_ARGS: --present plays only the tests you specify: add --filter \"<式>\" (e.g. --filter \"FullyQualifiedName~LoginDialog\")"; exit 2 ;; esac
@@ -89,6 +92,10 @@ case "$flag_content" in *desktop=visible*desktop=separate*|*desktop=separate*des
 out="$(BUILD_TEST_FLAG=trigger_uitest.flag BUILD_TEST_FLAG_CONTENT="${flag_content%$'\n'}" bash "$here/build_test_once.sh" "$DIR" "$TIMEOUT")"
 rc=$?
 printf '%s\n' "$out"
+
+# スクリーンショットと trace は、この実行が、テストまで届いたとき (PASSED / FAILED / TEST_TIMEOUT = rc 0 / 1 / 7) だけ、出す。
+# それ以外 (WATCHER_NOT_RUNNING / TIMEOUT / BAD_ARGS / ビルド失敗など) では、前回の画像と「Passed」が残っていて、今回の結果に見えるため、出さない。
+if [ "$rc" != 0 ] && [ "$rc" != 1 ] && [ "$rc" != 7 ]; then exit "$rc"; fi
 
 shots="$DIR/.claude-logs/ui-screenshots"
 if [ -d "$shots" ]; then

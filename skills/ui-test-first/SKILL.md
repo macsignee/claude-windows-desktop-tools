@@ -26,7 +26,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - **操作と期待:** 「入力欄に A を入れる → ラベルが B になる」のような、**具体例** (3〜7 件)。境界値・異常系があれば、1〜2 件。
 - **どこで確かめるか:** 規則 (純粋な関数の単体テスト) / 煙テスト (UI テスト)。**UI テストは、主要な流れに、絞る** (見た目、レイアウト、色は、対象外)。
 - **実行の指定:** 絞り込みの式 (`--filter`)、制限時間 (`--ui-timeout`。重い画面は、長く)。
-- **目視確認 (プレビュー):** 画面ごとに、**その画面を開いた状態を見せるテスト** (`<画面>_Preview`、`[TestCategory("Preview")]`) を 1 つ置く。いつもは、裏で実行し、見たいときだけ、ユーザーのデスクトップに出す (下の「目視確認」)。
+- **目視確認 (プレビュー):** 画面ごとに、**その画面を開いた状態を見せるテスト** (`Preview_<画面>`、`[TestCategory("Preview")]`) を 1 つ置く。いつもは、裏で実行し、見たいときだけ、ユーザーのデスクトップに出す (下の「目視確認」)。
 
 | フレームワーク | 部品の識別 (UIA の AutomationId) | View に書くもの |
 |---|---|---|
@@ -41,23 +41,26 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - 操作は、`UiDialogs` の道具と、UIA のパターン (`Invoke` / `Value` / `Toggle`) だけ (**マウス・キーボードの入力は、使わない**)。ダイアログは `OpenModal`、ボタンは `UiDialogs.Click`、リスト・ツリー・スピン・日付・タブは、`ListItems` / `ClickColumnHeader` / `SetNumeric` / `ToggleTreeNode` / `OpenDropDown` / `SelectTab` など。**フレームワークごとの違いの表: `build-test-loop` の「コントロール別の、実機の結果の表」。**
 - 期待値は、**仕様 (プロンプトの具体例) から、直接、書く** (実装の出力を、写さない)。待ちは `WaitFor` (固定の `Thread.Sleep` を使わない)。
 
-- **プレビュー用のテストも、書く:** `PreviewUiTests.cs` に、`[TestMethod] [TestCategory("Preview")] public void <画面>_Preview()` を足す。**アサーションは置かない。** 画面を、見せたい状態にして (ダイアログなら `OpenModal`、タブなら `SelectTab`)、`Snap("名前")` (Claude 用の画像) と `HoldForViewing("画面の名前")` (ユーザーに見せる) を呼ぶだけ。
+- **プレビュー用のテストも、書く:** `PreviewUiTests.cs` に、`[TestMethod] [TestCategory("Preview")] public void Preview_<画面>()` を足す。**アサーションは置かない。** 画面を、見せたい状態にして (ダイアログなら `var dlg = OpenModal(...)`、タブなら `SelectTab`)、`Snap("名前", dlg)` (Claude 用の画像。ダイアログを撮るときは、`dlg` を渡す。省略すると、メインウィンドウ) と `HoldForViewing("画面の名前")` (ユーザーに見せる) を呼ぶだけ。
 
 ### 3. 最小の View を置く (配線だけ) → ビルド → Red を確認する
 - **部品を、名前つきで置くだけ** (動作は、まだ、書かない)。規則 (純粋な関数) と Presenter / ViewModel は、`wpf-test-first` / `cpp-test-first` の流れで、**先に、単体テスト (Red → Green) で作る** (`build_test_once.sh`。これは、UI テストと、別の流れ)。
 - ビルド: `build_once.sh` (または、単体テストも含めて `build_test_once.sh`) で、ビルドが通ることを確認する。
 - **UI テストを、絞って、実行する (Red):**
   ```bash
-  bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "FullyQualifiedName~<画面>UiTests" --ui-timeout 1200
+  bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "FullyQualifiedName~<画面>UiTests" --separate --ui-timeout 1200
   ```
+  **`--separate` (裏で実行) が、ループの、既定の指定。** WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) だが、**メニューを開く操作を含まないテスト**は、`--separate` で動く。**メニューを開く操作を含むテストは、別のクラス (`<画面>MenuUiTests`) に分け、WPF では `--visible` で実行する** (別のデスクトップでは、WPF のメニューのポップアップが開かず、「要素がない」という、偽の Red になる)。
   `run_in_background: true` で、完了通知を待つ。**Red の確認:** 失敗の理由が、**期待どおり** (要素がない、期待値と違う) であること。**コンパイルエラー、`ENV_ERROR`、フィルターが 0 件 (`ENV_ERROR`、終了コード 4。式の誤り) は、Red ではない** (先に直す)。
 
 ### 4. 実装して、Green にする (ループ)
 - View (動作) と、Presenter / ViewModel を、実装する。**1 回に、1 つのテストを、通す**ことを、目安にする。
-- ビルド → **同じ `--filter`** で、`uitest_once.sh` を実行する。
+- ビルド → **同じ `--filter`** (と `--separate`) で、`uitest_once.sh` を実行する。
 - **失敗したら:** `.claude-logs/ui-screenshots/*.png` を、**Read ツールで、画像として読む** (画面の実際の状態)。`ui-trace.txt` (操作の記録) と、失敗メッセージも読み、原因を直す。**期待値を、画面の実際の状態に合わせて直すのは、仕様が変わったときだけ。アサーションを、弱めない。** `[Ignore]` / `Inconclusive` / `[Timeout]` の延長も、しない。
-- **同じ失敗が、3 回続いたら、止まって、報告する** (試したこと、スクリーンショットで見たこと、次の案)。
-- **Green になったら:** その画面の、**全 UI テスト (`--filter` なし) を 1 回**実行して、回帰を確認する。静的な検査 (`winforms-check` / `wpf-check` / `mfc-check`) も、実行する。
+- **止めどきは、`build-test-loop` の「止めどき」に従う:** **1 つの画面の、1 サイクルで、`uitest_once.sh` の実行は、合計 5 回まで** (`BUILD_FAILED` / `FAILED` / `TEST_TIMEOUT` を通算)。**同じ失敗が、3 回続いたら**、止まって、報告する (試したこと、スクリーンショットで見たこと、次の案)。
+  - **`TEST_TIMEOUT`:** まず、`.claude-logs/ui-screenshots/ui-trace.txt` の**最後の 10 行**を読む (どのテストの、どの操作で、止まったか。`TEST_TIMEOUT` でも、trace は、残る)。`--filter` を **1 つのテスト**に絞って、もう一度。**`--ui-timeout` を、延ばすのは、1 回だけ** (固まったアプリを、待っても、通らない。モーダルが `Invoke` で戻らない、ダイアログが閉じない、などを疑う)。**2 回続いたら、延長せずに、停止して報告する。**
+  - **`TIMEOUT` (rc 5) / `WATCHER_NOT_RUNNING` (rc 3) / `ENV_ERROR` (rc 4):** 再試行せず、停止して報告する (ウォッチャーは、まだ、処理を続けている。ウォッチャーの画面で、終わったかを、ユーザーに確認してもらう)。**この場合、`uitest_once.sh` は、前回のスクリーンショットと trace を、表示しない** (古い結果と取り違えないため)。
+- **Green になったら:** その画面の、**全 UI テストを 1 回**実行して、回帰を確認する: `--filter "TestCategory!=Preview"` (**Preview のテストは、アサーションがなく、必ず通るので、回帰の件数に、混ぜない**。報告でも、Preview の件数は、別に書く)。静的な検査 (`winforms-check` / `wpf-check` / `mfc-check`) も、実行する。
 
 ### 5. 次のサイクルか、報告
 - 次の動作 (計画の、次の具体例) があれば、2. に戻る。なければ、報告して、終わる。
@@ -66,15 +69,15 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 ## 目視確認: UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す
 UI を作るときは、ユーザーが、**実際の画面を、目で見て**確かめる。一方、UI テストは、**裏 (別のデスクトップ) で、静かに回したい**。両立させる:
 
-- **ループの中の、UI テストは、裏で実行する:** `uitest_once.sh "$SLN" --filter "..." --separate` (別名 `--invisible`)。**WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) なので、メニューを使わないテストは、`--separate` を付ける** (WPF のメニューを使うテストだけ、visible)。
+- **ループの中の、UI テストは、裏で実行する:** `uitest_once.sh "$SLN" --filter "..." --separate` (別名 `--invisible`)。**WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) なので、メニューを使わないテストは、`--separate` を付ける** (WPF のメニューを開くテストだけ、visible。上の 3.)。
 - **ユーザーが「画面を見たい」と言ったとき、または、1 サイクルが Green になった節目に (見たいかを、1 行で聞く):** そのときの画面を、**ユーザーのデスクトップに出す**:
   ```bash
   bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "TestCategory=Preview" --preview
   ```
-  - 手順: (1) **実行の前に、ユーザーに伝える** (「今から、画面を出します。60 秒、見られます。ウィンドウを閉じると、早く終わります。実行中は、マウスとキーボードに触れても、構いませんが、テストの操作中は、画面が動きます」)。(2) **ビルドは、済んでいること** (最新の View を見せるため。直後なら、そのままで、よい)。(3) `run_in_background: true` で実行し、完了通知を待つ。
-  - **見せる画面を絞る:** `--filter "Name~<画面>_Preview"` (その画面だけ)。**秒数:** `--preview 120`。**操作の様子も見たい:** `--slowmo 800` を足す (ボタンやメニューが、順に動く)。
+  - 手順: (1) **実行の前に、ユーザーに伝えて、「出してよい」という返事を、待つ** (「今から、あなたのデスクトップに、画面を出します。最初の数秒は、テストが、画面を操作して、目的の状態にするので、マウスとキーボードに触らないでください。そのあと、60 秒、画面が残るので、自由に、操作して、確かめられます。ウィンドウを閉じると、早く終わります」)。同じ作業の中で、1 回、了承をもらえば、2 回目以降は、告知だけでよい。(2) **ビルドは、済んでいること** (最新の View を見せるため。直後なら、そのままで、よい)。(3) `run_in_background: true` で実行し、完了通知を待つ。
+  - **見せる画面を絞る:** `--filter "Name~Preview_<画面>"` (その画面だけ)。**秒数:** `--preview 120`。**操作の様子も見たい:** `--slowmo 800` を足す (ボタンやメニューが、順に動く)。
   - **ユーザーが、画面を操作して、確かめたい:** `HoldForViewing` が待っている間、ユーザーは、アプリを、自由に操作できる (テストは、待っているだけ)。終わったら、ウィンドウを閉じる。
-- **Claude 自身が、画面を見る:** `Snap("名前")` が、裏でも、PNG を残す (`.claude-logs/ui-screenshots/名前-window.png`)。**Read ツールで、画像として読む** (レイアウトの崩れ、はみ出し、文字の欠けを確かめる)。ユーザーに見せる前に、先に、読んで、明らかな崩れを、直しておく。
+- **Claude 自身が、画面を見る:** `Snap("名前")` が、裏でも、PNG を残す (**ユーザーに出さずに、PNG だけが欲しいときは、`uitest_once.sh "$SLN" --filter "Name~Preview_<画面>" --separate`**。`--hold` なしなので、すぐ戻る) (`.claude-logs/ui-screenshots/名前-window.png`)。**Read ツールで、画像として読む** (レイアウトの崩れ、はみ出し、文字の欠けを確かめる)。ユーザーに見せる前に、先に、読んで、明らかな崩れを、直しておく。
 - **見た目の指摘 (「ここを広く」「この色は」) は、ユーザーから、言葉で受ける。** それを、プレビューのテストで確かめる必要は、ない (見た目は、UI テストの対象外)。直して、もう一度、プレビューを出す。
 
 ### デモとして再生する (`--present`)
@@ -83,12 +86,14 @@ UI を作るときは、ユーザーが、**実際の画面を、目で見て**�
 bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "FullyQualifiedName~<画面>UiTests" --present --ui-timeout 900
 ```
 - **ユーザーのデスクトップで、ゆっくり** (`--visible` と、操作の間の待ち 800 ms (`--slowmo` で変えられる)) 再生し、**これから操作する要素を、赤い枠で囲む** (`Find` / `OpenModal` が描く)。入力やボタンの押下は、UIA で、一瞬で行われる (マウスのカーソルは、動かない)。枠と待ちで、「何を、どの順に、操作したか」を、見せる。
-- **再生するのは、`--filter` で指定したテストだけ** (`--filter` が、必須。ないと、`BAD_ARGS`)。見せたい動作のテストだけを、選ぶ (すべてを、通すと、長い。`--ui-timeout` を、必要なら、長くする)。最後に、各テストの終わりで、最後の状態を、`slowmo` の 2 倍の時間、見せる。**実行の前に、ユーザーに、告知する** (画面が動く)。
+- **再生するのは、`--filter` で指定したテストだけ** (`--filter` が、必須。ないと、`BAD_ARGS`)。見せたい動作のテストだけを、選ぶ (すべてを、通すと、長い。`--ui-timeout` を、必要なら、長くする)。最後に、各テストの終わりで、最後の状態を、`slowmo` の 2 倍の時間、見せる。**実行の前に、ユーザーに、告知して、了承を待つ** (画面が動く。同じ作業の中で、1 回、了承をもらえば、あとは、告知だけ)。
 - **既存のプロジェクトは、先に `--refresh-support-files` で、`UiTestBase.cs` を更新する** (旧い版では、赤い枠が出ない)。
 - ふだんの実行 (`--present` なし) では、枠も待ちも、ない。`--separate` とは、組み合わせられない。
 
 ## 実行のコツ
-- **制限時間:** 1 回の `uitest_once.sh` が、`TEST_TIMEOUT` になるときは、`--ui-timeout` を長くする。毎回の指定が面倒なら、`uitest.settings` に `timeout=1800` を書く。`--filter` で、絞る (全部を、毎回、走らせない)。調査用の、重いテストは、テストごとに `[Timeout]` を付け、ログを 1 行ごとに書く (killed されても、結果が残る)。
+- **制限時間:** 1 回の `uitest_once.sh` が、`TEST_TIMEOUT` になるときは、`--ui-timeout` を長くする。毎回の指定が面倒なら、`uitest.settings` に `timeout=1800` を書く。`--filter` で、絞る (全部を、毎回、走らせない)。調査用の、重いテストは、**新しく**、テストごとに `[Timeout]` を付け、ログを 1 行ごとに書く (killed されても、結果が残る)。**既存の `[Timeout]` を、通すために延ばすのは、禁止** (`build-test-loop` の「止めどき」)。
 - **デスクトップ:** `--visible` / `--separate` で、1 回だけ、変えられる。WPF のメニューは、別のデスクトップでは、開かない。
 - **フィルターの式の例:** `FullyQualifiedName~LoginDialog` (クラス名に含む)、`Name=Greeting_NameEntered_ShowsGreeting` (テスト名)、`FullyQualifiedName~Settings&Name~Ok` (組み合わせ)。引用符は、使えない。
-- **道具が足りないとき:** `UiDialogs` に、ない操作は、PoC で、実機で確かめてから、足す (推測で、書かない)。
+- **道具が足りないとき:** `UiDialogs` に、ない操作は、PoC で、実機で確かめてから、足す (推測で、書かない)。**`UiDialogs.cs` と `UiTestBase.cs` は、`--refresh-support-files` で、上書きされる** (プロジェクトの側で、直接、編集しない)。このプロジェクトだけの道具は、**別のファイル** `UiDialogsExtra.cs` に、`internal static partial class UiDialogs` として、足す (上書きされない)。共通の道具に足したいときは、ユーザーに、相談する (ツール群のリポジトリの変更)。
+- **MFC の ID の探し方:** `grep -n "#define IDC_" <アプリ>/Resource.h` で、数値を調べる (`IDOK` = `"1"`、`IDCANCEL` = `"2"`)。**`IDC_STATIC` は、ID で探せない** (`Name` = 表示の文字で探す)。ID を、テストに、直接、書くので、`Resource.h` の ID を変えたら、テストも、直す。
+- **後始末:** 作業が終わったら、**一時的な確認用のテスト・デバッグ用の `Snap` / `HoldForViewing` を、残さない** (`PreviewUiTests.cs` の、画面ごとのプレビューは、残す)。**ウォッチャーは、実行の前後に、ソリューションのフォルダの下の exe を、すべて終了させる** (ユーザーが、同じフォルダのアプリを、手元で動かしていると、終了される。実行の前に、一言、伝える)。

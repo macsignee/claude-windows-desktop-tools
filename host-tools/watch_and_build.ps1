@@ -835,6 +835,37 @@ function Write-UiTiming([string]$what) {
     } catch { }
 }
 
+# 実行 ID と、処理中の印 (v2.20.0)。
+# - フラグの 1 行目 `run=<ID>` を読み、結果のマーカーを書く直前に、同じ ID を .claude-logs\run_id.txt に書く (Skill 側のスクリプトが、結果が「今回の実行のもの」かを照合する。
+#   前の実行 (Skill が TIMEOUT で、あきらめた実行) の、古いマーカーを、今回の結果と取り違えない)。
+# - 処理 (ビルド・テスト・取得・パッケージ操作) の間だけ、.claude-logs\watcher_busy.txt を置く (Skill 側が、「フラグを、15 秒以内に拾わない = 未起動」と、誤判定しない)。
+function Get-RunIdFromFlag([string]$path) {
+    try {
+        $t = Get-Content -LiteralPath $path -Raw -ErrorAction Stop
+        if ($t -and $t -match '(?m)^run=(\S+)') { return $Matches[1] }
+    } catch { }
+    return ""
+}
+
+function Write-RunId {
+    if (-not $script:CurrentRunId) { return }
+    try {
+        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $LogDir "run_id.txt"), "run=$($script:CurrentRunId)`r`n")
+    } catch { }
+}
+
+function Set-WatcherBusy([string]$what) {
+    try {
+        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $LogDir "watcher_busy.txt"), "$what`r`nstarted=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n")
+    } catch { }
+}
+
+function Clear-WatcherBusy {
+    Remove-Item -LiteralPath (Join-Path $LogDir "watcher_busy.txt") -ErrorAction SilentlyContinue
+}
+
 function Initialize-UiDesktopRunner {
     if ("UiDesktopRunner" -as [type]) { return }
     Write-UiTiming "Initialize-UiDesktopRunner: compiling the desktop runner (Add-Type; first time only)"
@@ -1181,6 +1212,7 @@ function ConvertTo-RelativePaths($lines) {
 }
 
 function Write-TestMarker($value) {
+    Write-RunId
     try {
         [System.IO.File]::WriteAllText($TestResultFile, $value)
         Write-Host "[MARKER] $value -> $TestResultFile" -ForegroundColor DarkGray
@@ -1243,7 +1275,13 @@ function ConvertFrom-UiSettingsText([string]$text) {
     $hold = $null
     $present = $false
     foreach ($line in @("$text" -split "[\r\n]+")) {
-        $l = (($line -replace '^\uFEFF', '') -replace '#.*$', '').Trim()
+        $rawLine = ($line -replace '^\uFEFF', '')
+        # filter= は、# を含み得るので、コメントを除く前に、読む。末尾が \ の値は、引数の閉じ引用符を壊すので、拒否する
+        if ($rawLine -match '^\s*filter\s*=\s*([^"`]+?)\s*$') {
+            if ($Matches[1] -notmatch '\\$') { $filter = $Matches[1] }
+            continue
+        }
+        $l = ($rawLine -replace '#.*$', '').Trim()
         if ($l -match '^desktop\s*=\s*(\w+)$') {
             $w = $Matches[1].ToLowerInvariant()
             if ($w -eq "visible") { $w = "default" }
@@ -1254,7 +1292,6 @@ function ConvertFrom-UiSettingsText([string]$text) {
         elseif ($l -match '^timeout\s*=\s*(\d+)$') { $timeout = [int]$Matches[1] }
         elseif ($l -match '^hold\s*=\s*(\d+)$') { $hold = [int]$Matches[1] }
         elseif ($l -match '^present\s*=\s*1$') { $present = $true }
-        elseif ($l -match '^filter\s*=\s*([^"`]+)$') { $filter = $Matches[1].Trim() }
     }
 
     return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter; HoldSec = $hold; Present = $present }
@@ -1358,6 +1395,11 @@ function Invoke-Tests([switch]$Ui) {
         if ($r.ExitCode -eq 0 -and -not ($r.Output | Where-Object { "$_" -match '^\[\s+PASSED\s+\]' })) {
             $invalid = $true
             $report += "=== $($exe.Name): no gtest summary ([  PASSED  ]) in output; tests were probably not run ==="
+            $report += @($r.Output | Select-Object -First 15)
+        } elseif ($r.ExitCode -eq 0 -and ($r.Output | Where-Object { "$_" -match '^\[\s+PASSED\s+\]\s+0\s+tests?\b' })) {
+            # "[  PASSED  ] 0 tests." (GoogleTest は、0 件でも終了コード 0): テストが 1 件も実行されていない (.vcxproj への足し忘れ、--gtest_filter が一致しない、など)
+            $invalid = $true
+            $report += "=== $($exe.Name): 0 tests were run ([  PASSED  ] 0 tests). Check that the new test file is in the project, and that --gtest_filter / -TestArgs match ==="
             $report += @($r.Output | Select-Object -First 15)
         }
         if ($r.ExitCode -ne 0) {
@@ -1504,12 +1546,14 @@ Write-Host "========================================================" -Foregroun
 
 # 前回のウォッチャーが、UI テストの途中で異常終了して、WPF の描画の設定を、変えたままなら、元に戻す
 Restore-WpfRendering
+Clear-WatcherBusy   # 前回のウォッチャーが、処理の途中で異常終了したときの、処理中の印を、消す
 
 # ---------- 監視ループ ----------
 while ($true) {
     # GoogleTest のソース取得 (ビルドの前提になるので、先に処理する)
     if (Test-Path -LiteralPath $GtestTriggerFile) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (gtest fetch)!" -ForegroundColor Yellow
+        Set-WatcherBusy "gtest fetch"
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState
         $gtestTagLine = ""
@@ -1521,12 +1565,14 @@ while ($true) {
         } catch {
             Write-GtestFailure @("ERROR: gtest fetch failed: $($_.Exception.Message)")
         }
+        Clear-WatcherBusy
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }
 
     # パッケージの操作 (NuGet / vcpkg / ソースの取得)。ビルドの前提になるので、ビルドより先に処理する
     if (Test-Path -LiteralPath $PackageTriggerFile) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (package)!" -ForegroundColor Yellow
+        Set-WatcherBusy "package"
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState
         $packageLines = @()
@@ -1539,6 +1585,7 @@ while ($true) {
             @("[ENVIRONMENT ERROR - not a source code problem]", "ERROR: package operation failed: $($_.Exception.Message)") | Out-File $PackageErrorLog -Encoding utf8
             Write-PackageMarker "FAILED"
         }
+        Clear-WatcherBusy
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }
 
@@ -1549,9 +1596,11 @@ while ($true) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected ($mode)! Starting build..." -ForegroundColor Yellow
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState   # 起動後に、ソリューションができた・プロジェクトが増えた (テストの後付けなど) 場合に備え、トリガーごとに、決め直す
+        $script:CurrentRunId = Get-RunIdFromFlag $(if ($runUiTests) { $UiTestTriggerFile } elseif ($runTests) { $TestTriggerFile } else { $TriggerFile })   # フラグを消す前に、実行 ID を読む
+        Set-WatcherBusy "$mode run=$($script:CurrentRunId)"
         if ($runUiTests) {
             $uiFlagText = ""
-            try { $uiFlagText = Get-Content -LiteralPath $UiTestTriggerFile -Raw -ErrorAction Stop } catch { $uiFlagText = "" }   # フラグを消す前に、1 回ごとの指定 (desktop= / slowmo=) を読む
+            try { $uiFlagText = Get-Content -LiteralPath $UiTestTriggerFile -Raw -Encoding UTF8 -ErrorAction Stop } catch { $uiFlagText = "" }   # フラグを消す前に、1 回ごとの指定 (desktop= / slowmo=) を読む
             if ($null -eq $uiFlagText) { $uiFlagText = "" }   # 空ファイル (0 バイト) では、Get-Content -Raw が $null を返す場合があるため ($null -replace は配列になり、Trim() で失敗する)
             $script:UiRun = Resolve-UiRun $uiFlagText
             Remove-Item -LiteralPath (Join-Path $LogDir "ui-timing.txt") -ErrorAction SilentlyContinue   # 今回の実行の、時刻の記録だけを残す
@@ -1625,6 +1674,7 @@ while ($true) {
         }
 
         # ビルドの完了マーカー (build_error.log を書いたあとに作る)
+        Write-RunId
         try {
             [System.IO.File]::WriteAllText($ResultFile, $result)
             Write-Host "[MARKER] $result -> $ResultFile" -ForegroundColor DarkGray
@@ -1657,6 +1707,7 @@ while ($true) {
             Stop-SolutionProcesses   # テストが残したアプリを、終了する
             Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS, Env:\UITEST_HOLD_SEC, Env:\UITEST_PRESENT -ErrorAction SilentlyContinue
         }
+        Clear-WatcherBusy
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }
     Start-Sleep -Seconds 1
