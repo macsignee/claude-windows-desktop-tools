@@ -53,10 +53,11 @@ description: C++ (Visual Studio) の、メイン + ロジック DLL + データ 
    python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --tests gtest --uses DataLayer
    ```
    - `--tests gtest` (既定): DLL と、`<Name>Test` を足す。`--kind lib`: 静的ライブラリ。`--tests-only`: すでにある DLL に、テストだけを足す。
-   - GoogleTest は、**すでにあるソリューションと、同じ方式**で足される (`--gtest auto`。`gtest` プロジェクトがあれば、source 方式)。nuget 方式で `packages\` になければ、既存のものを、コピーする。
+   - GoogleTest は、**すでにあるソリューションと、同じ方式**で足される (`--gtest auto`。`gtest` プロジェクトがあれば source、`packages\` に NuGet の GoogleTest があれば nuget (旧方式)、それ以外は **vcpkg**)。vcpkg 方式では、`vcpkg.json` に gtest が入り、テスト exe に `main.cpp` が置かれる。
    - 名前の既定は `DataLayer` / `LogicLayer`。終了コード 3 (すでに存在) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
    - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。
-   - 出力の `GTEST_PACKAGE: missing` (nuget 方式): **ウォッチャーの MSBuild は、NuGet を復元しない。** コピー元の `packages\` のパスを教えてもらうか、Visual Studio での NuGet の復元 (ビルド 1 回) を依頼する。
+   - 出力の `GTEST_VCPKG: no-baseline` (vcpkg 方式): ウォッチャー経由で、`package_once.sh "$SLN" --timeout 1800 "vcpkg baseline" "vcpkg install"` を実行する (`add-package` Skill。初回のみ。2 回目以降は、キャッシュで速い)。
+   - 出力の `GTEST_PACKAGE: missing` (nuget 方式、旧): **ウォッチャーの MSBuild は、NuGet を復元しない。** コピー元の `packages\` のパスを教えてもらうか、Visual Studio での NuGet の復元 (ビルド 1 回) を依頼する。
    - 出力の `GTEST_SOURCE: to-fetch` (source 方式): ウォッチャー経由で、取得する (`new-solution` Skill の `scripts/gtest_once.sh`。手順は、`/new-solution` の「GoogleTest の仕上げ」と同じ)。
 4. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`build-test-loop` のスクリプトを使う):** ビルドが通り、**`PASSED`** になること。
    - `BUILD_FAILED`: エラーを読んで直す。ベースのアプリ自体の、もともとのエラーなら、直さずに、報告する。

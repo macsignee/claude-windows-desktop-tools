@@ -57,9 +57,9 @@ check "MFC: .rc が ASCII (BOM なし)" bash -c "! head -c3 '$D/LayersOnly/Layer
 check "CLAUDE.md: 層: logic,data / テスト: なし" bash -c "grep -q '^- 層: data,logic' '$D/CLAUDE.md' && grep -q '^- テスト: なし' '$D/CLAUDE.md'"
 check "XML が正しい" xml_ok "$D"
 
-echo "== 3. MFC / logic,data / テストあり (既存の GoogleTest をコピー)"
+echo "== 3. MFC / logic,data / テストあり (旧方式: --gtest nuget。既存の GoogleTest をコピー)"
 D="$WORK/R/Full"; mkdir -p "$D"
-python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest >"$WORK/out3.txt" 2>&1; rc=$?
+python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest nuget >"$WORK/out3.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "作成が成功" || { ng "作成が成功 (rc=$rc)"; cat "$WORK/out3.txt"; }
 check "プロジェクトは 5 つ" bash -c "[ $(nprojects "$D/Full.slnx") -eq 5 ]"
 check "DataLayerTest と LogicLayerTest がある" bash -c "[ -f '$D/DataLayerTest/DataLayerTest.vcxproj' ] && [ -f '$D/LogicLayerTest/LogicLayerTest.vcxproj' ]"
@@ -94,12 +94,26 @@ mkdir -p "$WORK/R/bad name"; rc_is 2 "フォルダ名が不正 -> rc 2" python3 
 rc_is 2 "親フォルダもない -> rc 2" python3 "$NEW" "$WORK/none/none/Sample" --type mfc --layers none --tests none
 mkdir -p "$WORK/R/Keep"; echo mine > "$WORK/R/Keep/CLAUDE.md"
 python3 "$NEW" "$WORK/R/Keep" --type console --layers none --tests none >/dev/null 2>&1; grep -q mine "$WORK/R/Keep/CLAUDE.md" && ok "既存の CLAUDE.md を上書きしない" || ng "既存の CLAUDE.md を上書きしない"
-mkdir -p "$WORK/R/Nogtest"; python3 "$NEW" "$WORK/R/Nogtest" --type dll --layers none --tests gtest --gtest-from "$WORK/nonexistent" >"$WORK/out6.txt" 2>&1
+mkdir -p "$WORK/R/Nogtest"; python3 "$NEW" "$WORK/R/Nogtest" --type dll --layers none --tests gtest --gtest nuget --gtest-from "$WORK/nonexistent" >"$WORK/out6.txt" 2>&1
 check "コピー元がなくても成功し、missing と案内する" bash -c "grep -q 'GTEST_PACKAGE: copied' '$WORK/out6.txt' || grep -q 'GTEST_PACKAGE: missing' '$WORK/out6.txt'"
 mkdir -p "$WORK/Q/Lonely"; python3 "$NEW" "$WORK/Q/Lonely" --type dll --layers none --tests gtest --gtest nuget >"$WORK/out6b.txt" 2>&1
 check "--gtest nuget で、兄弟に GoogleTest がなければ、missing" grep -q 'GTEST_PACKAGE: missing' "$WORK/out6b.txt"
 mkdir -p "$WORK/Q/Lonely2"; python3 "$NEW" "$WORK/Q/Lonely2" --type dll --layers none --tests gtest >"$WORK/out6c.txt" 2>&1
-check "auto: コピーできなければ source (to-fetch)" bash -c "grep -q 'GTEST_MODE: source' '$WORK/out6c.txt' && grep -q 'GTEST_SOURCE: to-fetch' '$WORK/out6c.txt'"
+check "auto: vcpkg (baseline は、ウォッチャーで)" bash -c "grep -q 'GTEST_MODE: vcpkg' '$WORK/out6c.txt' && grep -q 'GTEST_VCPKG: no-baseline' '$WORK/out6c.txt'"
+
+echo "== 6b. GoogleTest の vcpkg 方式 (--gtest auto が既定)"
+D="$WORK/R/Vcp"; mkdir -p "$D"
+python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest >"$WORK/out6v.txt" 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "既定 (auto) で、作成が成功" || { ng "既定 (auto) で、作成が成功 (rc=$rc)"; cat "$WORK/out6v.txt"; }
+check "vcpkg.json に gtest がある (ソリューション直下)" bash -c "python3 -c \"import json;assert 'gtest' in json.load(open('$D/vcpkg.json'))['dependencies']\""
+check "packages も packages.config も、gtest プロジェクトも、ない" bash -c "[ ! -e '$D/packages' ] && [ ! -e '$D/gtest' ] && [ -z \"\$(find '$D' -name packages.config)\" ]"
+check "テストに main.cpp があり、main() を書いている" bash -c "grep -q 'int main' '$D/LogicLayerTest/main.cpp' && grep -q 'main.cpp' '$D/LogicLayerTest/LogicLayerTest.vcxproj' && grep -q 'main.cpp' '$D/DataLayerTest/DataLayerTest.vcxproj.filters'"
+check "テストの vcxproj: VcpkgEnableManifest と x64-windows-static-md" bash -c "grep -q 'VcpkgEnableManifest>true' '$D/LogicLayerTest/LogicLayerTest.vcxproj' && grep -q 'x64-windows-static-md' '$D/LogicLayerTest/LogicLayerTest.vcxproj'"
+check "DLL の vcxproj には、Vcpkg の設定を入れない" bash -c "! grep -q Vcpkg '$D/LogicLayer/LogicLayer.vcxproj'"
+check ".gitignore に vcpkg_installed/" grep -qx 'vcpkg_installed/' "$D/.gitignore"
+check "出力に GTEST_MODE: vcpkg と、baseline の案内" bash -c "grep -q 'GTEST_MODE: vcpkg' '$WORK/out6v.txt' && grep -q \"vcpkg baseline\" '$WORK/out6v.txt'"
+check "CLAUDE.md: vcpkg の節 (main.cpp、C++17、Running main の行が出ない)" bash -c "grep -q 'vcpkg' '$D/CLAUDE.md' && grep -q 'main.cpp' '$D/CLAUDE.md' && grep -q 'C++17' '$D/CLAUDE.md'"
+check "XML が正しい" xml_ok "$D"
 
 echo "== 7. テストの後付け (--tests gtest の再実行)"
 D="$WORK/R/LateTest"; mkdir -p "$D"

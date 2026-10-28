@@ -20,7 +20,7 @@ Claude (WSL) は、NuGet も vcpkg も、直接実行できない (ネットワ�
 | .NET / WPF のパッケージ (CommunityToolkit.Mvvm, Serilog など) | **NuGet** (`nuget add`) | `dotnet add package` が、ID の実在・バージョンの解決・`.csproj` (または `Directory.Packages.props`) の書き換えを、正しく行う |
 | C++ のライブラリ (fmt, spdlog, boost, zlib など。vcpkg にあるもの) | **vcpkg** (`vcpkg.json` + `vcpkg install`) | ソースからビルドされ、バージョンが固定でき、MSBuild が自動でリンクする |
 | C++ のヘッダーのみ / 単一ファイルのライブラリ (nlohmann/json, stb, magic_enum など) で、vcpkg を使いたくない | **ソースの取り込み** (`fetch`) | 軽く、確実。`ThirdParty\<名前>\` に置く |
-| GoogleTest | **この Skill の対象外** | 現状の方式のまま (`/new-solution` の `--gtest`、`gtest_once.sh`) |
+| GoogleTest | **vcpkg** (既定。`/new-solution` の `--gtest vcpkg` が、`vcpkg.json` に gtest を入れて、`main.cpp` を置く)。取得は、下の「手順 2」の `vcpkg baseline` / `vcpkg install` | 追加の操作は、不要。`--gtest source` (ソースのビルド) は、`gtest_once.sh` |
 
 迷ったら、C++ は vcpkg。vcpkg にないライブラリは、`fetch`。
 
@@ -59,7 +59,7 @@ bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN" [--timeout 秒]
 | `FAILED` | 1 | 失敗 (ソース側の問題: パッケージ名の誤り、`vcpkg.json` がない、サブフォルダがない など) | 出力を読んで直す。名前の誤りなら、`search` / `versions` で確かめる |
 | `ENV_ERROR` | 4 | 環境エラー (ネットワーク、`dotnet` / `vcpkg` がない) | **ソースを直さず**、内容を報告して停止。ユーザーに、環境の確認 (ネットワーク、SDK、VS の vcpkg コンポーネント) を依頼 |
 | `WATCHER_NOT_RUNNING` | 3 | フラグが回収されない | 停止し、`run_watcher.cmd` の起動をユーザーに依頼 |
-| `TIMEOUT` | 5 | 完了マーカーが出ない | `vcpkg install` なら、`--timeout` を延ばして 1 回だけ再試行 (終わったポートは、キャッシュされる) |
+| `TIMEOUT` | 5 | 完了マーカーが出ない | **報告して止まる (自動では、再試行しない)。** `vcpkg install` は、ユーザーが了承したら、`--timeout` を延ばして、もう一度実行してよい (終わったポートは、キャッシュされるので、続きから進む) |
 | `BAD_ARGS` | 2 | 操作の形が不正 | 形を直す (理由が出る) |
 
 ## 手順 1: NuGet (.NET / WPF)
@@ -88,7 +88,7 @@ bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN" [--timeout 秒]
    ```bash
    python3 -I <Skill>/scripts/cpp_pkg.py setup "$SLN"
    ```
-   `vcpkg.json` を作り、各 `.vcxproj` (gtest を除く) に、マニフェストモードの設定を足す。**トリプレットは、既定で `x64-windows-static-md`** (静的ライブラリ + 動的 CRT `/MD`)。DLL で配布するなら `--linkage dynamic`。
+   `vcpkg.json` を作り、各 `.vcxproj` (`gtest` という名前のプロジェクト (source 方式) を除く。すでに Vcpkg の設定があるものは、そのまま) に、マニフェストモードの設定を足す。**トリプレットは、既定で `x64-windows-static-md`** (静的ライブラリ + 動的 CRT `/MD`)。DLL で配布するなら `--linkage dynamic`。
    **`.vcxproj` が変わるので、ユーザーに、変更したことを伝える** (VS で、プロジェクトの再読み込みの確認が出ることがある)。
 2. **ポートの確認:** `"vcpkg search fmt"`。**マニフェストモードの `search` は、`builtin-baseline` が要る** (実機で判明)。`list` で `baseline:` が `(none)` なら、先に `package_once.sh "$SLN" "vcpkg baseline"` を実行する。 **`search` は、baseline 後でも約 3 分かかる (実機)。`--timeout 600` 以上で、バックグラウンドで実行する。**
 3. **追加** (`vcpkg.json` の編集。WSL で完結):
@@ -147,4 +147,4 @@ git -c core.fileMode=false --no-optional-locks status --short
 - vcpkg の、初回のビルドは、長い。Visual Studio 同梱の vcpkg (`VC\vcpkg`) を使う。`VCPKG_ROOT` が設定されていれば、そちら。
 - 複数のプロジェクトが、同じ `vcpkg.json` を使う。ビルドを並列に走らせると、取得が競合することがある。**先に `vcpkg install` を済ませておく** (上記の手順 4)。
 - **`CommunityToolkit.Mvvm` に切り替えるとき (実機で確認):** 生成物の自前の `ObservableObject` が、**同じ名前で衝突**し、`[ObservableProperty]` が解決されない (`MVVMTK0019`、`CS0103`)。パッケージを足しただけでは、ビルドは通る。**`[ObservableProperty]` / `[RelayCommand]` に書き換えるときは、自前の `ObservableObject.cs` (と、使わなくなった `RelayCommand.cs`) を、削除する。**
-- **C++ の NuGet は、対象外** (`packages.config` も、VS 2026 の `PackageReference` (Experimental) も。`.vcxproj` への `nuget add` は、拒否される)。C++ のライブラリは、**vcpkg** を使う。GoogleTest の既存の方式は、そのまま。
+- **C++ の NuGet は、対象外** (`packages.config` も、VS 2026 の `PackageReference` (Experimental) も。`.vcxproj` への `nuget add` は、拒否される)。C++ のライブラリは、**vcpkg** を使う。GoogleTest も、vcpkg (既定)。

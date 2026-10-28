@@ -153,9 +153,9 @@ run_al "$S3" CoreLib --kind lib >/dev/null 2>&1; [ $? -eq 0 ] && ok "--kind lib 
 check "静的ライブラリで、<Link> がなく、公開マクロもない" bash -c "grep -q StaticLibrary '$S3/CoreLib/CoreLib.vcxproj' && ! grep -q '<Link>' '$S3/CoreLib/CoreLib.vcxproj' && [ ! -e '$S3/CoreLib/CoreLibApi.h' ]"
 check "テストが、ライブラリをプロジェクト参照" grep -q 'ProjectReference Include="..\\CoreLib\\CoreLib.vcxproj"' "$S3/CoreLibTest/CoreLibTest.vcxproj"
 
-echo "== GoogleTest のソース方式 (--gtest auto: コピーできるパッケージがなければ source)"
+echo "== GoogleTest のソース方式 (--gtest source)"
 S4="$WORK/sln4"; make_sln "$S4"
-run_al_auto "$S4" CoreLib >"$WORK/out_src.txt" 2>&1; [ $? -eq 0 ] && ok "auto: パッケージがなければ、source で追加できる" || ng "auto: パッケージがなければ、source で追加できる"
+python3 "$SCRIPT" "$S4" CoreLib --gtest source >"$WORK/out_src.txt" 2>&1; [ $? -eq 0 ] && ok "--gtest source で追加できる" || ng "--gtest source で追加できる"
 check "出力: GTEST_MODE: source と to-fetch" bash -c "grep -q 'GTEST_MODE: source' '$WORK/out_src.txt' && grep -q 'to-fetch' '$WORK/out_src.txt'"
 check "gtest プロジェクトができる (静的ライブラリ、警告オフ、ThirdParty のソース)" bash -c "grep -q StaticLibrary '$S4/gtest/gtest.vcxproj' && grep -q TurnOffAllWarnings '$S4/gtest/gtest.vcxproj' && grep -q 'ThirdParty\\\\googletest\\\\src\\\\gtest-all.cc' '$S4/gtest/gtest.vcxproj'"
 check "テストは gtest をプロジェクト参照し、packages.config も NuGet もない" bash -c "grep -q 'ProjectReference Include=\"..\\\\gtest\\\\gtest.vcxproj\"' '$S4/CoreLibTest/CoreLibTest.vcxproj' && [ ! -e '$S4/CoreLibTest/packages.config' ] && ! grep -qi nuget '$S4/CoreLibTest/CoreLibTest.vcxproj'"
@@ -168,6 +168,27 @@ mkdir -p "$S4/ThirdParty/googletest/include/gtest" "$S4/ThirdParty/googletest/sr
 touch "$S4/ThirdParty/googletest/include/gtest/gtest.h" "$S4/ThirdParty/googletest/src/gtest-all.cc" "$S4/ThirdParty/googletest/src/gtest_main.cc"
 check "ソースがあれば、GTEST_SOURCE: present" bash -c "python3 '$SCRIPT' '$S4' ThirdLib --dry-run | grep -q 'GTEST_SOURCE: present'"
 run_al "$S4" NuLib --dry-run >/dev/null 2>&1; [ $? -eq 0 ] && ok "--gtest nuget の明示は、source の解決より優先される" || ng "--gtest nuget の明示"
+
+echo "== GoogleTest の vcpkg 方式 (--gtest auto が既定)"
+S5="$WORK/sln5"; make_sln "$S5"
+python3 "$SCRIPT" "$S5" CoreLib >"$WORK/out_vcp.txt" 2>&1; [ $? -eq 0 ] && ok "auto: vcpkg で追加できる" || { ng "auto: vcpkg で追加できる"; cat "$WORK/out_vcp.txt"; }
+check "出力: GTEST_MODE: vcpkg、GTEST_VCPKG: no-baseline" bash -c "grep -q 'GTEST_MODE: vcpkg' '$WORK/out_vcp.txt' && grep -q 'GTEST_VCPKG: no-baseline' '$WORK/out_vcp.txt'"
+check "vcpkg.json に gtest、.gitignore に vcpkg_installed/" bash -c "grep -q '\"gtest\"' '$S5/vcpkg.json' && grep -qx 'vcpkg_installed/' '$S5/.gitignore'"
+check "テスト: main.cpp あり、packages.config なし、gtest プロジェクトなし" bash -c "grep -q 'int main' '$S5/CoreLibTest/main.cpp' && [ ! -e '$S5/CoreLibTest/packages.config' ] && [ ! -e '$S5/gtest' ]"
+check "テストの vcxproj: Vcpkg の設定 (x64-windows-static-md)、DLL にはない" bash -c "grep -q 'VcpkgEnableManifest>true' '$S5/CoreLibTest/CoreLibTest.vcxproj' && grep -q 'x64-windows-static-md' '$S5/CoreLibTest/CoreLibTest.vcxproj' && ! grep -q Vcpkg '$S5/CoreLib/CoreLib.vcxproj'"
+check "XML が正しい" bash -c "python3 -c \"import glob,xml.dom.minidom as m; [m.parse(f) for f in glob.glob('$S5/*/*.vcxproj')+glob.glob('$S5/*/*.filters')]\""
+python3 "$SCRIPT" "$S5" OtherLib --kind lib >/dev/null 2>&1; [ $? -eq 0 ] && ok "2 つ目の層: vcpkg.json は 1 つのまま、gtest は 1 回だけ" || ng "2 つ目の層"
+check "vcpkg.json の gtest は 1 つ" bash -c "[ \$(grep -c '\"gtest\"' '$S5/vcpkg.json') -eq 1 ]"
+python3 - "$S5" <<'EOF'
+import json, sys
+p = sys.argv[1] + '/vcpkg.json'
+m = json.load(open(p)); m['builtin-baseline'] = '0' * 40
+json.dump(m, open(p, 'w'))
+EOF
+check "baseline があれば、GTEST_VCPKG: present (dry-run)" bash -c "python3 '$SCRIPT' '$S5' ThirdLib --dry-run | grep -q 'GTEST_VCPKG: present'"
+ID=Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn; VER=1.8.1.8
+S6="$WORK/sln6"; make_sln "$S6"; mkdir -p "$S6/packages/$ID.$VER/build/native"; echo '<Project/>' > "$S6/packages/$ID.$VER/build/native/$ID.targets"
+python3 "$SCRIPT" "$S6" CoreLib --dry-run | grep -q 'GTEST_MODE: nuget' && ok "auto: packages\\ に NuGet の GoogleTest があれば、旧方式のまま (nuget)" || ng "auto: 旧方式のソリューション"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi

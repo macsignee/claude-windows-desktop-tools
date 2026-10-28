@@ -310,12 +310,13 @@ build-test-loop のSkillを使って、テストが通るまで直してくだ�
 | N0 | `/new-solution` (引数なし) | メインの種類、層、テストを**質問する** (`--tests` は、必ず質問)。案 (dry-run の内容) を示して了承を求める | ✗ |
 | N1 | `--type mfc --layers none --tests none` | `MFCTDDTest.slnx` と `MFCTDDTest/` (MFC SDI) だけ。テストなし。**ビルドが `SUCCESS`** (`auto-build`) | ✗ |
 | N2 | `--type mfc --layers logic,data --tests none` | メイン + `DataLayer` + `LogicLayer` (DLL)。テストなし。ビルドが `SUCCESS` | ✔ (2026-10-14 実機: ClaudeProject) |
-| N3 | `--type mfc --layers logic,data --tests gtest` | N2 + `DataLayerTest` / `LogicLayerTest`。GoogleTest が `packages\` にコピーされる。**ビルドとテストが `PASSED`** (2 つのテスト exe) | ✗ |
+| N3 | `--type mfc --layers logic,data --tests gtest --gtest nuget` (旧方式) | N2 + `DataLayerTest` / `LogicLayerTest`。GoogleTest が `packages\` にコピーされる。**ビルドとテストが `PASSED`** (2 つのテスト exe) | ✗ |
+| N3v | `--type mfc --layers logic,data --tests gtest` (既定 = vcpkg)。出力の指示どおり、`package_once.sh "vcpkg baseline" "vcpkg install"` → `build-test-loop` (Debug と Release) | `vcpkg.json` に gtest、`builtin-baseline` が入る。テスト exe に `main.cpp`。**`PASSED` (2 つのテスト exe、各 1 件)**。LNK2019 `main` が出ない。警告 0 (CRT の不整合なし)。`vcpkg_installed` を消した再ビルドは、ビルドなしで復元される (`Restored`)。PoC (2026-10-28) は、使い捨てのコピーで確認済み。生成物での確認は、これから | ✔ 2026-10-28: 生成物 (`GtestVcpkgGen`) で確認。`GTEST_VCPKG: no-baseline` → `package_once.sh` (60 秒、初回) → Debug `PASSED` (2 件、63 秒)・Release `PASSED` (12 秒)。`test.log` に `Running main() from` なし。`vcpkg_installed` を退避した再ビルドは 28 秒 (キャッシュ復元)。層の追加 (`add_layer.py`、`GTEST_VCPKG: present`) で 3 件 `PASSED`。`cpp_pkg.py setup` は、テストを kept、ほかを patched、のあとも 3 件 `PASSED`。`--gtest nuget` は、`GTEST_MODE: nuget` / `copied` (出力のみ確認) |
 | N4 | N3 で、フォルダ名が `MFCTDDTest` (`Test` で終わる) | メインに `_Main` の `TargetName` が付く。**`MFCTDDTest_Main.exe` が、テストとして起動されない** (`PASSED`) | ✗ |
 | N5 | `--type dll --layers none --tests gtest` | メイン DLL + `<名前>Test`。`PASSED` | ✗ |
 | N6 | `--type win32 ...` / `--type console ...` | それぞれ、ビルドが通る | ✗ |
 | N3s | N3 の `--gtest source` 版 (`/new-solution --type mfc --layers logic,data --tests gtest --gtest source`) | `gtest` プロジェクトが入る。作成後、ウォッチャーを起動して、`gtest_once.sh` で取得 → `PASSED`。**初回は、`gtest` のコンパイルで、少し長い** | △ (2026-10-14 実機: 後付け経由で `PASSED`。新規作成 + `gtest_once.sh` での取得は、未確認 (取得自体は G1〜G5 で確認)) |
-| N3a | コピー元のない環境で `--gtest auto` | `GTEST_MODE: source` / `to-fetch`。ウォッチャーの起動後に、取得 → ベースライン → `PASSED` | ✗ |
+| N3a | `--gtest source` (vcpkg が使えない環境の代替) | `GTEST_MODE: source` / `to-fetch`。ウォッチャーの起動後に、取得 → ベースライン → `PASSED` | ✗ |
 | N3b | 取得が `FAILED` (ネットワーク遮断) | 報告して止まり、手動のコピーか、`nuget` 方式への切り替えを案内する | ✗ |
 | N13 | `--layer-kind lib` (層を静的ライブラリ) | 層が静的ライブラリ。テストが、リンクできて、`PASSED` | ✗ |
 | N14 | `--layers logic:OrderLogic,data:OrderData` | 指定した名前で作成される。ビルドとテストが通る | ✗ |
@@ -328,7 +329,7 @@ build-test-loop のSkillを使って、テストが通るまで直してくだ�
 | N7 | `--type console --layers none --tests gtest` | 矛盾として、エラー (何も書かれない) | ✗ |
 | N8 | N2 の後、`/new-solution --tests gtest` (後付け) | `DataLayerTest` / `LogicLayerTest` が増える。`CLAUDE.md` が `テスト: あり` に更新される。`PASSED` | ✔ (2026-10-14 実機: ClaudeProject。source 方式) |
 | N9 | すでにソリューションがあるフォルダで、`--tests gtest` なしの `/new-solution` | 何も書かずに、「後付けだけできる」と案内して止まる | ✗ |
-| N10 | GoogleTest のコピー元がない環境で、`--tests gtest` | `GTEST_PACKAGE: missing`。コピー元の指定か、Visual Studio での復元を依頼して待つ | ✗ |
+| N10 | `--gtest nuget` で、GoogleTest のコピー元がない環境 (旧方式) | `GTEST_PACKAGE: missing`。コピー元の指定か、Visual Studio での復元を依頼して待つ | ✗ |
 | N11 | 作成した `.slnx` を、Visual Studio 2026 で開く | エラーなく開く。プロジェクト構成 (x64 の Debug / Release) が正しい | ✔ (2026-10-14 実機: ClaudeProject) |
 | N12 | N1〜N2 (テストなし) のあと `/brainstorm` → `/update-from-ideas` → `/add-feature` | テストなしの流れ (計画 → 承認 → 実装 → ビルド確認 → 手動確認)。Red / Green は、出てこない | ✗ |
 
