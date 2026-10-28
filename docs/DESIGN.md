@@ -758,7 +758,8 @@ v2.20.0 の批判的レビューで、`build_once.sh` / `build_test_once.sh` / `
 - **処理中の印:** ウォッチャーは、gtest / package でも、処理の間だけ `watcher_busy.txt` を置く (v2.20.0 で、build 系にだけあった `Set-WatcherBusy` の説明は、`gtest fetch run=<ID>` / `package run=<ID>`)。スクリプトは、処理中なら、`WATCHER_NOT_RUNNING` と誤報せず、`TIMEOUT` では、回収されていないフラグを取り下げる。
 - **`TIMEOUT` の扱い:** `add-package` の Skill は、v2.21.0 で「報告して止まる」に直した。スクリプトのメッセージも、同じ (ユーザーが了承すれば、`--timeout` を延ばして、もう一度)。
 - **互換性の組み合わせ:** 新 Skill + 古いウォッチャー: フラグのコメントは、無視される。`run_id.txt` は、書かれない (または、古い ID のまま) → 照合なし (従来どおり)。ただし、**古い `run_id.txt` が残っていると、一致しない**ので、スクリプトは、フラグを置く前に、`run_id.txt` を消す。古い Skill + 新しいウォッチャー: ID がないので、`run_id.txt` は書かれず、従来どおり。
-- **未確認:** 実機 (ウォッチャーは、PowerShell のため、WSL では動かせない)。疑似ウォッチャーでの検証 (`tests/loop_hardening_test.sh`) のみ。
+- **実機で確認 (2026-10-28、`GtestVcpkgGen`):** (1) `package_once.sh "vcpkg install"`: `OK`。ログの中身が、前の実行のものでなく、今回のもの。(2) 続けて、もう一度: 3 つのファイル (`package.log`、`run_id.txt`、`package_result.txt`) が、同じ秒に更新され (`run_id.txt` が、マーカーと同時か先)、実行 ID が、前回と違う。(3) `--timeout 2` で `TIMEOUT` (`busy file: present`、「Do NOT start another run」) → すぐに、通常の制限時間で、もう一度: 1 回目の処理が終わるのを待ってから、自分の結果 (`already installed`) で `OK`。1 回目の古い結果を、取り違えない。(4) `gtest_once.sh v1.17.0`: `OK` (2 回目も)。`run_id.txt` と `gtest_result.txt` が、同じ秒に更新。(5) 手で置いた、実行 ID のない空の `trigger_gtest.flag` (古い形式): `OK`。
+- **確認しきれていないこと:** (3) の 1 回目の実行 ID は、`TIMEOUT` の出力に出ないので、2 回目の `run_id.txt` と、直接は比べていない (結果の中身と時刻から判断した)。ウォッチャーの画面で、`[PACKAGE] vcpkg install` が 2 回出たことは、未確認。新しい Skill と古いウォッチャーの組み合わせは、疑似ウォッチャーでの検証のみ。
 
 ### 4.39 目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す (v2.19.0)
 
