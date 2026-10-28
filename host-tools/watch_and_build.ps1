@@ -33,7 +33,7 @@
       (test_result.txt (最後に書く) / test_error.log / test.log / .claude-logs\test-results\*.trx)。
     - UI テストのプロジェクト: 名前が UITests / UiTests で終わる、または FlaUI.* を参照しているもの。
       **通常のテスト (trigger_test.flag) からは、除かれる** (UI テストは、遅く、デスクトップを占有するため)。
-    - テストには、環境変数で、実行環境を渡す: UITEST_SOLUTION_DIR / UITEST_CONFIGURATION / UITEST_PLATFORM / UITEST_SCREENSHOT_DIR / UITEST_SLOWMO_MS
+    - テストには、環境変数で、実行環境を渡す: UITEST_SOLUTION_DIR / UITEST_CONFIGURATION / UITEST_PLATFORM / UITEST_SCREENSHOT_DIR / UITEST_SLOWMO_MS / UITEST_HOLD_SEC (flag の hold=。目視確認のために、テストが、最後の状態を見せる秒数)
       (<LogDir>\ui-screenshots。失敗時のスクリーンショット (PNG) の保存先。WSL の Claude が、画像として読める)。
     - 実行の前後に、ソリューションのフォルダの下の exe のプロセス (テストが残したアプリ) を終了する (残ると、次のビルドが、exe のロックで失敗する)。
     - 制限時間は、テストプロジェクトごとに -UiTestTimeoutSec (既定 600)。
@@ -827,8 +827,17 @@ function Read-ProcessOutput([string]$path) {
 }
 
 # UI テストを、別のデスクトップで実行するためのヘルパー (C#。Add-Type で、1 回だけ、コンパイルする)。
+# UI テストの、各段階の時刻を、.claude-logs\ui-timing.txt に追記する (ビルド完了から、UI テスト開始までに、長い空白があったときの、原因の切り分け用。実機で、14.5 分の空白が、1 回だけ出た)。
+function Write-UiTiming([string]$what) {
+    try {
+        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+        Add-Content -LiteralPath (Join-Path $LogDir "ui-timing.txt") -Value ("{0:HH:mm:ss.fff} {1}" -f (Get-Date), $what) -Encoding UTF8
+    } catch { }
+}
+
 function Initialize-UiDesktopRunner {
     if ("UiDesktopRunner" -as [type]) { return }
+    Write-UiTiming "Initialize-UiDesktopRunner: compiling the desktop runner (Add-Type; first time only)"
     Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
@@ -1231,6 +1240,8 @@ function ConvertFrom-UiSettingsText([string]$text) {
     $slow = $null
     $timeout = $null
     $filter = ""
+    $hold = $null
+    $present = $false
     foreach ($line in @("$text" -split "[\r\n]+")) {
         $l = (($line -replace '^\uFEFF', '') -replace '#.*$', '').Trim()
         if ($l -match '^desktop\s*=\s*(\w+)$') {
@@ -1241,10 +1252,12 @@ function ConvertFrom-UiSettingsText([string]$text) {
         }
         elseif ($l -match '^slowmo\s*=\s*(\d+)$') { $slow = [int]$Matches[1] }
         elseif ($l -match '^timeout\s*=\s*(\d+)$') { $timeout = [int]$Matches[1] }
+        elseif ($l -match '^hold\s*=\s*(\d+)$') { $hold = [int]$Matches[1] }
+        elseif ($l -match '^present\s*=\s*1$') { $present = $true }
         elseif ($l -match '^filter\s*=\s*([^"`]+)$') { $filter = $Matches[1].Trim() }
     }
 
-    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter; HoldSec = $hold; Present = $present }
 }
 
 # trigger_uitest.flag の中身 (1 回ごとの指定) と、ウォッチャーの設定と、プロジェクトの uitest.settings から、この回の UI テストの設定を決める。
@@ -1260,7 +1273,21 @@ function Resolve-UiRun([string]$flagText) {
     $slow = if ($null -ne $fl.SlowMoMs) { $fl.SlowMoMs } elseif ($null -ne $proj.SlowMoMs) { $proj.SlowMoMs } else { $UiTestSlowMoMs }
     # 制限時間: flag > uitest.settings > -UiTestTimeoutSec / WATCH_UI_TIMEOUT_SEC。filter は、flag だけ (1 回ごとの指定)
     $limit = if ($null -ne $fl.TimeoutSec) { $fl.TimeoutSec } elseif ($null -ne $proj.TimeoutSec) { $proj.TimeoutSec } else { $UiTestTimeoutSec }
-    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $fl.Filter; Reason = $reason }
+    # 目視確認 (hold=): テストが、最後の状態を、この秒数だけ見せる。flag だけ (1 回ごとの指定)。制限時間は、見せる時間より、長くする (見せている間に、強制終了しない)
+    $hold = if ($null -ne $fl.HoldSec) { $fl.HoldSec } else { 0 }
+    if ($hold -gt 0 -and $limit -lt ($hold + 120)) { $limit = $hold + 120 }
+    # プレゼン (present=1。flag だけ): UI テストを、デモとして、ユーザーのデスクトップで、ゆっくり再生する (操作する要素を、赤い枠で囲む)。操作の間の待ちは、指定がなければ、800 ms。
+    $present = [bool]$fl.Present
+    if ($present -and -not $fl.Filter) {
+        # 再生するのは、filter= で指定したテストだけ。filter がなければ、全部を、ゆっくり再生してしまうので、プレゼンは、無効にする
+        Write-Host "[UI] present=1 is ignored: it plays only the tests selected with filter=" -ForegroundColor Yellow
+        $present = $false
+    }
+    if ($present) {
+        if ($desktop -ne "default") { $desktop = "default"; $reason = "present (needs your desktop)" }
+        if ($slow -le 0) { $slow = 800 }
+    }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $fl.Filter; HoldSec = $hold; Present = $present; Reason = $reason }
 }
 
 # ビルド成功後のテスト実行 (GoogleTest の exe と、.NET のテストプロジェクト)。test_result.txt を最後に書く。
@@ -1276,9 +1303,13 @@ function Invoke-Tests([switch]$Ui) {
         $env:UITEST_PLATFORM = $Platform
         $env:UITEST_SCREENSHOT_DIR = $UiScreenshotDir
         $env:UITEST_SLOWMO_MS = "$($script:UiRun.SlowMoMs)"
+        $env:UITEST_HOLD_SEC = "$($script:UiRun.HoldSec)"
+        $env:UITEST_PRESENT = $(if ($script:UiRun.Present) { "1" } else { "0" })
     }
+    if ($Ui) { Write-UiTiming "Invoke-Tests: environment ready (timeout $($script:UiRun.TimeoutSec) s)" }
     $exes = if ($Ui) { @() } else { @(Find-TestExes) }
     $projects = @(Find-DotnetTestProjects -Ui:$Ui)
+    if ($Ui) { Write-UiTiming "Invoke-Tests: found $($projects.Count) UI test project(s)" }
     if ($Ui -and $projects.Count -eq 0) {
         Write-TestEnvError @("ERROR: no UI test project found under $SolutionDir",
             "  A .NET test project whose name ends with UITests / UiTests, or that references FlaUI.* (.NET project in solution: $HasDotnet)")
@@ -1345,9 +1376,11 @@ function Invoke-Tests([switch]$Ui) {
         foreach ($proj in $projects) {
             $name = [System.IO.Path]::GetFileNameWithoutExtension($proj)
             Write-Host "[TEST] Running dotnet test: $name (timeout ${limit}s)..." -ForegroundColor Yellow
+            if ($Ui) { Write-UiTiming "dotnet test start: $name" }
             $r = Invoke-DotnetTest $proj $dotnetPath $limit $(if ($Ui) { $script:UiRun.Filter } else { "" })
             $all += @("=== $name (dotnet test) ===") + @($r.Output)
             $r.Output | ForEach-Object { Write-Host $_ }
+            if ($Ui) { Write-UiTiming "dotnet test end: $name (exit $($r.ExitCode), timeout $($r.Timeout))" }
             $trx = Join-Path $TestResultsDir "$name.trx"
 
             if ($r.Timeout) {
@@ -1370,7 +1403,13 @@ function Invoke-Tests([switch]$Ui) {
                 $counters = Get-TrxCounters $trx
                 if (-not $counters -or [int]$counters.executed -le 0) {
                     $invalid = $true
-                    $report += "=== $name (dotnet test): no tests were executed (no trx, or executed=0) ==="
+                    if ($Ui -and $script:UiRun.Filter) {
+                        # --filter (flag の filter=) に一致するテストが、1 件もない。式の誤りが、ほとんど (GoogleTest / アダプタの不備ではない)
+                        $filterNoMatch = $true
+                        $report += "=== $name (dotnet test): no test matches the filter: $($script:UiRun.Filter) ==="
+                    } else {
+                        $report += "=== $name (dotnet test): no tests were executed (no trx, or executed=0) ==="
+                    }
                     $report += @($r.Output | Select-Object -Last 15)
                 }
             } else {
@@ -1399,8 +1438,8 @@ function Invoke-Tests([switch]$Ui) {
         @(ConvertTo-RelativePaths $report) | Out-File $TestErrorLog -Encoding utf8
         Write-TestMarker "FAILED"
     } elseif ($invalid) {
-        $envNote = if ($staleFound) { "Test result is not trusted: the tests ran against an older build output (see above)." } else { "Test failed: tests were probably not run (GoogleTest: check -TestArgs / is this a GoogleTest exe? dotnet: is Microsoft.NET.Test.Sdk and a test adapter referenced?)" }
-        Write-Host "[RESULT] Tests ENV_ERROR ($(if ($staleFound) { 'tests ran against an older build output' } else { 'tests were probably not run' }))." -ForegroundColor Red
+        $envNote = if ($filterNoMatch) { "Test failed: no test matches the --filter expression ($($script:UiRun.Filter)). Check the expression: ~ means contains, = means equals, & / | combine (e.g. FullyQualifiedName~LoginDialog). This is not a GoogleTest / adapter problem." } elseif ($staleFound) { "Test result is not trusted: the tests ran against an older build output (see above)." } else { "Test failed: tests were probably not run (GoogleTest: check -TestArgs / is this a GoogleTest exe? dotnet: is Microsoft.NET.Test.Sdk and a test adapter referenced?)" }
+        Write-Host "[RESULT] Tests ENV_ERROR ($(if ($filterNoMatch) { 'no test matches the filter' } elseif ($staleFound) { 'tests ran against an older build output' } else { 'tests were probably not run' }))." -ForegroundColor Red
         @(ConvertTo-RelativePaths (@("[ENVIRONMENT ERROR - not a source code problem]") + $report + @("", $envNote))) |
             Out-File $TestErrorLog -Encoding utf8
         Write-TestMarker "ENV_ERROR"
@@ -1513,8 +1552,11 @@ while ($true) {
         if ($runUiTests) {
             $uiFlagText = ""
             try { $uiFlagText = Get-Content -LiteralPath $UiTestTriggerFile -Raw -ErrorAction Stop } catch { $uiFlagText = "" }   # フラグを消す前に、1 回ごとの指定 (desktop= / slowmo=) を読む
+            if ($null -eq $uiFlagText) { $uiFlagText = "" }   # 空ファイル (0 バイト) では、Get-Content -Raw が $null を返す場合があるため ($null -replace は配列になり、Trim() で失敗する)
             $script:UiRun = Resolve-UiRun $uiFlagText
-            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms, timeout: $($script:UiRun.TimeoutSec) s, filter: $(if ($script:UiRun.Filter) { $script:UiRun.Filter } else { '(all)' })" -ForegroundColor Cyan
+            Remove-Item -LiteralPath (Join-Path $LogDir "ui-timing.txt") -ErrorAction SilentlyContinue   # 今回の実行の、時刻の記録だけを残す
+            Write-UiTiming "trigger detected; settings resolved (flag: $(($uiFlagText -replace '\s+', ' ').Trim())); the build starts next"
+            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms, timeout: $($script:UiRun.TimeoutSec) s, hold: $($script:UiRun.HoldSec) s, present: $($script:UiRun.Present), filter: $(if ($script:UiRun.Filter) { $script:UiRun.Filter } else { '(all)' })" -ForegroundColor Cyan
         }
         Remove-Item -LiteralPath $TriggerFile, $(if ($runUiTests) { $UiTestTriggerFile } else { $TestTriggerFile }) -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -1596,7 +1638,9 @@ while ($true) {
                 Write-TestMarker "BUILD_FAILED"
             } else {
                 try {
+                    if ($runUiTests) { Write-UiTiming "build done; starting the UI test phase (desktop: $($script:UiRun.Desktop))" }
                     if ($runUiTests -and $script:UiRun.Desktop -eq "separate") { Set-WpfSoftwareRendering }
+                    if ($runUiTests) { Write-UiTiming "WPF rendering setting done; calling Invoke-Tests" }
                     Invoke-Tests -Ui:$runUiTests
                 } catch {
                     Write-Host "[TEST] ENV_ERROR: $($_.Exception.Message)" -ForegroundColor Red
@@ -1611,7 +1655,7 @@ while ($true) {
         if ($runUiTests) {
             Restore-WpfRendering
             Stop-SolutionProcesses   # テストが残したアプリを、終了する
-            Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS -ErrorAction SilentlyContinue
+            Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS, Env:\UITEST_HOLD_SEC, Env:\UITEST_PRESENT -ErrorAction SilentlyContinue
         }
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }

@@ -13,6 +13,11 @@ ok "uses --filter and --ui-timeout, runs in the background, reads screenshots, d
 ok "stops after 3 identical failures; names the per-framework identifiers (WinForms Name / WPF AutomationId / MFC numeric ID)" "$(grep -q '3 回続いたら' "$S" && grep -q 'AutomationProperties.AutomationId' "$S" && grep -q '数値' "$S" && echo 1 || echo 0)"
 ok "tells the user not to touch the PC when uitest.settings is desktop=visible" "$(grep -q 'マウスとキーボードに触らないでください' "$S" && echo 1 || echo 0)"
 
+ok "visual check: Preview tests + --preview / --hold, tell the user before showing, Snap for Claude's own check, background tests use --separate" "$(grep -q 'TestCategory("Preview")' "$S" && grep -q -- '--preview' "$S" && grep -q 'HoldForViewing' "$S" && grep -q 'Snap(' "$S" && grep -q -- '--separate' "$S" && grep -q '実行の前に、ユーザーに伝える' "$S" && echo 1 || echo 0)"
+ok "build-test-loop documents --hold / --preview and PreviewUiTests" "$(grep -q -- '--hold' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q -- '--preview' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q 'PreviewUiTests' "$ROOT/skills/build-test-loop/SKILL.md" && echo 1 || echo 0)"
+
+ok "demo playback: --present documented (needs --filter) in the skill and build-test-loop" "$(grep -q -- '--present' "$S" && grep -q -- '--present' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q '赤い枠' "$S" && echo 1 || echo 0)"
+
 # 方針: UI テストは、ビルド → テストの流れに、含めない (ユーザーが求めたときと /ui-test-first だけ)
 for f in skills/add-feature/SKILL.md skills/cpp-test-first/SKILL.md skills/wpf-test-first/SKILL.md skills/build-test-loop/SKILL.md skills/new-solution/SKILL.md rules/winforms-csharp.md; do
     ok "$f: UI tests are not run automatically after PASSED; points to /ui-test-first" "$(grep -q 'ui-test-first' "$ROOT/$f" && ! grep -q '続けて `uitest_once.sh`' "$ROOT/$f" && ! grep -q 'Green になってから 1 回' "$ROOT/$f" && echo 1 || echo 0)"

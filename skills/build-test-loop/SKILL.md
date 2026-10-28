@@ -83,9 +83,12 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 
 ### UI テストの、実行の指定 (どれも、ウォッチャーの再起動は、要らない)
 `uitest_once.sh "$SLN" [待つ秒] [--filter 式] [--ui-timeout 秒] [--visible | --separate] [--slowmo ms]`
-- **`--filter "FullyQualifiedName~クラス名"`:** `dotnet test --filter` の式で、**いま書いた UI テストだけ**を実行する (UI のループで、毎回、全部を走らせない)。式に、引用符・改行は、使えない。`~` は「含む」、`=` は「等しい」、`&` / `|` で組み合わせる。絞った結果が 0 件だと、何も実行されない (式の誤りに、注意。結果の `tests:` の件数を、見る)。
+- **`--filter "FullyQualifiedName~クラス名"`:** `dotnet test --filter` の式で、**いま書いた UI テストだけ**を実行する (UI のループで、毎回、全部を走らせない)。式に、引用符・改行は、使えない。`~` は「含む」、`=` は「等しい」、`&` / `|` で組み合わせる。絞った結果が 0 件だと、何も実行されず、**`ENV_ERROR` (終了コード 4。`dotnet test` の「一致するテストはありません」が、そのまま出る)** になる (式の誤りは、これで気づける。実機で確認)。
 - **`--ui-timeout 秒`:** ウォッチャーが、UI テストのプロジェクトを、強制終了するまでの時間 (既定 600 秒)。**UI テストが多い、重い画面は、長く** (例: `--ui-timeout 1800`)。指定しない既定は、`uitest.settings` の `timeout=` (プロジェクトごとの既定。例: `timeout=1800`) → ウォッチャーの `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC`。`--ui-timeout` が 780 以上なら、Skill 側の待ち時間も、自動で、`秒 + 120` に延びる。
 - デスクトップ (`--visible` / `--separate`)、操作の間の待ち (`--slowmo`) は、上の「どのデスクトップで実行されるか」。
+- **実行が、遅い・止まっているように見えるとき:** `.claude-logs/ui-timing.txt` (UI テストの各段階の時刻。実行ごとに作り直される) を読む。どの段階の間が、長いかが、分かる (ビルド完了から UI テスト開始までの空白、`dotnet test` の開始から終了まで、など)。
+- **`--hold 秒` / `--preview [秒]` (目視確認):** UI テストは、いつもは、裏 (別のデスクトップ) で実行し、**見たいときだけ、その画面を、ユーザーのデスクトップに出す。** 生成される `PreviewUiTests.cs` (`[TestCategory("Preview")]`。アサーションなし) が、画面を、見せたい状態にして、`HoldForViewing()` を呼ぶ。`--hold N` は、`HoldForViewing` が、N 秒、待つ (ウィンドウを閉じると、早く終わる)。`--preview [N]` は、`--visible --hold N` (既定 60 秒) の省略形。例: `uitest_once.sh "$SLN" --filter "TestCategory=Preview" --preview`。ウォッチャーの制限時間は、`hold + 120` 秒以上に、自動で延びる。`UiTestBase.Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。`/ui-test-first` の「目視確認」に、手順。**既存の UI テストのプロジェクト (この機能より前に作ったもの) は、先に `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py <フォルダ> --refresh-support-files` で、`UiTestBase.cs` などを更新する** (旧い版のままだと、`HoldForViewing` / `Highlight` がなく、`--present` の赤い枠が出ず、操作の間隔が、約 3 倍になる。実機で確認)。
+- **`--present` (デモとして再生):** `--visible` + `--slowmo 800` (指定がなければ) + **操作する要素を赤い枠で囲む** (`UiTestBase.Find` / `OpenModal` が描く。`UITEST_PRESENT=1`)。UI テストを、そのまま、見せられる形で、ゆっくり再生する。**再生するのは、`--filter` で指定したテストだけ** (`--filter` が必須。ないと `BAD_ARGS`)。`--separate` とは、同時に使えない。入力やボタンの押下は、UIA で、一瞬で行われる (マウスのカーソルは、動かない。枠と待ちで、見せる)。
 
 ### いつ実行するか
 - **ユーザーが求めたとき、または `/ui-test-first` のループの中だけ。** `build_test_once.sh` が `PASSED` になっても、UI テストのプロジェクト (名前が `UITests` / `UiTests` で終わる、または FlaUI を参照。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある) があっても、**ユーザーが求めていなければ、実行しない。**
