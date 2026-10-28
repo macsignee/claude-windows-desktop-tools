@@ -118,6 +118,22 @@ for f in x y; do mkdir -p "$T/App$f.UITests"; : > "$T/App$f.UITests/App$f.UITest
 out="$(CLAUDE_PICKUP_WAIT=1 bash -x "$UITEST" "$T" --ui-timeout 700 --hold 60 2>&1 | grep -m1 'build_test_once.sh' )"
 ok "uitest_once: the default wait = 600 + 2 projects x 700 + hold 60 + 120 = 2180 s" "$(echo "$out" | grep -q ' 2180$' && echo 1 || echo 0)"
 
+# 10. パスの大文字小文字: WSL の /mnt/c は、大文字小文字を区別しないが、保持する。サンドボックスの書き込み許可は、文字列として、区別して比較する。
+#     引数のパスを、実際の大文字小文字に直す (resolve_true_case)。Linux (区別する) のファイルシステムでも、find -iname で、実際の名前に直ることを確かめる
+mkdir -p "$T/RealCase/MySolution/Sub"
+eval "$(sed -n '/^resolve_true_case() {/,/^}/p' "$BUILD")"
+got="$(resolve_true_case "$T/realcase/MYSOLUTION/sub")"
+ok "resolve_true_case: a wrongly-cased path is turned into the real one" "$([ "$got" = "$T/RealCase/MySolution/Sub" ] && echo 1 || echo 0)"
+got="$(resolve_true_case "$T/RealCase/MySolution/Sub")"
+ok "resolve_true_case: a correctly-cased path is unchanged" "$([ "$got" = "$T/RealCase/MySolution/Sub" ] && echo 1 || echo 0)"
+got="$(resolve_true_case "$T/RealCase/NoSuch/Dir")"
+ok "resolve_true_case: a part that does not exist is kept as given (no crash)" "$([ "$got" = "$T/RealCase/NoSuch/Dir" ] && echo 1 || echo 0)"
+got="$(resolve_true_case "relative/Path")"
+ok "resolve_true_case: a relative path is returned unchanged" "$([ "$got" = "relative/Path" ] && echo 1 || echo 0)"
+for f in "$BUILD" "$BTEST" "$ROOT/skills/add-package/scripts/package_once.sh" "$ROOT/skills/new-solution/scripts/gtest_once.sh"; do
+    ok "$(basename "$f"): resolves the dir to its real case before writing flags / results" "$(grep -q '^DIR="$(resolve_true_case "$DIR")"' "$f" && echo 1 || echo 0)"
+done
+
 # ---- 文書 (Skill) の整合: 止めどき・TIMEOUT・禁止リスト・Green の条件・UI のループ
 BTL="$ROOT/skills/build-test-loop/SKILL.md"; AB="$ROOT/skills/auto-build/SKILL.md"; WTF="$ROOT/skills/wpf-test-first/SKILL.md"; CTF="$ROOT/skills/cpp-test-first/SKILL.md"; UTF="$ROOT/skills/ui-test-first/SKILL.md"; AF="$ROOT/skills/add-feature/SKILL.md"
 for f in "$AB" "$BTL"; do

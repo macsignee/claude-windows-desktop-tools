@@ -34,6 +34,38 @@ bad() { echo "BAD_ARGS: $*"; exit 2; }
 
 DIR="${1:-}"
 [ -n "$DIR" ] && [ -d "$DIR" ] || bad "solution dir not found: $DIR"
+# WSL の /mnt など、大文字小文字を区別しない (が、保持する) ファイルシステムでは、$DIR の大文字小文字が
+# 実際のフォルダ名と違っていても [ -d "$DIR" ] は通る。だが、サンドボックスの書き込み許可は、パスの文字列を
+# 大文字小文字を区別して比較するため、違ったままだと rm やフラグの書き込みが "Read-only file system" で
+# 失敗し、前回の結果を、今回の結果と取り違えることがある (実機で確認)。ここで、実際の大文字小文字に直す。
+resolve_true_case() {
+    local input="$1" resolved="" component parent names chosen
+    case "$input" in
+        /*) ;;
+        *) printf '%s\n' "$input"; return 0 ;;
+    esac
+    local IFS=/
+    local -a parts
+    read -ra parts <<< "$input"
+    for component in "${parts[@]}"; do
+        [ -z "$component" ] && continue
+        parent="${resolved:-/}"
+        # [ -e ... ] は、このマウント上では大文字小文字を区別せず「ある」になってしまうため使えない。
+        # 親ディレクトリを列挙して、実際の (大文字小文字が正しい) 名前を探す。
+        names="$(find "$parent" -maxdepth 1 -iname "$component" -printf '%f\n' 2>/dev/null)"
+        chosen=""
+        while IFS= read -r n; do
+            [ -z "$n" ] && continue
+            if [ "$n" = "$component" ]; then chosen="$n"; break; fi
+            [ -z "$chosen" ] && chosen="$n"
+        done <<< "$names"
+        [ -z "$chosen" ] && chosen="$component"
+        if [ "$parent" = "/" ]; then resolved="/$chosen"; else resolved="$parent/$chosen"; fi
+    done
+    printf '%s\n' "${resolved:-/}"
+}
+DIR="$(resolve_true_case "$DIR")"
+
 shift
 TIMEOUT=300
 OPS=()

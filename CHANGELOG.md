@@ -9,6 +9,8 @@
 - **gtest の `[  PASSED  ] 0 tests.` を `ENV_ERROR` に** (テストが 1 件も実行されていない)。
 - **Skill:** `build-test-loop` に「止めどき」の節 (回数の数え方、再試行しないもの、`TEST_TIMEOUT` の 2 回、**実装側の細工の禁止**、テストファイルの編集は機械的な追従だけ、実行 ID の説明)。`auto-build` / `build-test-loop` の表に、`TIMEOUT` (停止) と `BAD_ARGS` を整理。`wpf-test-first` / `cpp-test-first` に、ベースライン (Red の前)、**Green の完了条件 (新しいテストが、実際に実行されたこと)**、バグ修正ではスタブを置かない。`add-feature` に、止めどきの参照。
 - **UI:** `uitest_once.sh` は、テストまで届いた実行 (rc 0 / 1 / 7) だけ、スクリーンショットと trace を表示する。待ち時間の既定 = 600 + UI テストのプロジェクトの数 × (`--ui-timeout`、なければ 600) + `--hold` + 120 (最低 900)。`--filter` の、末尾の `\` と CR を拒否。ウォッチャーは、フラグを UTF-8 で読み、`filter=` を、コメントを除く前に読む (`#` を含められる)。`UiTestBase`: `Find` が 5 秒まで探し直す、`StopApp` が null に強い、`Snap(名前, ウィンドウ)`。`UiDialogs` は `partial`。`ui-test-first`: `Preview_<画面>`、回帰は `TestCategory!=Preview`、ループの既定は `--separate` (メニューを開くテストは、別クラスで `--visible`)、visible の了承、`TEST_TIMEOUT` の扱い (`ui-trace.txt` の最後の行、延長は 1 回、2 回続いたら停止)、MFC の ID の探し方、後始末。
+- **パスの大文字小文字を、実際のものに直す** (`build_once.sh` / `build_test_once.sh` / `package_once.sh` / `gtest_once.sh`。`resolve_true_case`)。WSL の `/mnt/c` は、大文字小文字を区別しないが、Claude Code のサンドボックスの書き込み許可は、区別して比較するため、パスの大文字小文字が、実際と違うと、結果ファイルの削除・フラグの書き込みが失敗し、古い結果を読んでいた (実機で確認、修正は、コンソールの Claude が、配置先で行い、それをリポジトリに取り込んだ)。
+- **実機で確認 (2026-10-28):** 実行 ID、処理中の印、処理中のビルドが `TIMEOUT` になりフラグが取り下げられること、直後の実行が自分の結果を受け取ること、ウォッチャー停止時に前回の画像を出さないこと、gtest の 0 件が `ENV_ERROR` になること。
 - DESIGN 4.40 (指摘と、直した内容、直していないこと)。
 - テスト: `tests/loop_hardening_test.sh` (新規、20 件)、`tests/host_tools_static_test.sh` (37 件)、`tests/ui_tests_gen_test.sh` (61 件)、`tests/uitest_once_test.sh`。
 
