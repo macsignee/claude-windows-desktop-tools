@@ -156,6 +156,15 @@ $ErrorActionPreference = "Stop"
 # (ビルドは、/p:Platform を、明示するので、影響を受けなかった)
 Remove-Item Env:\Platform -ErrorAction SilentlyContinue
 
+# 環境変数 GTEST_* (GTEST_FILTER、GTEST_REPEAT、GTEST_SHUFFLE など) を、子プロセスに渡さない。
+# GoogleTest は、これらを自動で読む。ウォッチャーの親のコマンドプロンプトに残っていると、全テストが 0 件になる (GTEST_FILTER=NoSuchTest* で確認) など、
+# 原因の分かりにくい失敗になる。絞り込みは、-TestArgs (--gtest_filter=...) で指定する。
+$script:RemovedGtestEnv = @(Get-ChildItem Env: | Where-Object { $_.Name -like 'GTEST_*' } | ForEach-Object { $_.Name })
+foreach ($n in $script:RemovedGtestEnv) { Remove-Item "Env:\$n" -ErrorAction SilentlyContinue }
+if ($script:RemovedGtestEnv.Count -gt 0) {
+    Write-Host ("[ENV] removed from the watcher process: " + ($script:RemovedGtestEnv -join ", ") + " (use -TestArgs --gtest_filter=... instead)") -ForegroundColor Yellow
+}
+
 # .NET の SDK / ビルドツールがない環境 (例: C++ のワークロードだけの Visual Studio) で、.NET のビルド・テストを求められたときの案内。
 # 自動では追加できないので、利用者に、手で追加してもらう。
 $DotnetInstallHint = "ERROR: The .NET SDK is missing or too old. Open Visual Studio Installer, choose Modify, and add the workload `".NET desktop development`" (or install the .NET SDK from https://dotnet.microsoft.com/download). It cannot be added automatically. Then run again."
@@ -1399,7 +1408,7 @@ function Invoke-Tests([switch]$Ui) {
         } elseif ($r.ExitCode -eq 0 -and ($r.Output | Where-Object { "$_" -match '^\[\s+PASSED\s+\]\s+0\s+tests?\b' })) {
             # "[  PASSED  ] 0 tests." (GoogleTest は、0 件でも終了コード 0): テストが 1 件も実行されていない (.vcxproj への足し忘れ、--gtest_filter が一致しない、など)
             $invalid = $true
-            $report += "=== $($exe.Name): 0 tests were run ([  PASSED  ] 0 tests). Check that the new test file is in the project, and that --gtest_filter / -TestArgs match ==="
+            $report += "=== $($exe.Name): 0 tests were run ([  PASSED  ] 0 tests). Check that the new test file is in the project, and that --gtest_filter / -TestArgs match. GTEST_* environment variables are removed at startup ==="
             $report += @($r.Output | Select-Object -First 15)
         }
         if ($r.ExitCode -ne 0) {

@@ -11,6 +11,9 @@
 - **違い:** 出力の「Running main() from ...」の行が出ない。`gtestd.lib` ではなく、構成ごとの `gtest.lib`。GoogleTest は C++17 以上が必要 (生成するプロジェクトは C++20)。結果の要約 (`PASSED` / `FAILED`) の形は、変わらない。
 - **高速化:** vcpkg の既定のバイナリキャッシュのみ (PoC: 初回 35 秒、キャッシュありの再実行 12 秒)。共有フォルダ (`VCPKG_BINARY_SOURCES`) は、大きなライブラリ向けの任意の設定。
 - **Skill:** `add-package` の「GoogleTest は対象外」を改め、`TIMEOUT` は「報告して止まる」(v2.20.0 の止めどきと整合。以前は「1 回だけ再試行」)。`new-solution` / `cpp-test-first` / `DLL-LAYOUT.md` を更新。
+## [2.20.1] 2026-10-28 (ホスト側。実機で未確認)
+
+- **ウォッチャーの起動時に、環境変数 `GTEST_*` を消す** (`GTEST_FILTER`、`GTEST_REPEAT`、`GTEST_SHUFFLE` など)。GoogleTest はこれらを自動で読むため、親のコマンドプロンプトに `GTEST_FILTER=NoSuchTest*` が残ると、全テストが 0 件になり、`ENV_ERROR` になる (GoogleTest の vcpkg 化の PoC で、原因の特定に時間がかかった)。消したときは `[ENV] removed ...` を表示する。絞り込みは、`-TestArgs --gtest_filter=...`。0 件の `ENV_ERROR` のメッセージにも、この旨を追記。
 
 ## [2.20.0] 2026-10-28 (ホスト側と Skill 側。自動修正ループの堅牢化: 批判的レビューの指摘への対応。ホスト側は実機で未確認)
 
