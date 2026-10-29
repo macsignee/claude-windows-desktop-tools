@@ -495,7 +495,7 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
-| NS1 | 作業フォルダで起動し、`/brainstorm` → `/update-from-ideas` で、`docs/specs/todo.md` を作る。会話で `solutions.md` を作り (WPF / WinForms / MFC)、`create --dry-run` → `create` | **配下に、候補のフォルダが作れる** (サンドボックスの書き込み)。仕様書が、各候補に取り込まれ、`CLAUDE.md` に節が入る | 未実施 |
+| NS1 | 作業フォルダで起動し、`/brainstorm` → `/update-from-ideas` で、`docs/specs/todo.md` を作る。会話で `solutions.md` を作り (WPF / WinForms / MFC)、`create --dry-run` → `create` | **配下に、候補のフォルダが作れる** (サンドボックスの書き込み)。仕様書が、各候補に取り込まれ、`CLAUDE.md` に節が入る。**`/new-solution` は、最初に、「1 つのソリューションか、複数の候補を作る作業フォルダか」を質問する** (v2.23.1。黙って、`ToDo.slnx` を作らない) | 未実施 |
 | NS2 | 候補ごとに、`run_watcher.cmd "<候補のフォルダ>"` を起動 (2 つ以上)。作業フォルダの Claude から、`resolve` で対象を決めて、`build_once.sh` / `build_test_once.sh` を、候補ごとに実行 | 候補ごとに、`SUCCESS` / `PASSED`。**複数のウォッチャーが、同時に、独立して動く** (Mutex は、フォルダごと) | 未実施 |
 | NS3 | gtest の候補で、`package_once.sh "$候補" "vcpkg baseline" "vcpkg install"` (GTEST_VCPKG: no-baseline) | その候補のウォッチャーで、仕上がる (4.41 と同じ) | 未実施 |
 | NS4 | 正本の仕様書を直し、`sync-spec --dry-run` → `sync-spec`。1 つの候補のコピーを、先に編集しておく | 未編集の候補は、更新。編集済みは、**衝突**と報告され、上書きされない | 未実施 |

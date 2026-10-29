@@ -264,6 +264,7 @@ for sk in auto-build build-test-loop add-package cpp-test-first wpf-test-first u
     ok "Skill $sk: 作業フォルダでの対象の決め方 (resolve)" "$(has "$(cat "$ROOT/skills/$sk/SKILL.md")" 'new_solutions.py resolve "$PWD"')"
 done
 ok "Skill add-feature: new_solution.py に \$PWD を渡さない (\$SLN)" "$(hasnt "$(cat "$ROOT/skills/add-feature/SKILL.md")" 'new_solution.py "$PWD"')"
+ok "Skill new-solution: .sln も solutions.md もないときは、先に質問する (黙って A にしない)" "$([ "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "### どちらのモードか")" = 1 ] && [ "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "黙って、A にしない")" = 1 ] && [ "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "先に質問する")" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solution: モード C (作業フォルダ)" "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "## C. 作業フォルダ")"
 ok "Skill update-from-ideas: 作業フォルダでは、構成案を出さない" "$(has "$(cat "$ROOT/skills/update-from-ideas/SKILL.md")" "構成案は、出さない")"
 
