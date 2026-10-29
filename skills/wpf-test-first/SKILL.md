@@ -149,6 +149,7 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 
 **Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
 テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
+- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`[Ignore]` 化・`Assert.Inconclusive` で飛ばす・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。
 - 実装のあと、**XAML / ViewModel を触ったら、`wpf-check` を実行する** (WinForms は、Form / `Designer.cs` / Presenter を触ったら、`winforms-check`。WinForms も、この手順 (Red → Green) は同じ。`IView` の Fake で Presenter をテストする) (バインディングのパスの誤りなど、ユニットテストでは見つからない不具合を、静的に確かめる)。
