@@ -13,6 +13,7 @@ description: C++ (MSBuild / .vcxproj) と .NET (WPF などの SDK 形式 .csproj
 ## 前提
 - ユーザーが対象プロジェクトで `run_watcher.cmd` を起動済みであること。
 - プロジェクトフォルダ(.sln または .slnx があるフォルダ)を `$PROJ` とする。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$PROJ` は、カレントではなく、対象の候補。`PROJ=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$PROJ` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 
 ## ビルド実行 (1回分)
 

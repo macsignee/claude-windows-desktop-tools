@@ -19,6 +19,7 @@ Claude はフラグを置いて結果を読むだけ。
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
 - ソリューションフォルダ (.sln または .slnx があるフォルダ) を `$SLN` とする。Claude はこのフォルダをルートとして動く。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - xxxTest は同じソリューションにあり、xxx をプロジェクト参照している。ソリューションをビルドすれば
   xxx → xxxTest の順は MSBuild が自動で解決する (順序を自分で指定しない)。
 - .NET のテストは、`Microsoft.NET.Test.Sdk` + MSTest (v3 以降。VSTest モード) のプロジェクト。`dotnet test` で、trx が出ること。
