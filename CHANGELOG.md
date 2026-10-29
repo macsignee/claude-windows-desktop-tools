@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.22.0] 2026-10-29 (Skill 側のみ。ホスト側の変更なし。疑似プロジェクトで検証済み。実プロジェクトでの確認は、未実施)
+
+- **`test_guard.py` を追加 (`build-test-loop/scripts/`)。「Red を確認したあとの、テストの改変」を、基準との比較で検出する** (読み取り専用。Windows もウォッチャーも不要)。`snapshot` で、テストファイルを `.claude-logs/test_guard_base/` にコピーし、`check` で、いまのテストと比べる。これまで、`build-test-loop` の「止めどき」5 の禁止事項は、文章だけで、守られたかを確かめるのは、人の `git diff` だけだった。
+  - 検査: `TMG001` テストの削除 (error)、`TMG002` `[Ignore]` / `Inconclusive` / `GTEST_SKIP` / `DISABLED_` / 既存のテストへの `[TestCategory]` (error)、`TMG003` アサーションがゼロ (error)、`TMG004` アサーションの減少 (warning)、`TMG005` アサーションを弱める (error)、`TMG006` 許容誤差の拡大 (warning)、`TMG007` `[Timeout]` の延長・`Sleep` の追加・待ちの延長 (warning)、`TMG008` `catch` の追加・例外を期待するアサーションの削除 (warning)、`TMG009` テストを実行から外す設定 (error)、`TMG010` アサーション行の書き換え (review)、`TMG011` Fake・ヘルパー・Setup・設定の変更 (review)。終了コード 0 / 1 / 2 / 3。
+  - テストは、`[TestMethod]` / `TEST` / `TEST_F` / `TEST_P` / `TYPED_TEST` を単位に、名前で突き合わせる。コメントは無視する。文字コード・改行だけの変更、アプリのソースの変更、支援ファイル (`UiDialogs.cs` / `UiTestBase.cs`) の変更では、指摘が出ない。
+  - **承認の扱い:** ユーザーが改変を承認したら、`snapshot` をやり直す (基準の更新)。**鍵ではなく、検知器** (基準のコピーを書き換えられたら、すり抜ける。ヘルパーへの判定の移動と、実装側の細工は、検出できない)。
+- **Skill:** `build-test-loop` に「テストの改変の検査」の節と、「止めどき」5 からの参照。`wpf-test-first` / `cpp-test-first` の 6. (テスト確定後に `snapshot`、実装のあと `check`)、`ui-test-first` の 3. / 4. (Red 確認後に `snapshot`、毎回の実行の前後に `check`)、`add-feature` の 5.-3。
+- **テスト:** `tests/test_guard_test.sh` (92 項目: 誤検出がないこと 10 種類、各コードを 1 つずつ入れた検出、承認後の再 snapshot、`--json` / `--max-lines`、終了コード)。
+- **設計の出どころ:** Copilot の「UI テストファースト開発の、ハーネスとガードの案」を、批判的に検討し、**取り入れたのは、「文章の規則を、機械判定にする」部分だけ** (`docs/DESIGN.md` 4.43)。
+
 ## [2.21.1] 2026-10-28 (ホスト側と Skill 側。実機で未確認)
 
 - **`package_once.sh` / `gtest_once.sh` に、実行 ID の照合と、処理中の印を入れた** (v2.20.0 で、`build_once.sh` などに入れたものと同じ)。フラグに、実行 ID を **コメント行** で書く (gtest: 2 行目の `# run=<ID>`。1 行目は、タグのまま。package: 先頭の `# run=<ID>`。古いウォッチャーは、コメントを、タグや操作と取り違えない。新しい Skill と古いウォッチャーの組み合わせでも動く)。ウォッチャーは、結果のマーカーの直前に、同じ ID を `run_id.txt` に書く。古い実行 (`TIMEOUT` であきらめたが、ウォッチャーは続けていた `vcpkg install` など) が、あとで書いたマーカーを、今回の結果と取り違えない。

@@ -478,6 +478,17 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 | WC4b | **v2.9.3 の確認:** 新しいセッションで、Skill (`winforms-check`) が起動するかを、別の言い方でも試す。(1) `InitializeComponent();` を消した状態で、「アプリを起動すると、ウィンドウは開くのですが、中が空です。原因を調べて、直してください」 (2) `Designer.cs` で、`ClearButton.Name = "clearBtn";` に変えた状態で、「UI テストが、ClearButton を見つけられません。原因を調べてください」 | どちらも、**`Skill` ツールで `winforms-check` を呼び、`winforms_check.py` を、修正の前に実行する** (`WFD001` / `WFD003`)。起動しない場合は、起動しなかった理由 (依頼の文面と、`description` の違い) を、記録する | ✔ (**(1) ✔、(2) は、`description` の再調整のあと、WC4c で ✔**。2026-10-25 実機、`WfFull`。(1) 再配置のあと、`/exit` で起動し直した**新しいセッション**で、`InitializeComponent();` を消した状態に、「アプリを起動すると、ウィンドウは開くのですが、中が空です。原因を調べて、直してください」。**Claude の最初の行動が、「空のウィンドウは WinForms の典型的な不具合パターンなので、まず `winforms-check` スキルで静的検査します」→ `Skill` ツールで `winforms-check` を呼ぶ → `winforms_check.py` を実行 → 原因 (`WFD001`) を特定 → `MainForm.cs` を読んで `Edit` (`InitializeComponent();` を足す。コントロールは消さない) → 再検査で 0 件 → ビルド・テスト `PASSED` → UI テスト 3 件 `PASSED`。** = v2.9.3 の `description` と冒頭の追記が効いた (WC4 では、Skill は修正の後だった)。**(2) 「UI テストが、ClearButton を見つけられません。原因を調べてください」 (`ClearButton.Name = "clearBtn";` の状態。新しいセッション):** Claude は、**`Explore` のサブエージェントで原因を調べ**、`Designer.cs` を読んで、`Name` が変数名と違うことを特定し、`Name` を `"ClearButton"` に戻した (**診断・修正は正しい**)。**`winforms-check` の Skill は、診断の前に呼ばれなかった** (修正の後に、`winforms_check.py` を `python3` で直接実行して 0 件を確認しただけ)。= **`WFD003` を、ツールが見つけたのではない**。v2.9.3 の追記 (`description`) を、さらに調整した (WC4c)。**注: (2) の最初の試行 (13:40) は、私の依頼の誤りで、`Name` の文字列ではなく、フィールド宣言を変えてしまい、コンパイルエラーの状態になっていて、無効だった。** **注意: (1) で、同じセッションで、続けて試した 1 回目 (13:30) は、前回の修正を覚えていて、無効だった。`/clear` でなく、`/exit` で起動し直すこと**) |
 | WC4c | **v2.9.3 の、`description` のさらなる調整の確認:** 新しいセッション (`/exit` で起動し直す) で、`ClearButton.Name = "clearBtn";` の状態に、「UI テストが、ClearButton を見つけられません。原因を調べてください」 | `Skill` ツールで `winforms-check` が、**サブエージェントや `Read` の前に**呼ばれ、`WFD003` が出る。起動しない場合は、**`description` では、足りないと判断する** (この依頼の言い方では、Skill が、使われない。`CLAUDE.md` に「UI テストが要素を見つけられないときは、まず `winforms-check`」と書く案を、検討する) | ✔ (2026-10-25 実機、`WfFull` (`ClearButton.Name = "clearBtn";` の状態)。再配置のあと、`/exit` で起動し直した**新しいセッション**で、「UI テストが、ClearButton を見つけられません。原因を調べてください」。**最初の行動が、`Skill` ツールで `winforms-check` を呼ぶこと** (依頼の 3 秒後。サブエージェントや `grep` より先) → `winforms_check.py` が **`warning WFD003 ClearButton.Name が "clearBtn" (変数名と違う ...) MainForm.Designer.cs(83)`** を出す → UI テスト側の `Find` を `grep` で確認 → 原因を説明 → `Name` を `"ClearButton"` にそろえる (規約どおり) → 再検査で 0 件。= **`WFD003` を、ツールが見つけた**。前回 (`description` の調整前) は、`Explore` のサブエージェントが先で、Skill は使われなかった) |
 
+### 2-7. `test_guard.py` (テストの改変の検出。ウォッチャー不要。`docs/DESIGN.md` 4.43)
+
+**v2.22.0 で追加。疑似ソリューション (`tests/test_guard_test.sh`、92 項目) でのみ検証済み。実プロジェクトでの確認 (TG1) が、最初に必要。**
+
+| # | 操作 | 期待 | 結果 |
+|---|---|---|---|
+| TG1 | **実プロジェクト (大きめのテストを持つ C++ / WPF) で、Red の直後に `snapshot` → 何も変えずに `check`** | 指摘が 0 件。**誤検出がないこと**。出たら、コードと書き方を記録して、`test_guard.py` と `tests/test_guard_test.sh` に反映する | 未実施 |
+| TG2 | 実プロジェクトで、アプリのソースだけを直す (テストは触らない) → `check` | 指摘なし (rc 0) | 未実施 |
+| TG3 | Claude Code で、`/ui-test-first` か `cpp-test-first` → Green の途中で、わざと「テストを通すために、アサーションを弱める」ように誘導する依頼を出す | Claude が `check` を実行し、TMG005 などの error で、元に戻す・止まって確認する | 未実施 |
+| TG4 | 承認後の `snapshot` のやり直し | 以降の `check` が、指摘なし | 未実施 |
+
 ## 3. 疑似ウォッチャー (Windows 不要)
 
 `tests/fake_watcher_test.sh` が、`build_test_once.sh` の結果の分岐を、ファイルを書くだけの偽のウォッチャーで検証する。

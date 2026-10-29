@@ -52,6 +52,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
   ```
   **`--separate` (裏で実行) が、ループの、既定の指定。** WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) だが、**メニューを開く操作を含まないテスト**は、`--separate` で動く。**メニューを開く操作を含むテストは、別のクラス (`<画面>MenuUiTests`) に分け、WPF では `--visible` で実行する** (別のデスクトップでは、WPF のメニューのポップアップが開かず、「要素がない」という、偽の Red になる)。
   `run_in_background: true` で、完了通知を待つ。**Red の確認:** 失敗の理由が、**期待どおり** (要素がない、期待値と違う) であること。**コンパイルエラー、`ENV_ERROR`、フィルターが 0 件 (`ENV_ERROR`、終了コード 4。式の誤り) は、Red ではない** (先に直す)。
+  **Red が確認できたら、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"` (UI テストを、仕様として凍結する。**ユーザーが、テストの変更を承認したときだけ、やり直す**)。
 
 ### 4. 実装して、Green にする (ループ)
 - View (動作) と、Presenter / ViewModel を、実装する。**1 回に、1 つのテストを、通す**ことを、目安にする。
@@ -60,6 +61,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - **止めどきは、`build-test-loop` の「止めどき」に従う:** **1 つの画面の、1 サイクルで、`uitest_once.sh` の実行は、合計 5 回まで** (`BUILD_FAILED` / `FAILED` / `TEST_TIMEOUT` を通算)。**同じ失敗が、3 回続いたら**、止まって、報告する (試したこと、スクリーンショットで見たこと、次の案)。
   - **`TEST_TIMEOUT`:** まず、`.claude-logs/ui-screenshots/ui-trace.txt` の**最後の 10 行**を読む (どのテストの、どの操作で、止まったか。`TEST_TIMEOUT` でも、trace は、残る)。`--filter` を **1 つのテスト**に絞って、もう一度。**`--ui-timeout` を、延ばすのは、1 回だけ** (固まったアプリを、待っても、通らない。モーダルが `Invoke` で戻らない、ダイアログが閉じない、などを疑う)。**2 回続いたら、延長せずに、停止して報告する。**
   - **`TIMEOUT` (rc 5) / `WATCHER_NOT_RUNNING` (rc 3) / `ENV_ERROR` (rc 4):** 再試行せず、停止して報告する (ウォッチャーは、まだ、処理を続けている。ウォッチャーの画面で、終わったかを、ユーザーに確認してもらう)。**この場合、`uitest_once.sh` は、前回のスクリーンショットと trace を、表示しない** (古い結果と取り違えないため)。
+- **毎回の実行の前後と、報告の前に、`python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check "$SLN"` を実行する** (`build-test-loop` の「テストの改変の検査」)。error (テストの削除・`[Ignore]` / `Inconclusive`・アサーションを弱める・`[Timeout]` や待ちの延長・実行から外す設定) は、許可なしにしてはいけない変更。元に戻すか、止まって確認する。warning / review は、理由を報告する。
 - **Green になったら:** その画面の、**全 UI テストを 1 回**実行して、回帰を確認する: `--filter "TestCategory!=Preview"` (**Preview のテストは、アサーションがなく、必ず通るので、回帰の件数に、混ぜない**。報告でも、Preview の件数は、別に書く)。静的な検査 (`winforms-check` / `wpf-check` / `mfc-check`) も、実行する。
 
 ### 5. 次のサイクルか、報告
