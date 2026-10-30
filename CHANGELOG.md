@@ -2,6 +2,11 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.24.3] 2026-10-30 (Skill 側のみ。NS3 の実機の結果から)
+
+- **`/new-solutions` の Skill に、GoogleTest (vcpkg) の仕上げのコマンドを、直接書いた。** 実機 (NS3) で、`/new-solution` を読み込んでいないセッションが、「A. の 5. と同じ」という参照を、たどれず、手順を探して、調査 (Explore) に回った。`package_once.sh "$候補" --timeout 1800 "vcpkg baseline" "vcpkg install"` を、自分の中に書き、「調査に回らず、この手順を使う」と明記した。
+- テスト: `tests/new_solutions_test.sh` 121 件。
+
 ## [2.24.2] 2026-10-30 (Skill 側のみ。ホスト側の変更なし。NS2 の実機の結果から)
 
 - **フラグを書けなかったとき、待たずに、理由を出す** (`build_once.sh` / `build_test_once.sh` (`uitest_once.sh` を含む) / `gtest_once.sh` / `package_once.sh`)。実機 (NS2) で、Claude Code を、実際のフォルダ名と大文字小文字が違う `todo` (実際は `ToDo`) で起動したところ、サンドボックスが、フラグの書き込みを許さず、**フラグがない = 回収された、と判定して、結果を最大 300 秒待ち、`TIMEOUT` になった**。ウォッチャーは、何も出さず、理由は、ユーザーに見えなかった。

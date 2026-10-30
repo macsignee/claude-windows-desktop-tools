@@ -268,6 +268,7 @@ NSK="$(cat "$ROOT/skills/new-solution/SKILL.md")"; NSS="$(cat "$ROOT/skills/new-
 ok "Skill new-solution: 既定は 1 つのソリューション (質問なしで A)。作業フォルダの質問は、しない" "$([ "$(has "$NSK" "どちらのモードか")" = 0 ] && [ "$(has "$NSK" "## C. 作業フォルダ")" = 0 ] && [ "$(has "$NSK" "/new-solutions")" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: 作業フォルダ (disable-model-invocation、.slnx を作らない)" "$([ "$(has "$NSS" "name: new-solutions")" = 1 ] && [ "$(has "$NSS" "disable-model-invocation: true")" = 1 ] && [ "$(has "$NSS" ".slnx\` を作らない")" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solutions / new-solution: 種類の質問は、2 段階 (選択肢は 4 つまで)" "$([ "$(has "$NSS" "種類の質問は、2 段階")" = 1 ] && [ "$(has "$NSK" "2 段階にする")" = 1 ] && echo 1 || echo 0)"
+ok "Skill new-solutions: GoogleTest (vcpkg) の仕上げのコマンドを、自分の中に書く (/new-solution を読み込んでいなくても、分かる)" "$([ "$(has "$NSS" 'package_once.sh "$候補" --timeout 1800 "vcpkg baseline" "vcpkg install"')" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: DLL (dll / lib / csharp-dll) も選べる" "$([ "$(has "$NSS" '`dll` / `lib`')" = 1 ] && [ "$(has "$NSS" '`csharp-dll`')" = 1 ] && echo 1 || echo 0)"
 mkwork; mani '| 名前 | 種類 | 層 | テスト |
 |---|---|---|---|
