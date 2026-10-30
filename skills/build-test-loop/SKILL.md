@@ -238,6 +238,7 @@ python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check    "$SLN
 - **出力の「変更されたテストファイル」の一覧は、報告の先頭に書く** (「止めどき」5 の、機械的な追従の報告と、同じ)。
 - **限界:** 鍵ではなく、検知器。基準のコピーを書き換えれば、すり抜ける (**基準を、勝手に、作り直さない。作り直すのは、ユーザーが承認したとき**)。ヘルパーへ判定を移す細工や、実装側の細工 (テストの入力値に対する固定の答え、`#ifdef TEST`) は、検出できない (そちらは、「止めどき」5 の実装側)。
 - 終了コード: 0 = error なし / 1 = error あり / 2 = 引数が不正 / 3 = 基準がない・テストファイルがない。
+- **`TEST_GUARD:` の行 (自動):** 基準があるとき、`build_test_once.sh` / `uitest_once.sh` は、出力の**末尾**に、`check` の結果を 1 行 (error のときは、数行) 足す。`TEST_GUARD: OK (...)` = 改変なし。`TEST_GUARD: REVIEW (...)` = warning / review がある (全文を見て、変更前後をユーザーに見せる)。`TEST_GUARD: ERROR (...)` = **error: 元に戻すか、止まって確認する** (「止めどき」5。承認されたら、`snapshot` をやり直す)。**この行が出ない = 基準がない** (Red の確認後に `snapshot` を取っていない、またはテストファーストの流れではない)。**出ないからといって、Green のあとに `snapshot` を取らない** (改変を、基準に取り込んでしまう)。1 行目と終了コードは、変わらない (`PASSED` のまま、`TEST_GUARD: ERROR` が付くことがある)。
 
 ## 止めどき (停止の規則。`auto-build` / `build-test-loop` / `wpf-test-first` / `cpp-test-first` / `add-feature` / `ui-test-first` に共通)
 1. **回数の数え方:** スクリプトを実行した回数の**合計**で数える (`BUILD_FAILED` / `FAILED` / `TEST_TIMEOUT` を通算)。**最大 5 回**まで。5 回目も失敗なら、残りの失敗と試した修正を報告して停止する。`add-feature` では、**タスクごと**に数え直す (ただし、1 回の依頼の全体で、**合計 15 回**を超えたら、止めて、報告する)。

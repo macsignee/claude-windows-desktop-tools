@@ -343,5 +343,26 @@ ok "不正なモード: rc=2" "$([ "$rc" = 2 ] && echo 1 || echo 0)"
 fresh; h1=$(cat "$D/$CS" "$D/$CPP" | sha1sum); python3 -I "$S" check "$D" >/dev/null; h2=$(cat "$D/$CS" "$D/$CPP" | sha1sum)
 ok "check は、テストファイルを変えない" "$([ "$h1" = "$h2" ] && echo 1 || echo 0)"
 
+# --- 段階 2 (v2.24.5): test_guard_note.sh が、`TEST_GUARD:` の行を出す。終了コードは、常に 0
+N="$ROOT/skills/build-test-loop/scripts/test_guard_note.sh"
+fresh; rm -rf "$D/.claude-logs/test_guard_base"   # 基準なし → 何も出さない (snapshot を促さない)
+out=$(bash "$N" "$D"); rc=$?
+ok "note: 基準がない → 何も出さない (rc 0)" "$([ -z "$out" ] && [ "$rc" = 0 ] && echo 1 || echo 0)"
+python3 -I "$S" snapshot "$D" >/dev/null
+out=$(bash "$N" "$D"); rc=$?
+ok "note: 無変更 → TEST_GUARD: OK (rc 0)" "$([ "$(has "$out" 'TEST_GUARD: OK (error 0 / warning 0 / review 0)')" = 1 ] && [ "$rc" = 0 ] && echo 1 || echo 0)"
+sed -i 's/EXPECT_EQ(Add(1, 2), 3)/EXPECT_NE(Add(1, 2), 3)/' "$D/$CPP"
+out=$(bash "$N" "$D"); rc=$?
+ok "note: アサーションを弱めた → TEST_GUARD: ERROR + TMG005 の行 (rc 0)" "$([ "$(has "$out" 'TEST_GUARD: ERROR')" = 1 ] && [ "$(has "$out" 'TMG005')" = 1 ] && [ "$(has "$out" '元に戻すか、止まって確認')" = 1 ] && [ "$rc" = 0 ] && echo 1 || echo 0)"
+ok "note: 最初の行が TEST_GUARD: で始まる" "$([ "$(head -n 1 <<<"$out" | cut -c1-12)" = 'TEST_GUARD: ' ] && echo 1 || echo 0)"
+fresh; python3 -I "$S" snapshot "$D" >/dev/null
+sed -i 's/Thread.Sleep(10)/Thread.Sleep(20)/' "$D/$CS" 2>/dev/null
+out=$(bash "$N" "$D")
+ok "note: error がなければ、ERROR を出さない" "$([ "$(has "$out" 'TEST_GUARD: ERROR')" = 0 ] && echo 1 || echo 0)"
+out=$(bash "$N" "$T/no_such_dir"); rc=$?
+ok "note: フォルダがない → 何も出さない (rc 0)" "$([ -z "$out" ] && [ "$rc" = 0 ] && echo 1 || echo 0)"
+BT="$ROOT/skills/build-test-loop/scripts/build_test_once.sh"; UT="$ROOT/skills/build-test-loop/scripts/uitest_once.sh"
+ok "build_test_once.sh は、終了時に note を呼ぶ (UI テストの流れでは呼ばない)。uitest_once.sh は、末尾と早期終了で呼ぶ" "$(grep -q 'test_guard_note.sh' "$BT" && grep -q 'BUILD_TEST_FLAG:-' "$BT" && [ "$(grep -c 'test_guard_note.sh' "$UT")" -ge 2 ] && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]
