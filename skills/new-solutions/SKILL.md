@@ -60,7 +60,11 @@ ToDo/   docs/ideas/  docs/specs/  solutions.md  TodoWpf/  TodoWin/  TodoMfc/
 3. **作成する** (`--dry-run` を外す)。すでに `.slnx` がある候補は、触らない (行を足して、再実行すると、足した分だけ作られる)。**自分で、`.slnx` や `.vcxproj` を手書きしない。**
    - 仕様書 (と「元:」のメモ) が、各候補の `docs/` に取り込まれ、**ハッシュが、候補の `docs/specs/.spec-sync.json` に、記録される。**
    - 全候補の `CLAUDE.md` に、「## 比較の候補」の節 (自動生成。候補の一覧と、仕様書の扱い) が、書かれる・更新される。
-   - **GoogleTest (vcpkg) の仕上げと、最初のベースライン確認は、しない** (候補ごとのウォッチャーが要る)。**候補を扱うときに行う** (A. の 5. と同じ。`package_once.sh "$候補" ...`)。
+   - **GoogleTest (vcpkg) の仕上げと、最初のベースライン確認は、`create` では、しない** (候補ごとのウォッチャーが要る)。**候補を扱うときに行う。** `gtest` の候補で、`create` の出力に `GTEST_VCPKG: no-baseline` と出たら、その候補のウォッチャーを起動してから、次を実行する (自分でフラグを置かない。長いので、`run_in_background: true`、完了通知を待つ。`$候補` は、`resolve` で決めたパス)。**調査 (Explore) に回らず、この手順を使う:**
+     ```bash
+     bash ~/.claude/skills/add-package/scripts/package_once.sh "$候補" --timeout 1800 "vcpkg baseline" "vcpkg install"
+     ```
+     結果の表は、`add-package` Skill の「手順 2: vcpkg」と同じ。`GTEST_VCPKG: present` なら、仕上げは要らない。
 4. **次の手順を、伝える** (出力に、候補ごとの、Windows のパスと `run_watcher.cmd` のコマンドが出る)。**候補の数だけ、ウォッチャーを起動してもらう。**
 5. **仕様を更新したとき:** 作業フォルダの仕様書 (正本) を直し (`/update-from-ideas`)、`new_solutions.py sync-spec "$PWD" --dry-run` で、確認してから、`sync-spec` で反映する。
    **候補側で、編集されたコピーは、上書きされず、「衝突」と報告される** (終了コード 1)。ユーザーに、どちらを残すかを、確認する (候補側が不要なら、そのコピーを消して、再度 `sync-spec`)。**テストケースの種 (`*.cases.md`) は、更新されない** (チェック済みを守る)。各候補の `/add-feature` の計画で、見直す。
