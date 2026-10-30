@@ -66,6 +66,19 @@ resolve_true_case() {
     printf '%s\n' "${resolved:-/}"
 }
 DIR="$(resolve_true_case "$DIR")"
+# ただし、起動したフォルダ ($PWD) の中なら、起動したときの綴りに合わせる。サンドボックスが書き込みを許すのは、起動したときの綴り
+# だけなので、実際の大文字小文字に直すと、かえって書き込めなくなる (Windows 側は、大文字小文字を区別しないので、どちらでも同じ)
+align_to_launch_case() {
+    local d="$1" p="$PWD"
+    if [ "${d,,}" = "${p,,}" ]; then
+        printf '%s\n' "$p"
+    elif [[ "${d,,}" == "${p,,}/"* ]]; then
+        printf '%s\n' "$p/${d:$((${#p}+1))}"
+    else
+        printf '%s\n' "$d"
+    fi
+}
+DIR="$(align_to_launch_case "$DIR")"
 
 FLAG="$DIR/trigger_gtest.flag"
 RESULT="$DIR/gtest_result.txt"

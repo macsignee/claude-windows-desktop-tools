@@ -56,6 +56,19 @@ resolve_true_case() {
     printf '%s\n' "${resolved:-/}"
 }
 DIR="$(resolve_true_case "$DIR")"
+# ただし、起動したフォルダ ($PWD) の中なら、起動したときの綴りに合わせる。サンドボックスが書き込みを許すのは、起動したときの綴り
+# だけなので、実際の大文字小文字に直すと、かえって書き込めなくなる (Windows 側は、大文字小文字を区別しないので、どちらでも同じ)
+align_to_launch_case() {
+    local d="$1" p="$PWD"
+    if [ "${d,,}" = "${p,,}" ]; then
+        printf '%s\n' "$p"
+    elif [[ "${d,,}" == "${p,,}/"* ]]; then
+        printf '%s\n' "$p/${d:$((${#p}+1))}"
+    else
+        printf '%s\n' "$d"
+    fi
+}
+DIR="$(align_to_launch_case "$DIR")"
 
 # 終了時 (どの結果のときも): WPF の XAML にメニューがあれば、ユーザーのデスクトップのウォッチャーを使う旨を、知らせる (1 行目と終了コードは、変えない)
 note="$(dirname "${BASH_SOURCE[0]}")/../../build-test-loop/scripts/wpf_menu_note.sh"
