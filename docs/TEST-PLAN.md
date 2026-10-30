@@ -508,6 +508,18 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 | NS8 | **(v2.24.0)** `solutions.md` があり、`.sln` がないフォルダ (例: `ToDo`) で、`/new-solution` を単独で入力 | 「複数の候補の作業フォルダです。作成は `/new-solutions` で行います」と伝えて止まる。**`<フォルダ名>.slnx` は、作られない** | ✔ (2026-10-30 実機、`ToDo` (候補 3 つと `solutions.md`): 「`solutions.md` があり、複数の候補の作業フォルダ。`/new-solution` は使えない。作成は `/new-solutions`」と伝え、新しい候補の追加は `/new-solutions`、既存の候補への後付けは、その候補のフォルダで `/new-solution`、と案内した。質問 (種類・層・テスト) には進まなかった。**`ToDo.slnx` が作られていないことは、`ls` で未確認** (作成の報告はなかった)) |
 | NS9 | **(v2.24.0)** 空のフォルダで `/new-solutions` を単独で入力。候補に **DLL** (`dll` / `csharp-dll`) を含める。案の提示で止まること、了承後に作成されること | 種類・層・テストの質問 → `solutions.md` → dry-run の要約 → 了承 → 作成。DLL の候補にも `.slnx` とテストのプロジェクトが付く。`create` の出力に、候補ごとの `run_watcher.cmd` が出る | ✔ (2026-10-30 実機、空の `ToDo`、`/new-solutions`。`TodoWpf` (wpf、data,logic,viewmodel、mstest) と `TodoCore` (**C++ の `dll`**、層なし、gtest)。案の提示 (`--dry-run`) で止まり、「作成する」の選択後に作成。**`create` の出力: 「次の手順」に、Windows のパス (`c:\Workspace\...\todo\TodoWpf`) と `run_watcher.cmd "<パス>"`、`TodoCore` には GoogleTest (vcpkg) の仕上げの案内 (`GTEST_VCPKG: no-baseline`)**。作業フォルダの `ls`: `TodoCore TodoWpf docs solutions.md` (**`ToDo.slnx` なし**)。`TodoCore` の `ls`: `CLAUDE.md TodoCore TodoCore.slnx TodoCoreTest vcpkg.json`。**質問の出し方 (未解決の点):** 種類は 2 段階 (系統 → 中の種類) で出た。ただし (1) 質問の順序が、候補をまたいで入り乱れた (`TodoCore` の種類 → `TodoWpf` の層 → `TodoWpf` のテスト → `TodoCore` のテスト)。候補ごとにまとめて聞くよう、Skill を直す予定。(2) `TodoWpf` は、名前から種類を判断して、系統の質問を省いた。(3) 選択肢の例が exe の組み合わせだけ、「その他」と入力欄の重複。(4) `run_watcher.cmd` の場所は、出力に書かれない。ビルド・テスト (ウォッチャー) は、未実施) |
 
+### 2-9. `ui-design-review` (UI デザインガイドライン。ウォッチャー不要。`docs/DESIGN.md` 4.45)
+
+**v2.26.0 で追加。疑似プロジェクトの単体テスト (`tests/ui_guideline_check_test.sh`、60 件) は通っているが、実プロジェクトは未確認。** 準備: `install.sh --skills-only` で再配置する (`~/.claude/skills/ui-design-review/` に、`SKILL.md`・`scripts/`・`references/` が入る)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| UG1 | 実機で、`new-solution` で作った WPF / WinForms / MFC (`mfc-dialog`) の直後に、`ui_guideline_check.py` | **既知の指摘だけ**が出る: UI-DPI-002 (3 種類)、UI-CTL-100 (MFC)、UI-ACC-001 (WPF の `TextBox`)。それ以外の warning は、出ない (出たら、誤検出か、テンプレートの問題かを、記録する) | 未 |
+| UG2 | **既存の実プロジェクト** (ユーザーが選ぶ。WPF / WinForms / MFC) に、`ui_guideline_check.py --all` | 誤検出の有無を、記録する (どのコードの、どの書き方か)。特に、`UIG-ACC001` (スタイルでの名前)、`UIG-CTL091` (取り消せる削除)、VS のデザイナーが書き直した `Designer.cs` | 未 |
+| UG3 | Claude Code で、「この画面を、UI デザインのガイドラインでレビューして」 | `ui-design-review` が起動し、静的検査を実行し、**ガイドラインの全文を読まず** (`grep -n` で規則を探す)、付録 F の該当章を判定する (適合 / 不適合 / 対象外 / 確認不能)。付録 F.2 の様式で報告する | 未 |
+| UG4 | `/ui-test-first <画面の説明>` の、計画の表 | 付録 E の、該当する項目と、**守る規則 ID** が、表に入っている | 未 |
+| UG5 | `install.sh --skills-only` のあと、`cmp ~/.claude/skills/ui-design-review/references/UI-Design-Guidelines.md skills/ui-design-review/references/UI-Design-Guidelines.md` | 一致する | 未 |
+
 ## 3. 疑似ウォッチャー (Windows 不要)
 
 `tests/fake_watcher_test.sh` が、`build_test_once.sh` の結果の分岐を、ファイルを書くだけの偽のウォッチャーで検証する。

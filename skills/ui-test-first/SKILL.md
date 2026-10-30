@@ -28,6 +28,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - **どこで確かめるか:** 規則 (純粋な関数の単体テスト) / 煙テスト (UI テスト)。**UI テストは、主要な流れに、絞る** (見た目、レイアウト、色は、対象外)。
 - **実行の指定:** 絞り込みの式 (`--filter`)、制限時間 (`--ui-timeout`。重い画面は、長く)。
 - **目視確認 (プレビュー):** 画面ごとに、**その画面を開いた状態を見せるテスト** (`Preview_<画面>`、`[TestCategory("Preview")]`) を 1 つ置く。いつもは、裏で実行し、見たいときだけ、ユーザーのデスクトップに出す (下の「目視確認」)。
+- **ガイドライン (`/ui-design-review`):** UI デザインガイドラインに沿う。**付録 E の項目のうち、この画面に該当するもの** (コントロール一覧、キーボード、画面の状態、ボタンの動作、処理時間の区分、アクセシビリティ) を、この表に含め、**守る規則 ID** (必須の規則を優先) を書く。
 
 | フレームワーク | 部品の識別 (UIA の AutomationId) | View に書くもの |
 |---|---|---|
@@ -94,6 +95,7 @@ bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "Fu
 - ふだんの実行 (`--present` なし) では、枠も待ちも、ない。`--separate` とは、組み合わせられない。
 
 ## 実行のコツ
+- **ガイドラインの検査:** 画面が Green になったら、`python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN"` (読み取りだけ) を実行し、warning を報告に添える (`/ui-design-review`)。**必須の規則を満たせないときは、自分で例外にせず、ユーザーに、例外申請を提案する。**
 - **制限時間:** 1 回の `uitest_once.sh` が、`TEST_TIMEOUT` になるときは、`--ui-timeout` を長くする。毎回の指定が面倒なら、`uitest.settings` に `timeout=1800` を書く。`--filter` で、絞る (全部を、毎回、走らせない)。調査用の、重いテストは、**新しく**、テストごとに `[Timeout]` を付け、ログを 1 行ごとに書く (killed されても、結果が残る)。**既存の `[Timeout]` を、通すために延ばすのは、禁止** (`build-test-loop` の「止めどき」)。
 - **デスクトップ:** `--visible` / `--separate` で、1 回だけ、変えられる。WPF のメニューは、別のデスクトップでは、開かない。
 - **フィルターの式の例:** `FullyQualifiedName~LoginDialog` (クラス名に含む)、`Name=Greeting_NameEntered_ShowsGreeting` (テスト名)、`FullyQualifiedName~Settings&Name~Ok` (組み合わせ)。引用符は、使えない。

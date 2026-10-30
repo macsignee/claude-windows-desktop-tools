@@ -89,6 +89,9 @@ wpf-check: error 2 / warning 1 (3 projects: WpfApp, MyApp.ViewModels, MyApp.Logi
 - `obj/` の生成物 (`*.g.cs` `*.g.i.cs`) は、直接編集しない。`.csproj` / `Directory.Build.props` / `global.json` の編集は、ユーザーの確認が要る設定のことがある (`docs/RECOMMENDED-SETTINGS.md`)。
 - XAML の編集は、**属性の値の、`{` `}` と引用符を、壊さない**。文字コードと改行 (UTF-8 の BOM の有無、CRLF) を、変えない。
 
+## UI デザインガイドラインの検査
+この検査は、**実行時に壊れる部分**を見る。画面の**設計** (ボタンの並び・既定のボタン・アクセスキー・アクセシブル名・DPI・色・メッセージなど) は、UI デザインガイドラインで、`/ui-design-review` が扱う (`ui_guideline_check.py` は、WPF の画面の、一部の規則を、静的に検査する)。
+
 ## 誤検出と限界
 - **静的解析**。実行はしない。**検査するのは、「確実に壊れる」ものと「疑わしい」もの。通ったことは、動くことを意味しない** (見た目・レイアウト・スタイル・データの中身は、対象外)。
 - **DataContext の型は、次の場所から、推定する:** XAML の `DataContext` 属性・`<X.DataContext>` (`{StaticResource}` で参照するリソースを含む)、`DataTemplate` の `DataType`、code-behind の `DataContext = new Xxx()` / `= this` / `= コンストラクター引数` / `GetService<Xxx>()`、ウィンドウを作るコードの `new MainWindow { DataContext = new Xxx() }`。**`d:DataContext` (デザイン時) だけが根拠のときは、error ではなく warning。** どれでも分からなければ、バインディングは、検査しない。
