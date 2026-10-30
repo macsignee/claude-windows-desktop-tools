@@ -264,8 +264,17 @@ for sk in auto-build build-test-loop add-package cpp-test-first wpf-test-first u
     ok "Skill $sk: 作業フォルダでの対象の決め方 (resolve)" "$(has "$(cat "$ROOT/skills/$sk/SKILL.md")" 'new_solutions.py resolve "$PWD"')"
 done
 ok "Skill add-feature: new_solution.py に \$PWD を渡さない (\$SLN)" "$(hasnt "$(cat "$ROOT/skills/add-feature/SKILL.md")" 'new_solution.py "$PWD"')"
-ok "Skill new-solution: .sln も solutions.md もないときは、先に質問する (黙って A にしない)" "$([ "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "### どちらのモードか")" = 1 ] && [ "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "黙って、A にしない")" = 1 ] && [ "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "先に質問する")" = 1 ] && echo 1 || echo 0)"
-ok "Skill new-solution: モード C (作業フォルダ)" "$(has "$(cat "$ROOT/skills/new-solution/SKILL.md")" "## C. 作業フォルダ")"
+NSK="$(cat "$ROOT/skills/new-solution/SKILL.md")"; NSS="$(cat "$ROOT/skills/new-solutions/SKILL.md")"
+ok "Skill new-solution: 既定は 1 つのソリューション (質問なしで A)。作業フォルダの質問は、しない" "$([ "$(has "$NSK" "どちらのモードか")" = 0 ] && [ "$(has "$NSK" "## C. 作業フォルダ")" = 0 ] && [ "$(has "$NSK" "/new-solutions")" = 1 ] && echo 1 || echo 0)"
+ok "Skill new-solutions: 作業フォルダ (disable-model-invocation、.slnx を作らない)" "$([ "$(has "$NSS" "name: new-solutions")" = 1 ] && [ "$(has "$NSS" "disable-model-invocation: true")" = 1 ] && [ "$(has "$NSS" ".slnx\` を作らない")" = 1 ] && echo 1 || echo 0)"
+ok "Skill new-solutions: DLL (dll / lib / csharp-dll) も選べる" "$([ "$(has "$NSS" '`dll` / `lib`')" = 1 ] && [ "$(has "$NSS" '`csharp-dll`')" = 1 ] && echo 1 || echo 0)"
+mkwork; mani '| 名前 | 種類 | 層 | テスト |
+|---|---|---|---|
+| LibCpp | dll | none | gtest |
+| LibCs | csharp-dll | none | mstest |
+| LibSt | lib | logic | none |'; run create "$W"
+ok "DLL の候補 (dll / csharp-dll / lib) を作れる: rc=0" "$(eq $rc 0)"
+ok "DLL: LibCpp.slnx / LibCs.slnx / LibSt.slnx" "$([ "$(isf "$W/LibCpp/LibCpp.slnx")" = 1 ] && [ "$(isf "$W/LibCs/LibCs.slnx")" = 1 ] && [ "$(isf "$W/LibSt/LibSt.slnx")" = 1 ] && echo 1 || echo 0)"
 ok "Skill update-from-ideas: 作業フォルダでは、構成案を出さない" "$(has "$(cat "$ROOT/skills/update-from-ideas/SKILL.md")" "構成案は、出さない")"
 
 # ---------------------------------------------------------------- 補助

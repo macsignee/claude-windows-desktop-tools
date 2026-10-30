@@ -491,16 +491,19 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 
 ### 2-8. 作業フォルダの下の、候補ごとのソリューション (`new_solutions.py`。`docs/DESIGN.md` 4.44)
 
-**v2.23.0 で追加。疑似フォルダ (`tests/new_solutions_test.sh`) でのみ検証済み。実機での確認 (NS1〜) が、必要。** 準備: `c:\workspace\macsignee\source\repos\ToDo` のような作業フォルダ。Claude Code を、そのフォルダで起動する。
+**v2.23.0 で追加。疑似フォルダ (`tests/new_solutions_test.sh`) で検証済み。実機: NS1 は確認済み (2026-10-29。一部未確認の点が、結果の欄にある)。NS2〜NS6 は、未実施。** 準備: `c:\workspace\macsignee\source\repos\ToDo` のような作業フォルダ。Claude Code を、そのフォルダで起動する。
 
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
-| NS1 | 作業フォルダで起動し、`/brainstorm` → `/update-from-ideas` で、`docs/specs/todo.md` を作る。会話で `solutions.md` を作り (WPF / WinForms / MFC)、`create --dry-run` → `create` | **配下に、候補のフォルダが作れる** (サンドボックスの書き込み)。仕様書が、各候補に取り込まれ、`CLAUDE.md` に節が入る。**`/new-solution` は、最初に、「1 つのソリューションか、複数の候補を作る作業フォルダか」を質問する** (v2.23.1。黙って、`ToDo.slnx` を作らない) | 未実施 |
+| NS1 | 作業フォルダで起動し、**スラッシュコマンドを、1 つずつ、単独で入力する** (`/brainstorm <一言>` → `/update-from-ideas <メモ>` → `/new-solution`。**依頼文の中に、`/brainstorm` を埋めても、起動しない**: `disable-model-invocation: true`)。会話で `solutions.md` を作り (WPF / WinForms / MFC)、`create --dry-run` → `create` | **配下に、候補のフォルダが作れる** (サンドボックスの書き込み)。仕様書が、各候補に取り込まれ、`CLAUDE.md` に節が入る。**`/new-solution` は、最初に、「1 つのソリューションか、複数の候補を作る作業フォルダか」を質問する** (v2.23.1。黙って、`ToDo.slnx` を作らない) | ✔ (2026-10-29 実機、`c:\workspace\macsignee\source\repos\ToDo`。**配下への書き込みは、通った** (拒否なし)。`/update-from-ideas` で作った仕様書 `docs/specs/todo-add-complete-list.md` に、3 種類を比べる計画 (構成案) があったため、`/new-solution` は、**質問を省いて C. に入り**、`solutions.md` を書いて、dry-run の案を示し、了承を待った。表: `TodoWpf` (wpf、`data,logic,viewmodel`、mstest、flaui) / `TodoWinForms` (winforms、`logic,data`、mstest、flaui) / `TodoMfc` (mfc-dialog、`logic,data`、gtest、none)。**作成後 (読み取りで確認):** 3 候補とも、`<候補名>.slnx`、層とテスト (WPF: `DataLayer` `LogicLayer` `ViewModels` と各 `.Tests`、`TodoWpf.UITests`。WinForms: 2 層と各 `.Tests`、`TodoWinForms.UITests`。MFC: 2 層と各 `Test`、`vcpkg.json`)、`docs/specs/` に仕様書・`.cases.md`・`.spec-sync.json`、`docs/ideas/` に元のメモ、`CLAUDE.md` に「## 比較の候補」と「## 仕様書」の節が 1 つずつ (内容は、設計どおり)。**実フォルダで、`sync-spec --dry-run` は、6 件すべて「最新」、衝突 0 件。`resolve` は、名前なしで終了コード 2 と候補の一覧、`todowpf` で `.../TodoWpf`。** 配置先の Skill は、v2.23.1 (「どちらのモードか」が入っている)。**未確認:** `create` の出力の、次の手順 (Windows のパス `c:\...` への変換、候補ごとの `run_watcher.cmd`。出力を見ていない)、v2.23.1 の初回の質問は、**2026-10-29 に、空の作業フォルダ (`ToDoEmpty`) で確認済み**: `.sln` も `solutions.md` もないことを確かめてから、「1 つのソリューションか、複数の候補の作業フォルダか」を質問し、「作業フォルダ」の選択後に、候補の種類と仕様書の有無を聞いた。質問の前に、`ToDoEmpty.slnx` は作られなかった (候補の作成、テストの質問、案の提示は、この回では未確認)。**手順の誤り (私の依頼文):** 最初に、`/brainstorm` を依頼文の中に埋めたため、セッションが、スキルを起動できなかった (仕様どおりの動作)。上の操作欄のとおり、スラッシュコマンドを、単独で入力する) |
 | NS2 | 候補ごとに、`run_watcher.cmd "<候補のフォルダ>"` を起動 (2 つ以上)。作業フォルダの Claude から、`resolve` で対象を決めて、`build_once.sh` / `build_test_once.sh` を、候補ごとに実行 | 候補ごとに、`SUCCESS` / `PASSED`。**複数のウォッチャーが、同時に、独立して動く** (Mutex は、フォルダごと) | 未実施 |
 | NS3 | gtest の候補で、`package_once.sh "$候補" "vcpkg baseline" "vcpkg install"` (GTEST_VCPKG: no-baseline) | その候補のウォッチャーで、仕上がる (4.41 と同じ) | 未実施 |
 | NS4 | 正本の仕様書を直し、`sync-spec --dry-run` → `sync-spec`。1 つの候補のコピーを、先に編集しておく | 未編集の候補は、更新。編集済みは、**衝突**と報告され、上書きされない | 未実施 |
 | NS5 | `solutions.md` に行を足して、`create` を再実行 | 足した候補だけが、作られる。既存の候補の `CLAUDE.md` は、節だけが、更新される | 未実施 |
 | NS6 | 候補のフォルダで、Claude を起動し直し、`/add-feature` を実行 (従来の運用) | これまでどおり動く (`$SLN` = カレント)。節の案内が、読める | 未実施 |
+| NS7 | **(v2.24.0)** 空のフォルダ (`.sln` も `solutions.md` もない) で、`/new-solution` を単独で入力 | **作業フォルダかどうかの質問が出ず**、1 つのソリューションの質問 (種類・層・テスト) に、入る | 未実施 |
+| NS8 | **(v2.24.0)** `solutions.md` があり、`.sln` がないフォルダ (例: `ToDo`) で、`/new-solution` を単独で入力 | 「複数の候補の作業フォルダです。作成は `/new-solutions` で行います」と伝えて止まる。**`<フォルダ名>.slnx` は、作られない** | 未実施 |
+| NS9 | **(v2.24.0)** 空のフォルダで `/new-solutions` を単独で入力。候補に **DLL** (`dll` / `csharp-dll`) を含める。案の提示で止まること、了承後に作成されること | 種類・層・テストの質問 → `solutions.md` → dry-run の要約 → 了承 → 作成。DLL の候補にも `.slnx` とテストのプロジェクトが付く。`create` の出力に、候補ごとの `run_watcher.cmd` が出る | 未実施 |
 
 ## 3. 疑似ウォッチャー (Windows 不要)
 
