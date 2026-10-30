@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.26.0] 2026-10-30 (Skill 側のみ。ホスト側の変更なし。疑似プロジェクトで検証済み。実プロジェクトでの確認は、未実施)
+
+- **UI デザインガイドライン (v2.10、草案) を取り込み、`/ui-design-review` の Skill を追加した。** `skills/ui-design-review/references/UI-Design-Guidelines.md` (ガイドライン本体。`install.sh` で、バイト単位で配布される)、`SKILL.md`、`scripts/ui_guideline_check.py`。
+  - **使い方:** (1) 設計: 計画に、付録 E (仕様書テンプレート) の該当項目と、守る規則 ID を書く。(2) レビュー: 静的検査 + 付録 F のチェックリスト (判定は、適合 / 不適合 / 対象外 / 確認不能)。(3) 規則の確認: ID で `grep` する (**本文は約 1,200 行。全文は読まない**)。
+  - **`ui_guideline_check.py` (読み取り専用。Windows 不要):** WPF (XAML)、WinForms (`*.Designer.cs`)、MFC (`.rc` / `.vcxproj`) の、静的に判定できる規則を検査する。**15 コード** (`UIG-KEY006` `UIG-CTL091` `UIG-LAY007` `UIG-CTL003` / `UIG-CTL003T` `UIG-ACC001` `UIG-LAY005` `UIG-TYP001` `UIG-LOC001` `UIG-DPI001` `UIG-DPI002` `UIG-CTL100` / `UIG-CTL100V` / `UIG-CTL100U` `UIG-CTL101`)。**必須の規則への指摘は warning、推奨は info (`--all`)。** 終了コード: 0 (指摘があっても 0) / 2 (引数) / 3 (対象なし)。`--fail-on-warning` で、warning があれば 1。`--json` あり。
+  - **新規生成のソリューションの、既知の未対応:** UI-DPI-002 (WPF / WinForms / MFC)、UI-CTL-100 (MFC。`pch.h` に、Common Controls のコンパイラ指令がない)、UI-ACC-001 (WPF の入力欄に、アクセシブル名がない) を、満たしていない。**テンプレートは、変えていない** (実機のビルドで確かめられないため)。DESIGN 4.45、NEXT-STEPS。
+- **Skill:** `ui-test-first` (計画の表に、付録 E の項目と、守る規則 ID。Green のあとに、静的検査)、`add-feature` (UI 層のタスク)、`wpf-check` / `winforms-check` / `mfc-check` (案内の節) に、`/ui-design-review` への参照を追加。
+- **テスト:** `tests/ui_guideline_check_test.sh` 60 件 (各コードの、検出と非検出 / テンプレートの内側と `ResourceDictionary` の除外 / 異なる Common Controls の版の衝突 / 終了コード / `--json` / 読み取り専用 / 生成したソリューションでの動作 / 検査の規則 ID が、参照文書の、有効な規則であること / 版の一致 / Skill の記述 / 配布)。`ui_test_first_skill_test.sh` (16)、`wpf_check_test.sh` (78)、`winforms_check_test.sh` (29)、`mfc_check_test.sh` (76)、`tools/check-formats.sh` は、変更なしで通る。
+- 設計: `docs/DESIGN.md` 4.45。
+
 ## [2.25.0] 2026-10-30 (ホスト側に、任意のファイルを 1 つ追加。既存のファイルは、変更なし)
 
 - **`host-tools/run_watchers.cmd` を追加: 候補をまとめて起動する。** `run_watchers.cmd [作業フォルダ] [/list]`。作業フォルダの**直下**で、`.slnx` / `.sln` があるサブフォルダを候補として、同じフォルダの `run_watcher.cmd` を起動する (ウォッチャーは、1 つのフォルダ用)。**`wt.exe` (Windows ターミナル) があれば、名前つきのウィンドウ `watchers` の、候補ごとのタブ**。ないとき、または `/windows` のときは、候補ごとに別のコンソールのウィンドウ。`/list` は、一覧だけ。名前が `.` で始まるフォルダは、飛ばす。すでに動いている候補は、`watch_and_build.ps1` の二重起動の拒否が断る。ASCII + CRLF (CP932 でも安全)。`run_watcher.cmd` / `watch_and_build.ps1` は、変えていない (ウォッチャーの再起動は、要らない)。
