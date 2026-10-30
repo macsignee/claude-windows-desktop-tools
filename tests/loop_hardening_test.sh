@@ -252,5 +252,13 @@ for spec in "auto-build/scripts/build_once.sh|trigger_build.flag|" "build-test-l
     ok "$(basename "$sc"): says that nothing was started / run again from the start" "$(grep -q 'nothing was started' <<<"$out" && grep -q 'from the start' <<<"$out" && echo 1 || echo 0)"
 done
 
+# --- 起動したフォルダの綴りに合わせる (v2.24.4): 起動が小文字 (todo)、実際が ToDo のとき、フラグを、起動した綴りで書く
+# (Linux は大文字小文字を区別するので、関数だけを取り出して、文字列として確かめる。実機の確認は、TEST-PLAN の NS10)
+for sc in auto-build/scripts/build_once.sh build-test-loop/scripts/build_test_once.sh new-solution/scripts/gtest_once.sh add-package/scripts/package_once.sh; do
+    fn="$(sed -n '/^align_to_launch_case()/,/^}/p' "$ROOT/skills/$sc")"
+    r="$(bash -c 'PWD=/mnt/c/Workspace/todo; '"$fn"'; a() { align_to_launch_case "$1"; }; echo "$(a /mnt/c/Workspace/ToDo)|$(a /mnt/c/Workspace/ToDo/sub/X)|$(a /mnt/c/Workspace/ToDoX)|$(a /mnt/c/Workspace/Other)"')"
+    ok "$(basename "$sc"): paths in the launch folder use the launch spelling; others are untouched ($r)" "$([ "$r" = "/mnt/c/Workspace/todo|/mnt/c/Workspace/todo/sub/X|/mnt/c/Workspace/ToDoX|/mnt/c/Workspace/Other" ] && echo 1 || echo 0)"
+done
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
