@@ -510,15 +510,17 @@ WSL で `python3 <new-solution>/scripts/new_solution.py "$PWD" --type wpf --laye
 
 ### 2-9. `ui-design-review` (UI デザインガイドライン。ウォッチャー不要。`docs/DESIGN.md` 4.45)
 
-**v2.26.0 で追加。疑似プロジェクトの単体テスト (`tests/ui_guideline_check_test.sh`、60 件) は通っているが、実プロジェクトは未確認。** 準備: `install.sh --skills-only` で再配置する (`~/.claude/skills/ui-design-review/` に、`SKILL.md`・`scripts/`・`references/` が入る)。
+**v2.26.0 で追加。疑似プロジェクトの単体テスト (`tests/ui_guideline_check_test.sh`、v2.26.1 で 69 件) は通っている。実機の確認: UG1・UG2・UG5 ✔、UG3・UG4 △ (2026-10-30。v2.26.1 で修正。再確認は UG3b・UG4b)。** 準備: `install.sh --skills-only` で再配置する (`~/.claude/skills/ui-design-review/` に、`SKILL.md`・`scripts/`・`references/` が入る)。
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| UG1 | 実機で、`new-solution` で作った WPF / WinForms / MFC (`mfc-dialog`) の直後に、`ui_guideline_check.py` | **既知の指摘だけ**が出る: UI-DPI-002 (3 種類)、UI-CTL-100 (MFC)、UI-ACC-001 (WPF の `TextBox`)。それ以外の warning は、出ない (出たら、誤検出か、テンプレートの問題かを、記録する) | 未 |
-| UG2 | **既存の実プロジェクト** (ユーザーが選ぶ。WPF / WinForms / MFC) に、`ui_guideline_check.py --all` | 誤検出の有無を、記録する (どのコードの、どの書き方か)。特に、`UIG-ACC001` (スタイルでの名前)、`UIG-CTL091` (取り消せる削除)、VS のデザイナーが書き直した `Designer.cs` | 未 |
-| UG3 | Claude Code で、「この画面を、UI デザインのガイドラインでレビューして」 | `ui-design-review` が起動し、静的検査を実行し、**ガイドラインの全文を読まず** (`grep -n` で規則を探す)、付録 F の該当章を判定する (適合 / 不適合 / 対象外 / 確認不能)。付録 F.2 の様式で報告する | 未 |
-| UG4 | `/ui-test-first <画面の説明>` の、計画の表 | 付録 E の、該当する項目と、**守る規則 ID** が、表に入っている | 未 |
-| UG5 | `install.sh --skills-only` のあと、`cmp ~/.claude/skills/ui-design-review/references/UI-Design-Guidelines.md skills/ui-design-review/references/UI-Design-Guidelines.md` | 一致する | 未 |
+| UG1 | 実機で、`new-solution` で作った WPF / WinForms / MFC (`mfc-dialog`) の直後に、`ui_guideline_check.py` | **既知の指摘だけ**が出る: UI-DPI-002 (3 種類)、UI-CTL-100 (MFC)、UI-ACC-001 (WPF の `TextBox`)。それ以外の warning は、出ない (出たら、誤検出か、テンプレートの問題かを、記録する) | ✔ (2026-10-30 実機。配置済みの Skill のスクリプトで、新しく生成した WPF / WinForms / MFC dialog / MFC MDI を検査。WPF: `UIG-ACC001` / `UIG-DPI002` (と info の `UIG-LOC001`)、WinForms: `UIG-DPI002`、MFC: `UIG-CTL100` / `UIG-DPI002`。**既知の指摘だけ。** v2.26.1 で `UIG-LOC001` が warning になったので、WPF の生成直後は、`UIG-LOC001` も、warning で出る) |
+| UG2 | **既存の実プロジェクト** (ユーザーが選ぶ。WPF / WinForms / MFC) に、`ui_guideline_check.py --all` | 誤検出の有無を、記録する (どのコードの、どの書き方か)。特に、`UIG-ACC001` (スタイルでの名前)、`UIG-CTL091` (取り消せる削除)、VS のデザイナーが書き直した `Designer.cs` | ✔ (2026-10-30 実機。既存の 12 フォルダ (`WpfDlg` `WfDlg` `wpfsample` `ToDo` `ShogiGUI` `DoubleBufferSample` `CppSamples` `MFCFirstApp` `MFCMDISolutionSample` `GDIExplorer` `Shos.MiniCadSample-main` `MyFirstWindowsApplication`) で、異常終了なし、**誤検出なし**。真陽性: `DoubleBufferSample` の `IDD_LINESTYLE` の `&W` の重複 (「線幅(&W)」と「太字(&W)」)、`MFCFirstApp` (VS のウィザード製) は `framework.h` のコンパイラ指令を検出し `UIG-CTL100` なし、`Shos.MiniCadSample-main` (マニフェストなし) は `UIG-CTL100`、`WpfDlg` のラベルなしの `TextBox` は `UIG-ACC001`。`UIG-DPI002` は、ほぼすべてで出る (規則が「明示」を求めるため)。**未確認:** XAML のスタイルが名前を与える画面の `UIG-ACC001`) |
+| UG3 | Claude Code で、「この画面を、UI デザインのガイドラインでレビューして」 | `ui-design-review` が起動し、静的検査を実行し、**ガイドラインの全文を読まず** (`grep -n` で規則を探す)、付録 F の該当章を判定する (適合 / 不適合 / 対象外 / 確認不能)。付録 F.2 の様式で報告する | △ (2026-10-30 実機。依頼文「`c:\workspace\macsignee\source\repos\wpfsample の画面を、UI デザインのガイドラインに沿っているかレビューして`」で、**自動起動した** (`Skill(ui-design-review)` を読み込み)。静的検査と、付録 F の判定 (適合 / 不適合 / 対象外 / 確認不能) は ✔。**付録 F.2 の様式では、報告されなかった** (確認した項目などの欄がない)。**内容の誤り 3 点:** WPF の DPI の既定を「PerMonitorV2 相当」と書いた (実際は、システム DPI 対応)、存在しない節 (14.3) の引用、§2.6 にない根拠 (「Undo 不要域」)。全文を読まなかったかは、未確認。→ v2.26.1 で `SKILL.md` を修正。再確認は UG3b) |
+| UG4 | `/ui-test-first <画面の説明>` の、計画の表 | 付録 E の、該当する項目と、**守る規則 ID** が、表に入っている | △ (2026-10-30 実機。`/ui-test-first 名前を入力して、挨拶を表示する画面` で、計画 (部品・操作と期待・目視確認・実行) が出た。ガイドラインは、確認観点として、UI-KEY-001 と UI-CTL-004 が、**表の後ろの 1 段落**に入った。**表の列ではなく、付録 E の項目との対応もない。** 既知の指摘 (ラベル不在) には触れ、対応は、あとで聞くとした。承認の質問で、`add_ui_tests.py` による `wpfsample.UITests` の新規作成を示した (UG4 の目的のため、「中止」)。→ v2.26.1 で `ui-test-first` を修正。再確認は UG4b) |
+| UG5 | `install.sh --skills-only` のあと、`cmp ~/.claude/skills/ui-design-review/references/UI-Design-Guidelines.md skills/ui-design-review/references/UI-Design-Guidelines.md` | 一致する | ✔ (2026-10-30 実機。18:54 に配置。`SKILL.md` / `references/` / `scripts/` が、リポジトリ (main) と一致。更新した他の 5 つの Skill (`ui-test-first` `add-feature` `wpf-check` `winforms-check` `mfc-check`) も一致) |
+| UG3b | **(v2.26.1)** `install.sh --skills-only` で再配置し、新しいセッションで、UG3 と同じ依頼 | 報告が、**付録 F.2 の様式** (画面名・対象技術・適用した付録・レビュー者・レビュー日・仕様書の版・確認した項目・不適合・確認不能) になる。WPF の DPI の記述が、「既定でシステム DPI 対応」。存在しない節を引用しない。`UIG-LOC001` などの必須の規則への指摘が、**既定で見える** | 未 |
+| UG4b | **(v2.26.1)** 新しいセッションで、`/ui-test-first <画面の説明>` | 計画の表に、**列「守る規則 ID」**があり、表の下に、**付録 E の項目の番号**が 1 行で書いてある。既存の画面で、静的検査の指摘が分かっているときは、「この場で直すか、別に直すか」が、承認の質問に含まれる | 未 |
 
 ## 3. 疑似ウォッチャー (Windows 不要)
 
