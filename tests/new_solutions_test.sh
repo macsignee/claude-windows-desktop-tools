@@ -267,6 +267,7 @@ ok "Skill add-feature: new_solution.py に \$PWD を渡さない (\$SLN)" "$(has
 NSK="$(cat "$ROOT/skills/new-solution/SKILL.md")"; NSS="$(cat "$ROOT/skills/new-solutions/SKILL.md")"
 ok "Skill new-solution: 既定は 1 つのソリューション (質問なしで A)。作業フォルダの質問は、しない" "$([ "$(has "$NSK" "どちらのモードか")" = 0 ] && [ "$(has "$NSK" "## C. 作業フォルダ")" = 0 ] && [ "$(has "$NSK" "/new-solutions")" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: 作業フォルダ (disable-model-invocation、.slnx を作らない)" "$([ "$(has "$NSS" "name: new-solutions")" = 1 ] && [ "$(has "$NSS" "disable-model-invocation: true")" = 1 ] && [ "$(has "$NSS" ".slnx\` を作らない")" = 1 ] && echo 1 || echo 0)"
+ok "Skill new-solutions / new-solution: 種類の質問は、2 段階 (選択肢は 4 つまで)" "$([ "$(has "$NSS" "種類の質問は、2 段階")" = 1 ] && [ "$(has "$NSK" "2 段階にする")" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: DLL (dll / lib / csharp-dll) も選べる" "$([ "$(has "$NSS" '`dll` / `lib`')" = 1 ] && [ "$(has "$NSS" '`csharp-dll`')" = 1 ] && echo 1 || echo 0)"
 mkwork; mani '| 名前 | 種類 | 層 | テスト |
 |---|---|---|---|
@@ -274,6 +275,8 @@ mkwork; mani '| 名前 | 種類 | 層 | テスト |
 | LibCs | csharp-dll | none | mstest |
 | LibSt | lib | logic | none |'; run create "$W"
 ok "DLL の候補 (dll / csharp-dll / lib) を作れる: rc=0" "$(eq $rc 0)"
+ok "create: run_watcher.cmd の場所を、出力に書く (配置先のパスは、固定で書かない)" "$([ "$(has "$out" "ホスト側ツール")" = 1 ] && [ "$(has "$out" "cpp-watcher")" = 0 ] && echo 1 || echo 0)"
+ok "Skill new-solutions: 質問は、候補ごとにまとめる。選択肢は exe だけにしない、「その他」を出さない" "$([ "$(has "$NSS" "候補ごとに、まとめて聞く")" = 1 ] && [ "$(has "$NSS" "「その他」の選択肢は、出さない")" = 1 ] && echo 1 || echo 0)"
 ok "DLL: LibCpp.slnx / LibCs.slnx / LibSt.slnx" "$([ "$(isf "$W/LibCpp/LibCpp.slnx")" = 1 ] && [ "$(isf "$W/LibCs/LibCs.slnx")" = 1 ] && [ "$(isf "$W/LibSt/LibSt.slnx")" = 1 ] && echo 1 || echo 0)"
 ok "Skill update-from-ideas: 作業フォルダでは、構成案を出さない" "$(has "$(cat "$ROOT/skills/update-from-ideas/SKILL.md")" "構成案は、出さない")"
 

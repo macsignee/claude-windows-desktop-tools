@@ -10,6 +10,7 @@
 # 標準出力 (1行目) と終了コード:
 #   OK                   rc=0  取得済み (または、すでに同じタグがある)
 #   FAILED               rc=1  取得失敗 (2行目以降に gtest_error.log。環境の問題。ソースの問題ではない)
+#   ENV_ERROR            rc=4  フラグを書けなかった (起動したフォルダの大文字小文字が、実際と違う、など。何も始まっていない)
 #   WATCHER_NOT_RUNNING  rc=3  フラグが回収されない = ウォッチャー未起動
 #   TIMEOUT              rc=5  完了マーカー (この実行のもの) が出ない。ウォッチャーは、続けているかもしれない: 報告して止まる
 #   (引数/フォルダ不正)   rc=2
@@ -99,7 +100,22 @@ watcher_busy() {  # ウォッチャーが、別の処理の最中か (60 分以�
 
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
 rm -f "$RESULT" "$ERRLOG" "$RUN_ID_FILE"
+# フラグを書けなかったとき (例: 起動したフォルダの大文字小文字が、実際と違い、サンドボックスが書き込みを許さない): 結果を待たずに、理由を出して終わる
+check_flag_written() {
+    [ -f "$FLAG" ] && return 0
+    local want="$PWD" real
+    real="$(resolve_true_case "$PWD")"
+    echo "ENV_ERROR"
+    echo "Could not write $(basename "$FLAG"): $FLAG (nothing was started; the watcher was not asked to do anything)."
+    if [ "$want" != "$real" ]; then
+        echo "The folder Claude Code was started in differs in letter case from the real folder name (started: $want, real: $real). Ask the user to restart Claude Code in the real name, then run this again from the start."
+    else
+        echo "Check the write permission of this folder (sandbox), then run this again from the start."
+    fi
+    exit 4
+}
 printf '%s\n# run=%s\n' "$TAG" "$RUN_ID" > "$FLAG"
+check_flag_written
 
 elapsed=0
 picked_up=0

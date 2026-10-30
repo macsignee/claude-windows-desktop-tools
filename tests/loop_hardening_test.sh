@@ -241,5 +241,16 @@ WP="$ROOT/host-tools/watch_and_build.ps1"
 ok "watcher: Get-RunIdFromFlag accepts the comment form '# run=<ID>'; the gtest / package blocks read it; both marker writers call Write-RunId first" "$(grep -q "match '(?m)^#?\\\\s\*run=" "$WP" && grep -q 'CurrentRunId = Get-RunIdFromFlag \$GtestTriggerFile' "$WP" && grep -q 'CurrentRunId = Get-RunIdFromFlag \$PackageTriggerFile' "$WP" && awk '/^function Write-GtestMarker/{f=1} f&&/Write-RunId/{print "1"; exit} f&&/^}/{exit}' "$WP" | grep -q 1 && awk '/^function Write-PackageMarker/{f=1} f&&/Write-RunId/{print "1"; exit} f&&/^}/{exit}' "$WP" | grep -q 1 && echo 1 || echo 0)"
 ok "watcher: a gtest flag whose first line is the comment (no tag) falls back to the default tag" "$(grep -q "gtestTagLine -match '\^\\\\s\*#'" "$WP" && echo 1 || echo 0)"
 
+# --- フラグを書けなかったとき (v2.24.2): 待たずに、ENV_ERROR (rc=4) と理由を出す。何も始まっていない
+for spec in "auto-build/scripts/build_once.sh|trigger_build.flag|" "build-test-loop/scripts/build_test_once.sh|trigger_test.flag|" "new-solution/scripts/gtest_once.sh|trigger_gtest.flag|" "add-package/scripts/package_once.sh|trigger_package.flag|nuget search foo"; do
+    IFS='|' read -r sc fl arg <<<"$spec"
+    D="$T/ff_$(basename "$sc" .sh)"; mkdir -p "$D/trigger_dummy"; mkdir "$D/$fl"   # フラグと同じ名前のフォルダ → 書けない
+    start=$(date +%s)
+    if [ -n "$arg" ]; then out="$(cd "$D" && bash "$ROOT/skills/$sc" "$D" "$arg" 2>/dev/null)"; rc=$?; else out="$(cd "$D" && bash "$ROOT/skills/$sc" "$D" 2>/dev/null)"; rc=$?; fi
+    el=$(( $(date +%s) - start ))
+    ok "$(basename "$sc"): flag cannot be written -> ENV_ERROR rc=4, immediately (${el}s)" "$([ "$rc" = 4 ] && [ "$el" -lt 5 ] && [ "$(echo "$out" | head -n1)" = ENV_ERROR ] && echo 1 || echo 0)"
+    ok "$(basename "$sc"): says that nothing was started / run again from the start" "$(grep -q 'nothing was started' <<<"$out" && grep -q 'from the start' <<<"$out" && echo 1 || echo 0)"
+done
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

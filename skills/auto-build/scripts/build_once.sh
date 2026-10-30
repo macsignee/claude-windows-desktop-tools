@@ -118,7 +118,22 @@ watcher_busy() {  # ウォッチャーが、別の処理 (ビルド・テスト�
 # 古い結果を必ず消してからフラグを置く (古いマーカーの誤読防止)
 rm -f "$RESULT" "$ERRLOG" "$RUN_ID_FILE"
 rm -f "$DIR/.claude-logs/build_summary.json"   # 前回の要約 (JSON) も消す (SUCCESS / ENV_ERROR では更新されないため、古い結果が残る)
+# フラグを書けなかったとき (例: 起動したフォルダの大文字小文字が、実際と違い、サンドボックスが書き込みを許さない): 結果を待たずに、理由を出して終わる
+check_flag_written() {
+    [ -f "$FLAG" ] && return 0
+    local want="$PWD" real
+    real="$(resolve_true_case "$PWD")"
+    echo "ENV_ERROR"
+    echo "Could not write $(basename "$FLAG"): $FLAG (nothing was started; the watcher was not asked to do anything)."
+    if [ "$want" != "$real" ]; then
+        echo "The folder Claude Code was started in differs in letter case from the real folder name (started: $want, real: $real). Ask the user to restart Claude Code in the real name, then run this again from the start."
+    else
+        echo "Check the write permission of this folder (sandbox), then run this again from the start."
+    fi
+    exit 4
+}
 printf 'run=%s\n' "$RUN_ID" > "$FLAG"
+check_flag_written
 
 elapsed=0
 picked_up=0
