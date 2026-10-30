@@ -154,7 +154,22 @@ rm -f "$DIR/.claude-logs/build_summary.json" "$DIR/.claude-logs/test_summary.jso
 rm -rf "$DIR/.claude-logs/test-results"   # 前回の、構造化された結果 (XML / trx) も、古い結果の誤読を防ぐために消す
 # BUILD_TEST_FLAG_CONTENT があれば、フラグの中身にする (uitest_once.sh の --visible / --separate / --slowmo。ウォッチャーが、1 回ごとの指定として読む)
 # 1 行目は、実行 ID (run=...。ウォッチャーが、結果と一緒に、返す)。
+# フラグを書けなかったとき (例: 起動したフォルダの大文字小文字が、実際と違い、サンドボックスが書き込みを許さない): 結果を待たずに、理由を出して終わる
+check_flag_written() {
+    [ -f "$FLAG" ] && return 0
+    local want="$PWD" real
+    real="$(resolve_true_case "$PWD")"
+    echo "ENV_ERROR"
+    echo "Could not write $(basename "$FLAG"): $FLAG (nothing was started; the watcher was not asked to do anything)."
+    if [ "$want" != "$real" ]; then
+        echo "The folder Claude Code was started in differs in letter case from the real folder name (started: $want, real: $real). Ask the user to restart Claude Code in the real name, then run this again from the start."
+    else
+        echo "Check the write permission of this folder (sandbox), then run this again from the start."
+    fi
+    exit 4
+}
 { printf 'run=%s\n' "$RUN_ID"; if [ -n "${BUILD_TEST_FLAG_CONTENT:-}" ]; then printf '%s\n' "$BUILD_TEST_FLAG_CONTENT"; fi; } > "$FLAG"
+check_flag_written
 
 elapsed=0
 picked_up=0

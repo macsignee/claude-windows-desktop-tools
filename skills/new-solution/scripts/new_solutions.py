@@ -322,6 +322,7 @@ def cmd_create(parent, dry):
         print(f'CLAUDE.md の「{SECTION}」を、書いた・更新した: {", ".join(refreshed)}')
     if created:
         print('\n次の手順 (候補ごとに、独立して進める):')
+        print('  (run_watcher.cmd は、ホスト側ツール (install.sh --host-only で配置したフォルダ) にある。そのフォルダで実行するか、パスを付けて実行する)')
         for c in new:
             wp = to_windows_path(os.path.abspath(c['folder']))
             print(f'  [{c["name"]}] {wp}')
