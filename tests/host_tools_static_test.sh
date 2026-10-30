@@ -69,5 +69,15 @@ ok "ps1: watcher_busy.txt is set when a trigger is picked up (build / test / gte
 ok "ps1: a gtest run with '[  PASSED  ] 0 tests' is an ENV_ERROR (0 tests were run)" "$(ps | grep -qF '0 tests were run ([  PASSED  ] 0 tests)' && ps | grep -qF "PASSED\\s+\\]\\s+0\\s+tests?" && echo 1 || echo 0)"
 ok "ps1: the UI flag is read as UTF-8 (Get-Content -Encoding UTF8)" "$(ps | grep -qF 'Get-Content -LiteralPath $UiTestTriggerFile -Raw -Encoding UTF8' && echo 1 || echo 0)"
 
+# --- run_watchers.cmd (v2.25.0): 候補ごとに run_watcher.cmd を別ウィンドウで起動する (Windows では実行できないので、構造だけ)
+WS="$ROOT/host-tools/run_watchers.cmd"
+ok "run_watchers.cmd: ASCII only + CRLF" "$([ -f "$WS" ] && ! LC_ALL=C grep -q -P '[^\x00-\x7F]' "$WS" && [ "$(grep -vc $'\r$' "$WS")" = 0 ] && echo 1 || echo 0)"
+ok "run_watchers.cmd: runs run_watcher.cmd of its own folder, one Windows Terminal tab per candidate (named window, ';' between tabs)" "$(grep -qF 'set "WATCHER=%HERE%run_watcher.cmd"' "$WS" && grep -qF 'new-tab --title "%NAME%" --suppressApplicationTitle "%WATCHER%" "%~1"' "$WS" && grep -qF '%WTARGS% ; new-tab' "$WS" && grep -qF 'wt.exe -w watchers %WTARGS%' "$WS" && echo 1 || echo 0)"
+ok "run_watchers.cmd: wt.exe is detected with where; /windows or no wt.exe falls back to one console window per candidate" "$(grep -qF 'where wt.exe' "$WS" && grep -qF '/i "%~1"=="/windows"' "$WS" && grep -qF 'start "watcher: %NAME%" cmd /c ""%WATCHER%" "%~1""' "$WS" && echo 1 || echo 0)"
+ok "run_watchers.cmd: candidates = direct subfolders with .sln / .slnx; skips names starting with '.'" "$(grep -qF 'for /d %%d in ("%WORK%\*")' "$WS" && grep -qF 'exist "%~1\*.slnx"' "$WS" && grep -qF 'exist "%~1\*.sln"' "$WS" && grep -qF '"%NAME:~0,1%"=="."' "$WS" && echo 1 || echo 0)"
+ok "run_watchers.cmd: the folder of the file is kept in HERE before the argument loop (shift also shifts %0); %~dp0 is not used after it" "$([ "$(grep -n 'set "HERE=%~dp0"' "$WS" | cut -d: -f1)" -lt "$(grep -n '^shift' "$WS" | cut -d: -f1)" ] && [ "$(grep -c '%~dp0' "$WS" | tr -d ' ')" = 2 ] && echo 1 || echo 0)"
+ok "run_watchers.cmd: /list starts nothing; no candidate -> message; default folder = current" "$(grep -qF '/i "%~1"=="/list"' "$WS" && grep -qF 'if defined LISTONLY exit /b 0' "$WS" && grep -qF 'No candidate folder' "$WS" && grep -qF 'set "WORK=%CD%"' "$WS" && echo 1 || echo 0)"
+ok "run_watchers.cmd: balanced parentheses outside echo / rem lines" "$(grep -v '^rem' "$WS" | grep -v 'echo' | tr -d '\r' | python3 -c 'import sys;t=sys.stdin.read();print(1 if t.count("(")==t.count(")") else 0)')"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

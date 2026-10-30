@@ -82,6 +82,7 @@ ok "節: 他の候補の名前と種類" "$([ "$(has "$sec" '`TodoWpf` (wpf)')" 
 ok "節: 仕様書の正本と、同期の案内" "$([ "$(has "$sec" '../docs/specs/todo.md')" = 1 ] && [ "$(has "$sec" 'sync-spec')" = 1 ] && echo 1 || echo 0)"
 ok "節: 他の候補を、読まない・書かない" "$(has "$sec" "他の候補のフォルダは、読まない・書かない")"
 ok "次の手順: 候補ごとのウォッチャー" "$(has "$out" 'run_watcher.cmd')"
+ok "次の手順: 候補が 2 つ以上のとき、run_watchers.cmd (まとめて起動) を案内する" "$(has "$out" 'run_watchers.cmd "')"
 ok "次の手順: GoogleTest の仕上げは、gtest の候補だけ" "$([ "$(has "$out" 'GTEST_VCPKG: no-baseline')" = 1 ] && [ "$(echo "$out" | grep -c 'GTEST_VCPKG: no-baseline')" = 1 ] && echo 1 || echo 0)"
 ok "既存の CLAUDE.md の内容 (# CLAUDE.md の見出し) が、残っている" "$(has "$sec" "# CLAUDE.md (TodoWin)")"
 
