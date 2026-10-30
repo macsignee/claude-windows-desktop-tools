@@ -95,7 +95,7 @@ printf '%s\n' "$out"
 
 # スクリーンショットと trace は、この実行が、テストまで届いたとき (PASSED / FAILED / TEST_TIMEOUT = rc 0 / 1 / 7) だけ、出す。
 # それ以外 (WATCHER_NOT_RUNNING / TIMEOUT / BAD_ARGS / ビルド失敗など) では、前回の画像と「Passed」が残っていて、今回の結果に見えるため、出さない。
-if [ "$rc" != 0 ] && [ "$rc" != 1 ] && [ "$rc" != 7 ]; then exit "$rc"; fi
+if [ "$rc" != 0 ] && [ "$rc" != 1 ] && [ "$rc" != 7 ]; then bash "$here/test_guard_note.sh" "$DIR"; exit "$rc"; fi
 
 shots="$DIR/.claude-logs/ui-screenshots"
 if [ -d "$shots" ]; then
@@ -113,4 +113,5 @@ if [ -f "$trace" ]; then
     echo "ui-trace (${n} lines; 操作の記録。動いたことの確認に使う): ${trace#$DIR/}"
     grep -a -E ' === .*: (Passed|Failed|Inconclusive|Timeout|Aborted|Error|NotExecuted|Unknown)' "$trace" | sed 's/^[0-9:.]* //' | head -n 20
 fi
+bash "$here/test_guard_note.sh" "$DIR"   # テストの改変の検査 (基準があるときだけ)
 exit "$rc"

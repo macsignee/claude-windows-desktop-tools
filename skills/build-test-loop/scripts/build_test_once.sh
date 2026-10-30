@@ -75,7 +75,8 @@ align_to_launch_case() {
 DIR="$(align_to_launch_case "$DIR")"
 
 # 終了時 (どの結果のときも): WPF の XAML にメニューがあれば、ユーザーのデスクトップのウォッチャーを使う旨を、知らせる (1 行目と終了コードは、変えない)
-trap 'bash "$(dirname "${BASH_SOURCE[0]}")/wpf_menu_note.sh" "$DIR"' EXIT
+# 続けて、テストの改変の検査の結果 (TEST_GUARD: の行。基準があるときだけ) を、末尾に出す。UI テスト (uitest_once.sh) は、自分の出力の末尾で出す
+trap 'bash "$(dirname "${BASH_SOURCE[0]}")/wpf_menu_note.sh" "$DIR"; [ -n "${BUILD_TEST_FLAG:-}" ] || bash "$(dirname "${BASH_SOURCE[0]}")/test_guard_note.sh" "$DIR"' EXIT
 
 FLAG="$DIR/${BUILD_TEST_FLAG:-trigger_test.flag}"   # uitest_once.sh は、trigger_uitest.flag を指定する
 BUILD_RESULT="$DIR/build_result.txt"
