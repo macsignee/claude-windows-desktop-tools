@@ -329,6 +329,9 @@ def cmd_create(parent, dry):
             print(f'      ウォッチャー: run_watcher.cmd "{wp}"   (候補ごとに 1 つ)')
             if c['tests'] == 'gtest':
                 print('      GoogleTest (vcpkg): この候補を扱うとき、package_once.sh "vcpkg baseline" "vcpkg install" で仕上げる (GTEST_VCPKG: no-baseline)')
+        if len(cands) >= 2:
+            pw = to_windows_path(os.path.abspath(parent))
+            print(f'  候補をまとめて起動する (候補ごとに、別のウィンドウ): run_watchers.cmd "{pw}"   (一覧だけ見る: 末尾に /list)')
         print('  この作業フォルダの Claude から、`resolve` で対象を決めて、候補ごとに、ビルド・テストできる (build_once.sh など。パスを渡す)。')
     return 0 if new else 3
 

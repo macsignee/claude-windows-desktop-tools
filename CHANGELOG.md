@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.25.0] 2026-10-30 (ホスト側に、任意のファイルを 1 つ追加。既存のファイルは、変更なし)
+
+- **`host-tools/run_watchers.cmd` を追加: 候補をまとめて起動する。** `run_watchers.cmd [作業フォルダ] [/list]`。作業フォルダの**直下**で、`.slnx` / `.sln` があるサブフォルダを候補として、同じフォルダの `run_watcher.cmd` を起動する (ウォッチャーは、1 つのフォルダ用)。**`wt.exe` (Windows ターミナル) があれば、名前つきのウィンドウ `watchers` の、候補ごとのタブ**。ないとき、または `/windows` のときは、候補ごとに別のコンソールのウィンドウ。`/list` は、一覧だけ。名前が `.` で始まるフォルダは、飛ばす。すでに動いている候補は、`watch_and_build.ps1` の二重起動の拒否が断る。ASCII + CRLF (CP932 でも安全)。`run_watcher.cmd` / `watch_and_build.ps1` は、変えていない (ウォッチャーの再起動は、要らない)。
+- `new_solutions.py create` の「次の手順」に、候補が 2 つ以上のとき、`run_watchers.cmd "<作業フォルダ>"` の案内を追加。`/new-solutions` の Skill と、`host-tools/README.md` にも記載。
+- テスト: `tests/host_tools_static_test.sh` 42 件 (構造の静的な確認のみ。cmd は WSL で実行できない)、`tests/new_solutions_test.sh` 122 件。**実機の確認は、TEST-PLAN の NS11。**
+
 ## [2.24.5] 2026-10-30 (Skill 側のみ。ホスト側の変更なし。`test_guard` の段階 2)
 
 - **`build_test_once.sh` / `uitest_once.sh` の出力の末尾に、`TEST_GUARD:` の行を、自動で足す** (新しい `test_guard_note.sh`)。Claude が、`check` を実行し忘れても、テストの改変が、目に入る。基準 (`.claude-logs/test_guard_base/`) があるときだけ、`test_guard.py check` を実行して、`TEST_GUARD: OK (...)` / `REVIEW (...)` / `ERROR (...)` (error の行を、最大 5 行つけて、「元に戻すか、止まって確認する」)。**基準がないときは、何も出さない** (「作れ」と促すと、Green のあとに `snapshot` を取られて、改変が、基準に取り込まれるため)。**1 行目と終了コードは、変えない** (`PASSED` のまま、`TEST_GUARD: ERROR` が付くことがある)。`check` は読み取りだけで、出力の行は、結果を変えない。`uitest_once.sh` は、スクリーンショットと trace の一覧のあと (最後) に出す。
