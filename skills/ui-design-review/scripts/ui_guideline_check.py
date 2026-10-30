@@ -9,6 +9,7 @@ Usage: ui_guideline_check.py PROJECT_DIR [--all] [--json FILE] [--fail-on-warnin
             2 = 引数が不正 / 3 = 検査する対象 (XAML / Designer.cs / .rc / .vcxproj / .csproj) がない
 
 指摘は、ガイドラインの規則の、**ヒューリスティック (推測) による検出**。必須の規則に対するものは warning、推奨は info。
+例外: UIG-CTL101 は、必須の規則だが、違反かを静的に判定できず、人の確認を促すだけなので、info。
 通ったことは、規則を満たすことを意味しない (見た目・操作・表示は、人が確認する)。
 """
 import argparse
@@ -26,17 +27,17 @@ SKIP_DIRS = {
     "TestResults", "Debug", "Release", "x64", "x86", "ipch", "poc",
 }
 
-# code: (規則 ID, 重大度, 一行の説明)
+# code: (規則 ID, 重大度, 一行の説明)。重大度: 必須の規則への指摘は warning、推奨は info (例外: UIG-CTL101)
 RULES = {
     "UIG-KEY006": ("UI-KEY-006", "warning", "アクセスキーが、同じ画面で重複している"),
     "UIG-CTL091": ("UI-CTL-091", "warning", "破壊的な操作のボタンが、既定のボタンになっている"),
     "UIG-LAY007": ("UI-LAY-007", "info", "既定のボタンが、1 つの画面に複数ある"),
     "UIG-CTL003": ("UI-CTL-003", "warning", "アイコンだけのボタンに、アクセシブル名がない"),
-    "UIG-CTL003T": ("UI-CTL-003", "info", "アイコンだけのボタンに、ツールチップがない"),
+    "UIG-CTL003T": ("UI-CTL-003", "warning", "アイコンだけのボタンに、ツールチップがない"),
     "UIG-ACC001": ("UI-ACC-001", "warning", "入力コントロールに、アクセシブル名がない"),
     "UIG-LAY005": ("UI-LAY-005", "warning", "コントロールを、座標 (Canvas) で配置している"),
-    "UIG-TYP001": ("UI-TYP-001", "info", "独自のフォントを指定している"),
-    "UIG-LOC001": ("UI-LOC-001", "info", "表示文字列が、XAML に直書きされている"),
+    "UIG-TYP001": ("UI-TYP-001", "warning", "独自のフォントを指定している"),
+    "UIG-LOC001": ("UI-LOC-001", "warning", "表示文字列が、XAML に直書きされている"),
     "UIG-DPI001": ("UI-DPI-001", "warning", "AutoScaleMode が None (DPI に追従しない)"),
     "UIG-DPI002": ("UI-DPI-002", "warning", "DPI 認識モードの宣言が見つからない"),
     "UIG-CTL100": ("UI-CTL-100", "warning", "MFC: Common Controls 6.0 以降のマニフェストの記述が見つからない"),
@@ -495,7 +496,7 @@ def check_dotnet_project(csproj, root):
 def main(argv):
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("project")
-    ap.add_argument("--all", action="store_true", help="info (推奨の規則) も表示する")
+    ap.add_argument("--all", action="store_true", help="info (推奨の規則への指摘と、人の確認を促すもの) も表示する")
     ap.add_argument("--json", dest="json_out")
     ap.add_argument("--fail-on-warning", action="store_true")
     try:

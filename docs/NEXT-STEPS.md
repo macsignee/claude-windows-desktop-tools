@@ -78,7 +78,7 @@ PoC の手順: 使い捨ての C++ ソリューション (`MixTest` のコピー
 `/ui-design-review` (DESIGN 4.45) を追加した。**実機の確認は、TEST-PLAN 2-9 (UG1〜UG5)。**
 
 1. **実プロジェクトでの誤検出の確認** (UG2)。誤検出は、`ui_guideline_check.py` の該当コードと、Skill の「誤検出と限界」に反映する。
-2. **新規生成のテンプレートを、ガイドラインに合わせる:** UI-DPI-002 (WPF: `app.manifest` の DPI の宣言、WinForms: `ApplicationHighDpiMode`、MFC: マニフェスト / `vcxproj` の DPI の設定)、UI-CTL-100 (MFC: `pch.h` に、Common Controls のコンパイラ指令。ガイドラインの UI-CTL-100 に、公式の書式がある)、UI-ACC-001 (WPF: 入力欄に `AutomationProperties.Name`)。**実機のビルドで、書き方を確かめてから行う。** 生成直後が「指摘 0 件」であることを、前提にしているテスト (`new_solution_*_test.sh`、`*_check_test.sh`) と、`ui_guideline_check_test.sh` の生成物の項目を、合わせて直す。
+2. **新規生成のテンプレートを、ガイドラインに合わせる:** UI-DPI-002 (WPF: `app.manifest` の DPI の宣言、WinForms: `ApplicationHighDpiMode`、MFC: マニフェスト / `vcxproj` の DPI の設定)、UI-CTL-100 (MFC: `pch.h` に、Common Controls のコンパイラ指令。ガイドラインの UI-CTL-100 に、公式の書式がある)、UI-ACC-001 (WPF: 入力欄に `AutomationProperties.Name`)、UI-LOC-001 (WPF: 文字列のリソース化。v2.26.1 で、`UIG-LOC001` が warning になった)。**実機のビルドで、書き方を確かめてから行う。** 生成直後が「指摘 0 件」であることを、前提にしているテスト (`new_solution_*_test.sh`、`*_check_test.sh`) と、`ui_guideline_check_test.sh` の生成物の項目を、合わせて直す。
 3. **ガイドラインの更新:** 新しい版が出たら、`skills/ui-design-review/references/UI-Design-Guidelines.md` を置き換え、`GUIDELINE_VERSION` (`ui_guideline_check.py`) を合わせる。規則 ID の対応は、テストが確かめる。
 4. (任意) `/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す。
 5. (任意) 検査の追加: 見た目に近い規則 (例: UI-KEY-003 のタブ停止、UI-CTL-024 のパスワードの伏せ字) の、静的な検出。

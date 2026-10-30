@@ -53,10 +53,30 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
    ```bash
    python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN" [--all] [--json <ファイル>] [--fail-on-warning]
    ```
-   既定は、warning (必須の規則への指摘) だけを出す。`--all` で、info (推奨の規則) も出す。
+   既定は、warning (必須の規則への指摘) だけを出す。`--all` で、info (推奨の規則への指摘と、人の確認を促すもの (UIG-CTL101)) も出す。
 2. **各 warning を、規則の本文で確かめる。** 静的検査は、推測 (下の「誤検出と限界」)。誤検出は、報告に、理由つきで書く。
 3. **付録 F (レビュー用チェックリスト) で、該当する章を判定する。** 判定は、適合 / 不適合 / 対象外 / 確認不能 (付録 F.1)。受入条件 (AC-n) のある規則は、確認方法 (仕様書 / 画面 / 実装 / 支援技術の確認) に従う。**画面を見て確かめる項目** (コントラスト、DPI の倍率での文字切れ、タッチ領域、フォーカスの順序) は、静的検査では判定できない。`/ui-test-first` のプレビュー (`Snap` / `HoldForViewing`) で画面を撮る、または、ユーザーに見せて確認する。
-4. **付録 F.2 の様式で、報告する。** 必須の不適合は、修正するか、例外申請 (付録 C) を、ユーザーに提案する。推奨の不適合は、理由を記録する。適合は、件数だけでよい。
+4. **付録 F.2 の様式で、報告する (次の欄を、そのまま埋める。表の形に、変えない)。** 必須の不適合は、修正するか、例外申請 (付録 C) を、ユーザーに提案する。推奨の不適合は、理由を記録する。**適合も、「確認した項目」に、1 行ずつ書く** (説明は要らない)。
+
+```text
+画面名:
+対象技術:
+適用した付録:
+レビュー者:
+レビュー日:
+仕様書の版:
+
+確認した項目:
+  規則 ID(受入条件の番号) / 確認方法 / 証跡(画面、ファイル、仕様書の箇所)
+  例) UI-WIN-022 / 実装の確認 / Views/MainWindow.xaml: MinWidth="320" MinHeight="180"
+  例) UI-ACC-001 AC-1 / 実装の確認 / Views/MainWindow.xaml(21): TextBox に AutomationProperties.Name がない (不適合)
+
+不適合:
+  規則 ID / 内容 / 修正内容、または例外 ID
+
+確認不能:
+  規則 ID / 必要な資料
+```
 
 ### 3. 規則の意味の確認
 
@@ -69,15 +89,17 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 | UIG-KEY006 | UI-KEY-006 | WPF / WinForms / MFC | warning | アクセスキーが、同じ画面 (ダイアログ) で重複している (メニューは、メニューごとの範囲) |
 | UIG-CTL091 | UI-CTL-091 | WPF / WinForms / MFC | warning | 破壊的な操作 (削除・消去・破棄・初期化・上書など) と思われるボタンが、既定のボタン (`IsDefault` / `AcceptButton` / `DEFPUSHBUTTON`) になっている |
 | UIG-LAY007 | UI-LAY-007 | WPF / MFC | info | 既定のボタンが、1 つの画面に複数ある |
-| UIG-CTL003 / UIG-CTL003T | UI-CTL-003 | WPF / WinForms | warning / info | アイコンだけのボタンに、アクセシブル名 (warning)・ツールチップ (info、WPF のみ) がない |
+| UIG-CTL003 / UIG-CTL003T | UI-CTL-003 | WPF / WinForms | warning | アイコンだけのボタンに、アクセシブル名 (UIG-CTL003)・ツールチップ (UIG-CTL003T。WPF のみ) がない |
 | UIG-ACC001 | UI-ACC-001 | WPF | warning | `TextBox` / `PasswordBox` / `ComboBox` / `DatePicker` に、`AutomationProperties.Name` / `LabeledBy` も、`Label` の `Target` もない (`TextBlock` は、名前にならない) |
 | UIG-LAY005 | UI-LAY-005 | WPF | warning | `Canvas` で、コントロールを座標 (`Canvas.Left` など) で配置している |
-| UIG-TYP001 | UI-TYP-001 | WPF | info | 独自のフォントを指定している (Segoe UI・日本語の標準フォント・アイコン用フォントは、対象外) |
-| UIG-LOC001 | UI-LOC-001 | WPF | info | XAML の表示文字列の直書きの件数 (件数だけ) |
+| UIG-TYP001 | UI-TYP-001 | WPF | warning | 独自のフォントを指定している (Segoe UI・日本語の標準フォント・アイコン用フォントは、対象外) |
+| UIG-LOC001 | UI-LOC-001 | WPF | warning | XAML の表示文字列の直書き (全体で 1 件の指摘に、件数をまとめる) |
 | UIG-DPI001 | UI-DPI-001 | WinForms | warning | `AutoScaleMode.None` |
 | UIG-DPI002 | UI-DPI-002 | WPF / WinForms / MFC | warning | DPI 認識モードの宣言 (`dpiAware` / `ApplicationHighDpiMode` など) が、プロジェクトに見つからない |
 | UIG-CTL100 / UIG-CTL100V / UIG-CTL100U | UI-CTL-100 | MFC | warning | Common Controls 6.0 以降のマニフェストの記述がない / 版が 6.0 未満、または混在 / Unicode 文字セットでない |
 | UIG-CTL101 | UI-CTL-101 | MFC | info | MFC の DLL に、ダイアログがある (ユーザー DLL のマニフェスト ID 2 は、手作業で確認) |
+
+**重大度の方針:** 必須の規則への指摘は warning、推奨は info。**例外は `UIG-CTL101` だけ** (必須の規則だが、静的に違反かを判定できず、人の確認を促すだけなので、info)。
 
 | 終了コード | 意味 | 次の行動 |
 |---|---|---|
@@ -98,9 +120,10 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 - **静的解析 (字面と構造の推測)。** 実行はしない。**通ったことは、規則を満たすことを意味しない。**
 - UIG-CTL091 は、ラベル・名前・コマンドの語 (削除、Delete など) で、破壊的かを推測する。**取り消せる削除は、破壊的操作ではない** (ガイドライン §2.6)。誤検出は、理由つきで報告する。
 - UIG-ACC001 は、`AutomationProperties.Name` / `LabeledBy` と、`Label` の `Target` だけを見る。スタイルやカスタムコントロールが名前を与える場合は、誤検出になる (`DataTemplate` / `ControlTemplate` / `Style` の中は、対象外)。
-- UIG-DPI002 は、宣言の**有無**だけを見る (どのモードにするかは、人が決める。UI-DPI-002 は、DPI 非対応にしないことを求める)。
+- UIG-DPI002 は、宣言の**有無**だけを見る (どのモードにするかは、人が決める。UI-DPI-002 は、DPI 非対応にしないことを求める)。**WPF は、宣言がなくても、既定で、システム DPI 対応** (DPI 非対応ではない)。モニターごとの DPI には、マニフェストでの宣言が要る (dotnet/wpf Issue #859。Microsoft の WPF-Samples の PerMonitorDPI)。**「既定で PerMonitorV2 相当」と書かない。**
 - XAML は、XML として解析する。**解析できない XAML は、黙って飛ばす。** `*.Designer.cs` は、VS が書く形 (`x.Text = "..."`) の字句解析。
 - **見た目・操作・表示は、判定できない** (コントラスト、各倍率での文字切れ、タッチ領域の大きさ、タブ順、スクリーンリーダーでの読み上げ、メッセージの文面)。付録 F の手動確認で行う。
-- **`/new-solution` が作る、新規のソリューションは、UI-DPI-002 (WPF / WinForms / MFC)、UI-CTL-100 (MFC)、UI-ACC-001 (WPF の入力欄) を、まだ満たしていない (既知。`docs/NEXT-STEPS.md`)。** 生成直後の指摘は、テンプレートの未対応であって、画面の設計の誤りではない。
-- **実プロジェクトでの検証は、まだ。** 疑似のプロジェクトと、生成したソリューションでは、止まらずに動く。
+- **`/new-solution` が作る、新規のソリューションは、UI-DPI-002 (WPF / WinForms / MFC)、UI-CTL-100 (MFC)、UI-ACC-001 (WPF の入力欄)、UI-LOC-001 (WPF の XAML の文字列) を、まだ満たしていない (既知。`docs/NEXT-STEPS.md`)。** 生成直後の指摘は、テンプレートの未対応であって、画面の設計の誤りではない。
+- **実プロジェクトでの検証 (2026-10-30、UG2):** 既存の 12 フォルダ (WPF・WinForms・MFC) で、異常終了なし。誤検出は、見つかっていない。**XAML のスタイルが名前を与える画面は、未確認。** UIG-DPI002 は、ほぼすべてのプロジェクトで出る (VS のウィザードで作った MFC を含む)。
+- **規則の引用は、本文を `grep` で確かめてから書く** (記憶で節番号を書かない。存在しない節を引用した例がある)。破壊的操作かの判断は、§2.6 の定義 (取り消せない形で、削除・上書き・外部へ送信・公開する操作。Undo できる操作は含まない) に、根拠を置く。定義にない言い回し (「Undo 不要域」など) で、根拠を書かない。
 - ガイドラインは、**草案 (v2.10)**。文書管理の欄 (承認者など) は、未記入 (他部署の承認後に設定される)。

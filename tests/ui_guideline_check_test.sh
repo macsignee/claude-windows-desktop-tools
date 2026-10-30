@@ -77,15 +77,15 @@ chk "$T/empty" >/dev/null 2>&1; ok "nothing to check: rc=3" "$([ $? = 3 ] && ech
 
 # ---------------------------------------------------------------- WPF
 wpf w0 <<'X'
-<Label Content="_Name" Target="{Binding ElementName=NameBox}" />
+<Label Content="{DynamicResource NameText}" Target="{Binding ElementName=NameBox}" />
 <TextBox x:Name="NameBox" />
-<ComboBox AutomationProperties.Name="Kind" />
-<Button Content="_Save" IsDefault="True" />
-<Button Content="_Cancel" IsCancel="True" />
-<Button AutomationProperties.Name="Close" ToolTip="Close"><Image Source="x.png" /></Button>
+<ComboBox AutomationProperties.Name="{DynamicResource KindText}" />
+<Button Content="{DynamicResource SaveText}" IsDefault="True" />
+<Button Content="{DynamicResource CancelText}" IsCancel="True" />
+<Button AutomationProperties.Name="{DynamicResource CloseText}" ToolTip="{DynamicResource CloseText}"><Image Source="x.png" /></Button>
 <ListBox><ListBox.ItemTemplate><DataTemplate><TextBox Text="{Binding V}" /></DataTemplate></ListBox.ItemTemplate></ListBox>
 X
-clean w0 "WPF: a compliant window is clean"
+clean w0 "WPF: a compliant window (strings from resources) is clean"
 mkdir -p "$T/w0rd"; cp -r "$T/w0/." "$T/w0rd/"; printf '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"><Style TargetType="TextBox" /></ResourceDictionary>\n' > "$T/w0rd/Styles.xaml"
 clean w0rd "WPF: ResourceDictionary files are ignored; controls inside a DataTemplate are not flagged"
 
@@ -114,7 +114,8 @@ absent w4 UIG-CTL003T "WPF: ... but it has a ToolTip"
 wpf w5 <<'X'
 <Button AutomationProperties.Name="Close"><Path Data="M0,0" /></Button>
 X
-expect w5 UIG-CTL003T "WPF: icon-only button without ToolTip (info)"
+expect w5 UIG-CTL003T "WPF: icon-only button without ToolTip"
+out="$(chk "$T/w5")"; ok "UIG-CTL003T is a warning (shown without --all; UI-CTL-003 is mandatory)" "$([ "$(has "$out" ' UIG-CTL003T ')" = 1 ] && echo 1 || echo 0)"
 wpf w6 <<'X'
 <TextBlock Text="Name" /><TextBox x:Name="NameBox" />
 X
@@ -130,12 +131,14 @@ absent w7b UIG-LAY005 "WPF: shapes on a Canvas are not flagged"
 wpf w8 <<'X'
 <TextBlock FontFamily="Comic Sans MS" Text="x" /><TextBlock FontFamily="Segoe UI" Text="y" /><TextBlock FontFamily="Segoe MDL2 Assets" Text="z" />
 X
-expect w8 UIG-TYP001 "WPF: custom font family (info)"
+expect w8 UIG-TYP001 "WPF: custom font family"
+out="$(chk "$T/w8")"; ok "UIG-TYP001 is a warning (shown without --all; UI-TYP-001 is mandatory)" "$([ "$(has "$out" ' UIG-TYP001 ')" = 1 ] && echo 1 || echo 0)"
 out="$(chk "$T/w8" --all)"; ok "WPF: Segoe UI and icon fonts are not flagged (1 finding)" "$([ "$(grep -c ' UIG-TYP001 ' <<<"$out")" = 1 ] && echo 1 || echo 0)"
 wpf w9 <<'X'
 <Button Content="Save" /><TextBlock Text="Hello" /><TextBlock Text="{Binding Greeting}" />
 X
-expect w9 UIG-LOC001 "WPF: hard-coded display strings are counted (info)"
+expect w9 UIG-LOC001 "WPF: hard-coded display strings are counted (one finding)"
+out="$(chk "$T/w9")"; ok "UIG-LOC001 is a warning (shown without --all; UI-LOC-001 is mandatory)" "$([ "$(has "$out" ' UIG-LOC001 ')" = 1 ] && echo 1 || echo 0)"
 wpf w10 nomanifest <<'X'
 <Button Content="Save" />
 X
@@ -247,6 +250,7 @@ X
 expect m7 UIG-LAY007 "MFC: two DEFPUSHBUTTONs in a dialog (info)"
 MFC_CT=DynamicLibrary mfc m8 <<<"$RC_OK"
 expect m8 UIG-CTL101 "MFC: a DLL with a dialog (info: check the manifest resource ID 2 by hand)"
+out="$(chk "$T/m8")"; ok "UIG-CTL101 stays info (the only exception to the severity policy: a reminder, not a detected violation)" "$([ "$(has "$out" ' UIG-CTL101 ')" = 0 ] && echo 1 || echo 0)"
 # 2 つのダイアログで、同じアクセスキーを使っても、重複ではない
 mfc m9 <<'X'
 IDD_A DIALOGEX 0, 0, 240, 100
@@ -294,6 +298,11 @@ S="$SK/SKILL.md"
 ok "SKILL.md: name ui-design-review, points to the reference, the checker and the checklist (Appendix F)" "$([ -f "$S" ] && head -n 6 "$S" | grep -q '^name: ui-design-review$' && grep -q 'references/UI-Design-Guidelines.md' "$S" && grep -q 'ui_guideline_check.py' "$S" && grep -q '付録 F' "$S" && echo 1 || echo 0)"
 ok "SKILL.md: warns not to read the whole guideline and to find rules by ID" "$(grep -q 'grep -n' "$S" && grep -q '全文を読まない' "$S" && echo 1 || echo 0)"
 ok "SKILL.md: states the heuristics limits and does not weaken screens to silence findings" "$(grep -q '誤検出と限界' "$S" && grep -q '指摘を消すために' "$S" && echo 1 || echo 0)"
+ok "SKILL.md: the F.2 report template is inline (確認した項目 / 不適合 / 確認不能)" "$(grep -q '^確認した項目:' "$S" && grep -q '^不適合:' "$S" && grep -q '^確認不能:' "$S" && echo 1 || echo 0)"
+ok "SKILL.md: states the severity policy and its only exception (UIG-CTL101)" "$(grep -q '重大度の方針' "$S" && grep -q '例外は `UIG-CTL101` だけ' "$S" && echo 1 || echo 0)"
+ok "SKILL.md: WPF defaults to system DPI awareness (do not claim PerMonitorV2 by default)" "$(grep -q 'システム DPI 対応' "$S" && grep -q 'PerMonitorV2 相当」と書かない' "$S" && echo 1 || echo 0)"
+ok "SKILL.md: cite rules after checking the text (no invented section numbers)" "$(grep -q '本文を `grep` で確かめてから書く' "$S" && echo 1 || echo 0)"
+ok "ui-test-first: the plan table has a 守る規則 ID column and the Appendix E item numbers" "$(grep -q '列「守る規則 ID」' "$ROOT/skills/ui-test-first/SKILL.md" && grep -q '付録 E の項目のうち、この画面に該当するものの番号' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
 for f in skills/ui-test-first/SKILL.md skills/add-feature/SKILL.md skills/wpf-check/SKILL.md skills/winforms-check/SKILL.md skills/mfc-check/SKILL.md; do
     ok "$f: points to /ui-design-review" "$(grep -q 'ui-design-review' "$ROOT/$f" && echo 1 || echo 0)"
 done
