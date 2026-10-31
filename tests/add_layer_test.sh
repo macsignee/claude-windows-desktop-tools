@@ -7,8 +7,8 @@ set -u
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$REPO/skills/cpp-test-first/scripts/add_layer.py"
-# 既定の auto は、パッケージがなければ source (ThirdParty をビルド) になる。NuGet 方式の検証は、明示する
-run_al() { python3 "$SCRIPT" "$@" --gtest nuget; }
+# 既定の auto は、既存の gtest プロジェクトがなければ vcpkg になる。層・テストの生成の検証は、vcpkg を明示する (旧 NuGet 方式は、v2.31.0 で廃止)
+run_al() { python3 "$SCRIPT" "$@" --gtest vcpkg; }
 run_al_auto() { python3 "$SCRIPT" "$@"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/add_layer_test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
@@ -82,7 +82,7 @@ run_al "$S" LogicLayer --uses DataLayer >"$WORK/out2.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "LogicLayer (--uses DataLayer) の追加が成功" || { ng "LogicLayer の追加が成功 (rc=$rc)"; cat "$WORK/out2.txt"; }
 
 for f in DataLayer/DataLayer.vcxproj DataLayer/DataLayer.vcxproj.filters DataLayer/DataLayerApi.h DataLayer/DataLayerModuleInfo.h DataLayer/DataLayerModuleInfo.cpp \
-         DataLayerTest/DataLayerTest.vcxproj DataLayerTest/DataLayerTest.vcxproj.filters DataLayerTest/packages.config DataLayerTest/TestDataLayerModuleInfo.cpp \
+         DataLayerTest/DataLayerTest.vcxproj DataLayerTest/DataLayerTest.vcxproj.filters DataLayerTest/main.cpp DataLayerTest/TestDataLayerModuleInfo.cpp \
          LogicLayer/LogicLayer.vcxproj LogicLayerTest/LogicLayerTest.vcxproj; do
     [ -f "$S/$f" ] && ok "生成: $f" || ng "生成: $f"
 done
@@ -95,7 +95,7 @@ check ".h が「ヘッダー ファイル」フィルターに入る" grep -q '<
 check "「ヘッダー ファイル」のフィルター定義がある" grep -q '<Filter Include="ヘッダー ファイル">' "$S/DataLayer/DataLayer.vcxproj.filters"
 check ".cpp が「ソース ファイル」フィルターに入る" grep -q '<ClCompile Include="DataLayerModuleInfo.cpp">' "$S/DataLayer/DataLayer.vcxproj.filters"
 check "「ソース ファイル」のフィルター定義がある" grep -q '<Filter Include="ソース ファイル">' "$S/DataLayer/DataLayer.vcxproj.filters"
-check "packages.config は、フィルターに入らない (None のまま)" bash -c "! grep -q 'packages.config' '$S/DataLayerTest/DataLayerTest.vcxproj.filters'"
+check "main.cpp は、「ソース ファイル」フィルターに入る (vcpkg 方式のテスト)" grep -q '<ClCompile Include="main.cpp">' "$S/DataLayerTest/DataLayerTest.vcxproj.filters"
 check ".filters が BOM + CRLF" bash -c "head -c3 '$S/DataLayer/DataLayer.vcxproj.filters' | xxd -p | grep -q efbbbf && grep -q \$'\\r' '$S/DataLayer/DataLayer.vcxproj.filters'"
 check "vcxproj が XML として正しい" python3 -c "
 import glob, xml.dom.minidom as m
@@ -167,7 +167,9 @@ check ".sln: gtest は 1 つだけ (計 6 プロジェクト)" bash -c "[ \$(gre
 mkdir -p "$S4/ThirdParty/googletest/include/gtest" "$S4/ThirdParty/googletest/src"
 touch "$S4/ThirdParty/googletest/include/gtest/gtest.h" "$S4/ThirdParty/googletest/src/gtest-all.cc" "$S4/ThirdParty/googletest/src/gtest_main.cc"
 check "ソースがあれば、GTEST_SOURCE: present" bash -c "python3 '$SCRIPT' '$S4' ThirdLib --dry-run | grep -q 'GTEST_SOURCE: present'"
-run_al "$S4" NuLib --dry-run >/dev/null 2>&1; [ $? -eq 0 ] && ok "--gtest nuget の明示は、source の解決より優先される" || ng "--gtest nuget の明示"
+python3 "$SCRIPT" "$S4" NuLib --gtest nuget --dry-run >"$WORK/out_nu.txt" 2>&1; rc=$?
+[ "$rc" -eq 2 ] && grep -q '廃止' "$WORK/out_nu.txt" && ok "--gtest nuget (旧 NuGet 方式) は、廃止: rc 2 と、理由" || ng "--gtest nuget の廃止 (rc=$rc)"
+python3 "$SCRIPT" "$S4" NuLib --gtest-from "$WORK/x" --dry-run >/dev/null 2>&1; [ $? -eq 2 ] && ok "--gtest-from も、廃止 (rc 2)" || ng "--gtest-from の廃止"
 
 echo "== GoogleTest の vcpkg 方式 (--gtest auto が既定)"
 S5="$WORK/sln5"; make_sln "$S5"
@@ -188,7 +190,10 @@ EOF
 check "baseline があれば、GTEST_VCPKG: present (dry-run)" bash -c "python3 '$SCRIPT' '$S5' ThirdLib --dry-run | grep -q 'GTEST_VCPKG: present'"
 ID=Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn; VER=1.8.1.8
 S6="$WORK/sln6"; make_sln "$S6"; mkdir -p "$S6/packages/$ID.$VER/build/native"; echo '<Project/>' > "$S6/packages/$ID.$VER/build/native/$ID.targets"
-python3 "$SCRIPT" "$S6" CoreLib --dry-run | grep -q 'GTEST_MODE: nuget' && ok "auto: packages\\ に NuGet の GoogleTest があれば、旧方式のまま (nuget)" || ng "auto: 旧方式のソリューション"
+python3 "$SCRIPT" "$S6" CoreLib >"$WORK/out_legacy.txt" 2>&1
+grep -q 'GTEST_MODE: vcpkg' "$WORK/out_legacy.txt" && grep -q '旧 NuGet 方式' "$WORK/out_legacy.txt" && ok "auto: packages\\ に旧 NuGet 方式の GoogleTest があっても、新しいテストは vcpkg (NOTE で、既存のテストは、そのまま動くと案内)" || { ng "auto: 旧方式のソリューション"; cat "$WORK/out_legacy.txt"; }
+check "旧方式の packages\\ は、そのまま (消さない・触らない)" bash -c "[ -f '$S6/packages/$ID.$VER/build/native/$ID.targets' ]"
+check "新しいテストは、packages.config を持たない" bash -c "[ ! -e '$S6/CoreLibTest/packages.config' ] && [ -f '$S6/CoreLibTest/main.cpp' ]"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi

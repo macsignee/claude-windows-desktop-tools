@@ -1,7 +1,7 @@
 ---
 name: new-solution
-description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ / WPF (MVVM)) を作る。層 (C++ はロジック・データの DLL または静的ライブラリ、WPF は ViewModel・ロジック・データのクラスライブラリ) を作るか、テスト (C++ は GoogleTest、WPF は MSTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、既存パッケージのコピー (nuget) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest / --tests mstest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
-argument-hint: "[--ui-tests none|flaui] [--type wpf|winforms|csharp-dll|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib] [--gtest auto|nuget|source] [--tfm net10.0] [--spec <仕様書>]"
+description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ / WPF (MVVM)) を作る。層 (C++ はロジック・データの DLL または静的ライブラリ、WPF は ViewModel・ロジック・データのクラスライブラリ) を作るか、テスト (C++ は GoogleTest、WPF は MSTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、vcpkg (既定) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest / --tests mstest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
+argument-hint: "[--ui-tests none|flaui] [--type wpf|winforms|csharp-dll|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib] [--gtest auto|vcpkg|source] [--tfm net10.0] [--spec <仕様書>]"
 disable-model-invocation: true
 ---
 
@@ -25,7 +25,7 @@ disable-model-invocation: true
 | 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。**`wpf` のときは、`viewmodel` (既定の名前 `ViewModels`) も、組み合わせられる** (例: `data,logic,viewmodel`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる。**`wpf` は、`SampleApp.Domain` のように、`.` を含む名前もよい** (規約 3.2 の `Presentation` / `Application` / `Domain` / `Infrastructure`。`wpf-check` が、標準の依存で検査する) |
 | 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし)。全部の層に、同じ種類 |
 | テスト | `--tests` | `none` / `gtest` (C++: 作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) / **`mstest` (WPF: 作った各クラスライブラリに、`<名前>.Tests` と MSTest)** |
-| GoogleTest の入れ方 | `--gtest` | `auto` (既定。**vcpkg**) / `vcpkg` / `source` / `nuget` (旧方式) (下の「GoogleTest」) |
+| GoogleTest の入れ方 | `--gtest` | `auto` (既定。**vcpkg**) / `vcpkg` / `source` (旧 NuGet 方式 (`nuget`) は、v2.31.0 で廃止) (下の「GoogleTest」) |
 | UI テスト | `--ui-tests` | `none` (既定) / **`flaui` (WPF / WinForms と、MFC などの C++ の GUI アプリ: `<アプリ名>.UITests` (MSTest + FlaUI) を足す)**。画面を、自動で操作して確かめたいときだけ。**ビルド → テストの流れには、含めず、ユーザーが求めたときだけ、別に実行する** (ウォッチャーの `trigger_uitest.flag`、`build-test-loop` の `uitest_once.sh`。画面をプロンプトで作りながら、UI テストを先に書いて繰り返すときは、`/ui-test-first`)。通常のテストには、含まれない。作成と同時に指定でき、**すでにあるソリューションに、後付けもできる** (`--ui-tests flaui` だけを指定)。書き方は、`build-test-loop` の「UI テスト」 |
 
 - **`winforms` (WinForms、MVP):** WPF と同じ経路 (SDK 形式の `.csproj`、`.slnx`、MSTest)。メインは WinForms アプリ (`net10.0-windows`、`UseWindowsForms`、`.slnx` の `DefaultStartup`)。**層は `data` / `logic` だけ** (`viewmodel` はエラー)。**MVP:** `Form` (`MainForm`) は `IMainView` を実装して、値の出し入れとイベントの通知だけをする。**画面の振る舞いは `MainPresenter`** が持つ (WinForms の型を使わない)。`IMainView` / `MainPresenter` は、**ロジック層があればそこ** (`--tests mstest` で `MainPresenterTests` の 4 件が付く)、なければ**アプリの `Presenters/` フォルダ** (テストできない)。`Program.cs` が composition root (`Form` と Presenter を作って結ぶ)。`MainForm.Designer.cs` は、VS のデザイナーの形 (コントロールに `Name` を付ける = UI Automation の `AutomationId`)。**`Form` (View) は、テストしない。** **ロジック層がないとき (`--layers none` / `data`) は、`--tests mstest` で、`<アプリ名>.Tests` が作られ、アプリの `Presenters/` をテストする** (アプリを参照するので、TFM はアプリと同じ `net10.0-windows`。名前空間は `<ルート>.Presenters.Tests`。`Info` クラスがないので、ベースラインは `MainPresenterTests` の 4 件)。**後付けの `--tests mstest` も、同じ** (WPF のアプリは、対象外のまま)。**`--ui-tests flaui` が使える** (`<アプリ名>.UITests`。UIA3。`AutomationId` は、コントロールの `Name`。標準の `MainForm` なら、入力 → 挨拶 → クリアのテストが付く。操作したいコントロールには、`Name` を付ける)。層の有無に関係なく使える (FlaUI は、アプリを参照せず、exe を起動して操作するため)。`CLAUDE.md` は、`winforms-check` と、規約 `winforms-csharp.md` を指す。**生成物は、`winforms-check` で、指摘 0 件** (出たら、生成の誤り)。
@@ -65,10 +65,10 @@ disable-model-invocation: true
 |---|---|---|
 | **vcpkg (既定)** | `vcpkg.json` (ソリューション直下) に `gtest` を入れ、テスト exe に **`main.cpp`** (自前の `main()`) を置く。トリプレット `x64-windows-static-md`。`builtin-baseline` で版を固定。2 回目以降は、vcpkg のバイナリキャッシュで、ビルドなしで入る | **ウォッチャー (Windows 側) が、GitHub に届くこと** (初回のみ。取得は `package_once.sh`) |
 | **source** | **ソース** (`ThirdParty\googletest\`) を、ソリューション内の静的ライブラリ `gtest` としてビルド。vcpkg が使えないとき用 | **ウォッチャーが、GitHub に届くこと** |
-| **nuget (旧方式)** | NuGet のパッケージ (1.8.1.8) を、`packages\` に**コピー**。新しいソリューションでは、使わない (すでにその方式のソリューションだけ) | コピー元 |
+| ~~nuget (旧方式)~~ | **廃止 (v2.31.0)**。`--gtest nuget` / `--gtest-from` は、エラー (終了コード 2)。`packages\` に旧方式のテストがあるソリューションは、そのまま使える | — |
 
-- **`auto` (既定):** 既存の `gtest` プロジェクトがある → source / `packages\` に GoogleTest の NuGet パッケージがある (すでに旧方式) → nuget / **それ以外 → vcpkg**。
-- **vcpkg 方式の違い (nuget・source との):** 出力の「Running main() from ...」の行が出ない (自前の `main()`)。`gtestd.lib` ではなく、構成ごとのフォルダの `gtest.lib`。GoogleTest は C++17 以上が必要 (生成するプロジェクトは C++20)。要約 (`PASSED` / `FAILED` の形) は、変わらない。
+- **`auto` (既定):** 既存の `gtest` プロジェクトがある → source / **それ以外 → vcpkg**。`packages\` に旧 NuGet 方式のテストがあっても、**新しいテストは vcpkg** (出力に、`NOTE: … 旧 NuGet 方式 …` が出る。既存のテストは、そのまま動く)。
+- **vcpkg 方式の違い (source との):** 出力の「Running main() from ...」の行が出ない (自前の `main()`)。`gtestd.lib` ではなく、構成ごとのフォルダの `gtest.lib`。GoogleTest は C++17 以上が必要 (生成するプロジェクトは C++20)。要約 (`PASSED` / `FAILED` の形) は、変わらない。
 - 方式は、ユーザーが指定してもよい。迷っていたら、`auto` で進める (案の提示で、どちらになるかを、見せる)。
 
 ## 前提
@@ -103,7 +103,7 @@ disable-model-invocation: true
    ```bash
    python3 <このSkillのフォルダ>/scripts/new_solution.py "$PWD" --type <..> --layers <..> --tests <..> [--layer-kind <..>] [--gtest <..>] [--namespace <..>] [--spec <..>] --dry-run
    ```
-   ソリューション名、メイン、作る層 (名前・種類)、テスト、作るファイル、**GoogleTest の方式と状態** (`GTEST_MODE` / `GTEST_VCPKG` / `GTEST_PACKAGE` / `GTEST_SOURCE`)、`MAIN_EXE_TARGETNAME` の予定 (あれば) を示す。
+   ソリューション名、メイン、作る層 (名前・種類)、テスト、作るファイル、**GoogleTest の方式と状態** (`GTEST_MODE` / `GTEST_VCPKG` / `GTEST_SOURCE`。旧 NuGet 方式のテストが残るときは `NOTE`)、`MAIN_EXE_TARGETNAME` の予定 (あれば) を示す。
 4. **作成する** (`--dry-run` を外して、同じ引数で実行)。**自分で、`.vcxproj` や `.slnx` を手書きしない。**
    - 終了コード 3 (すでにある) は、何も書かれていない。**既存のものを、上書きしない。**
    - 終了コード 2 は、組み合わせや入力の問題。内容をユーザーに伝える。
@@ -116,11 +116,6 @@ disable-model-invocation: true
        bash <add-package Skill のフォルダ>/scripts/package_once.sh "$PWD" --timeout 1800 "vcpkg baseline" "vcpkg install"
        ```
        初回は、gtest のビルドで、数十秒から数分 (実機の計測では、約 35 秒)。結果の表は、`add-package` Skill の「手順 2: vcpkg」と同じ (`TIMEOUT` は、報告して止まる。`ENV_ERROR` はネットワーク)。
-   - **`GTEST_MODE: nuget`**
-     - `GTEST_PACKAGE: present` / `copied from ...`: 次へ。
-     - `GTEST_PACKAGE: missing`: **ウォッチャーの MSBuild は、NuGet を復元しない。** ユーザーに、次のどちらかを依頼して、待つ。
-       - **コピー元を教えてもらう:** GoogleTest (NuGet `Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn` 1.8.1.8) が入った、既存のソリューションの `packages\` のパス。教えてもらったら、そのパッケージのフォルダを、カレントの `packages/` に、コピーする (カレントへの書き込みなので、可能)。
-       - **または、Visual Studio で、ソリューションを開き、ビルドを 1 回** (NuGet の復元が走る)。
    - **`GTEST_MODE: source`**
      - `GTEST_SOURCE: present`: 次へ。
      - `GTEST_SOURCE: to-fetch`: **ソースを、ウォッチャー経由で取得する。**

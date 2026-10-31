@@ -4,7 +4,7 @@
 Usage:
   新規:        python3 new_solution.py <FOLDER> --type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib --layers none|logic|data|logic,data
                                        --tests none|gtest [--layer-kind dll|lib] [--namespace NS] [--toolset v145]
-                                       [--gtest auto|vcpkg|source|nuget] [--gtest-from DIR] [--dry-run]
+                                       [--gtest auto|vcpkg|source] [--dry-run]
                WPF (.NET): python3 new_solution.py <FOLDER> --type wpf --layers none|data|logic|viewmodel の組み合わせ --tests none|mstest
                                        [--namespace NS] [--tfm net10.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
                            (層は、WPF 非依存のクラスライブラリ。viewmodel を作らないと、ViewModel は、アプリの中)
@@ -12,7 +12,7 @@ Usage:
   改行コードの規則 (.gitattributes) の確認と追加 (すでにあるプロジェクト用):
                python3 new_solution.py <FOLDER> --check-git          (読み取りだけ。状態と、提案の要否を出す)
                python3 new_solution.py <FOLDER> --add-gitattributes  (最小版の .gitattributes を作る。git の操作は、しない)
-  テストの後付け: python3 new_solution.py <FOLDER> --tests gtest [--gtest auto|vcpkg|source|nuget] [--gtest-from DIR] [--dry-run]
+  テストの後付け: python3 new_solution.py <FOLDER> --tests gtest [--gtest auto|vcpkg|source] [--dry-run]
                  (すでにソリューションがあるフォルダで。テストのない DLL に、対応するテスト exe を足す)
                  .NET のソリューションなら: python3 new_solution.py <FOLDER> --tests mstest [--dry-run]
                  (テストのないクラスライブラリに、<名前>.Tests を足す)
@@ -27,9 +27,9 @@ Usage:
            名前を変えるなら logic:OrderLogic,data:OrderData のように指定する (省略時の既定の名前は、作成後に変更もできる)
   --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ)。全部の層に、同じ種類を使う
   --tests  gtest: 作った DLL / 静的ライブラリ (層と、メインが dll / lib ならメイン) に、<名前>Test (GoogleTest の exe) を作る。none: テストを作らない
-  --gtest  GoogleTest の入れ方: auto (既定。vcpkg。すでに gtest プロジェクトがあれば source、packages\\ に NuGet パッケージがあれば nuget) /
+  --gtest  GoogleTest の入れ方: auto (既定。vcpkg。すでに gtest プロジェクトがあれば source) /
            vcpkg (vcpkg.json に gtest を入れ、テスト exe に main.cpp を置く。baseline と install は、ウォッチャー経由: package_once.sh) /
-           source (ThirdParty/googletest をビルド。ソースは、ウォッチャー経由で取得する: gtest_once.sh) / nuget (旧方式。既存の packages\\ をコピーする)
+           source (ThirdParty/googletest をビルド。ソースは、ウォッチャー経由で取得する: gtest_once.sh)。旧 NuGet 方式 (nuget) は、v2.31.0 で廃止
   --spec   仕様書 (docs/specs/*.md) の「## 構成案」の、次の行を読む: - メインの種類: / - 層: / - 層の種類: / - テスト: / - 名前空間: / - UIテスト: (none | flaui) / - TFM: (.NET のみ。例 net10.0)
            新規作成のときは、さらに、仕様書を取り込む (spec_import.py): 仕様書と「元:」のメモを docs/specs/・docs/ideas/ に置く (すでにあれば、そのまま)、
            「具体例」「境界値と異常系」の表から、テストケースの種 docs/specs/<名前>.cases.md を作る、CLAUDE.md に「## 仕様書」の節を足す
@@ -38,7 +38,7 @@ Usage:
           メインが dll / lib なら、メイン自身がテスト対象。
 新規作成では、CLAUDE.md / .gitignore / .gitattributes (改行コードの規則。拡張子を列挙しない最小版) も作る (どれも、すでにあれば、上書きしない)。
 テストの後付け (すでにソリューションがある) では、これらを作らない。
-x64 の Debug / Release だけ。GoogleTest の vcpkg 方式は、vcpkg.json を書くだけで、取得はしない (このスクリプトは、ネットワークを使わない)。nuget 方式は、既存の packages\\ をコピーする。
+x64 の Debug / Release だけ。GoogleTest の vcpkg 方式は、vcpkg.json を書くだけで、取得はしない (このスクリプトは、ネットワークを使わない)。
 
 終了コード: 0 成功 / 2 引数・組み合わせ・フォルダの問題 / 3 すでにある (何も書かない)
 このスクリプトは、同じ skills フォルダの cpp-test-first/scripts/add_layer.py (C++) と、wpf-test-first/scripts/add_project.py (WPF) を、読み込んで使う
@@ -536,7 +536,7 @@ GITIGNORE = '''.vs/
 x64/
 obj/
 *.user
-# GoogleTest: vcpkg の取得結果 (vcpkg_installed/)、旧 NuGet 方式のパッケージ (packages\\ にコピーしたもの)、ソース方式のソース (ウォッチャーが取得したもの)
+# GoogleTest: vcpkg の取得結果 (vcpkg_installed/)、旧 NuGet 方式 (廃止) のパッケージ (packages\\)、ソース方式のソース (ウォッチャーが取得したもの)
 vcpkg_installed/
 packages/
 ThirdParty/googletest/
@@ -617,9 +617,6 @@ UI / メイン → ロジック → データ (のインターフェース)
             out += r"""- GoogleTest は、**ソース** (`ThirdParty\googletest\`) を、ソリューション内の静的ライブラリ `gtest` としてビルドしている (NuGet 不要)。
   ソースは、ウォッチャー経由で取得する (`trigger_gtest.flag`。`gtest_once.sh`)。`ThirdParty/googletest/` は、`.gitignore` 済み (クローンし直したら、再取得する)。
 """
-        elif gtest_mode == 'nuget':
-            out += r"""- GoogleTest は、NuGet のパッケージを `packages\` にコピーしたもの (旧方式)。ウォッチャーは、NuGet を復元しない。
-"""
         else:
             out += r"""- GoogleTest は、**vcpkg** (マニフェストモード。ソリューション直下の `vcpkg.json`、トリプレット `x64-windows-static-md`)。取得は、ウォッチャー経由
   (`package_once.sh <dir> --timeout 1800 'vcpkg baseline' 'vcpkg install'`。初回は、数十秒から数分)。`vcpkg_installed/` は、`.gitignore` 済み。
@@ -651,8 +648,6 @@ def update_claude_md_tests(folder, name, gmode='vcpkg'):
     if '## テスト (GoogleTest)' not in text:
         gline = ('- GoogleTest は、ソース (`ThirdParty\\googletest\\`) を、静的ライブラリ `gtest` としてビルドしている (NuGet 不要)。取得は、`gtest_once.sh`。'
                  if gmode == 'source' else
-                 '- GoogleTest は、NuGet のパッケージを `packages\\` にコピーしたもの (旧方式)。ウォッチャーは、NuGet を復元しない。'
-                 if gmode == 'nuget' else
                  "- GoogleTest は、vcpkg (マニフェストモード、`vcpkg.json`、`x64-windows-static-md`)。取得は、`package_once.sh <dir> --timeout 1800 'vcpkg baseline' 'vcpkg install'`。"
                  'テスト exe は、自前の `main.cpp` を持つ (`gtest_main` は、自動ではリンクされない)。')
         text += '''
@@ -1051,7 +1046,7 @@ def create_wpf(a, folder, name):
     if a.tests == 'gtest':
         die('--tests gtest は C++ 用。WPF (.NET) は、--tests mstest (または none)')
     if a.layer_kind or a.gtest or a.gtest_from or a.toolset:
-        die('--layer-kind / --gtest / --gtest-from / --toolset は C++ 用。WPF では、指定できない')
+        die('--layer-kind / --gtest / --toolset は C++ 用。WPF では、指定できない')
     if dll and a.ui_tests == 'flaui':
         die('--ui-tests flaui は、画面のあるアプリ (wpf) 用。csharp-dll には、画面がない')
     if dll or winforms:
@@ -1253,7 +1248,7 @@ def create_mode(a, folder, name):
 
     gmode, gstat, gfiles, gprojects, gguid = None, None, {}, [], None
     if tests:
-        gmode, gstat = AL.decide_gtest_mode(folder, a.gtest or 'auto', a.gtest_from)
+        gmode, gstat = AL.decide_gtest_mode(folder, a.gtest or 'auto')
         if gmode == 'source' and os.path.exists(os.path.join(folder, 'gtest')) and \
                 not os.path.isfile(os.path.join(folder, 'gtest', 'gtest.vcxproj')):
             die('すでに存在する: gtest (GoogleTest の静的ライブラリの、フォルダ名と重なる)', 3)
@@ -1311,12 +1306,12 @@ def create_mode(a, folder, name):
     if '.gitattributes' in extras:
         write_plain(folder, '.gitattributes', GITATTRIBUTES)
     if tests:
-        finish_tests(folder, gmode, a.gtest_from)
+        finish_tests(folder, gmode)
     print('完了。')
 
 
-def finish_tests(folder, gmode, gtest_from):
-    print(AL.finish_gtest(folder, gmode, gtest_from))
+def finish_tests(folder, gmode):
+    print(AL.finish_gtest(folder, gmode))
     for n in AL.protect_main_exes(folder):
         print(f'MAIN_EXE_TARGETNAME: {n} -> {n}_Main (ウォッチャーが、アプリをテストとして実行しないため)')
 
@@ -1341,7 +1336,7 @@ def add_tests_mode(a, folder, name, sln_name):
     if not todo:
         die('テストを足せる DLL / 静的ライブラリ がない (ないか、すべてに、すでに <名前>Test がある)。'
             'メインが exe なら、先に層 (DLL) を作ること')
-    gmode, gstat = AL.decide_gtest_mode(folder, a.gtest or 'auto', a.gtest_from)
+    gmode, gstat = AL.decide_gtest_mode(folder, a.gtest or 'auto')
     gfiles, gprojects, gguid = AL.plan_gtest(folder, gmode, toolset)
     files, projects = {}, []
     for dn in todo:
@@ -1368,7 +1363,7 @@ def add_tests_mode(a, folder, name, sln_name):
         return
     AL.write_files(folder, files)
     AL.register(sln, projects)
-    finish_tests(folder, gmode, a.gtest_from)
+    finish_tests(folder, gmode)
     print(update_claude_md_tests(folder, name, gmode))
     print('完了。')
 
@@ -1455,6 +1450,8 @@ def main():
     ap.add_argument('--add-gitattributes', action='store_true')
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
+    if a.gtest == 'nuget' or a.gtest_from:
+        die(AL.GTEST_NUGET_REMOVED)
 
     folder = os.path.abspath(a.folder)
     if a.check_git:

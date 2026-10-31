@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.31.0] 2026-10-31 (Skill 側のみ。**旧 NuGet 方式の GoogleTest を廃止。`--gtest nuget` / `--gtest-from` は、エラーになる (契約の変更)**。疑似フォルダで検証済み。**実機の確認は、済み (TEST-PLAN 2-14 の GN1〜GN4 すべて ✔。旧方式 (NuGet) と vcpkg 方式のテストが、同じソリューションで共存して、3 件通過)**)
+
+- **旧 NuGet 方式 (`--gtest nuget`。兄弟フォルダの `packages\` から、GoogleTest 1.8.1.8 をコピーする方式) を廃止した。** `source` は、残す (ユーザーの決定。`ClaudeProject` が source 方式で、vcpkg が使えない環境の逃げ道を、残すため)。
+- `--gtest nuget` と `--gtest-from` は、**エラー (終了コード 2。何も書かない)**。理由と代替 (vcpkg / source) を、案内する。出力の `GTEST_PACKAGE` と、テストの `packages.config` の生成も、なくなった。
+- **`auto`:** 既存の `gtest` プロジェクト → source / それ以外 → vcpkg。**`packages\` に旧方式のテストがあるソリューションでも、新しいテストは vcpkg** (`NOTE: … 旧 NuGet 方式 …` を出す)。**既存の旧方式のソリューションは、壊さない** (`packages\` と既存のテストには、触らない)。
+- Skill の説明 (`new-solution` / `cpp-test-first` の SKILL.md、`DLL-LAYOUT.md`) から、nuget の記述を削除。`new-solution` の `description` に、vcpkg (既定) を、書き足した。
+- **テスト:** `add_layer_test.sh` と `new_solution_test.sh` を、vcpkg 前提に書き直した (nuget のコピー・`GTEST_PACKAGE` の検証を、「廃止のエラー」と「旧方式のソリューションでも、新しいテストは vcpkg」の検証に置き換えた)。全 26 本が通過。
+- **実機の確認 (TEST-PLAN 2-14):** 旧方式の実ソリューション (`NewClaudeProject` のコピー) で、既存のテスト 2 件が通り (GN1)、新しい層を足すと vcpkg 方式になり (GN2)、vcpkg の取得のあと、旧方式の 2 件と vcpkg 方式の 1 件が共存して通った (GN3)。廃止のエラーも、確認した (GN4)。
+
 ## [2.30.0] 2026-10-31 (Skill 側のみ。生成する MFC のひな形の変更。ホスト側の変更なし。疑似フォルダで検証済み。**実機のビルド・実行の確認は、未実施 (TEST-PLAN 2-13)**)
 
 - **MFC の DPI 認識を、`InitInstance` の `SetProcessDPIAware()` から、マニフェストでの宣言に移した** (ガイドライン UI-DPI-002 が望む形)。MFC のアプリ (SDI・MDI・ダイアログ) の `.vcxproj` の Debug・Release に `<Manifest><EnableDpiAwareness>true</EnableDpiAwareness></Manifest>` を入れ、3 つのひな形から `SetProcessDPIAware()` を外した。値は `true` (システム DPI 対応。従来 (v2.27.0 の TP2 で確認) と同じ動作)。

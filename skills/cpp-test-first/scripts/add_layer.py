@@ -2,21 +2,19 @@
 """add_layer.py - ソリューションに、「DLL プロジェクト」と、(必要なら) 「対応するテスト exe (GoogleTest)」を追加する。
 
 Usage: python3 add_layer.py <SLN_DIR> <Name> [--kind dll|lib] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]
-                            [--toolset v145] [--gtest-from DIR] [--dry-run]
+                            [--toolset v145] [--dry-run]
 
   SLN_DIR      .sln または .slnx があるフォルダ (Claude Code を起動したフォルダ)
   Name         DLL のプロジェクト名 (例: DataLayer)。テストは <Name>Test になる
   --tests      gtest (既定): DLL + テスト exe を作る。none: DLL だけを作る (テスト・GoogleTest は作らない)
   --kind       dll (既定) / lib: DLL を作るか、静的ライブラリ (公開マクロなし。テスト exe や UI に、リンクで取り込まれる) を作るか
   --tests-only すでにある DLL / 静的ライブラリ <Name> に、テスト exe だけを足す (DLL の名前空間・参照は、既存のファイルから読む)
-  --gtest      auto (既定) / vcpkg / source / nuget: GoogleTest の入れ方。
-               auto: 既存の gtest プロジェクト → source / packages\\ に GoogleTest の NuGet パッケージがある (すでに旧方式) → nuget / それ以外 → vcpkg。
+  --gtest      auto (既定) / vcpkg / source: GoogleTest の入れ方 (旧 NuGet 方式 (nuget) は、v2.31.0 で廃止)。
+               auto: 既存の gtest プロジェクト → source / それ以外 → vcpkg。
                vcpkg: vcpkg.json (ソリューション直下) に gtest を入れ、テスト exe に main.cpp (自前の main()) を置く。x64-windows-static-md。
                       builtin-baseline の固定と gtest の取得は、ウォッチャー経由 (package_once.sh 'vcpkg baseline' 'vcpkg install')
                source: ThirdParty/googletest のソースを、静的ライブラリ gtest としてビルドする (vcpkg が使えないとき)
-               nuget: 旧方式 (NuGet パッケージ)。新しいソリューションでは、使わない
-  --gtest-from nuget 方式のときだけ: GoogleTest の NuGet パッケージのコピー元 (packages フォルダ、または、パッケージのフォルダ)。
-               省略時は、兄弟フォルダ (../*/packages/) から探す
+               (packages\\ に旧 NuGet 方式のテストがあるソリューションは、そのまま使える。新しいテストは vcpkg 方式で作り、注意の行 (NOTE) を出す)
   --namespace  C++ の名前空間 (既定: ソリューション名の、大文字の頭文字を、小文字にしたもの。例: ThreeLayerSample -> tls)
   --uses       この DLL が、ヘッダ (インターフェース) を参照する、別のプロジェクトのフォルダ名 (複数可)。
                インクルードパスに追加するだけで、リンクはしない (例: ロジック DLL が --uses DataLayer)
@@ -28,7 +26,7 @@ Usage: python3 add_layer.py <SLN_DIR> <Name> [--kind dll|lib] [--tests none|gtes
   <Name>Test/<Name>Test.vcxproj, main.cpp (vcpkg 方式のとき), Test<Name>ModuleInfo.cpp (ベースライン用の、1 件のテスト)
   ソリューション (.sln / .slnx) に、プロジェクトを追加する。
 テストを作るとき (--tests gtest):
-  - vcpkg 方式: vcpkg.json に gtest を入れ、.gitignore に vcpkg_installed/ を足す (出力: GTEST_VCPKG)。nuget 方式のときだけ、兄弟フォルダの packages\\ をコピーする (出力: GTEST_PACKAGE)。
+  - vcpkg 方式: vcpkg.json に gtest を入れ、.gitignore に vcpkg_installed/ を足す (出力: GTEST_VCPKG)。
   - exe のメインプロジェクトの名前が Test / Tests で終わる場合は、<TargetName> を、<名前>_Main にする
     (ウォッチャーが *Test.exe を、テストとして実行するので、アプリが起動されるのを防ぐ)。
 
@@ -58,7 +56,6 @@ int main(int argc, char** argv)
     return RUN_ALL_TESTS();
 }
 '''
-GTEST_TARGETS = f'..\\packages\\{GTEST_ID}.{GTEST_VER}\\build\\native\\{GTEST_ID}.targets'
 
 # 日本語版 Visual Studio のウィザードが生成するものと同じフィルター名・GUID・拡張子リスト。
 # (フィルター名は、ロケールごとに異なる。ここを英語にすると、日本語版 VS で開いたときに
@@ -80,6 +77,10 @@ def filter_name_for(path):
     if ext == 'rc':
         return FILTER_RESOURCE[0]
     return None
+
+
+GTEST_NUGET_REMOVED = ('--gtest nuget / --gtest-from (旧 NuGet 方式) は、v2.31.0 で廃止した。GoogleTest は、vcpkg (既定。--gtest vcpkg) か、'
+                       'source (--gtest source) で入れる。packages\\ に旧方式のテストがあるソリューションは、そのまま使えるが、新しいテストは、vcpkg になる')
 
 
 def die(msg, code=2):
@@ -214,8 +215,6 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
     out += '  <ItemGroup>\n' + ''.join(f'    <ClCompile Include="{c}" />\n' for c in cl) + '  </ItemGroup>\n'
     if rc:
         out += '  <ItemGroup>\n' + ''.join(f'    <ResourceCompile Include="{r}" />\n' for r in rc) + '  </ItemGroup>\n'
-    if 'packages.config' in items:
-        out += '  <ItemGroup>\n    <None Include="packages.config" />\n  </ItemGroup>\n'
     if refs:
         out += '  <ItemGroup>\n' + ''.join(
             f'    <ProjectReference Include="..\\{n}\\{n}.vcxproj">\n      <Project>{g}</Project>\n    </ProjectReference>\n'
@@ -305,14 +304,25 @@ def vcpkg_status(sln_dir):
     return 'present' if m.get('builtin-baseline') else 'no-baseline'
 
 
+def legacy_nuget_gtest(sln_dir):
+    """旧 NuGet 方式 (廃止。v2.31.0) の GoogleTest が、packages\\ にあるか。あれば、既存のテストは、そのまま動く (新しいテストは、vcpkg)"""
+    return _is_gtest_package(gtest_package_dir(sln_dir))
+
+
+def legacy_note(sln_dir):
+    """旧 NuGet 方式のソリューションに、新しいテストを足すときの注意 (1 行)。なければ、空文字"""
+    if not legacy_nuget_gtest(sln_dir):
+        return ''
+    return ('NOTE: このソリューションには、旧 NuGet 方式 (廃止。packages\\ の GoogleTest 1.8.1.8) のテストがある。既存のテストは、そのまま動く。'
+            '新しいテストは、vcpkg 方式で作る (移行したいときは、既存のテストを、vcpkg 方式に作り直す)')
+
+
 def resolve_gtest_mode(sln_dir, requested='auto'):
     """GoogleTest の入れ方を決める。戻り値: (mode, status)。ファイルは、書かない。
       vcpkg : vcpkg (マニフェスト、x64-windows-static-md)。既定。status は vcpkg_status() の値
       source: ソース (ThirdParty/googletest) を、静的ライブラリ gtest として、ビルドする (vcpkg が使えないとき)。status は present / to-fetch
-      nuget : 旧方式 (NuGet パッケージ)。すでに packages\\ に GoogleTest がある、または --gtest nuget の指定があるときだけ。status は ensure_gtest(dry=True) の値
-    auto: 既存の gtest プロジェクト → source / packages\\ に GoogleTest の NuGet パッケージがある → nuget (すでにその方式のソリューション) / それ以外 → vcpkg"""
-    if requested == 'nuget':
-        return 'nuget', ensure_gtest(sln_dir, None, dry=True)
+    (旧 NuGet 方式は、v2.31.0 で廃止。packages\\ に旧方式のテストがあっても、新しいテストは vcpkg)
+    auto: 既存の gtest プロジェクト → source / それ以外 → vcpkg"""
     if requested == 'vcpkg':
         return 'vcpkg', vcpkg_status(sln_dir)
     src_status = 'present' if gtest_source_present(sln_dir) else 'to-fetch'
@@ -320,16 +330,11 @@ def resolve_gtest_mode(sln_dir, requested='auto'):
         return 'source', src_status
     if os.path.isfile(os.path.join(sln_dir, 'gtest', 'gtest.vcxproj')):
         return 'source', src_status
-    if _is_gtest_package(gtest_package_dir(sln_dir)):
-        return 'nuget', 'present'
     return 'vcpkg', vcpkg_status(sln_dir)
 
 
-def decide_gtest_mode(sln_dir, requested, gtest_from):
-    mode, status = resolve_gtest_mode(sln_dir, requested)
-    if mode == 'nuget':
-        status = ensure_gtest(sln_dir, gtest_from, dry=True)
-    return mode, status
+def decide_gtest_mode(sln_dir, requested):
+    return resolve_gtest_mode(sln_dir, requested)
 
 
 def plan_gtest(sln_dir, mode, toolset):
@@ -342,19 +347,6 @@ def plan_gtest(sln_dir, mode, toolset):
     g = new_guid()
     return gtest_project_files(toolset, g), [('gtest', g)], g
 
-
-def nuget_tail():
-    t = GTEST_TARGETS
-    return f'''  <ImportGroup Label="ExtensionTargets">
-    <Import Project="{t}" Condition="Exists('{t}')" />
-  </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>GoogleTest の NuGet パッケージがありません。Visual Studio で [NuGet パッケージの復元] を実行してください。見つからないファイル: {{0}}</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('{t}')" Text="$([System.String]::Format('$(ErrorText)', '{t}'))" />
-  </Target>
-'''
 
 
 def dll_files(name, ns, uses, toolset, dg, kind='dll'):
@@ -460,15 +452,6 @@ def test_files(name, ns, uses, toolset, dg, tg, baseline_link=True, gtest_mode='
         files[f'{test}/{test}.vcxproj'] = vcxproj(
             test, tg, 'Application', toolset, [test_cpp], [(name, dg), ('gtest', gtest_guid)],
             [f'$(ProjectDir)..\\{name}'] + use_inc + [GTEST_SRC_INCLUDE], '_CONSOLE;', 'Console')
-    else:
-        files[f'{test}/{test}.vcxproj'] = vcxproj(
-            test, tg, 'Application', toolset, [test_cpp, 'packages.config'], [(name, dg)],
-            [f'$(ProjectDir)..\\{name}'] + use_inc, '_CONSOLE;', 'Console', tail=nuget_tail())
-        files[f'{test}/packages.config'] = f'''<?xml version="1.0" encoding="utf-8"?>
-<packages>
-  <package id="{GTEST_ID}" version="{GTEST_VER}" targetFramework="native" />
-</packages>
-'''
     if baseline_link:
         files[f'{test}/{test_cpp}'] = f'''#include <gtest/gtest.h>
 #include "{info_h}"
@@ -592,27 +575,6 @@ def _is_gtest_package(d):
     return os.path.isfile(os.path.join(d, 'build', 'native', f'{GTEST_ID}.targets'))
 
 
-def ensure_gtest(sln_dir, gtest_from=None, dry=False):
-    """packages\\ に GoogleTest (NuGet) がなければ、既存のコピーを探して、コピーする (ネットワークは使わない)。
-    戻り値: 'present' / 'copied from <src>' / 'would copy from <src>' / 'missing'"""
-    dest = gtest_package_dir(sln_dir)
-    if _is_gtest_package(dest):
-        return 'present'
-    cands = []
-    if gtest_from:
-        g = os.path.abspath(gtest_from)
-        cands += [g, os.path.join(g, f'{GTEST_ID}.{GTEST_VER}')]
-    parent = os.path.dirname(sln_dir)
-    cands += sorted(glob.glob(os.path.join(parent, '*', 'packages', f'{GTEST_ID}.{GTEST_VER}')))
-    for c in cands:
-        if os.path.abspath(c) != os.path.abspath(dest) and _is_gtest_package(c):
-            if dry:
-                return f'would copy from {c}'
-            shutil.copytree(c, dest)
-            return f'copied from {c}'
-    return 'missing'
-
-
 def protect_main_exes(sln_dir, dry=False):
     """exe で、名前が Test / Tests で終わるメインプロジェクト (GoogleTest (NuGet / ソース / vcpkg のどれでも) を使わないもの) に、<TargetName> を足す。
     ウォッチャーは *Test.exe をテストとして実行するので、アプリの exe が起動されるのを防ぐ。パッチした名前の一覧を返す。"""
@@ -665,11 +627,10 @@ def read_dll_info(sln_dir, name):
     return {'guid': m.group(1).upper(), 'uses': uses, 'ns': ns, 'has_info': has_info}
 
 
-def gstat_for(sln_dir, gmode, gtest_from):
+def gstat_for(sln_dir, gmode):
     if gmode == 'vcpkg':
         return vcpkg_status(sln_dir)
-    return ensure_gtest(sln_dir, gtest_from, dry=True) if gmode == 'nuget' else \
-        ('present' if gtest_source_present(sln_dir) else 'to-fetch')
+    return 'present' if gtest_source_present(sln_dir) else 'to-fetch'
 
 
 VCPKG_NEXT = ("ウォッチャーを起動して、package_once.sh <dir> --timeout 1800 'vcpkg baseline' 'vcpkg install' を実行する "
@@ -681,10 +642,8 @@ def describe_gtest(mode, status):
     if mode == 'vcpkg':
         return f'GTEST_MODE: vcpkg ({VCPKG_TRIPLET})  GTEST_VCPKG: {status}' + \
             ('' if status == 'present' else ' (vcpkg.json を作る / 更新する。baseline と install は、ウォッチャーで)')
-    if mode == 'source':
-        return f'GTEST_MODE: source (ThirdParty/googletest をビルド)  GTEST_SOURCE: {status}' + \
-            ('' if status == 'present' else ' (ウォッチャーで取得: gtest_once.sh)')
-    return f'GTEST_MODE: nuget (旧方式)  GTEST_PACKAGE: {status}'
+    return f'GTEST_MODE: source (ThirdParty/googletest をビルド)  GTEST_SOURCE: {status}' + \
+        ('' if status == 'present' else ' (ウォッチャーで取得: gtest_once.sh)')
 
 
 def ensure_vcpkg_manifest(sln_dir):
@@ -710,22 +669,21 @@ def ensure_vcpkg_manifest(sln_dir):
             f.write(('' if text == '' or text.endswith('\n') else '\n') + 'vcpkg_installed/\n')
 
 
-def finish_gtest(sln_dir, mode, gtest_from):
-    """プロジェクトを書いたあとの、GoogleTest の仕上げ (vcpkg: vcpkg.json に gtest を入れる / nuget: パッケージのコピー / source: 取得が必要かの案内)。出力する文字列を返す。"""
+def finish_gtest(sln_dir, mode):
+    """プロジェクトを書いたあとの、GoogleTest の仕上げ (vcpkg: vcpkg.json に gtest を入れる / source: 取得が必要かの案内)。出力する文字列を返す。
+    旧 NuGet 方式のテストが残るソリューションには、注意の行を足す。"""
+    note = legacy_note(sln_dir)
+    tail = ('\n' + note) if note else ''
     if mode == 'vcpkg':
         ensure_vcpkg_manifest(sln_dir)
         after = vcpkg_status(sln_dir)
         if after == 'present':
-            return 'GTEST_MODE: vcpkg\nGTEST_VCPKG: present'
-        return f'GTEST_MODE: vcpkg\nGTEST_VCPKG: no-baseline ({VCPKG_NEXT})'
-    if mode == 'source':
-        if gtest_source_present(sln_dir):
-            return 'GTEST_MODE: source\nGTEST_SOURCE: present'
-        return ('GTEST_MODE: source\nGTEST_SOURCE: to-fetch (ウォッチャーを起動して、gtest_once.sh で、GoogleTest のソースを取得する。'
-                'または、ThirdParty/googletest/{include,src} に、手でコピーする)')
-    st = ensure_gtest(sln_dir, gtest_from)
-    return 'GTEST_MODE: nuget\nGTEST_PACKAGE: ' + (st if st != 'missing' else
-        'missing (Visual Studio で、ソリューションを開いて、NuGet パッケージを復元する。またはほかの場所の packages\\ を、--gtest-from で指定する)')
+            return 'GTEST_MODE: vcpkg\nGTEST_VCPKG: present' + tail
+        return f'GTEST_MODE: vcpkg\nGTEST_VCPKG: no-baseline ({VCPKG_NEXT})' + tail
+    if gtest_source_present(sln_dir):
+        return 'GTEST_MODE: source\nGTEST_SOURCE: present' + tail
+    return ('GTEST_MODE: source\nGTEST_SOURCE: to-fetch (ウォッチャーを起動して、gtest_once.sh で、GoogleTest のソースを取得する。'
+            'または、ThirdParty/googletest/{include,src} に、手でコピーする)' + tail)
 
 
 def main():
@@ -742,6 +700,9 @@ def main():
     ap.add_argument('--gtest', choices=['auto', 'vcpkg', 'source', 'nuget'], default='auto')
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
+
+    if a.gtest == 'nuget' or a.gtest_from:
+        die(GTEST_NUGET_REMOVED)
 
     if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', a.name):
         die(f'プロジェクト名が不正 (英数字と _ のみ、先頭は英字か _): {a.name}')
@@ -768,7 +729,7 @@ def main():
         uses = a.uses if a.uses is not None else info['uses']
         ns = a.namespace or info['ns'] or default_namespace(sln)
         tg = new_guid()
-        gmode, gstat = decide_gtest_mode(sln_dir, a.gtest, a.gtest_from)
+        gmode, gstat = decide_gtest_mode(sln_dir, a.gtest)
         gfiles, gprojects, gguid = plan_gtest(sln_dir, gmode, toolset)
         files = test_files(a.name, ns, uses, toolset, info['guid'], tg, baseline_link=info['has_info'],
                            gtest_mode=gmode, gtest_guid=gguid)
@@ -790,7 +751,7 @@ def main():
         ns = a.namespace or default_namespace(sln)
         gmode, gstat, gfiles, gprojects, gguid = 'vcpkg', None, {}, [], None
         if a.tests == 'gtest':
-            gmode, gstat = decide_gtest_mode(sln_dir, a.gtest, a.gtest_from)
+            gmode, gstat = decide_gtest_mode(sln_dir, a.gtest)
             gfiles, gprojects, gguid = plan_gtest(sln_dir, gmode, toolset)
         files, projects = build_files(a.name, ns, uses, toolset, tests=(a.tests == 'gtest'), kind=a.kind,
                                       gtest_mode=gmode, gtest_guid=gguid)
@@ -809,7 +770,7 @@ def main():
     print(f'  ~ {os.path.basename(sln)} ({len(projects)} プロジェクトを追加: {", ".join(n for n, _ in projects)})')
     if a.dry_run:
         if with_tests:
-            print(describe_gtest(gmode, gstat if not a.tests_only else gstat_for(sln_dir, gmode, a.gtest_from)))
+            print(describe_gtest(gmode, gstat if not a.tests_only else gstat_for(sln_dir, gmode)))
             for n in protect_main_exes(sln_dir, dry=True):
                 print(f'MAIN_EXE_TARGETNAME: {n} -> {n}_Main (予定)')
         print('(dry-run: 何も書いていない)')
@@ -819,7 +780,7 @@ def main():
     register(sln, projects)
 
     if with_tests:
-        print(finish_gtest(sln_dir, gmode, a.gtest_from))
+        print(finish_gtest(sln_dir, gmode))
         for n in protect_main_exes(sln_dir):
             print(f'MAIN_EXE_TARGETNAME: {n} -> {n}_Main (ウォッチャーが、アプリをテストとして実行しないため)')
     print('完了。')

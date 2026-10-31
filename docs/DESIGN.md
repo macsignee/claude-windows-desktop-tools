@@ -902,6 +902,21 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 
 **未確認 (TEST-PLAN 2-13):** vcxproj のメタデータ名 `EnableDpiAwareness` が、そのまま効くか (公式の資料は、タスクのパラメータ名だけを書いている。VS が書くプロジェクトの形は、これと同じ名前のはず)。MFC は、既定が `true` のため、`true` では、効いているか分からない → **既定と区別できる値 (`PerMonitorHighDpiAware`) で、一度、試し、マニフェストに反映されることを、確かめる**。
 
+
+### 4.50 旧 NuGet 方式の GoogleTest を廃止する (v2.31.0)
+
+**決定 (2026-10-31、ユーザー): 旧 NuGet 方式 (`--gtest nuget`) だけを廃止する。`source` は残す。** (`source` も外して vcpkg だけにする案は、見送った。理由: (1) 実ソリューション `ClaudeProject` が source 方式。「既存の `gtest` プロジェクトと同じ方式で足す」(`auto`) が、壊れる。(2) vcpkg が使えない環境の逃げ道 (source) がなくなる。ウォッチャーが vcpkg を探す方法も、未確認。) NEXT-STEPS の「gtest は vcpkg に切り替える」の条件 (3) (「NuGet 方式の gtest は廃止し、フォールバックは `ThirdParty` のソース方式のまま残す」) と、同じ。
+
+**変更:**
+- `add_layer.py`: `ensure_gtest` (兄弟フォルダの `packages\` のコピー)、`nuget_tail` (NuGet の `.targets` の取り込み)、テストの `packages.config` の生成、`GTEST_PACKAGE` の出力を、削除。`--gtest nuget` と `--gtest-from` は、エラー (終了コード 2。何も書かない。理由と代替を案内する)。
+- `resolve_gtest_mode` (`auto`): 既存の `gtest` プロジェクト → source / それ以外 → vcpkg。**`packages\` に旧方式の GoogleTest があるソリューションでも、新しいテストは vcpkg。** 出力に `NOTE: … 旧 NuGet 方式 … 既存のテストは、そのまま動く …` (`legacy_note`)。
+- `new_solution.py`: `--gtest-from` を受け付けない (エラー)。`CLAUDE.md` の「テスト (GoogleTest)」の節から、nuget の記述を削除。`.gitignore` の `packages/` は、旧方式の残りのため、残す (コメントだけ直した)。
+- Skill の説明 (`new-solution` / `cpp-test-first` の SKILL.md、`DLL-LAYOUT.md`) を、直した。
+
+**既存の旧 NuGet 方式のソリューションは、壊さない:** `packages\` と、既存のテストの `vcxproj` は、触らない。ビルド・テストは、そのまま動く。新しいテストだけが vcpkg 方式になる (Vcpkg の設定は、テスト exe の `vcxproj` にだけ入る (4.37)。DLL や、既存のテストには、影響しない)。**ソリューションの中での、旧方式 (NuGet) と vcpkg 方式のテスト exe の共存は、実機で確認した (2026-10-31、TEST-PLAN 2-14 の GN3。3 件通過)。**
+
+**残したもの:** `source` 方式 (`gtest_once.sh`、`trigger_gtest.flag`)。`protect_main_exes` の判定 (`gtest` を含むプロジェクトを除く) は、方式に依存しない。
+
 ### 4.39 目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す (v2.19.0)
 
 要望 (ユーザー、2026-10-27): 「UI テストファーストの際、実際の UI を、目視で確認しながらの作業になる。UI テストは、裏で行いたいが、UI の目視確認はしたい。指示があったタイミングで、その段階での UI を見るための方法が欲しい」。

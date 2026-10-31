@@ -57,14 +57,14 @@ check "MFC: .rc が ASCII (BOM なし)" bash -c "! head -c3 '$D/LayersOnly/Layer
 check "CLAUDE.md: 層: logic,data / テスト: なし" bash -c "grep -q '^- 層: data,logic' '$D/CLAUDE.md' && grep -q '^- テスト: なし' '$D/CLAUDE.md'"
 check "XML が正しい" xml_ok "$D"
 
-echo "== 3. MFC / logic,data / テストあり (旧方式: --gtest nuget。既存の GoogleTest をコピー)"
+echo "== 3. MFC / logic,data / テストあり (--gtest vcpkg)"
 D="$WORK/R/Full"; mkdir -p "$D"
-python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest nuget >"$WORK/out3.txt" 2>&1; rc=$?
+python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest vcpkg >"$WORK/out3.txt" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "作成が成功" || { ng "作成が成功 (rc=$rc)"; cat "$WORK/out3.txt"; }
 check "プロジェクトは 5 つ" bash -c "[ $(nprojects "$D/Full.slnx") -eq 5 ]"
 check "DataLayerTest と LogicLayerTest がある" bash -c "[ -f '$D/DataLayerTest/DataLayerTest.vcxproj' ] && [ -f '$D/LogicLayerTest/LogicLayerTest.vcxproj' ]"
-check "GoogleTest が、packages\\ にコピーされた" test -f "$D/packages/$ID.1.8.1.8/build/native/$ID.targets"
-check "出力に GTEST_PACKAGE: copied" grep -q 'GTEST_PACKAGE: copied from' "$WORK/out3.txt"
+check "vcpkg.json に gtest が入り、兄弟の packages\\ は、コピーされない" bash -c "grep -q '\"gtest\"' '$D/vcpkg.json' && [ ! -e '$D/packages' ]"
+check "出力に GTEST_MODE: vcpkg" grep -q 'GTEST_MODE: vcpkg' "$WORK/out3.txt"
 check "CLAUDE.md: テスト: あり" grep -q '^- テスト: あり (GoogleTest)' "$D/CLAUDE.md"
 check "名前が Test で終わらないメインは、TargetName を変えない" bash -c "! grep -q TargetName '$D/Full/Full.vcxproj'"
 check "XML が正しい" xml_ok "$D"
@@ -94,10 +94,10 @@ mkdir -p "$WORK/R/bad name"; rc_is 2 "フォルダ名が不正 -> rc 2" python3 
 rc_is 2 "親フォルダもない -> rc 2" python3 "$NEW" "$WORK/none/none/Sample" --type mfc --layers none --tests none
 mkdir -p "$WORK/R/Keep"; echo mine > "$WORK/R/Keep/CLAUDE.md"
 python3 "$NEW" "$WORK/R/Keep" --type console --layers none --tests none >/dev/null 2>&1; grep -q mine "$WORK/R/Keep/CLAUDE.md" && ok "既存の CLAUDE.md を上書きしない" || ng "既存の CLAUDE.md を上書きしない"
-mkdir -p "$WORK/R/Nogtest"; python3 "$NEW" "$WORK/R/Nogtest" --type dll --layers none --tests gtest --gtest nuget --gtest-from "$WORK/nonexistent" >"$WORK/out6.txt" 2>&1
-check "コピー元がなくても成功し、missing と案内する" bash -c "grep -q 'GTEST_PACKAGE: copied' '$WORK/out6.txt' || grep -q 'GTEST_PACKAGE: missing' '$WORK/out6.txt'"
-mkdir -p "$WORK/Q/Lonely"; python3 "$NEW" "$WORK/Q/Lonely" --type dll --layers none --tests gtest --gtest nuget >"$WORK/out6b.txt" 2>&1
-check "--gtest nuget で、兄弟に GoogleTest がなければ、missing" grep -q 'GTEST_PACKAGE: missing' "$WORK/out6b.txt"
+mkdir -p "$WORK/R/Nogtest"; python3 "$NEW" "$WORK/R/Nogtest" --type dll --layers none --tests gtest --gtest nuget >"$WORK/out6.txt" 2>&1; rc=$?
+check "--gtest nuget (旧 NuGet 方式) は、廃止: rc 2、理由を案内し、何も作らない" bash -c "[ $rc -eq 2 ] && grep -q '廃止' '$WORK/out6.txt' && grep -q 'vcpkg' '$WORK/out6.txt' && [ -z \"\$(ls -A '$WORK/R/Nogtest')\" ]"
+mkdir -p "$WORK/Q/Lonely"; python3 "$NEW" "$WORK/Q/Lonely" --type dll --layers none --tests gtest --gtest-from "$WORK/nonexistent" >"$WORK/out6b.txt" 2>&1; rc=$?
+check "--gtest-from (旧 NuGet 方式のコピー元) も、廃止: rc 2、何も作らない" bash -c "[ $rc -eq 2 ] && grep -q '廃止' '$WORK/out6b.txt' && [ -z \"\$(ls -A '$WORK/Q/Lonely')\" ]"
 mkdir -p "$WORK/Q/Lonely2"; python3 "$NEW" "$WORK/Q/Lonely2" --type dll --layers none --tests gtest >"$WORK/out6c.txt" 2>&1
 check "auto: vcpkg (baseline は、ウォッチャーで)" bash -c "grep -q 'GTEST_MODE: vcpkg' '$WORK/out6c.txt' && grep -q 'GTEST_VCPKG: no-baseline' '$WORK/out6c.txt'"
 
@@ -181,12 +181,12 @@ check "後付けで gtest と LogicLayerTest が増え、CLAUDE.md がソース�
 
 echo "== 10. 層の種類 (--layer-kind lib) と、層の名前"
 D="$WORK/Q/LayerLib"; mkdir -p "$D"
-rc_is 0 "層を静的ライブラリで作成" python3 "$NEW" "$D" --type console --layers logic,data --layer-kind lib --tests gtest --gtest nuget
+rc_is 0 "層を静的ライブラリで作成" python3 "$NEW" "$D" --type console --layers logic,data --layer-kind lib --tests gtest --gtest vcpkg
 check "層が StaticLibrary (公開マクロなし)" bash -c "grep -q StaticLibrary '$D/LogicLayer/LogicLayer.vcxproj' && grep -q StaticLibrary '$D/DataLayer/DataLayer.vcxproj' && [ ! -e '$D/DataLayer/DataLayerApi.h' ]"
 check "テストは、ライブラリをプロジェクト参照" grep -q 'ProjectReference Include="..\\LogicLayer\\LogicLayer.vcxproj"' "$D/LogicLayerTest/LogicLayerTest.vcxproj"
 check "CLAUDE.md: 静的ライブラリ" grep -q '静的ライブラリ' "$D/CLAUDE.md"
 D="$WORK/Q/Named"; mkdir -p "$D"
-rc_is 0 "層の名前を指定して作成" python3 "$NEW" "$D" --type mfc --layers logic:OrderLogic,data:OrderData --tests gtest --gtest nuget
+rc_is 0 "層の名前を指定して作成" python3 "$NEW" "$D" --type mfc --layers logic:OrderLogic,data:OrderData --tests gtest --gtest vcpkg
 check "OrderLogic / OrderData / OrderLogicTest / OrderDataTest ができる" bash -c "[ -f '$D/OrderLogic/OrderLogic.vcxproj' ] && [ -f '$D/OrderData/OrderData.vcxproj' ] && [ -f '$D/OrderLogicTest/OrderLogicTest.vcxproj' ] && [ -f '$D/OrderDataTest/OrderDataTest.vcxproj' ] && [ ! -e '$D/LogicLayer' ]"
 check "ロジックは、指定した名前のデータ層を参照" grep -q 'ProjectDir)..\\OrderData' "$D/OrderLogic/OrderLogic.vcxproj"
 check "CLAUDE.md: 名前つきで記録" grep -q '^- 層: data:OrderData,logic:OrderLogic' "$D/CLAUDE.md"
@@ -214,13 +214,13 @@ cat > "$WORK/Q/SpecA/docs/specs/tax.md" <<'SPEC'
 SPEC
 D="$WORK/Q/SpecA"
 python3 "$NEW" "$D" --spec docs/specs/tax.md --dry-run >"$WORK/out11.txt" 2>&1; rc=$?
-cd "$D" && python3 "$NEW" "$D" --spec "$D/docs/specs/tax.md" --gtest nuget --dry-run >"$WORK/out11.txt" 2>&1; rc=$?; cd "$REPO"
+cd "$D" && python3 "$NEW" "$D" --spec "$D/docs/specs/tax.md" --gtest vcpkg --dry-run >"$WORK/out11.txt" 2>&1; rc=$?; cd "$REPO"
 [ "$rc" -eq 0 ] && ok "構成案から、dry-run が成功" || { ng "構成案から、dry-run が成功 (rc=$rc)"; cat "$WORK/out11.txt"; }
 check "構成案の内容が、反映される (console / 2 層 / テスト / tdd)" bash -c "grep -q 'メイン .*コンソール' '$WORK/out11.txt' && grep -q 'テスト .*あり' '$WORK/out11.txt' && grep -q '名前空間 .*tdd' '$WORK/out11.txt'"
 check "dry-run は、何も書かない" bash -c "[ ! -e '$D/SpecA.slnx' ]"
 python3 "$NEW" "$D" --spec "$D/docs/specs/tax.md" --tests none --layers none --dry-run >"$WORK/out11b.txt" 2>&1
 check "明示した引数が、構成案より優先される" grep -q 'テスト .*なし' "$WORK/out11b.txt"
-rc_is 0 "構成案から、作成が成功" python3 "$NEW" "$D" --spec "$D/docs/specs/tax.md" --gtest nuget
+rc_is 0 "構成案から、作成が成功" python3 "$NEW" "$D" --spec "$D/docs/specs/tax.md" --gtest vcpkg
 check "作成された (3 層 + 2 テスト)" bash -c "[ -f '$D/SpecA.slnx' ] && [ -f '$D/LogicLayerTest/LogicLayerTest.vcxproj' ]"
 
 mkdir -p "$WORK/Q/SpecB"; printf '# x\n\n## 目的\nfoo\n' > "$WORK/Q/SpecB/x.md"
@@ -337,7 +337,7 @@ mkdir -p "$WORK/R/V_Spec"; printf '## 構成案\n- メインの種類: mfc-mdi\n
 rc_is 0 "--spec で mfc-mdi を読める" python3 "$NEW" "$WORK/R/V_Spec" --spec "$WORK/R/V_Spec/x.md"
 check "層がない exe: 注意は書かない" bash -c "! grep -q 'スタートアッププロジェクト' '$WORK/R/V_Spec/CLAUDE.md'"
 D="$WORK/R/V_dlgtests"; mkdir -p "$D"
-python3 "$NEW" "$D" --type mfc-dialog --layers logic --tests gtest --gtest nuget >/dev/null 2>&1
+python3 "$NEW" "$D" --type mfc-dialog --layers logic --tests gtest --gtest vcpkg >/dev/null 2>&1
 check "mfc-dialog + テスト: テストのプロジェクトができる" test -f "$D/LogicLayerTest/LogicLayerTest.vcxproj"
 
 echo
