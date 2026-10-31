@@ -187,6 +187,18 @@ if (-not $BuildScript) {
     $BuildScript = Join-Path $scriptDir "build-windows.cmd"
 }
 
+# ウォッチャーの版 (v2.29.0): install.sh が、配布先に VERSION を置く。Skill 側 (*_once.sh) が、自分の版と照合する (不一致は、警告 (NOTE) だけ)。
+$script:WatcherVersion = "unknown"
+try {
+    $verDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $verFile = Join-Path $verDir "VERSION"
+    if (Test-Path -LiteralPath $verFile) {
+        $verText = ((Get-Content -LiteralPath $verFile -TotalCount 1 -ErrorAction Stop) -as [string]).Trim().TrimStart([char]0xFEFF)
+        if ($verText -match '^[0-9A-Za-z._+-]{1,32}$') { $script:WatcherVersion = $verText }
+    }
+} catch { }
+$script:CurrentKind = ""
+
 # ---------- パス解決 ----------
 $TargetDir = [System.IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
 # -SolutionPath を明示したときは、それを使う (なければ、起動を拒否する)。省略したときは、トリガーのたびに、<TargetDir> から探す
@@ -862,7 +874,9 @@ function Write-RunId {
     if (-not $script:CurrentRunId) { return }
     try {
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
-        [System.IO.File]::WriteAllText((Join-Path $LogDir "run_id.txt"), "run=$($script:CurrentRunId)`r`n")
+        # 1 行目 (run=) だけを、照合に使う (古い Skill は、1 行目しか読まない)。2 行目以降は、結果の自己記述 (v2.29.0。いつ、どの実行の、どの入力の結果か、と、ウォッチャーの版)。
+        $info = "run=$($script:CurrentRunId)`r`nwatcher=$($script:WatcherVersion)`r`nkind=$($script:CurrentKind)`r`ninput=$TargetDir`r`nfinished=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n"
+        [System.IO.File]::WriteAllText((Join-Path $LogDir "run_id.txt"), $info)
     } catch { }
 }
 
@@ -1542,6 +1556,7 @@ $QuickEditStatus = Disable-ConsoleQuickEdit
 
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host " MSBuild Watcher Started" -ForegroundColor Cyan
+Write-Host " Version      : $($script:WatcherVersion)  (the Skill side compares it with its own; a mismatch is only a NOTE)" -ForegroundColor Cyan
 Write-Host " Target       : $(if ($SolutionPath) { $SolutionPath } else { '(no .sln / .slnx in ' + $TargetDir + ' yet: it is detected when a trigger arrives)' })" -ForegroundColor Cyan
 Write-Host " Solution     : $SolutionKind  (build features: $BuildFeatures)" -ForegroundColor Cyan
 Write-Host " Build        : $Configuration|$Platform  /t:$MSBuildTarget" -ForegroundColor Cyan
@@ -1569,6 +1584,7 @@ while ($true) {
         Update-SolutionState
         $gtestTagLine = ""
         $script:CurrentRunId = Get-RunIdFromFlag $GtestTriggerFile   # Skill 側 (gtest_once.sh) の実行 ID。タグは 1 行目 (空のこともある)、ID は 2 行目 (# run=...)
+        $script:CurrentKind = "gtest"
         Set-WatcherBusy "gtest fetch run=$($script:CurrentRunId)"
         try { $gtestTagLine = "$(Get-Content -LiteralPath $GtestTriggerFile -TotalCount 1 -ErrorAction Stop)" } catch { }
         if ($gtestTagLine -match '^\s*#') { $gtestTagLine = "" }
@@ -1591,6 +1607,7 @@ while ($true) {
         Update-SolutionState
         $packageLines = @()
         $script:CurrentRunId = Get-RunIdFromFlag $PackageTriggerFile   # Skill 側 (package_once.sh) の実行 ID (コメント行 # run=...。操作としては、無視される)
+        $script:CurrentKind = "package"
         Set-WatcherBusy "package run=$($script:CurrentRunId)"
         try { $packageLines = @(Get-Content -LiteralPath $PackageTriggerFile -ErrorAction Stop) } catch { }
         Remove-Item -LiteralPath $PackageTriggerFile, $PackageResultFile, $PackageErrorLog, $PackageOutputFile -ErrorAction SilentlyContinue
@@ -1613,6 +1630,7 @@ while ($true) {
         Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
         Update-SolutionState   # 起動後に、ソリューションができた・プロジェクトが増えた (テストの後付けなど) 場合に備え、トリガーごとに、決め直す
         $script:CurrentRunId = Get-RunIdFromFlag $(if ($runUiTests) { $UiTestTriggerFile } elseif ($runTests) { $TestTriggerFile } else { $TriggerFile })   # フラグを消す前に、実行 ID を読む
+        $script:CurrentKind = $(if ($runUiTests) { "uitest" } elseif ($runTests) { "test" } else { "build" })
         Set-WatcherBusy "$mode run=$($script:CurrentRunId)"
         if ($runUiTests) {
             $uiFlagText = ""

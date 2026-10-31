@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.29.0] 2026-10-31 (**ホスト側 (`watch_and_build.ps1`) と Skill 側の変更。契約の拡張 (後方互換)。Skill 側は、疑似ウォッチャーで検証済み。ホスト側の実機の確認は、未実施 (TEST-PLAN 2-12)**)
+
+HANDOFF §6 の 1・3 (結果の自己記述と、版の不一致の検出)。古い結果の取り違えと、再配置の忘れによる古い版での確認を、減らす。**不一致は、警告 (NOTE) にとどめ、実行は止めない。**
+
+- **版の配布:** `install.sh` が、配布先に `VERSION` を置く (各 Skill のフォルダ、ホスト側のフォルダ)。リポジトリには、置かない。
+- **ウォッチャー:** `VERSION` (スクリプトと同じフォルダ) を読み、**起動バナーに版を出す** (なければ `unknown`)。結果のマーカーを書く直前の `run_id.txt` に、**2 行目以降**を足す: `watcher=<版>` / `kind=build|test|uitest|gtest|package` / `input=<ソリューションのフォルダ>` / `finished=<時刻>`。**1 行目の `run=<ID>` は、そのまま** (古い Skill は、1 行目だけを読む)。
+- **Skill:** 新しい `build-test-loop/scripts/harness_note.sh` を、`build_once.sh` / `build_test_once.sh` (`uitest_once.sh` は、これを通る) / `package_once.sh` / `gtest_once.sh` が、終了時 (trap) に呼ぶ。出力の末尾に、`RESULT_INFO: kind=… input=<フォルダ名> finished=… watcher=<版>`、版が違えば `NOTE: 版の不一致: Skill=… / ウォッチャー=…`、`watcher=` がなければ `NOTE: ウォッチャーが古い (…)`、版が分からなければ NOTE。**1 行目・終了コードは、変えない。**
+- **古い組み合わせ:** 古いウォッチャー + 新しい Skill = NOTE (動作は、従来どおり)。新しいウォッチャー + 古い Skill = 1 行目だけを読み、従来どおり。
+- **テスト:** `tests/harness_note_test.sh` (23 件): 配布、`harness_note.sh` の全分岐、配布した Skill の `build_once.sh` を疑似ウォッチャー (新しい形・古い形・不一致) で動かす、`watch_and_build.ps1` の静的な確認。
+- **実行権限の統一:** `package_once.sh` と `test_guard_note.sh` に、実行権限を付けた (以前は、`644`。`bash` なしで呼ぶと `Permission denied` になった。実機の確認 HV8 で見つかった)。`bash` 付きの実行は、これまでどおり。
+- **実機の確認が要る:** ウォッチャーの再配置・再起動のあと、起動バナーの `Version`、`run_id.txt` の内容、`RESULT_INFO` の行 (TEST-PLAN 2-12)。
+
 ## [2.28.0] 2026-10-31 (Skill 側のみ。ひな形と UI テスト生成の変更。ホスト側の変更なし。疑似フォルダで検証済み。**MFC の実機のビルド・実行の確認は、未実施**)
 
 - **`new-solution --type mfc-dialog` のひな形に、名前の入力欄を入れた (WPF・WinForms と同じ画面):** 名前の Edit (`IDC_NAME_EDIT` = 1001)、挨拶の静的テキスト (`IDC_GREETING_TEXT` = 1002)、「クリア」ボタン (`IDC_CLEAR_BUTTON` = 1003)。入力に応じて挨拶が変わり、入力が空のときは、クリアが無効になる。これまでの MFC のひな形は、OK・Cancel・静的テキストだけで、WPF・WinForms と整合していなかった。

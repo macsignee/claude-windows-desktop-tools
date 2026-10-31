@@ -80,6 +80,10 @@ align_to_launch_case() {
 }
 DIR="$(align_to_launch_case "$DIR")"
 
+# 終了時 (どの結果のときも): 結果の自己記述 (RESULT_INFO) と、Skill・ウォッチャーの版の不一致 (NOTE。警告だけ) を、出力の末尾に出す (1 行目と終了コードは、変えない)
+hnote="$(dirname "${BASH_SOURCE[0]}")/../../build-test-loop/scripts/harness_note.sh"
+trap '[ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
+
 shift
 TIMEOUT=300
 OPS=()

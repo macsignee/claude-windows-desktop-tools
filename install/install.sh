@@ -77,10 +77,21 @@ copy_tree() { # $1=コピー元ディレクトリ $2=コピー先ディレクト
     [ "$fail" -eq 0 ] && echo "   OK  $dst"
 }
 
+# 配布先に、このリポジトリの版 (VERSION) を置く (v2.29.0)。Skill のスクリプト (*_once.sh) が、ウォッチャーの版 (host-tools の VERSION を、
+# ウォッチャーが、結果の run_id.txt に書く) と照合し、不一致なら、警告 (NOTE) を出す。リポジトリには、置かない (配布のときだけ作る)。
+write_version() { # $1=書き込み先のファイル
+    [ "$DRY" -eq 1 ] && return 0
+    local v
+    v="$(tr -d '\r\n' < "$REPO/VERSION" 2>/dev/null)"
+    [ -n "$v" ] || { echo "!!  VERSION が読めないため、版のファイルを置かない: $1"; return 0; }
+    printf '%s\n' "$v" > "$1" || { echo "NG  版のファイルを書けない: $1"; fail=1; }
+}
+
 if [ "$DO_SKILLS" -eq 1 ]; then
     echo "== Skill -> $SKILLS_DIR"
     for d in "$REPO"/skills/*/; do
         copy_tree "${d%/}" "$SKILLS_DIR/$(basename "$d")"
+        write_version "$SKILLS_DIR/$(basename "$d")/VERSION"
     done
 fi
 
@@ -126,6 +137,7 @@ fi
 if [ "$DO_HOST" -eq 1 ]; then
     echo "== ホスト側ツール -> $HOST_DIR"
     copy_tree "$REPO/host-tools" "$HOST_DIR"
+    write_version "$HOST_DIR/VERSION"
     if command -v wslpath >/dev/null 2>&1 && [ "$DRY" -eq 0 ]; then
         echo "   Windows 側のパス: $(wslpath -w "$HOST_DIR" 2>/dev/null)"
     fi

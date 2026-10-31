@@ -71,8 +71,10 @@ align_to_launch_case() {
 DIR="$(align_to_launch_case "$DIR")"
 
 # 終了時 (どの結果のときも): WPF の XAML にメニューがあれば、ユーザーのデスクトップのウォッチャーを使う旨を、知らせる (1 行目と終了コードは、変えない)
+# 終了時 (どの結果のときも): 結果の自己記述 (RESULT_INFO) と、Skill・ウォッチャーの版の不一致 (NOTE。警告だけ) を、出力の末尾に出す (1 行目と終了コードは、変えない)
+hnote="$(dirname "${BASH_SOURCE[0]}")/../../build-test-loop/scripts/harness_note.sh"
 note="$(dirname "${BASH_SOURCE[0]}")/../../build-test-loop/scripts/wpf_menu_note.sh"
-[ -f "$note" ] && trap 'bash "$note" "$DIR"' EXIT
+trap '[ -f "$note" ] && bash "$note" "$DIR"; [ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
 
 FLAG="$DIR/trigger_build.flag"
 RESULT="$DIR/build_result.txt"
