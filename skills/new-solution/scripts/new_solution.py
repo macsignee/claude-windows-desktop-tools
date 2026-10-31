@@ -140,12 +140,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
 }
 '''
 
+# Common Controls 6.0 以降 (ビジュアルスタイル) を使うための、コンパイラ指令 (UI デザインガイドライン UI-CTL-100)。
+# 書式は、Microsoft Learn「Build Requirements for Windows Common Controls」(MFC) の、公式の例のとおり (ia64 は除く。それ以外は、else の '*')。
+MFC_CC_MANIFEST = r'''
+// Common Controls 6.0 以降 (ビジュアルスタイル) を使う (UI デザインガイドライン UI-CTL-100)。
+#ifdef UNICODE
+#if defined _M_IX86
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#elif defined _M_X64
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#else
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#endif
+#endif
+'''
+
 MFC_FILES = {
     'pch.h': '''#pragma once
 #include <SDKDDKVer.h>
 #include <afxwin.h>
 #include <afxext.h>
-''',
+''' + MFC_CC_MANIFEST,
     'Resource.h': '''#pragma once
 #define IDR_MAINFRAME           128
 ''',
@@ -170,6 +185,10 @@ CSampleApp theApp;
 
 BOOL CSampleApp::InitInstance()
 {
+    // DPI 認識モードを、明示する (UI デザインガイドライン UI-DPI-002)。ウィンドウを作る前に呼ぶ。
+    // 本来は、アプリケーションマニフェストでの宣言が望ましい。ここでは、ビルドの設定に依存しない方法 (システム DPI 対応) にしている。
+    SetProcessDPIAware();
+
     CWinApp::InitInstance();
 
     auto* pDocTemplate = new CSingleDocTemplate(
@@ -279,6 +298,10 @@ CSampleApp theApp;
 
 BOOL CSampleApp::InitInstance()
 {
+    // DPI 認識モードを、明示する (UI デザインガイドライン UI-DPI-002)。ウィンドウを作る前に呼ぶ。
+    // 本来は、アプリケーションマニフェストでの宣言が望ましい。ここでは、ビルドの設定に依存しない方法 (システム DPI 対応) にしている。
+    SetProcessDPIAware();
+
     CWinApp::InitInstance();
 
     auto* pDocTemplate = new CMultiDocTemplate(
@@ -393,6 +416,10 @@ CSampleApp theApp;
 
 BOOL CSampleApp::InitInstance()
 {
+    // DPI 認識モードを、明示する (UI デザインガイドライン UI-DPI-002)。ウィンドウを作る前に呼ぶ。
+    // 本来は、アプリケーションマニフェストでの宣言が望ましい。ここでは、ビルドの設定に依存しない方法 (システム DPI 対応) にしている。
+    SetProcessDPIAware();
+
     CWinApp::InitInstance();
 
     CSampleDlg dlg;

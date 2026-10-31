@@ -73,12 +73,14 @@ PoC の手順: 使い捨ての C++ ソリューション (`MixTest` のコピー
 
 デバッグは VS で行う。ビルドする PC には、C++ ワークロード入りの VS がある。C++ / .NET のツールがない環境では、「Visual Studio Installer で、手で追加」と案内する (自動では追加できない)。
 
-## UI デザインガイドライン (v2.26.0) の、あとの作業
+## UI デザインガイドライン (v2.26.0〜v2.27.0) の、あとの作業
 
-`/ui-design-review` (DESIGN 4.45) を追加した。**実機の確認は、TEST-PLAN 2-9 (UG1〜UG5)。**
+`/ui-design-review` (DESIGN 4.45) を追加し (v2.26.0)、実機の確認 (TEST-PLAN 2-9。UG1〜UG5 と再確認) は、**すべて完了した** (v2.26.3)。**v2.27.0 で、生成するソリューションを、ガイドラインに合わせた** (DESIGN 4.46)。
 
-1. **実プロジェクトでの誤検出の確認** (UG2)。誤検出は、`ui_guideline_check.py` の該当コードと、Skill の「誤検出と限界」に反映する。
-2. **新規生成のテンプレートを、ガイドラインに合わせる:** UI-DPI-002 (WPF: `app.manifest` の DPI の宣言、WinForms: `ApplicationHighDpiMode`、MFC: マニフェスト / `vcxproj` の DPI の設定)、UI-CTL-100 (MFC: `pch.h` に、Common Controls のコンパイラ指令。ガイドラインの UI-CTL-100 に、公式の書式がある)、UI-ACC-001 (WPF: 入力欄に `AutomationProperties.Name`)、UI-LOC-001 (WPF: 文字列のリソース化。v2.26.1 で、`UIG-LOC001` が warning になった)。**実機のビルドで、書き方を確かめてから行う。** 生成直後が「指摘 0 件」であることを、前提にしているテスト (`new_solution_*_test.sh`、`*_check_test.sh`) と、`ui_guideline_check_test.sh` の生成物の項目を、合わせて直す。
-3. **ガイドラインの更新:** 新しい版が出たら、`skills/ui-design-review/references/UI-Design-Guidelines.md` を置き換え、`GUIDELINE_VERSION` (`ui_guideline_check.py`) を合わせる。規則 ID の対応は、テストが確かめる。
-4. (任意) `/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す。
-5. (任意) 検査の追加: 見た目に近い規則 (例: UI-KEY-003 のタブ停止、UI-CTL-024 のパスワードの伏せ字) の、静的な検出。
+1. **v2.27.0 の実機のビルドと実行の確認 (TEST-PLAN 2-10 の TP1〜TP4)。** 特に、WinForms の `ApplicationHighDpiMode` (動作が変わる)、MFC の `SetProcessDPIAware()` と Common Controls のコンパイラ指令 (ビルドが通るか)。
+2. **UI-LOC-001 (表示文字列のリソース化) を、ひな形の既定にするか、決める** (ユーザーの判断)。入れるなら、WPF は、`Strings.xaml` (または `.resx`)、ViewModel の文字列も対象。
+3. MFC の DPI 認識を、マニフェスト (`AdditionalManifestFiles` など) での宣言に移す (実機のビルドで、書き方を確かめてから)。
+4. 「既知の指摘」の質問を、指摘ごとにする (`ui-test-first`。運用して不都合があれば)。
+5. (任意) `/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す。
+6. (任意) 検査の追加: 見た目に近い規則 (例: UI-KEY-003 のタブ停止、UI-CTL-024 のパスワードの伏せ字) の、静的な検出。
+7. **ガイドラインの更新:** 新しい版が出たら、`skills/ui-design-review/references/UI-Design-Guidelines.md` を置き換え、`GUIDELINE_VERSION` (`ui_guideline_check.py`) を合わせる。規則 ID の対応は、テストが確かめる。
