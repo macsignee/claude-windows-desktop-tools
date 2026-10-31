@@ -77,8 +77,8 @@ chk "$T/empty" >/dev/null 2>&1; ok "nothing to check: rc=3" "$([ $? = 3 ] && ech
 
 # ---------------------------------------------------------------- WPF
 wpf w0 <<'X'
-<Label Content="{DynamicResource NameText}" Target="{Binding ElementName=NameBox}" />
-<TextBox x:Name="NameBox" />
+<Label x:Name="NameLabel" Content="{DynamicResource NameText}" Target="{Binding ElementName=NameBox}" />
+<TextBox x:Name="NameBox" AutomationProperties.LabeledBy="{Binding ElementName=NameLabel}" />
 <ComboBox AutomationProperties.Name="{DynamicResource KindText}" />
 <Button Content="{DynamicResource SaveText}" IsDefault="True" />
 <Button Content="{DynamicResource CancelText}" IsCancel="True" />
@@ -120,6 +120,10 @@ wpf w6 <<'X'
 <TextBlock Text="Name" /><TextBox x:Name="NameBox" />
 X
 expect w6 UIG-ACC001 "WPF: TextBox with only a TextBlock next to it has no accessible name"
+wpf w6b <<'X'
+<Label Content="Name:" Target="{Binding ElementName=NameBox}" /><TextBox x:Name="NameBox" />
+X
+expect w6b UIG-ACC001 "WPF: Label Target alone gives no accessible name (Narrator, TP4)"
 wpf w7 <<'X'
 <Canvas><TextBox Canvas.Left="10" Canvas.Top="20" AutomationProperties.Name="N" /></Canvas>
 X
@@ -291,6 +295,7 @@ for d in gen_wf gen_mfc gen_mdi gen_sdi; do
     ok "$d: no warning on a generated solution (DPI awareness, Common Controls manifest)" "$([ "$(has "$out" 'error 0 / warning 0')" = 1 ] && echo 1 || echo 0)"
 done
 ok "generated WPF: app.manifest declares DPI awareness and the csproj references it" "$(grep -q 'dpiAware' "$T/gen_wpf/gen_wpf/app.manifest" && grep -q '<ApplicationManifest>app.manifest</ApplicationManifest>' "$T/gen_wpf/gen_wpf/gen_wpf.csproj" && echo 1 || echo 0)"
+ok "generated WPF: the name box gets its UIA name from LabeledBy (Label Target alone is silent in Narrator)" "$(f="$T/gen_wpf/gen_wpf/Views/MainWindow.xaml"; grep -q 'x:Name="NameLabel"' "$f" && grep -q 'AutomationProperties.LabeledBy="{Binding ElementName=NameLabel}"' "$f" && echo 1 || echo 0)"
 ok "generated WinForms: ApplicationHighDpiMode is set in the csproj" "$(grep -q '<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>' "$T/gen_wf/gen_wf/gen_wf.csproj" && echo 1 || echo 0)"
 dpi_before_init() { python3 -c "import sys; t=open(sys.argv[1],encoding='utf-8-sig').read().replace('\\r\\n','\\n'); sys.exit(0 if 0 <= t.find('SetProcessDPIAware();') < t.find('CWinApp::InitInstance();') else 1)" "$1"; }
 for d in gen_mfc gen_mdi gen_sdi; do

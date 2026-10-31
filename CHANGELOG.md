@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.27.1] 2026-10-31 (Skill 側のみ。ひな形と静的検査の修正。ホスト側の変更なし。疑似フォルダで検証済み。**実機の Narrator の再確認は、済み (「名前、編集、改行」と読まれた。TEST-PLAN TP4)**)
+
+- **実機で見つかった誤り (TEST-PLAN TP4):** v2.27.0 の WPF のひな形は、名前の入力欄と `Label` を、`Label` の `Target` だけで結んでいた。`Target` は、アクセスキーでフォーカスを移す設定で、UI Automation の名前を与えない。**Narrator は、入力欄を「名前」と読まなかった。**
+- **修正:** ひな形の `Label` に `x:Name="NameLabel"`、`TextBox` に `AutomationProperties.LabeledBy="{Binding ElementName=NameLabel}"` を追加。
+- **静的検査 UIG-ACC001:** `Label` の `Target` を、アクセシブル名として認めない (v2.27.0 までは、見逃していた)。`AutomationProperties.Name` / `LabeledBy` だけを見る。SKILL.md と DESIGN の記述も訂正。
+- **テスト:** `Label` の `Target` だけの入力欄が `UIG-ACC001` になること、生成した WPF に `LabeledBy` があることを追加 (`ui_guideline_check_test.sh` 88 件)。
+
 ## [2.27.0] 2026-10-31 (Skill 側のみ。生成するソリューションの、ひな形の変更。ホスト側の変更なし。疑似フォルダで検証済み。**実機のビルド・実行の確認は、未実施**)
 
 - **`/new-solution` が作るソリューションを、UI デザインガイドラインの、静的に判定できる必須の規則に合わせた** (v2.26.x の `/ui-design-review` が、生成直後に、いつも出していた既知の指摘を、なくす):
