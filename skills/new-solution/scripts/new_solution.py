@@ -406,6 +406,9 @@ MFC_DIALOG_FILES = {
     'pch.h': MFC_FILES['pch.h'],
     'Resource.h': '''#pragma once
 #define IDD_SAMPLE_DIALOG       101
+#define IDC_NAME_EDIT           1001
+#define IDC_GREETING_TEXT       1002
+#define IDC_CLEAR_BUTTON        1003
 ''',
     'SampleApp.h': MFC_FILES['SampleApp.h'],
     'SampleApp.cpp': '''#include "pch.h"
@@ -445,7 +448,13 @@ protected:
     void DoDataExchange(CDataExchange* pDX) override;
     BOOL OnInitDialog() override;
 
+    afx_msg void OnNameChanged();
+    afx_msg void OnClear();
     DECLARE_MESSAGE_MAP()
+
+private:
+    // 入力欄の内容から、挨拶の表示と、クリアボタンの有効・無効を更新する。
+    void Refresh();
 };
 ''',
     'SampleDlg.cpp': '''#include "pch.h"
@@ -464,10 +473,44 @@ void CSampleDlg::DoDataExchange(CDataExchange* pDX)
 BOOL CSampleDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
+    Refresh();
     return TRUE;
 }
 
+void CSampleDlg::OnNameChanged()
+{
+    Refresh();
+}
+
+void CSampleDlg::OnClear()
+{
+    // 入力欄を空にすると、EN_CHANGE で Refresh() が呼ばれる。
+    SetDlgItemText(IDC_NAME_EDIT, L"");
+    // クリアボタンが無効になるので、フォーカスを入力欄へ戻す。
+    GetDlgItem(IDC_NAME_EDIT)->SetFocus();
+}
+
+void CSampleDlg::Refresh()
+{
+    CString name;
+    GetDlgItemText(IDC_NAME_EDIT, name);
+
+    CString greeting;
+    if (name.IsEmpty())
+    {
+        greeting = L"名前を入力してください";
+    }
+    else
+    {
+        greeting.Format(L"こんにちは、%s さん", static_cast<LPCWSTR>(name));
+    }
+    SetDlgItemText(IDC_GREETING_TEXT, greeting);
+    GetDlgItem(IDC_CLEAR_BUTTON)->EnableWindow(!name.IsEmpty());
+}
+
 BEGIN_MESSAGE_MAP(CSampleDlg, CDialog)
+    ON_EN_CHANGE(IDC_NAME_EDIT, &CSampleDlg::OnNameChanged)
+    ON_BN_CLICKED(IDC_CLEAR_BUTTON, &CSampleDlg::OnClear)
 END_MESSAGE_MAP()
 ''',
 }
@@ -482,9 +525,12 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "@@NAME@@"
 FONT 9, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
+    LTEXT           "&Name:",IDC_STATIC,7,9,30,8
+    EDITTEXT        IDC_NAME_EDIT,40,7,193,14,ES_AUTOHSCROLL
+    LTEXT           "",IDC_GREETING_TEXT,7,30,226,8
+    PUSHBUTTON      "&Clear",IDC_CLEAR_BUTTON,7,79,50,14
     DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,183,79,50,14
-    LTEXT           "@@NAME@@",IDC_STATIC,7,7,226,8
 END
 '''
 
