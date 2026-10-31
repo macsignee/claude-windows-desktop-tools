@@ -80,7 +80,7 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" CoreLib --kind 
 - **`--tests none|gtest`** (既定 `gtest`): 層とテストは、独立した軸。`none` は、DLL だけ (テスト・GoogleTest は、作らない)。
 - **`--tests-only`**: すでにある DLL (または静的ライブラリ) `<Name>` に、`<Name>Test` だけを足す。名前空間と参照は、既存のファイルから読む。
 - **`--kind dll|lib`** (既定 `dll`): `lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
-- **GoogleTest:** テストを作るとき、vcpkg 方式なら、`vcpkg.json` に gtest を入れ、`.gitignore` に `vcpkg_installed/` を足す (ネットワークは使わない。出力: `GTEST_VCPKG`)。nuget 方式 (旧) なら、`packages\` になければ、兄弟フォルダ (`../*/packages/`) か `--gtest-from` の既存のものを、**コピー**する (出力: `GTEST_PACKAGE`)。
+- **GoogleTest:** テストを作るとき、vcpkg 方式なら、`vcpkg.json` に gtest を入れ、`.gitignore` に `vcpkg_installed/` を足す (ネットワークは使わない。出力: `GTEST_VCPKG`)。旧 NuGet 方式は、v2.31.0 で廃止 (`packages\` に旧方式のテストがあるソリューションでも、新しいテストは vcpkg。出力に `NOTE`)。
 - **メインの exe を、保護する:** テストを作るとき、exe で、名前が `Test` / `Tests` で終わるメインのプロジェクト (GoogleTest を使わないもの) に、`<TargetName>$(ProjectName)_Main</TargetName>` を足す。ウォッチャーが、`*Test.exe` を、テストとして実行するため。
 - **`--gtest auto|vcpkg|source|nuget`** (既定 `auto`): GoogleTest の入れ方。`vcpkg`: 上の 4.。`source`: `ThirdParty/googletest` のソースを、ソリューション内の静的ライブラリ `gtest` としてビルドする
   (vcpkg が使えないとき。ソースは、ウォッチャー経由で取得する: `/new-solution` の `gtest_once.sh`)。`nuget`: 旧方式 (NuGet のパッケージを、コピーして使う)。
@@ -98,7 +98,7 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" CoreLib --kind 
   上の「MFC 拡張 DLL のプロジェクト設定」が必要な場合は、**生成したあとで、`.vcxproj` を手動編集する** (`UseOfMfc`、プリプロセッサ定義、拡張 DLL の定型コードを追加)。この追加編集は、毎回、ユーザーに内容を示してから行う。
 
 **作ったあと:**
-1. `GTEST_VCPKG: no-baseline` なら、ウォッチャー経由で、`package_once.sh "vcpkg baseline" "vcpkg install"` を実行する (初回のみ)。`GTEST_PACKAGE: missing` (旧方式) なら、Visual Studio での NuGet の復元を、ユーザーに依頼する (ウォッチャーは、復元しない)。
+1. `GTEST_VCPKG: no-baseline` なら、ウォッチャー経由で、`package_once.sh "vcpkg baseline" "vcpkg install"` を実行する (初回のみ)。
 2. **ベースライン (ビルドと、ベースライン用の 1 件のテストが通ること) を確認する。** 通らなければ、環境や構成の問題を、先に直す。**この状態を作る前に、本物のテストを書かない。**
 3. ビルド確認用の `<Name>ModuleInfo` とそのテストは、本物の機能とテストが入ったら、削除してよい (ユーザーに伝える)。
 4. 通ったら、`cpp-test-first` の手順 (Red) に進む。
