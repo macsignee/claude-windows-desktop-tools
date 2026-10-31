@@ -306,6 +306,8 @@ ok "ui-test-first: the plan table has a 守る規則 ID column and the Appendix 
 ok "ui-test-first: the 守る規則 ID column is in both table definitions (部品 / 操作と期待), and Appendix E item 7 (有効 / 無効) is mapped" "$(grep -q '表の列は、「部品 / 種類 / 識別の名前 / 守る規則 ID」' "$ROOT/skills/ui-test-first/SKILL.md" && grep -q '表の列は、「# / 操作 / 期待 / 確認場所 / 守る規則 ID」' "$ROOT/skills/ui-test-first/SKILL.md" && grep -q '7 状態の条件' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
 ok "ui-test-first: ask about every mandatory finding (no silent deferral)" "$(grep -q '一部だけ質問して、残りを黙って' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
 ok "SKILL.md: the 適用した付録 field means a technology appendix (not Appendix F)" "$(grep -q '「適用した付録」' "$S" && grep -q '付録 F (チェックリスト) は、書かない' "$S" && echo 1 || echo 0)"
+ok "SKILL.md: 「画面の確認」 only when the screen was actually operated (otherwise 実装の確認 / 確認不能)" "$(grep -q '「画面の確認」は、実際の画面を、起動して、操作・表示して、確かめたときだけ' "$S" && grep -q '「実装の確認」' "$S" && echo 1 || echo 0)"
+ok "SKILL.md: following the OS (theme / text size) cannot be judged from color settings (UI-CLR-005); use 確認不能" "$(grep -q '色指定やスタイルの有無では判定できない' "$S" && grep -q 'UI-CLR-005' "$S" && echo 1 || echo 0)"
 for f in skills/ui-test-first/SKILL.md skills/add-feature/SKILL.md skills/wpf-check/SKILL.md skills/winforms-check/SKILL.md skills/mfc-check/SKILL.md; do
     ok "$f: points to /ui-design-review" "$(grep -q 'ui-design-review' "$ROOT/$f" && echo 1 || echo 0)"
 done
