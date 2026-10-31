@@ -849,7 +849,7 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 - **UI-DPI-002 の入れ方 (3 種類で、別の方法):**
   - WPF: `app.manifest` (`<dpiAware>true</dpiAware>`)。**WPF の既定 (システム DPI 対応) と同じ**なので、実行時の動作は変わらない。「宣言する」ことだけを変える。`.csproj` に `<ApplicationManifest>app.manifest</ApplicationManifest>` を明示 (VS のひな形と同じ)。モニターごとの DPI (UI-DPI-004。推奨) に追従させるときの書き方は、`app_manifest()` のコメントに書いた。
   - WinForms: `<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>`。**.NET の WinForms の既定は、DPI 非対応 (DpiUnaware)** なので、これは、動作が変わる (OS による拡大でぼやける表示が、なくなる)。ひな形は、`AutoScaleMode.Font` なので、レイアウトは、追従する想定。**実機で、見た目の確認が要る。**
-  - MFC: `InitInstance` の先頭で `SetProcessDPIAware()` (システム DPI 対応)。マニフェスト (`AdditionalManifestFiles` など) を、採らなかった理由: vcxproj の設定を、実機のビルドで確かめられず、リンカーが作るマニフェスト (Common Controls の依存) との統合の失敗が、ビルドエラーになる恐れがあるため。ガイドラインは「マニフェストなどで明示」としていて、API の呼び出しも、明示にあたる (検査は、`SetProcessDPIAware` を、証拠として認める)。**マニフェストでの宣言への移行は、実機で確かめてから**。
+  - MFC: `InitInstance` の先頭で `SetProcessDPIAware()` (システム DPI 対応)。マニフェスト (`AdditionalManifestFiles` など) を、採らなかった理由: vcxproj の設定を、実機のビルドで確かめられず、リンカーが作るマニフェスト (Common Controls の依存) との統合の失敗が、ビルドエラーになる恐れがあるため。ガイドラインは「マニフェストなどで明示」としていて、API の呼び出しも、明示にあたる (検査は、`SetProcessDPIAware` を、証拠として認める)。**マニフェストでの宣言への移行は、実機で確かめてから** (→ v2.30.0 で、`EnableDpiAwareness` に移した。DESIGN 4.49)。
 - **UI-CTL-100 (MFC):** `pch.h` に、公式の書式のコンパイラ指令 (x86 / x64 / その他。ia64 は、廃止されたので除く)。SDI・MDI・ダイアログの 3 つが、同じ `pch.h` を使う。Python の文字列では、`\"` が壊れるので、生の文字列 (`MFC_CC_MANIFEST`) にした。
 - **UI-ACC-001・UI-CTL-020 (WPF):** 名前の入力欄の前に、見える `Label` を置き (`Target` で、`x:Name` を付けた `TextBox` に結ぶ)。**v2.27.1 で訂正:** `Target` は、アクセスキー用で、UI Automation の名前を与えない (実機の Narrator が読まなかった。TEST-PLAN TP4)。アクセシブル名は、`TextBox` の `AutomationProperties.LabeledBy` で与える。**WinForms は、変えていない** (静的検査が、ラベルを見ない。`AccessibleName` の扱いは、DESIGN 4.30)。
 - **範囲外にしたもの:** (1) UI-LOC-001 (上記)。(2) UI-CTL-100 の、MFC のユーザー DLL (リソース ID 2) の、ひな形への反映 (DLL の層は、画面を持たない)。(3) WinForms のラベル (静的検査の対象外)。(4) 「既知の指摘」の質問を、指摘ごとにする (`ui-test-first`。運用して不都合があれば)。
@@ -885,6 +885,22 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 **やらなかったこと:** 不一致のブロック (上記)。`copy-host-tools.sh` (リポジトリの外の、手元のスクリプト) の変更。`RESULT_INFO` の `input` の全パス (長いので、フォルダ名だけ)。
 
 **未確認:** ホスト側 (PowerShell) の実機の動作。起動バナー、`run_id.txt` の内容、`RESULT_INFO` (TEST-PLAN 2-12)。
+
+
+### 4.49 MFC の DPI 認識を、マニフェストでの宣言に移す (v2.30.0)
+
+**背景:** v2.27.0 は、MFC の DPI 認識を、`InitInstance` の `SetProcessDPIAware()` で明示した (DESIGN 4.46。マニフェストでの宣言は、実機で確かめてから、とした)。ガイドラインは、マニフェストでの宣言が望ましい。
+
+**確認できたこと (公式: MSBuild の MT タスク。https://learn.microsoft.com/en-us/visualstudio/msbuild/mt-task):** マニフェストツールに `EnableDPIAwareness` (値は `false` / `true` / `PerMonitorHighDpiAware`) がある。**既定は `false`。ただし、`UseOfMfc` が `static` / `dynamic` のときの既定は `true`。** つまり、MFC (`UseOfMfc` = `Dynamic` のひな形) は、すでに、システム DPI 対応で動いている。`SetProcessDPIAware()` は、実質、冗長だった (v2.27.0 の TP2 の実機の確認でも、システム DPI 対応 = ×3 だった)。
+
+**変更:**
+- `.vcxproj` (MFC のアプリ。`UseOfMfc` あり・`Application`) の Debug・Release の `ItemDefinitionGroup` に `<Manifest><EnableDpiAwareness>true</EnableDpiAwareness></Manifest>` を入れた (`add_layer.py` の `vcxproj()`)。ライブラリ (DLL・LIB) には、入れない。
+- `InitInstance` の `SetProcessDPIAware()` を、3 つのひな形 (SDI・MDI・ダイアログ) から外した。ウィンドウの作成前に呼ぶ API と、マニフェストの宣言の、二重の指定を避ける。
+- 静的検査 (`UIG-DPI002`) は、変えない。`vcxproj` の文字列の `dpiaware` (大文字小文字を区別しない) に一致する。
+
+**値は `true` (システム DPI 対応)。** 従来の動作 (v2.27.0 の TP2 で確認) と同じにした。Per-Monitor (`PerMonitorHighDpiAware`) は、画面ごとの倍率の変化への対応 (再レイアウト) が要るので、ひな形の既定にしない。
+
+**未確認 (TEST-PLAN 2-13):** vcxproj のメタデータ名 `EnableDpiAwareness` が、そのまま効くか (公式の資料は、タスクのパラメータ名だけを書いている。VS が書くプロジェクトの形は、これと同じ名前のはず)。MFC は、既定が `true` のため、`true` では、効いているか分からない → **既定と区別できる値 (`PerMonitorHighDpiAware`) で、一度、試し、マニフェストに反映されることを、確かめる**。
 
 ### 4.39 目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す (v2.19.0)
 

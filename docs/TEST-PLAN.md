@@ -614,3 +614,16 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 終わったら、`VERSION` を、`install.sh` で、元に戻す (HV5・HV6 の後始末)。
 
+
+### 2-13. MFC の DPI 認識のマニフェスト化 (v2.30.0。`docs/DESIGN.md` 4.49)
+
+**v2.30.0 で追加。疑似フォルダの単体テストは通っている (`ui_guideline_check_test.sh` 91 件)。MFC のビルドと実行は、この環境ではできないため、実機の確認が要る。** 対象: `/new-solution` で作った MFC (`mfc-dialog`。再配置が先)。**MF2 は、既定 (`true`) と区別するため、一度だけ、値を書き換える。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| MF1 | 生成した MFC (`.vcxproj` に `<Manifest><EnableDpiAwareness>true</EnableDpiAwareness></Manifest>` が Debug・Release にある。`InitInstance` に `SetProcessDPIAware()` がない) を、Visual Studio (または `build_once.sh`) でビルド | ビルドが通る (警告・エラーなし) | ✔ (2026-10-31 実機。新しく生成した `TpCheck3Mfc` (UI テスト付き) を、Visual Studio でビルド: 成功 (ユーザーの報告「OK」)。exe の埋め込みマニフェストを、WSL から読んだ: `Microsoft.Windows.Common-Controls` `6.0.0.0` (`amd64`)、`<dpiAware>true</dpiAware>`、`requestedExecutionLevel asInvoker`。**この値は、MFC の既定 (`UseOfMfc` あり = `true`) と同じで、この時点では、vcxproj の設定が効いているかは、区別できない (MF2 で確認)**) |
+| MF2 | **値の確認:** `.vcxproj` の `true` を `PerMonitorHighDpiAware` に書き換えて、ビルドし、exe の埋め込みマニフェストを読む (`x64\Debug\<名前>.exe` の RT_MANIFEST。前回 (TP3) と同じ方法) | マニフェストに、Per-Monitor 対応の記述 (`dpiAware` に `true/pm` など) が入る → **vcxproj の設定が、効いている** | ✔ (2026-10-31 実機。`.vcxproj` の Debug の `EnableDpiAwareness` を `PerMonitorHighDpiAware` に書き換えてビルド (15:08:01): exe の埋め込みマニフェストの `dpiAware` が **`true` から `True/PM` に変わった** (読み取りの原文: `<dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">True/PM</dpiAware>`)。**vcxproj の `<Manifest><EnableDpiAwareness>` は、効いている** (メタデータ名は、タスクのパラメータ名と同じ)。Release の行は、`true` のまま (Debug だけを書き換えた。Debug (x64) をビルドしたので、問題ない)) |
+| MF3 | MF2 の値を `true` に戻して、ビルドし、起動して、タスクマネージャー (「詳細」→「DPI 対応」) を見る | 「システム」 (v2.27.0 の TP2 と同じ) | ✔ (2026-10-31 実機。`true` に戻して再ビルド (15:09:22): vcxproj の Debug・Release とも `true`。exe の埋め込みマニフェストの `dpiAware` は `true`、Common Controls `6.0.0.0` (読み取りの原文)。**タスクマネージャー (「詳細」の「DPI 対応」) のスクリーンショットを確認: `TpCheck3Mfc.exe` = 「システム」** (v2.27.0 の TP2 と同じ。マニフェスト化の前後で、動作は変わらない)) |
+| MF4 | 表示倍率 125% 以上で、ダイアログの見た目 | ぼやけず、文字が切れない | ✔ (2026-10-31 実機。表示倍率 125% のモニターで、`TpCheck3Mfc` のスクリーンショットを確認: 文字は、ぼやけていない。ラベル「Name:」、入力欄 (カーソルが点滅)、あいさつ「名前を入力してください」、「Clear」(無効の薄い灰色)、「OK」「Cancel」が、切れずに表示。アクセスキーの下線 (「N」「C」) も見える。現行のテーマ。`TpCheck2Mfc` (125%) と同じ見え方) |
+| MF5 | 生成直後に、`ui_guideline_check.py` と `mfc-check` | 指摘 0 件 (疑似フォルダでは確認済み) | ✔ (2026-10-31 実機のプロジェクト `TpCheck3Mfc` (UI テスト付き) に実行: `mfc-check: error 0 / warning 0`、`ui-guideline-check: error 0 / warning 0 (… MFC プロジェクト 1 …)`) |
+

@@ -185,10 +185,7 @@ CSampleApp theApp;
 
 BOOL CSampleApp::InitInstance()
 {
-    // DPI 認識モードを、明示する (UI デザインガイドライン UI-DPI-002)。ウィンドウを作る前に呼ぶ。
-    // 本来は、アプリケーションマニフェストでの宣言が望ましい。ここでは、ビルドの設定に依存しない方法 (システム DPI 対応) にしている。
-    SetProcessDPIAware();
-
+    // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
     auto* pDocTemplate = new CSingleDocTemplate(
@@ -298,10 +295,7 @@ CSampleApp theApp;
 
 BOOL CSampleApp::InitInstance()
 {
-    // DPI 認識モードを、明示する (UI デザインガイドライン UI-DPI-002)。ウィンドウを作る前に呼ぶ。
-    // 本来は、アプリケーションマニフェストでの宣言が望ましい。ここでは、ビルドの設定に依存しない方法 (システム DPI 対応) にしている。
-    SetProcessDPIAware();
-
+    // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
     auto* pDocTemplate = new CMultiDocTemplate(
@@ -419,10 +413,7 @@ CSampleApp theApp;
 
 BOOL CSampleApp::InitInstance()
 {
-    // DPI 認識モードを、明示する (UI デザインガイドライン UI-DPI-002)。ウィンドウを作る前に呼ぶ。
-    // 本来は、アプリケーションマニフェストでの宣言が望ましい。ここでは、ビルドの設定に依存しない方法 (システム DPI 対応) にしている。
-    SetProcessDPIAware();
-
+    // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
     CSampleDlg dlg;

@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.30.0] 2026-10-31 (Skill 側のみ。生成する MFC のひな形の変更。ホスト側の変更なし。疑似フォルダで検証済み。**実機のビルド・実行の確認は、未実施 (TEST-PLAN 2-13)**)
+
+- **MFC の DPI 認識を、`InitInstance` の `SetProcessDPIAware()` から、マニフェストでの宣言に移した** (ガイドライン UI-DPI-002 が望む形)。MFC のアプリ (SDI・MDI・ダイアログ) の `.vcxproj` の Debug・Release に `<Manifest><EnableDpiAwareness>true</EnableDpiAwareness></Manifest>` を入れ、3 つのひな形から `SetProcessDPIAware()` を外した。値は `true` (システム DPI 対応。従来 (v2.27.0 の TP2 で確認) と同じ動作)。
+- **公式の資料 (MSBuild の MT タスク) で確認:** `EnableDPIAwareness` の既定は、`UseOfMfc` が `static` / `dynamic` のとき `true`。MFC は、もとから、システム DPI 対応で、`SetProcessDPIAware()` は、実質、冗長だった。
+- **未確認:** vcxproj のメタデータ名が、そのまま効くか (MT タスクの資料は、パラメータ名だけ)。実機で、既定と区別できる値 (`PerMonitorHighDpiAware`) で、一度、確かめる (TEST-PLAN 2-13 の MF2)。
+- **テスト:** `ui_guideline_check_test.sh` 91 件 (MFC 3 種類の vcxproj に `EnableDpiAwareness` が Debug・Release にあること、`SetProcessDPIAware` がないこと)。生成直後の MFC は、`ui_guideline_check` が 0 件。
+
 ## [2.29.0] 2026-10-31 (**ホスト側 (`watch_and_build.ps1`) と Skill 側の変更。契約の拡張 (後方互換)。Skill 側は、疑似ウォッチャーで検証済み。ホスト側の実機の確認は、未実施 (TEST-PLAN 2-12)**)
 
 HANDOFF §6 の 1・3 (結果の自己記述と、版の不一致の検出)。古い結果の取り違えと、再配置の忘れによる古い版での確認を、減らす。**不一致は、警告 (NOTE) にとどめ、実行は止めない。**
