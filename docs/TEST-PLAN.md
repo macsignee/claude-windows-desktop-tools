@@ -589,10 +589,10 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| MD1 | 生成した MFC ダイアログを、ビルドして起動 | ビルドが通る。「Name:」のラベル、入力欄、あいさつ (「名前を入力してください」)、「Clear」「OK」「Cancel」が見える。「Clear」は無効 | 未 |
-| MD2 | 入力欄に「太郎」と入力 | あいさつが、「こんにちは、太郎 さん」に変わる。「Clear」が有効になる | 未 |
-| MD3 | 「Clear」を押す | 入力欄が空になり、あいさつが戻り、「Clear」が無効になる。フォーカスが入力欄にある | 未 |
-| MD4 | Alt + N / Alt + C | 入力欄 / 「Clear」に動く (アクセスキー) | 未 |
-| MD5 | 生成直後に、UI テスト (`uitest_once.sh`) を実行 | 3 件が通る。**特に、UIA の `ValuePattern` による入力で、`EN_CHANGE` が起き、あいさつが変わること** (この確認が、未実施の主な点) | 未 |
-| MD6 | 生成直後に、`mfc-check` と `ui_guideline_check.py` | 指摘 0 件 (疑似フォルダでは確認済み) | 未 (実機) |
+| MD1 | 生成した MFC ダイアログを、ビルドして起動 | ビルドが通る。「Name:」のラベル、入力欄、あいさつ (「名前を入力してください」)、「Clear」「OK」「Cancel」が見える。「Clear」は無効 | ✔ (2026-10-31 実機。ビルド: `TpCheck2Mfc` を Visual Studio でビルドし、`build_result.txt` = SUCCESS、`errors.log` / `warnings.log` は空。起動直後の画面: UI テストのプレビューのスクリーンショット (`preview-main-window.png`) を確認。「Name:」のラベル、入力欄 (カーソルが点滅)、あいさつ「名前を入力してください」、「Clear」は無効 (薄い灰色)、「OK」「Cancel」。現行のテーマ) |
+| MD2 | 入力欄に「太郎」と入力 | あいさつが、「こんにちは、太郎 さん」に変わる。「Clear」が有効になる | ✔ (2026-10-31 実機。スクリーンショットを確認: 「Name:」のラベルと入力欄に「太郎」、あいさつが「こんにちは、太郎 さん」に変わった。「Clear」は有効に見える (文字が濃い)。現行のテーマ (丸いボタン、OK の青い枠)。**キー入力で `EN_CHANGE` が動くことの確認。UIA の `ValuePattern` による入力は、MD5**) |
+| MD3 | 「Clear」を押す | 入力欄が空になり、あいさつが戻り、「Clear」が無効になる。フォーカスが入力欄にある | ✔ (2026-10-31 実機。ユーザーの報告: 「OK」。報告の詳細 (入力欄が空、あいさつが戻る、「Clear」が無効、フォーカス) の項目ごとの内訳は、なし。UI テスト `ClearButton_Invoked_ClearsName` でも、入力欄が空になることは確認済み) |
+| MD4 | Alt + N / Alt + C | 入力欄 / 「Clear」に動く (アクセスキー) | ✔ (2026-10-31 実機。ユーザーの報告: 「OK」。Alt + N / Alt + C の項目ごとの内訳は、なし) |
+| MD5 | 生成直後に、UI テスト (`uitest_once.sh`) を実行 | 3 件が通る。**特に、UIA の `ValuePattern` による入力で、`EN_CHANGE` が起き、あいさつが変わること** | ✔ (2026-10-31 実機。`uitest_once.sh` の出力の原文: `PASSED` / `build: SUCCESS / tests: 4 passed (TpCheck2Mfc.UITests 4)`。`MainWindow_Opens_WithTitle`・`Greeting_NameEntered_ShowsGreeting`・`ClearButton_Invoked_ClearsName`・`Preview_MainWindow` が Passed。ui-trace で、`find: 1001` / `1002` / `1003` (ID の数値の AutomationId) で操作できた。**UIA の `ValuePattern` による入力が、`EN_CHANGE` を起こし、あいさつが変わった。**「Clear」は、`UiDialogs.Click` (BM_CLICK) で押せた) |
+| MD6 | 生成直後に、`mfc-check` と `ui_guideline_check.py` | 指摘 0 件 (疑似フォルダでは確認済み) | ✔ (2026-10-31 実機のプロジェクト `TpCheck2Mfc` で実行: `mfc-check` = 0 件、`ui_guideline_check.py --all` = 0 件 (error 0 / warning 0)) |
 
