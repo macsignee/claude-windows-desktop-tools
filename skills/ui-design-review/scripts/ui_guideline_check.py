@@ -206,22 +206,11 @@ CANVAS_CHILD_TAGS = {"Button", "TextBox", "ComboBox", "CheckBox", "RadioButton",
                      "ListBox", "DatePicker", "PasswordBox", "Slider", "ToggleButton"}
 
 
-def label_targets(root):
-    names = set()
-    for n in walk(root):
-        if local(n.tag) == "Label" and "Target" in n.attrs:
-            t = n.attrs["Target"]
-            for m in re.finditer(r"ElementName\s*=\s*(\w+)|x:Reference\s+(?:Name\s*=\s*)?(\w+)", t):
-                names.add(m.group(1) or m.group(2))
-    return names
-
-
 def check_xaml(path, rel, loc):
     root = parse_xaml(path)
     if root is None or local(root.tag) in ("ResourceDictionary", "Application"):
         return
     stats["xaml"] += 1
-    targets = label_targets(root)
 
     # アクセスキーの重複 (UI-KEY-006)。メニューは、メニューごとに、別の範囲
     scopes = {}
@@ -267,9 +256,9 @@ def check_xaml(path, rel, loc):
             if not has_tooltip(n):
                 add("UIG-CTL003T", rel, n.line, "アイコンだけのボタン (%s) に、ToolTip がない" % (name_of(n) or lt),
                     "ToolTip を付ける (UI-CTL-003)")
-        if lt in INPUT_TAGS and not has_acc_name(n) and name_of(n) not in targets:
+        if lt in INPUT_TAGS and not has_acc_name(n):
             add("UIG-ACC001", rel, n.line, "%s (%s) に、アクセシブル名がない" % (lt, name_of(n) or "x:Name なし"),
-                "AutomationProperties.Name / LabeledBy を付けるか、Label の Target で結ぶ。TextBlock は、名前にならない (UI-ACC-001)")
+                "AutomationProperties.Name / LabeledBy を付ける。Label の Target は、アクセスキー用で、名前にならない。TextBlock も、名前にならない (UI-ACC-001)")
         if lt == "Canvas":
             pos = [c for c in n.children if local(c.tag) in CANVAS_CHILD_TAGS
                    and any(k in c.attrs for k in ("Canvas.Left", "Canvas.Top", "Canvas.Right", "Canvas.Bottom"))]

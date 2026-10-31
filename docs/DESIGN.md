@@ -809,7 +809,7 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 | `UIG-CTL091` | UI-CTL-091 | 破壊的と思われるボタン (削除・消去・破棄・初期化・上書など) が、既定のボタン (`IsDefault` / `AcceptButton` / `DEFPUSHBUTTON`) |
 | `UIG-LAY007` | UI-LAY-007 | 既定のボタンが、複数 (info) |
 | `UIG-CTL003` / `UIG-CTL003T` | UI-CTL-003 | アイコンだけのボタンに、アクセシブル名 / ツールチップ (ツールチップは WPF のみ) がない |
-| `UIG-ACC001` | UI-ACC-001 | WPF の入力欄 (`TextBox` / `PasswordBox` / `ComboBox` / `DatePicker`) に、`AutomationProperties.Name` / `LabeledBy` も、`Label` の `Target` もない。`DataTemplate` などの内側は、対象外 |
+| `UIG-ACC001` | UI-ACC-001 | WPF の入力欄 (`TextBox` / `PasswordBox` / `ComboBox` / `DatePicker`) に、`AutomationProperties.Name` / `LabeledBy` がない (v2.27.1 から、`Label` の `Target` は、名前として認めない)。`DataTemplate` などの内側は、対象外 |
 | `UIG-LAY005` | UI-LAY-005 | `Canvas` で、コントロールを座標で配置 (図形は、対象外) |
 | `UIG-TYP001` | UI-TYP-001 | 独自のフォント |
 | `UIG-LOC001` | UI-LOC-001 | XAML の表示文字列の直書き (全体で 1 件の指摘に、件数をまとめる) |
@@ -851,7 +851,7 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
   - WinForms: `<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>`。**.NET の WinForms の既定は、DPI 非対応 (DpiUnaware)** なので、これは、動作が変わる (OS による拡大でぼやける表示が、なくなる)。ひな形は、`AutoScaleMode.Font` なので、レイアウトは、追従する想定。**実機で、見た目の確認が要る。**
   - MFC: `InitInstance` の先頭で `SetProcessDPIAware()` (システム DPI 対応)。マニフェスト (`AdditionalManifestFiles` など) を、採らなかった理由: vcxproj の設定を、実機のビルドで確かめられず、リンカーが作るマニフェスト (Common Controls の依存) との統合の失敗が、ビルドエラーになる恐れがあるため。ガイドラインは「マニフェストなどで明示」としていて、API の呼び出しも、明示にあたる (検査は、`SetProcessDPIAware` を、証拠として認める)。**マニフェストでの宣言への移行は、実機で確かめてから**。
 - **UI-CTL-100 (MFC):** `pch.h` に、公式の書式のコンパイラ指令 (x86 / x64 / その他。ia64 は、廃止されたので除く)。SDI・MDI・ダイアログの 3 つが、同じ `pch.h` を使う。Python の文字列では、`\"` が壊れるので、生の文字列 (`MFC_CC_MANIFEST`) にした。
-- **UI-ACC-001・UI-CTL-020 (WPF):** 名前の入力欄の前に、見える `Label` を置き (`Target` で、`x:Name` を付けた `TextBox` に結ぶ)、アクセシブル名とラベルを、同時に満たす。**WinForms は、変えていない** (静的検査が、ラベルを見ない。`AccessibleName` の扱いは、DESIGN 4.30)。
+- **UI-ACC-001・UI-CTL-020 (WPF):** 名前の入力欄の前に、見える `Label` を置き (`Target` で、`x:Name` を付けた `TextBox` に結ぶ)。**v2.27.1 で訂正:** `Target` は、アクセスキー用で、UI Automation の名前を与えない (実機の Narrator が読まなかった。TEST-PLAN TP4)。アクセシブル名は、`TextBox` の `AutomationProperties.LabeledBy` で与える。**WinForms は、変えていない** (静的検査が、ラベルを見ない。`AccessibleName` の扱いは、DESIGN 4.30)。
 - **範囲外にしたもの:** (1) UI-LOC-001 (上記)。(2) UI-CTL-100 の、MFC のユーザー DLL (リソース ID 2) の、ひな形への反映 (DLL の層は、画面を持たない)。(3) WinForms のラベル (静的検査の対象外)。(4) 「既知の指摘」の質問を、指摘ごとにする (`ui-test-first`。運用して不都合があれば)。
 - **検証の範囲:** 疑似フォルダで、生成した 5 種類を、`ui_guideline_check.py` と、既存の `*-check` にかけて、指摘が減ったことを確認した。**実機のビルドと実行は、未確認** (TEST-PLAN 2-10 の TP1〜TP4)。
 

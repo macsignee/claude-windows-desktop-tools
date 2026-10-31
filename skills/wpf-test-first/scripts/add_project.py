@@ -555,12 +555,14 @@ def main_window_xaml(ns, title, vm_ns, vm_assembly=None):
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0">
-            <Label DockPanel.Dock="Left"
+            <Label x:Name="NameLabel"
+                   DockPanel.Dock="Left"
                    Margin="{{StaticResource DefaultControlMargin}}"
                    Content="名前:"
                    Target="{{Binding ElementName=NameTextBox}}" />
             <TextBox x:Name="NameTextBox"
                      AutomationProperties.AutomationId="NameTextBox"
+                     AutomationProperties.LabeledBy="{{Binding ElementName=NameLabel}}"
                      Margin="{{StaticResource DefaultControlMargin}}"
                      Text="{{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}" />
         </DockPanel>
