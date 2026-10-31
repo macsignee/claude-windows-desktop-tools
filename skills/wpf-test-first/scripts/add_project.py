@@ -241,6 +241,7 @@ def csproj_winforms(tfm, root_ns, refs):
     <OutputType>WinExe</OutputType>
     <TargetFramework>{windows_tfm(tfm)}</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
     <RootNamespace>{root_ns}</RootNamespace>
   </PropertyGroup>
 
@@ -263,6 +264,7 @@ def csproj_wpf(tfm, root_ns, refs):
     <OutputType>WinExe</OutputType>
     <TargetFramework>{windows_tfm(tfm)}</TargetFramework>
     <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <RootNamespace>{root_ns}</RootNamespace>
   </PropertyGroup>
 {ref_block}
@@ -516,6 +518,20 @@ public partial class App : Application
 '''
 
 
+def app_manifest():
+    """DPI 認識モードを、明示するマニフェスト (UI デザインガイドライン UI-DPI-002)。WPF の既定と同じ、システム DPI 対応。
+    モニターごとの DPI に追従させるときは、dpiAware を true/pm にし、dpiAwareness (PerMonitorV2) を足す (UI-DPI-004)。"""
+    return '''<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+    </windowsSettings>
+  </application>
+</assembly>
+'''
+
+
 def main_window_xaml(ns, title, vm_ns, vm_assembly=None):
     asm = f';assembly={vm_assembly}' if vm_assembly else ''
     return f'''<Window x:Class="{ns}.Views.MainWindow"
@@ -538,10 +554,16 @@ def main_window_xaml(ns, title, vm_ns, vm_assembly=None):
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBox Grid.Row="0"
-                 AutomationProperties.AutomationId="NameTextBox"
-                 Margin="{{StaticResource DefaultControlMargin}}"
-                 Text="{{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}" />
+        <DockPanel Grid.Row="0">
+            <Label DockPanel.Dock="Left"
+                   Margin="{{StaticResource DefaultControlMargin}}"
+                   Content="名前:"
+                   Target="{{Binding ElementName=NameTextBox}}" />
+            <TextBox x:Name="NameTextBox"
+                     AutomationProperties.AutomationId="NameTextBox"
+                     Margin="{{StaticResource DefaultControlMargin}}"
+                     Text="{{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}}" />
+        </DockPanel>
 
         <TextBlock Grid.Row="1"
                    AutomationProperties.AutomationId="GreetingText"
@@ -970,6 +992,7 @@ def wpf_app_files(name, ns, tfm, uses, vm_in_app, vm_project=None):
     vm_ns = f'{ns}.ViewModels' if vm_in_app or not vm_project else layer_namespace(ns, 'viewmodel', vm_project)
     files = {
         f'{name}/{name}.csproj': csproj_wpf(tfm, ns, uses),
+        f'{name}/app.manifest': app_manifest(),
         f'{name}/App.xaml': app_xaml(ns),
         f'{name}/App.xaml.cs': app_xaml_cs(ns, vm_ns),
         f'{name}/Resources/Styles.xaml': styles_xaml(),

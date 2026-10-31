@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.27.0] 2026-10-31 (Skill 側のみ。生成するソリューションの、ひな形の変更。ホスト側の変更なし。疑似フォルダで検証済み。**実機のビルド・実行の確認は、未実施**)
+
+- **`/new-solution` が作るソリューションを、UI デザインガイドラインの、静的に判定できる必須の規則に合わせた** (v2.26.x の `/ui-design-review` が、生成直後に、いつも出していた既知の指摘を、なくす):
+  - **UI-DPI-002 (DPI 認識モードの明示):** WPF: `app.manifest` を生成し (`<dpiAware>true</dpiAware>`。WPF の既定と同じ、システム DPI 対応)、`.csproj` に `<ApplicationManifest>app.manifest</ApplicationManifest>`。WinForms: `.csproj` に `<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>` (`Program.cs` の `ApplicationConfiguration.Initialize()` が使う。VS の WinForms のひな形と同じ設定)。MFC (SDI / MDI / ダイアログ): `InitInstance` の先頭 (`CWinApp::InitInstance()` の前) で `SetProcessDPIAware()` (ビルドの設定に依存しない方法。マニフェストでの宣言が望ましいことは、コメントに書いた)。
+  - **UI-CTL-100 (MFC の Common Controls 6.0):** `pch.h` に、Microsoft Learn「Build Requirements for Windows Common Controls」(MFC) の公式の書式のコンパイラ指令 (`#pragma comment(linker, "/manifestdependency:...")`。x86 / x64 / その他)。
+  - **UI-ACC-001・UI-CTL-020 (WPF の入力欄):** 名前の入力欄の前に、見える `Label` (`Content="名前:"`、`Target` で `NameTextBox` に結ぶ) を置いた (`DockPanel`)。`TextBox` に `x:Name="NameTextBox"` を追加 (`AutomationId` は、そのまま)。
+  - **UI-LOC-001 (表示文字列のリソース化) は、変えていない:** `.resx` などの、ローカライズの仕組みを、ひな形の既定にするかは、ユーザーの判断が要る。生成直後の WPF に、`UIG-LOC001` (warning) が、1 件残る。
+- **検証:** 生成した 5 種類 (WPF / WinForms / MFC SDI・MDI・ダイアログ) に `ui_guideline_check.py` を実行し、WPF は `UIG-LOC001` の 1 件だけ、ほかは warning 0 件。`wpf-check` / `winforms-check` / `mfc-check` も 0 件。
+- **テスト:** `tests/ui_guideline_check_test.sh` 86 件 (74 → 86: 生成物がガイドラインの検査を通ること、`app.manifest`・`ApplicationHighDpiMode`・`pch.h` の指令・`SetProcessDPIAware` の位置)。
+- **未確認 (実機のビルドと実行が要る。TEST-PLAN 2-10 の TP1〜TP4):** (1) 生成した WPF・WinForms・MFC が、ビルドできる。(2) 起動した各アプリの DPI 認識が、システム (タスクマネージャーの「DPI 認識」の列)。(3) MFC のコントロールが、ビジュアルスタイルで表示される (Common Controls 6.0)。(4) WPF の名前欄の見た目 (ラベルとの配置)。
+- 設計: `docs/DESIGN.md` 4.46。
+
 ## [2.26.3] 2026-10-31 (Skill 側のみ。ホスト側の変更なし。UG3c の軽微な点の反映)
 
 - **実機の確認 UG3c (2026-10-31) は ✔。軽微な 2 点を、`ui-design-review` の `SKILL.md` に、注記した:**

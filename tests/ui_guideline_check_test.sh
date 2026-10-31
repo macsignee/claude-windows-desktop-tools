@@ -273,14 +273,28 @@ chk "$T/w0" --fail-on-warning >/dev/null; ok "--fail-on-warning: rc=0 when clean
 a="$(find "$T/w2" "$T/m1" -type f -exec md5sum {} + | sort | md5sum)"; chk "$T/w2" --all >/dev/null; chk "$T/m1" --all >/dev/null; b="$(find "$T/w2" "$T/m1" -type f -exec md5sum {} + | sort | md5sum)"
 ok "the tool is read-only (checked folders are unchanged)" "$([ "$a" = "$b" ] && echo 1 || echo 0)"
 
-# ---------------------------------------------------------------- 生成したソリューションでも、止まらずに動く (既知の指摘があってもよい)
-mkdir -p "$T/gen_wpf" "$T/gen_wf" "$T/gen_mfc"
+# ---------------------------------------------------------------- 生成したソリューションは、ガイドラインの検査を通る (v2.27.0 で、テンプレートを対応させた)
+mkdir -p "$T/gen_wpf" "$T/gen_wf" "$T/gen_mfc" "$T/gen_mdi" "$T/gen_sdi"
 python3 "$NS" "$T/gen_wpf" --type wpf --layers none --tests none >/dev/null 2>&1
 python3 "$NS" "$T/gen_wf" --type winforms --layers none --tests none >/dev/null 2>&1
 python3 "$NS" "$T/gen_mfc" --type mfc-dialog --layers none --tests none >/dev/null 2>&1
-for d in gen_wpf gen_wf gen_mfc; do
+python3 "$NS" "$T/gen_mdi" --type mfc-mdi --layers none --tests none >/dev/null 2>&1
+python3 "$NS" "$T/gen_sdi" --type mfc --layers none --tests none >/dev/null 2>&1
+for d in gen_wpf gen_wf gen_mfc gen_mdi gen_sdi; do
     out="$(chk "$T/$d" --all)"; rc=$?
     ok "$d: runs on a generated solution (rc=0, 'error 0')" "$([ $rc = 0 ] && [ "$(has "$out" 'error 0 /')" = 1 ] && echo 1 || echo 0)"
+done
+out="$(chk "$T/gen_wpf")"
+ok "generated WPF: only UIG-LOC001 remains (UI-DPI-002 / UI-ACC-001 are satisfied by the template; localization is a decision left to the user)" "$([ "$(has "$out" 'warning 1')" = 1 ] && [ "$(has "$out" ' UIG-LOC001 ')" = 1 ] && echo 1 || echo 0)"
+for d in gen_wf gen_mfc gen_mdi gen_sdi; do
+    out="$(chk "$T/$d")"
+    ok "$d: no warning on a generated solution (DPI awareness, Common Controls manifest)" "$([ "$(has "$out" 'error 0 / warning 0')" = 1 ] && echo 1 || echo 0)"
+done
+ok "generated WPF: app.manifest declares DPI awareness and the csproj references it" "$(grep -q 'dpiAware' "$T/gen_wpf/gen_wpf/app.manifest" && grep -q '<ApplicationManifest>app.manifest</ApplicationManifest>' "$T/gen_wpf/gen_wpf/gen_wpf.csproj" && echo 1 || echo 0)"
+ok "generated WinForms: ApplicationHighDpiMode is set in the csproj" "$(grep -q '<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>' "$T/gen_wf/gen_wf/gen_wf.csproj" && echo 1 || echo 0)"
+dpi_before_init() { python3 -c "import sys; t=open(sys.argv[1],encoding='utf-8-sig').read().replace('\\r\\n','\\n'); sys.exit(0 if 0 <= t.find('SetProcessDPIAware();') < t.find('CWinApp::InitInstance();') else 1)" "$1"; }
+for d in gen_mfc gen_mdi gen_sdi; do
+    ok "$d: pch.h has the Common Controls directive, and InitInstance calls SetProcessDPIAware before CWinApp::InitInstance" "$(grep -q 'Microsoft.Windows.Common-Controls' "$T/$d/$d/pch.h" && dpi_before_init "$T/$d/$d/SampleApp.cpp" && echo 1 || echo 0)"
 done
 
 # ---------------------------------------------------------------- 参照文書と、規則 ID の対応
