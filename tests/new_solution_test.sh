@@ -329,6 +329,7 @@ D="$WORK/R/V_dllmain"; mkdir -p "$D"; python3 "$NEW" "$D" --type dll --layers no
 check "DLL がメイン: DefaultStartup は付けない" bash -c "! grep -q DefaultStartup '$D/V_dllmain.slnx'"
 check "層がある exe: CLAUDE.md に、スタートアッププロジェクトの注意" bash -c "grep -q 'スタートアッププロジェクト' '$WORK/R/V_mfc_mdi/CLAUDE.md'"
 check "mfc-mdi: CMultiDocTemplate と、MDI の枠" bash -c "grep -q CMultiDocTemplate '$WORK/R/V_mfc_mdi/V_mfc_mdi/SampleApp.cpp' && grep -q CMDIFrameWnd '$WORK/R/V_mfc_mdi/V_mfc_mdi/MainFrame.h' && grep -q CMDIChildWnd '$WORK/R/V_mfc_mdi/V_mfc_mdi/ChildFrame.h'"
+check "mfc-dialog: 名前の Edit・挨拶・クリア (WPF / WinForms と同じ画面。UI テストの対象)" bash -c "d='$WORK/R/V_mfc_dialog/V_mfc_dialog'; grep -q 'EDITTEXT *IDC_NAME_EDIT' \"\$d/V_mfc_dialog.rc\" && grep -q 'define IDC_GREETING_TEXT *1002' \"\$d/Resource.h\" && grep -q 'ON_EN_CHANGE(IDC_NAME_EDIT' \"\$d/SampleDlg.cpp\" && grep -q 'ON_BN_CLICKED(IDC_CLEAR_BUTTON' \"\$d/SampleDlg.cpp\""
 check "mfc-dialog: ダイアログ (IDD) と、DoModal" bash -c "grep -q 'IDD_SAMPLE_DIALOG' '$WORK/R/V_mfc_dialog/V_mfc_dialog/V_mfc_dialog.rc' && grep -q DoModal '$WORK/R/V_mfc_dialog/V_mfc_dialog/SampleApp.cpp'"
 check "mfc-dialog: ドキュメント・ビューは、作らない" bash -c "[ ! -e '$WORK/R/V_mfc_dialog/V_mfc_dialog/SampleDoc.h' ]"
 mkdir -p "$WORK/R/V_Bad"; rc_is 2 "不明な種類 -> rc 2" python3 "$NEW" "$WORK/R/V_Bad" --type mfc-wizard --layers none --tests none

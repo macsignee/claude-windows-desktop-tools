@@ -1165,6 +1165,52 @@ public class MainWindowUiTests : UiTestBase
 }
 '''
 
+TESTS_MFC_CS = '''using FlaUI.Core.AutomationElements;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace __NS__.UITests;
+
+/// <summary>
+/// ひな形の UI テスト (MFC の標準のダイアログ: IDC_NAME_EDIT / IDC_GREETING_TEXT / IDC_CLEAR_BUTTON)。画面に合わせて、書き換える。
+/// MFC では、コントロールの ID (Resource.h の数値) が、AutomationId。
+/// </summary>
+[TestClass]
+public class MainWindowUiTests : UiTestBase
+{
+    private const string NameEdit = "__ID_NAME__";        // IDC_NAME_EDIT
+    private const string GreetingText = "__ID_GREETING__"; // IDC_GREETING_TEXT
+    private const string ClearButton = "__ID_CLEAR__";    // IDC_CLEAR_BUTTON
+
+    [TestMethod]
+    public void MainWindow_Opens_WithTitle()
+    {
+        Assert.IsFalse(string.IsNullOrEmpty(MainWindow.Title));
+    }
+
+    [TestMethod]
+    public void Greeting_NameEntered_ShowsGreeting()
+    {
+        var name = Find(NameEdit).AsTextBox();
+        name.Text = "太郎";   // ValuePattern (キー入力を使わない。EN_CHANGE が起きる)
+
+        Assert.IsTrue(WaitFor(() => Find(GreetingText).Name == "こんにちは、太郎 さん"),
+            "挨拶が、変わらない: " + Find(GreetingText).Name);
+    }
+
+    [TestMethod]
+    public void ClearButton_Invoked_ClearsName()
+    {
+        var name = Find(NameEdit).AsTextBox();
+        name.Text = "太郎";
+        Assert.IsTrue(WaitFor(() => Find(ClearButton).IsEnabled), "クリアボタンが、有効にならない");
+
+        UiDialogs.Click(Find(ClearButton));   // MFC のボタンは、BM_CLICK で押す (UiDialogs)
+
+        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.Text)), "クリアしても、入力欄が空にならない");
+    }
+}
+'''
+
 TESTS_GENERIC_CS = '''using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace __NS__.UITests;
@@ -1359,6 +1405,20 @@ def main():
             t = open(designer, encoding='utf-8-sig').read()
             standard = all(f'{i}.Name = "{i}";' in t for i in ('NameTextBox', 'GreetingLabel', 'ClearButton'))
 
+    mfc_ids = {}
+    if kind == 'cpp':
+        # ひな形のダイアログ (IDC_NAME_EDIT / IDC_GREETING_TEXT / IDC_CLEAR_BUTTON) かを、Resource.h の #define で調べる。
+        # AutomationId は ID の数値なので、テストに埋め込む。
+        proj_dir = os.path.dirname(os.path.join(sln_dir, *rel.split('/')))
+        for fn in sorted(os.listdir(proj_dir)):
+            if fn.lower() == 'resource.h':
+                t = open(os.path.join(proj_dir, fn), encoding='utf-8-sig', errors='replace').read()
+                for key, sym in (('NAME', 'IDC_NAME_EDIT'), ('GREETING', 'IDC_GREETING_TEXT'), ('CLEAR', 'IDC_CLEAR_BUTTON')):
+                    m = re.search(r'^[ \t]*#[ \t]*define[ \t]+' + sym + r'[ \t]+(\d+)\b', t, re.M)
+                    if m:
+                        mfc_ids['ID_' + key] = m.group(1)
+        standard = len(mfc_ids) == 3
+
     kv = dict(NS=ns, APP=app, TFM=tfm, SDK=a.testsdk_version or AP.TESTSDK_VER, MSTEST=a.mstest_version or AP.MSTEST_VER, FLAUI=a.flaui_version)
     files = {
         f'{ui}/{ui}.csproj': fill(CSPROJ, **kv),
@@ -1369,12 +1429,12 @@ def main():
         f'{ui}/UiDialogs.cs': fill(DIALOGS_CS, **kv),
         f'{ui}/uitest.settings': settings_text(kind),
         f'{ui}/PreviewUiTests.cs': fill(PREVIEW_CS, **kv),
-        f'{ui}/MainWindowUiTests.cs': fill((TESTS_WINFORMS_CS if kind == 'winforms' else TESTS_WPF_CS) if standard else TESTS_GENERIC_CS, **kv),
+        f'{ui}/MainWindowUiTests.cs': fill((TESTS_MFC_CS if kind == 'cpp' else TESTS_WINFORMS_CS if kind == 'winforms' else TESTS_WPF_CS) if standard else TESTS_GENERIC_CS, **kv, **mfc_ids),
     }
     print(f'ソリューション : {os.path.basename(sln)}')
     print(f'対象のアプリ   : {app} ({"WPF" if kind == "wpf" else "WinForms" if kind == "winforms" else "C++ (MFC など)"}。{rel})')
     print(f'UI テスト      : {ui} (MSTest {kv["MSTEST"]} + FlaUI {kv["FLAUI"]} (UIA3)、{tfm})')
-    print(f'ひな形のテスト : {("WPF" if kind == "wpf" else "WinForms") + " の標準の View (入力 → 挨拶 → クリア)" if standard else "ウィンドウが開くことだけ (画面に合わせて、足す)"}')
+    print(f'ひな形のテスト : {("WPF" if kind == "wpf" else "WinForms" if kind == "winforms" else "MFC") + (" の標準の View" if kind != "cpp" else " の標準のダイアログ") + " (入力 → 挨拶 → クリア)" if standard else "ウィンドウが開くことだけ (画面に合わせて、足す)"}')
     for r in files:
         print(f'  + {r}')
     print(f'  ~ {os.path.basename(sln)} (1 プロジェクトを追加)')

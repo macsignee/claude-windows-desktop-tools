@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.28.0] 2026-10-31 (Skill 側のみ。ひな形と UI テスト生成の変更。ホスト側の変更なし。疑似フォルダで検証済み。**MFC の実機のビルド・実行の確認は、未実施**)
+
+- **`new-solution --type mfc-dialog` のひな形に、名前の入力欄を入れた (WPF・WinForms と同じ画面):** 名前の Edit (`IDC_NAME_EDIT` = 1001)、挨拶の静的テキスト (`IDC_GREETING_TEXT` = 1002)、「クリア」ボタン (`IDC_CLEAR_BUTTON` = 1003)。入力に応じて挨拶が変わり、入力が空のときは、クリアが無効になる。これまでの MFC のひな形は、OK・Cancel・静的テキストだけで、WPF・WinForms と整合していなかった。
+- **`add_ui_tests.py`:** MFC のひな形のダイアログ (`Resource.h` に 3 つの ID) なら、コントロール ID の数値 (AutomationId) を埋め込んだ、「入力 → 挨拶 → クリア」のテストを出す。それ以外の C++ は、従来の汎用のテスト (ウィンドウが開くことだけ)。
+- **テスト:** `ui_tests_gen_test.sh` (標準のダイアログと、SDI の汎用)、`new_solution_test.sh`。生成した MFC ダイアログは、`mfc-check` と `ui_guideline_check.py` で、指摘 0 件。
+- **契約の変更:** `mfc-dialog` で生成するファイル (`Resource.h` / `.rc` / `SampleDlg.*`) の内容。UI テストのひな形の判定 (C++)。
+
 ## [2.27.1] 2026-10-31 (Skill 側のみ。ひな形と静的検査の修正。ホスト側の変更なし。疑似フォルダで検証済み。**実機の Narrator の再確認は、済み (「名前、編集、改行」と読まれた。TEST-PLAN TP4)**)
 
 - **実機で見つかった誤り (TEST-PLAN TP4):** v2.27.0 の WPF のひな形は、名前の入力欄と `Label` を、`Label` の `Target` だけで結んでいた。`Target` は、アクセスキーでフォーカスを移す設定で、UI Automation の名前を与えない。**Narrator は、入力欄を「名前」と読まなかった。**
