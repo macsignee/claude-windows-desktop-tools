@@ -79,7 +79,7 @@ PoC の手順: 使い捨ての C++ ソリューション (`MixTest` のコピー
 
 1. **v2.27.0 の実機のビルドと実行の確認 (TEST-PLAN 2-10 の TP1〜TP4)。** 特に、WinForms の `ApplicationHighDpiMode` (動作が変わる)、MFC の `SetProcessDPIAware()` と Common Controls のコンパイラ指令 (ビルドが通るか)。
 2. **UI-LOC-001 (表示文字列のリソース化) を、ひな形の既定にするか、決める** (ユーザーの判断)。入れるなら、WPF は、`Strings.xaml` (または `.resx`)、ViewModel の文字列も対象。
-3. MFC の DPI 認識を、マニフェスト (`AdditionalManifestFiles` など) での宣言に移す (実機のビルドで、書き方を確かめてから)。
+3. ~~MFC の DPI 認識を、マニフェストでの宣言に移す~~ → **v2.30.0 で実装 (DESIGN 4.49)。実機の確認 (TEST-PLAN 2-13) が残っている。**
 4. 「既知の指摘」の質問を、指摘ごとにする (`ui-test-first`。運用して不都合があれば)。
 5. (任意) `/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す。
 6. (任意) 検査の追加: 見た目に近い規則 (例: UI-KEY-003 のタブ停止、UI-CTL-024 のパスワードの伏せ字) の、静的な検出。

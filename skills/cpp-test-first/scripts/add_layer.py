@@ -156,6 +156,8 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
       <GenerateDebugInformation>true</GenerateDebugInformation>{lnk}
     </Link>
 '''
+        # MFC のアプリは、DPI 認識モード (システム DPI 対応) を、マニフェストツールの設定で、明示する (UI-DPI-002。MFC の既定も、true)
+        manifest_xml = '    <Manifest>\n      <EnableDpiAwareness>true</EnableDpiAwareness>\n    </Manifest>\n' if (mfc and cfgtype == 'Application') else ''
         return f'''  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'">
     <ClCompile>
       <WarningLevel>{'TurnOffAllWarnings' if third_party else 'Level3'}</WarningLevel>
@@ -165,7 +167,7 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PreprocessorDefinitions>{d}%(PreprocessorDefinitions)</PreprocessorDefinitions>{opt}{inc}
     </ClCompile>
-{link_xml}  </ItemDefinitionGroup>
+{link_xml}{manifest_xml}  </ItemDefinitionGroup>
 '''
 
     out = f'''<?xml version="1.0" encoding="utf-8"?>
