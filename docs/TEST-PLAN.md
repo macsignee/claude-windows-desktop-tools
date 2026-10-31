@@ -244,7 +244,7 @@ Windows 側が GitHub に届く環境で行う。**手書きの PowerShell な�
 | H6 | 既存のソリューションのフォルダで、`run_watcher.cmd <フォルダ>` を起動 (従来の使い方) | 従来どおり。ヘッダーに、ソリューションのパスと種類が出る。ビルド・テストが通る (回帰の確認) | ✔ (2026-10-25 実機、`WfFull` (既存の WPF + 層 + MSTest のソリューション) で、`run_watcher.cmd <フォルダ>` を起動 (従来の使い方。`-SolutionPath` が明示される経路)。ヘッダー: `Target: ...\WfFull\WfFull.slnx`、`Solution: .NET  (build features: restore)`。`build_test_once.sh` → `PASSED`。**ウォッチャーの窓: `[RESULT] Build SUCCEEDED.` → `[TEST] Running dotnet test: DataLayer.Tests` (1 件) / `LogicLayer.Tests` (5 件) → `[RESULT] Tests PASSED.` → `Waiting for next trigger...`。** ディスクの結果ファイルも、新しい (`build_result.txt` = `SUCCESS` 14:39:36、`test_result.txt` = `PASSED` 14:39:39)。**注: `build_test_once.sh` の出力が `PASSED` の 1 行だけなのは、仕様** (ビルドの成功は `PASSED` に含まれる。`SUCCEEDED` は、ウォッチャーの窓に出る)) |
 | H7 | C++ のみのソリューションで、ウォッチャーを起動 → `new_solution.py --ui-tests flaui` で .NET の UI テストを後付け → `build_once.sh` | **再起動なしで、混在としてビルドされる** (`restore` が付く。以前は、`HasDotnet` が古いまま) | 未確認 |
 | H8 | `-SolutionPath` を、**存在しない名前**で、明示して起動 | 従来どおり、`ERROR: target not found` で、終了コード 2 | 未確認 |
-| H9 | **成功時の要約の行 (v2.10.1、Skill 側):** Skill を再配置 (`install.sh --skills-only`) したあと、既存のソリューション (例: `WfFull`) で、ウォッチャーを起動して、`build_test_once.sh` と `uitest_once.sh` | 1 行目は `PASSED` のまま。**2 行目に `build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)`** (`uitest_once.sh` は `tests: 3 passed (WfFull.UITests 3)`)。警告があれば、その次の行 | △ (**`build_test_once.sh` は ✔**、`uitest_once.sh` は未確認。2026-10-25 実機、`WfFull`: Skill を再配置 (配布先は、リポジトリと同一) → ウォッチャーで `build_test_once.sh` → **`PASSED` の次の行に `build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)`**。1 行目と終了コードは、従来どおり。**注: `[RESULT] Tests PASSED.` / `[MARKER] ...` は、ウォッチャーの窓 (PowerShell) の出力で、要約の行は、WSL 側のスクリプトの出力。ウォッチャーの窓には、要約の行は出ない**) |
+| H9 | **成功時の要約の行 (v2.10.1、Skill 側):** Skill を再配置 (`install.sh --skills-only`) したあと、既存のソリューション (例: `WfFull`) で、ウォッチャーを起動して、`build_test_once.sh` と `uitest_once.sh` | 1 行目は `PASSED` のまま。**2 行目に `build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)`** (`uitest_once.sh` は `tests: 3 passed (WfFull.UITests 3)`)。警告があれば、その次の行 | ✔ (**`build_test_once.sh` は 2026-10-25 に ✔、`uitest_once.sh` は 2026-10-31 に ✔** (`TpCheck2Mfc` の出力の原文: `PASSED` / `build: SUCCESS / tests: 4 passed (TpCheck2Mfc.UITests 4)`)。2026-10-25 実機、`WfFull`: Skill を再配置 (配布先は、リポジトリと同一) → ウォッチャーで `build_test_once.sh` → **`PASSED` の次の行に `build: SUCCESS / tests: 6 passed (DataLayer.Tests 1, LogicLayer.Tests 5)`**。1 行目と終了コードは、従来どおり。**注: `[RESULT] Tests PASSED.` / `[MARKER] ...` は、ウォッチャーの窓 (PowerShell) の出力で、要約の行は、WSL 側のスクリプトの出力。ウォッチャーの窓には、要約の行は出ない**) |
 
 ## 2. Skill 経由 (Claude Code)
 
@@ -307,12 +307,12 @@ build-test-loop のSkillを使って、テストが通るまで直してくだ�
 
 | # | 指定 | 期待する動き | 状況 |
 |---|---|---|---|
-| N0 | `/new-solution` (引数なし) | メインの種類、層、テストを**質問する** (`--tests` は、必ず質問)。案 (dry-run の内容) を示して了承を求める | ✗ |
+| N0 | `/new-solution` (引数なし) | メインの種類、層、テストを**質問する** (`--tests` は、必ず質問)。案 (dry-run の内容) を示して了承を求める | △ (2026-10-30 の NS7 (実機、空のフォルダ) で、**最初の質問 (種類) が出ることまで**確認。層・テストの質問と、案の提示は、その回では未確認) |
 | N1 | `--type mfc --layers none --tests none` | `MFCTDDTest.slnx` と `MFCTDDTest/` (MFC SDI) だけ。テストなし。**ビルドが `SUCCESS`** (`auto-build`) | ✗ |
 | N2 | `--type mfc --layers logic,data --tests none` | メイン + `DataLayer` + `LogicLayer` (DLL)。テストなし。ビルドが `SUCCESS` | ✔ (2026-10-14 実機: ClaudeProject) |
-| N3 | `--type mfc --layers logic,data --tests gtest --gtest nuget` (旧方式) | N2 + `DataLayerTest` / `LogicLayerTest`。GoogleTest が `packages\` にコピーされる。**ビルドとテストが `PASSED`** (2 つのテスト exe) | ✗ |
+| N3 | `--type mfc --layers logic,data --tests gtest --gtest nuget` (旧方式) | N2 + `DataLayerTest` / `LogicLayerTest`。GoogleTest が `packages\` にコピーされる。**ビルドとテストが `PASSED`** (2 つのテスト exe) | 廃止 (2026-10-31、v2.31.0: 旧 NuGet 方式 (`--gtest nuget`) を廃止した。`DESIGN.md` 4.50。エラーになることは、2-14 の GN4 で確認済み。同じ組み合わせの vcpkg 版は、N3v。旧方式と vcpkg 方式の共存は、2-14 の GN2〜GN3) |
 | N3v | `--type mfc --layers logic,data --tests gtest` (既定 = vcpkg)。出力の指示どおり、`package_once.sh "vcpkg baseline" "vcpkg install"` → `build-test-loop` (Debug と Release) | `vcpkg.json` に gtest、`builtin-baseline` が入る。テスト exe に `main.cpp`。**`PASSED` (2 つのテスト exe、各 1 件)**。LNK2019 `main` が出ない。警告 0 (CRT の不整合なし)。`vcpkg_installed` を消した再ビルドは、ビルドなしで復元される (`Restored`)。PoC (2026-10-28) は、使い捨てのコピーで確認済み。生成物での確認は、これから | ✔ 2026-10-28: 生成物 (`GtestVcpkgGen`) で確認。`GTEST_VCPKG: no-baseline` → `package_once.sh` (60 秒、初回) → Debug `PASSED` (2 件、63 秒)・Release `PASSED` (12 秒)。`test.log` に `Running main() from` なし。`vcpkg_installed` を退避した再ビルドは 28 秒 (キャッシュ復元)。層の追加 (`add_layer.py`、`GTEST_VCPKG: present`) で 3 件 `PASSED`。`cpp_pkg.py setup` は、テストを kept、ほかを patched、のあとも 3 件 `PASSED`。`--gtest nuget` は、`GTEST_MODE: nuget` / `copied` (出力のみ確認) |
-| N4 | N3 で、フォルダ名が `MFCTDDTest` (`Test` で終わる) | メインに `_Main` の `TargetName` が付く。**`MFCTDDTest_Main.exe` が、テストとして起動されない** (`PASSED`) | ✗ |
+| N4 | N3 で、フォルダ名が `MFCTDDTest` (`Test` で終わる) | メインに `_Main` の `TargetName` が付く。**`MFCTDDTest_Main.exe` が、テストとして起動されない** (`PASSED`) | ✗ (2026-10-31: N3 (旧方式) が廃止のため、**N3v (vcpkg) の組み合わせに読み替えて実施する**) |
 | N5 | `--type dll --layers none --tests gtest` | メイン DLL + `<名前>Test`。`PASSED` | ✗ |
 | N6 | `--type win32 ...` / `--type console ...` | それぞれ、ビルドが通る | ✗ |
 | N3s | N3 の `--gtest source` 版 (`/new-solution --type mfc --layers logic,data --tests gtest --gtest source`) | `gtest` プロジェクトが入る。作成後、ウォッチャーを起動して、`gtest_once.sh` で取得 → `PASSED`。**初回は、`gtest` のコンパイルで、少し長い** | △ (2026-10-14 実機: 後付け経由で `PASSED`。新規作成 + `gtest_once.sh` での取得は、未確認 (取得自体は G1〜G5 で確認)) |
@@ -329,7 +329,7 @@ build-test-loop のSkillを使って、テストが通るまで直してくだ�
 | N7 | `--type console --layers none --tests gtest` | 矛盾として、エラー (何も書かれない) | ✗ |
 | N8 | N2 の後、`/new-solution --tests gtest` (後付け) | `DataLayerTest` / `LogicLayerTest` が増える。`CLAUDE.md` が `テスト: あり` に更新される。`PASSED` | ✔ (2026-10-14 実機: ClaudeProject。source 方式) |
 | N9 | すでにソリューションがあるフォルダで、`--tests gtest` なしの `/new-solution` | 何も書かずに、「後付けだけできる」と案内して止まる | ✗ |
-| N10 | `--gtest nuget` で、GoogleTest のコピー元がない環境 (旧方式) | `GTEST_PACKAGE: missing`。コピー元の指定か、Visual Studio での復元を依頼して待つ | ✗ |
+| N10 | `--gtest nuget` で、GoogleTest のコピー元がない環境 (旧方式) | `GTEST_PACKAGE: missing`。コピー元の指定か、Visual Studio での復元を依頼して待つ | 廃止 (2026-10-31、v2.31.0: 旧 NuGet 方式を廃止した。`--gtest-from` もエラー。`DESIGN.md` 4.50) |
 | N11 | 作成した `.slnx` を、Visual Studio 2026 で開く | エラーなく開く。プロジェクト構成 (x64 の Debug / Release) が正しい | ✔ (2026-10-14 実機: ClaudeProject) |
 | N12 | N1〜N2 (テストなし) のあと `/brainstorm` → `/update-from-ideas` → `/add-feature` | テストなしの流れ (計画 → 承認 → 実装 → ビルド確認 → 手動確認)。Red / Green は、出てこない | ✗ |
 
