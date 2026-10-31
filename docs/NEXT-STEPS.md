@@ -78,7 +78,7 @@ PoC の手順: 使い捨ての C++ ソリューション (`MixTest` のコピー
 `/ui-design-review` (DESIGN 4.45) を追加し (v2.26.0)、実機の確認 (TEST-PLAN 2-9。UG1〜UG5 と再確認) は、**すべて完了した** (v2.26.3)。**v2.27.0 で、生成するソリューションを、ガイドラインに合わせた** (DESIGN 4.46)。
 
 1. **v2.27.0 の実機のビルドと実行の確認 (TEST-PLAN 2-10 の TP1〜TP4)。** 特に、WinForms の `ApplicationHighDpiMode` (動作が変わる)、MFC の `SetProcessDPIAware()` と Common Controls のコンパイラ指令 (ビルドが通るか)。
-2. **UI-LOC-001 (表示文字列のリソース化) を、ひな形の既定にするか、決める** (ユーザーの判断)。入れるなら、WPF は、`Strings.xaml` (または `.resx`)、ViewModel の文字列も対象。
+2. ~~UI-LOC-001 (表示文字列のリソース化) を、ひな形の既定にするか、決める~~ → **不要 (2026-10-31、ユーザーの決定)。ひな形は、ローカライズの仕組みを、入れない。** 生成直後の WPF の `UIG-LOC001` (1 件) は、既知の指摘として残す。ローカライズが要る画面だけ、本来の指摘として扱う (入れるなら、WPF は、`Strings.xaml` (または `.resx`)、ViewModel の文字列も対象)。
 3. MFC の DPI 認識を、マニフェスト (`AdditionalManifestFiles` など) での宣言に移す (実機のビルドで、書き方を確かめてから)。
 4. 「既知の指摘」の質問を、指摘ごとにする (`ui-test-first`。運用して不都合があれば)。
 5. (任意) `/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す。

@@ -845,7 +845,7 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 
 **背景:** v2.26.x の `/ui-design-review` は、`/new-solution` で作った直後のソリューションに、いつも、同じ既知の指摘 (UI-DPI-002、UI-CTL-100 (MFC)、UI-ACC-001 (WPF)) を出していた (DESIGN 4.45、TEST-PLAN の UG1)。レビューのたびに、本当の指摘が、既知の指摘に埋もれる。
 
-- **方針:** 静的検査 (`ui_guideline_check.py`) が検出する必須の規則のうち、**設定が小さく、書き方が公式の資料で確認できるもの**を、ひな形に入れる。**ローカライズ (UI-LOC-001) は入れない** (リソースの仕組みを、既定にするかは、ユーザーの判断。生成直後の WPF に `UIG-LOC001` が 1 件残る)。
+- **方針:** 静的検査 (`ui_guideline_check.py`) が検出する必須の規則のうち、**設定が小さく、書き方が公式の資料で確認できるもの**を、ひな形に入れる。**ローカライズ (UI-LOC-001) は入れない** (リソースの仕組みを、既定にするかは、ユーザーの判断だった。**2026-10-31 に、ユーザーが、不要と決定した。** 生成直後の WPF に `UIG-LOC001` が 1 件残るのは、この決定の結果で、既知の指摘)。
 - **UI-DPI-002 の入れ方 (3 種類で、別の方法):**
   - WPF: `app.manifest` (`<dpiAware>true</dpiAware>`)。**WPF の既定 (システム DPI 対応) と同じ**なので、実行時の動作は変わらない。「宣言する」ことだけを変える。`.csproj` に `<ApplicationManifest>app.manifest</ApplicationManifest>` を明示 (VS のひな形と同じ)。モニターごとの DPI (UI-DPI-004。推奨) に追従させるときの書き方は、`app_manifest()` のコメントに書いた。
   - WinForms: `<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>`。**.NET の WinForms の既定は、DPI 非対応 (DpiUnaware)** なので、これは、動作が変わる (OS による拡大でぼやける表示が、なくなる)。ひな形は、`AutoScaleMode.Font` なので、レイアウトは、追従する想定。**実機で、見た目の確認が要る。**
