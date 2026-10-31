@@ -303,6 +303,9 @@ ok "SKILL.md: states the severity policy and its only exception (UIG-CTL101)" "$
 ok "SKILL.md: WPF defaults to system DPI awareness (do not claim PerMonitorV2 by default)" "$(grep -q 'システム DPI 対応' "$S" && grep -q 'PerMonitorV2 相当」と書かない' "$S" && echo 1 || echo 0)"
 ok "SKILL.md: cite rules after checking the text (no invented section numbers)" "$(grep -q '本文を `grep` で確かめてから書く' "$S" && echo 1 || echo 0)"
 ok "ui-test-first: the plan table has a 守る規則 ID column and the Appendix E item numbers" "$(grep -q '列「守る規則 ID」' "$ROOT/skills/ui-test-first/SKILL.md" && grep -q '付録 E の項目のうち、この画面に該当するものの番号' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
+ok "ui-test-first: the 守る規則 ID column is in both table definitions (部品 / 操作と期待), and Appendix E item 7 (有効 / 無効) is mapped" "$(grep -q '表の列は、「部品 / 種類 / 識別の名前 / 守る規則 ID」' "$ROOT/skills/ui-test-first/SKILL.md" && grep -q '表の列は、「# / 操作 / 期待 / 確認場所 / 守る規則 ID」' "$ROOT/skills/ui-test-first/SKILL.md" && grep -q '7 状態の条件' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
+ok "ui-test-first: ask about every mandatory finding (no silent deferral)" "$(grep -q '一部だけ質問して、残りを黙って' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
+ok "SKILL.md: the 適用した付録 field means a technology appendix (not Appendix F)" "$(grep -q '「適用した付録」' "$S" && grep -q '付録 F (チェックリスト) は、書かない' "$S" && echo 1 || echo 0)"
 for f in skills/ui-test-first/SKILL.md skills/add-feature/SKILL.md skills/wpf-check/SKILL.md skills/winforms-check/SKILL.md skills/mfc-check/SKILL.md; do
     ok "$f: points to /ui-design-review" "$(grep -q 'ui-design-review' "$ROOT/$f" && echo 1 || echo 0)"
 done
