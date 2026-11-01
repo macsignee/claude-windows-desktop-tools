@@ -639,3 +639,33 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | GN3 | `package_once.sh <dir> --timeout 1800 "vcpkg baseline" "vcpkg install"` のあと、`build_test_once.sh` | **旧方式のテストと、vcpkg 方式のテストが、同じソリューションでビルドされ、すべて実行される** (`PASSED`。要約に、両方のテスト exe の件数) | ✔ (2026-10-31 実機。**GN3-1:** `package_once.sh <コピー> --timeout 1800 "vcpkg baseline" "vcpkg install"`: `OK`。vcpkg: `C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\vcpkg\\vcpkg.exe` (VS 同梱)、`gtest:x64-windows-static-md@1.18.0`、`RESULT_INFO: kind=package … watcher=2.31.0`。**GN3-2:** `build_test_once.sh`: 出力の原文 `PASSED` / `build: SUCCESS / tests: 3 passed (DataLayerTest 1, LogicLayerTest 1, ReportLibTest 1)` / `RESULT_INFO: kind=test input=NewClaudeProject finished=2026-10-31 15:55:25 watcher=2.31.0`。**旧方式 (NuGet) のテスト 2 件と、vcpkg 方式のテスト 1 件が、同じソリューションで共存し、ビルドされ、すべて実行された**) |
 | GN4 | `add_layer.py <dir> X --gtest nuget` | `ERROR: --gtest nuget / --gtest-from (旧 NuGet 方式) は、v2.31.0 で廃止 …`。終了コード 2。何も作られない (疑似フォルダでは確認済み) | ✔ (2026-10-31 実機。`add_layer.py <旧方式のコピー> X --gtest nuget` の出力の原文: `ERROR: --gtest nuget / --gtest-from (旧 NuGet 方式) は、v2.31.0 で廃止した。GoogleTest は、vcpkg (既定。--gtest vcpkg) か、source (--gtest source) で入れる。packages\\ に旧方式のテストがあるソリューションは、そのまま使えるが、新しいテストは、vcpkg になる`。`X` と `XTest` のフォルダは、作られていない (読み取りで確認。終了コードは、疑似フォルダのテストで 2 を確認済み)) |
 
+
+### 2-15. テスト先行 Skill の改名 (`wpf-test-first` → `csharp-test-first`。v2.32.0) と、依頼文からの選択
+
+**v2.32.0 で追加。疑似フォルダの単体テストは通っている (全 26 本)。実機では、「WinForms のプロンプトから `csharp-test-first` が選ばれるか」を確かめた。**
+**条件:** 配布先 (`~/.claude/skills`) は、`install.sh --skills-only` で再配置し、旧名 `wpf-test-first` を削除した状態。ウォッチャーは 2.31.0 のまま (Skill = 2.32.0 との `NOTE: 版の不一致` が出る。警告のみで、動作に影響しない)。**確認用のフォルダは、毎回、新しいパスにし、起動前にそのフォルダのメモリ (`~/.claude/projects/<パス>/memory`) が空であることを確かめる** (CT1 のフォルダのメモリには、`WinForms` と `csharp-test-first` が書かれていて、同じフォルダでの再実行は、選択の確認に使えなかった)。プロンプトは、スキル名もスラッシュも入れず、1 つだけを送る。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| CT1 | 空のフォルダで、「WinForms で、先にテストを書いてください. テキストを入力するとメッセージボックスで表示する」 | 最初に `Skill(csharp-test-first)` | ✔ (2026-11-01 実機。最初の動作が `Skill(csharp-test-first)`、「WinForms の MVP 構成でテストファーストの手順を進めます」。フォルダは空 (`.sln` も `CLAUDE.md` もなし) で、メモリもなし。ソリューションがないため、`new-solution` を `Skill` ツールで呼んで `disable-model-invocation` のエラーになり、`/new-solution --type winforms` の実行を案内された。そのあと、ユーザーが `/new-solution --type winforms --layers logic --tests mstest` を実行し、`PASSED` (build: SUCCESS / tests: 5 passed)。**`new-solution` が、改名後の `csharp-test-first/scripts/add_project.py` を読み込めることも、確認できた**) |
+| CT2 | 新しい WinForms のソリューション (`CT2`。同じ構成) で、「TDD で進めたい。テキストボックスに入力した文字をメッセージボックスで表示する機能を追加してください。」(「WinForms」の語なし) | 最初に `Skill(csharp-test-first)`。Presenter と `IView` の Fake の流れ | ✔ (2026-11-01 実機。最初の動作が `Skill(csharp-test-first)`。メモリは空。ウォッチャー未起動で一度止まり (終了コード 3)、起動後に再実行。ベースライン `PASSED` (5 件)。**Red:** 7 件実行、5 成功・2 失敗。失敗の理由は、期待値 `太郎` / 実際値 `stub` と、期待値 空 / 実際値 `stub` (スタブへの、正しいアサーション失敗)。`winforms-check` は指摘なし。Red のあと、「この Red を仕様として確定してよいか」を、ユーザーに確認した (SKILL.md の 5.)。**同じフォルダ・同じプロンプトの、別の実行 (履歴にある) では、最初に `ls` / `find` でプロジェクトの種類を調べ始め、Skill の呼び出しは、記録された範囲 (ツール 5 回) にはなかった。** 最初の動作は、実行ごとに揺れる) |
+| CT3 | 新しい WPF のソリューション (`CT3`。`--type wpf --layers logic,viewmodel --tests mstest`。`CLAUDE.md` は「メイン: CT3 (WPF (MVVM))」「層: logic,viewmodel」「テスト: あり (MSTest)」) で、CT2 と同じプロンプト | 最初に `Skill(csharp-test-first)`。ViewModel と `IDialogService` の流れ | ✔ (2026-11-01 実機。最初の動作が `Skill(csharp-test-first)`。メモリは空。ベースライン `PASSED`。**Red:** 新規 2 件が失敗 (期待値 `太郎` / 実際値 `(null)`、期待値 空 / 実際値 `(null)`)。既存 7 件は成功。**Green:** `PASSED` (全 9 件。`LogicLayer.Tests` 1、`ViewModels.Tests` 8)。`wpf-check` は error 0 / warning 0。**ただし、SKILL.md の手順のうち、2 つが守られなかった (履歴で確認):** (1) Red のあと、ユーザーへの確認なしに、Green に進んだ (プロンプトは「機能を追加してください」で、「実装まで続けて」ではない)。(2) `test_guard.py snapshot` / `check` を実行せず、結果にも `TEST_GUARD` の行がない。そのほか、`build_test_once.sh` の場所を探すために、サブエージェント (`general-purpose`) を起動し、`ScheduleWakeup` の placeholder を呼んだ (実害なし)) |
+| CT4 | 新しい C++ のソリューションで、同様のプロンプト | `cpp-test-first` が選ばれる (`csharp-test-first` と取り違えない) | 未実施 (任意) |
+| CT5 | ASP.NET Core のプロジェクトで、「先にテストを書いて」 | どちらのスキルも選ばれない (対象外) | 未実施 (任意。省いてよい) |
+
+**得られた知見 (v2.32.0):**
+1. **改名と description の追記で、WinForms・WPF とも、依頼文だけから `csharp-test-first` が選ばれた** (CT1〜CT3)。ただし、最初の動作は、実行ごとに揺れる (CT2 の別の実行)。
+2. **メモリが、選択の確認に混ざる。** 確認用のフォルダは、毎回、新しいパスにし、メモリが空であることを確かめる。
+3. **`csharp-test-first` の本文は、ほぼ WPF 前提** (層の表の View = 「メインの WPF アプリ」、手順は ViewModel と `wpf-check`)。WinForms は、`CLAUDE.md` と `rules/winforms-csharp.md` を読んだ Claude の読み替えで動いている。WinForms の読み替え表を足すかは、未決定。
+4. **SKILL.md の手順 (Red 後の確認、`test_guard` の `snapshot` / `check`) は、実行ごとに、守られたり、守られなかったりする** (CT1・CT2 は守られ、CT3 は守られなかった。UG の知見 (3)・(4) と同じ傾向)。書き方を直すかは、未決定。
+5. ソリューションがないとき、Claude が `new-solution` を `Skill` ツールで呼んで、エラーになる (実害なし。案内で止まる、と前提の節に書くかは、未決定)。
+6. **`/new-solution` の `--ui-tests` の質問が、WPF だけに出て、WinForms には出なかった** (CT3 では「UI テスト (FlaUI) を、今回のソリューションに含めますか?」と聞かれ、CT2 は聞かれず、CT1 は Claude が「なし」と決めた。履歴で確認)。仕様に、質問の規則がなかったため。v2.33.0 で、画面つきの種類 (`wpf` / `winforms` / `mfc` / `mfc-mdi` / `mfc-dialog`) は、指定がなければ、必ず質問する規則にした。
+
+**v2.33.0 の確認 (実機。未実施):**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| UQ1 | 新しい空のフォルダで、`/new-solution --type winforms --layers logic --tests mstest` (`--ui-tests` なし) | 作成の了承の前に、「UI テスト (FlaUI) を含めますか」の質問が出る | ✔ (2026-11-01 実機。1 回。`/new-solution --type winforms --layers logic --tests mstest`、`--ui-tests` なし。配布先の `new-solution/VERSION` = 2.33.0、新しい規則の文を確認済み。画面の原文: 「WinFormsアプリのUIテスト (FlaUI) を、追加しますか?」、選択肢 1「なし (既定)」・2「FlaUI を追加する」。履歴で、質問の順序を確認: フォルダの状態の確認 → `--tfm` の確認 (WebSearch) → **UI テストの質問**。**フォルダは `CT3\CT4` で、CT3 のソリューションのフォルダの下 (入れ子)。名前の `CT4` は、CT4 (C++ の確認) とは別)) |
+| UQ2 | 同様に、`--type wpf --layers logic,viewmodel --tests mstest` | 同上 | ✔ (2026-11-01 実機。1 回。`/new-solution --type wpf --layers logic,viewmodel --tests mstest`、`--ui-tests` なし。フォルダは `CSharpTF\CT4` (UQ1 の `CT3\CT4` とは別のパス)。画面の原文: 「UIテスト (FlaUI) を足しますか? (通常のビルド→テストの流れには含めず、必要なときに別実行します)」、選択肢 1「なし (既定)」・2「FlaUI を足す」。**質問の前に、Claude が「UI tests (required question for WPF) and the namespace」と述べた** (規則が効いている)。UI テストと名前空間は、1 つの画面で聞かれた。直前に `Invalid tool parameters` のエラーが 1 回出て、質問をやり直した (実害なし)) |
+| UQ3 | 同様に、`--type mfc-dialog --layers logic --tests gtest` | 同上 | 未実施 (任意) |
+| UQ4 | `--type csharp-dll --tests mstest` | UI テストの質問は出ない | 未実施 (任意) |

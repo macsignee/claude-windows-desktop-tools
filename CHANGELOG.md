@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.33.0] 2026-11-01 (Skill 側のみ。`/new-solution` の質問の変更。契約の変更なし。疑似フォルダでの検証 + SKILL.md の文字列の確認。**実機の確認は、未実施**)
+
+- **`/new-solution`: `--ui-tests` を、画面つきの種類 (`wpf` / `winforms` / `mfc` / `mfc-mdi` / `mfc-dialog`) で、引数にも構成案にも指定がなければ、必ず質問する。** 実機の確認 (TEST-PLAN 2-15) で、WPF だけ「UI テスト (FlaUI) を含めますか?」と聞かれ、WinForms では聞かれず (Claude が「なし」と決めた) 、揺れていたため。仕様に、質問の規則がなかった。`csharp-dll` / `win32` / `console` / `dll` / `lib` は、質問しない。既定は `none`。UI テストを、ビルド → テストの流れに含めない方針は、そのまま。
+- `/new-solutions` (複数の候補) は、変更なし (候補ごとに「UIテスト」を聞く規則が、すでにある)。
+- テスト: `ui_test_first_skill_test.sh` に、1 件。
+
 ## [2.32.0] 2026-11-01 (Skill 側のみ。**Skill の名前の変更: `wpf-test-first` → `csharp-test-first`**。配布先の旧名は、手で削除する)
 
 - **`wpf-test-first` を、`csharp-test-first` に改名した。** WinForms も、同じ手順 (Red → Green。`IView` の Fake で Presenter をテストする) で扱っていたが、名前と `description` が WPF だけに見え、WinForms の依頼で選ばれにくかったため。`winforms-test-first` は、作らない (手順が同じで、重複を避ける)。
