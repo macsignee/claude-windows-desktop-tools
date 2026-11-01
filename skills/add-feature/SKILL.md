@@ -8,7 +8,7 @@ disable-model-invocation: true
 # 機能の追加 (/add-feature): 計画 → 承認 → テスト先行 → 実装 → 検証
 
 `/brainstorm` (メモ) → `/update-from-ideas` (整理して、正式な仕様書) で、確定した仕様を、実装する、司令塔のコマンド。**テストがあるソリューションでは TDD、ないソリューションでは、ビルド確認で進める。**
-実際のテストの書き方・Red の判定は、**C++ なら `cpp-test-first`、WPF (.NET) なら `wpf-test-first`**、実装して通す工程は **`build-test-loop`** の手順に従う (ここには、書き直さない)。**どちらかは、`CLAUDE.md` の `- メイン:` (`(WPF (MVVM))` かどうか) と `- テスト:` (`GoogleTest` / `MSTest`) で決まる。以降の `cpp-test-first` は、WPF では `wpf-test-first`、`DLL` は、クラスライブラリ、`<DLL名>Test` は `<名前>.Tests`、`add_layer.py` は `add_project.py` に、読み替える。**
+実際のテストの書き方・Red の判定は、**C++ なら `cpp-test-first`、C# (WPF / WinForms) なら `csharp-test-first`**、実装して通す工程は **`build-test-loop`** の手順に従う (ここには、書き直さない)。**どちらかは、`CLAUDE.md` の `- メイン:` (`(WPF (MVVM))` かどうか) と `- テスト:` (`GoogleTest` / `MSTest`) で決まる。以降の `cpp-test-first` は、WPF では `csharp-test-first`、`DLL` は、クラスライブラリ、`<DLL名>Test` は `<名前>.Tests`、`add_layer.py` は `add_project.py` に、読み替える。**
 このコマンドは、**どこで止まって、ユーザーに確認するか (ゲート)** と、順番を決める。
 
 用途は、プロトタイプと、TDD の練習。小さく、1 サイクルずつ、進める。
@@ -22,8 +22,8 @@ disable-model-invocation: true
   | 設定 | 進め方 |
   |---|---|
   | `テスト: あり (GoogleTest)` (C++) | 計画 → 承認 → **テスト先行 (Red) → テストの確認 → 実装 (Green)** → 検証 (`cpp-test-first`) |
-  | `テスト: あり (MSTest)` (WinForms) | 同上 (`wpf-test-first`)。**Form は、テストしない**。画面の振る舞いは、Presenter に置いて、`IView` の Fake でテストする。実装のあと、`winforms-check` で、静的に検査する |
-  | `テスト: あり (MSTest)` (WPF) | 同上 (`wpf-test-first`)。**View (XAML / code-behind) は、テストしない**。実装のあと、`wpf-check` で、静的に検査する |
+  | `テスト: あり (MSTest)` (WinForms) | 同上 (`csharp-test-first`)。**Form は、テストしない**。画面の振る舞いは、Presenter に置いて、`IView` の Fake でテストする。実装のあと、`winforms-check` で、静的に検査する |
+  | `テスト: あり (MSTest)` (WPF) | 同上 (`csharp-test-first`)。**View (XAML / code-behind) は、テストしない**。実装のあと、`wpf-check` で、静的に検査する |
   | `テスト: なし` | 計画 → 承認 → **実装 → ビルド確認 → 手動確認** → 報告 (Red / Green は、ない) |
 
 - ユーザーが、`run_watcher.cmd` を起動済みであること (なければ、ビルドの段階で `WATCHER_NOT_RUNNING` になる。その時点で、起動を依頼する)。
@@ -100,17 +100,17 @@ python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN" --check-git
 - ここでの承認は、**計画に書いた範囲の、ファイルの作成と編集**に対するもの。計画にないものは、実行中に、改めて確認する。
 
 ### 4. 層・テストの追加 (計画に含めた場合だけ)
-同梱の `add_layer.py` (`cpp-test-first` の「セットアップ」。**WPF は `add_project.py`** (`wpf-test-first` の「セットアップ」)) で、層を足す。**テストあり** なら `--tests gtest` (DLL + `<DLL名>Test`。WPF は `--tests mstest` で、ライブラリ + `<名前>.Tests`)、**テストなし** なら `--tests none` (DLL だけ)。`CLAUDE.md` の `- 層:` の行も、合わせる。
+同梱の `add_layer.py` (`cpp-test-first` の「セットアップ」。**WPF は `add_project.py`** (`csharp-test-first` の「セットアップ」)) で、層を足す。**テストあり** なら `--tests gtest` (DLL + `<DLL名>Test`。WPF は `--tests mstest` で、ライブラリ + `<名前>.Tests`)、**テストなし** なら `--tests none` (DLL だけ)。`CLAUDE.md` の `- 層:` の行も、合わせる。
 **ベースライン (ビルド成功、テストありなら `PASSED`) が緑になるまで、次へ進まない。** (NuGet の復元など、ユーザーの作業が必要なときは、依頼して、待つ。)
 
 ### 5. タスクごとに、Red → 確認 → Green (テストあり。計画の順に、1 タスクずつ)
 各タスクで、次の順に進める。**1 つのタスクが終わるまで、次のタスクに、手をつけない。**
 
-1. **Red (テスト先行):** `cpp-test-first` (WPF は `wpf-test-first`) の手順 1〜5 に従う (テストケースの一覧は、計画のものを使う。スタブ、テスト、Red の判定)。
+1. **Red (テスト先行):** `cpp-test-first` (WPF は `csharp-test-first`) の手順 1〜5 に従う (テストケースの一覧は、計画のものを使う。スタブ、テスト、Red の判定)。
 2. **テストの確認のゲート (止まる):** Red の結果 (書いたテストと、失敗の理由) を示して、**「このテストが、仕様どおりか」を、ユーザーに確認する。**
    - 計画の承認とは別に、**テストの中身は、必ず、確認を待つ** (テストは、仕様の表明。間違いに気づける、最後の機会)。
    - 修正の指示があれば、テストを直して、Red を、やり直す。
-3. **Green (実装):** 確認が出たら、**`test_guard.py snapshot` で基準を作り** (`cpp-test-first` / `wpf-test-first` の 6.)、`build-test-loop` の手順で、実装して `PASSED` にする。**テストは、凍結する** (許可なしに、変更・削除・無効化しない。`test_guard.py check` で、確かめる)。
+3. **Green (実装):** 確認が出たら、**`test_guard.py snapshot` で基準を作り** (`cpp-test-first` / `csharp-test-first` の 6.)、`build-test-loop` の手順で、実装して `PASSED` にする。**テストは、凍結する** (許可なしに、変更・削除・無効化しない。`test_guard.py check` で、確かめる)。
 4. **リファクタリング (必要なときだけ):** テストを変えずに整理し、そのたびに、`PASSED` を確認する。
 5. **サイクルの記録 (練習用):** 1〜2 行で、「Red: どのテストが、どう失敗したか / Green: 何を実装して通ったか」を、メモしておく (最後の報告に使う)。
 

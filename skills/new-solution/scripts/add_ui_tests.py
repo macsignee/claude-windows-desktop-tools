@@ -36,13 +36,13 @@ def die(msg, rc=1):
 
 
 def load_ap():
-    d = os.path.join(HERE, '..', '..', 'wpf-test-first', 'scripts')
+    d = os.path.join(HERE, '..', '..', 'csharp-test-first', 'scripts')
     if d not in sys.path:
         sys.path.insert(0, d)
     try:
         import add_project as AP
     except ImportError:
-        die('wpf-test-first/scripts/add_project.py が見つからない (wpf-test-first Skill も、配布されている必要がある)')
+        die('csharp-test-first/scripts/add_project.py が見つからない (csharp-test-first Skill も、配布されている必要がある)')
     return AP
 
 

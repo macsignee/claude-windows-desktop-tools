@@ -1,6 +1,6 @@
 ---
 name: cpp-test-first
-description: C++ (Visual Studio) の、メイン + ロジック DLL + データ DLL + DLL ごとの GoogleTest (xxxTest.exe) のソリューション (`CLAUDE.md` が「テスト: あり」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は build-test-loop で行う。既存のテストを通すだけなら、このスキルは使わない。
+description: Windows デスクトップの C++ (Visual Studio / MSBuild。MFC・Win32・DLL) の、メイン + ロジック DLL + データ DLL + DLL ごとの GoogleTest (xxxTest.exe) のソリューション (`CLAUDE.md` が「テスト: あり」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は build-test-loop で行う。対象は、Visual Studio / MSBuild の Windows デスクトップのソリューションだけ。ASP.NET Core などの Web、Linux / macOS 向け、組み込みの C++ は、対象外。既存のテストを通すだけなら、このスキルは使わない。
 ---
 
 # C++ テストファースト (Red を作る)

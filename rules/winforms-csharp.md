@@ -14,7 +14,7 @@ paths:
 3. C# のクラスライブラリ (`CLAUDE.md` が「C# クラスライブラリ」) は、本規約の「3 層」と「6 テスト」と、`wpf-csharp.md` の C# の部分を使う。
 
 詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`~/.claude/templates/dotnet/` のひな形)。
-「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `wpf-test-first` / `winforms-check` / `add-package`) との対応。機械で判定できる項目は、**`winforms-check`** が確かめる (付録)。
+「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `csharp-test-first` / `winforms-check` / `add-package`) との対応。機械で判定できる項目は、**`winforms-check`** が確かめる (付録)。
 
 ## 1. 適用範囲
 - WinForms アプリケーション、WinForms のクラスライブラリ (UserControl など)
@@ -219,6 +219,6 @@ Solution/
 | 8.1 / 8.2 UI スレッド、スレッドの誤りの隠蔽 | `winforms-check` WFT001 / WFT002 / WFT003、ASY001 / ASY002 |
 | 9 例外 | `winforms-check` EXC001 / EXC002 |
 | 5 書式、命名の一部、Nullable | `.editorconfig` (Visual Studio と `dotnet format`)、ビルドの警告 |
-| 13 テスト | `build-test-loop` (実行)、`wpf-test-first` (先行。WinForms も同じ手順)、UI テストは `build-test-loop` の「UI テスト」 |
+| 13 テスト | `build-test-loop` (実行)、`csharp-test-first` (先行。WinForms も同じ手順)、UI テストは `build-test-loop` の「UI テスト」 |
 
 - **Form / Designer / Presenter を編集したら、`winforms-check` を実行する** (ウォッチャーは、要らない)。ビルドとテストは、ウォッチャー経由 (`auto-build` / `build-test-loop`)。

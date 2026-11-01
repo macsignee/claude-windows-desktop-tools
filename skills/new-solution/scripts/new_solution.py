@@ -41,7 +41,7 @@ Usage:
 x64 の Debug / Release だけ。GoogleTest の vcpkg 方式は、vcpkg.json を書くだけで、取得はしない (このスクリプトは、ネットワークを使わない)。
 
 終了コード: 0 成功 / 2 引数・組み合わせ・フォルダの問題 / 3 すでにある (何も書かない)
-このスクリプトは、同じ skills フォルダの cpp-test-first/scripts/add_layer.py (C++) と、wpf-test-first/scripts/add_project.py (WPF) を、読み込んで使う
+このスクリプトは、同じ skills フォルダの cpp-test-first/scripts/add_layer.py (C++) と、csharp-test-first/scripts/add_project.py (WPF) を、読み込んで使う
 (WPF のものは、--type wpf / --tests mstest のときだけ、読み込む)。
 """
 import argparse
@@ -825,14 +825,14 @@ def main_files(name, mtype, ns, toolset, guid):
 
 # ---------------- WPF (.NET) ----------------
 def load_ap():
-    """wpf-test-first/scripts/add_project.py を、読み込む (WPF のときだけ)。"""
-    d = os.path.join(HERE, '..', '..', 'wpf-test-first', 'scripts')
+    """csharp-test-first/scripts/add_project.py を、読み込む (WPF のときだけ)。"""
+    d = os.path.join(HERE, '..', '..', 'csharp-test-first', 'scripts')
     if d not in sys.path:
         sys.path.insert(0, d)
     try:
         import add_project as AP
     except ImportError:
-        die('wpf-test-first/scripts/add_project.py が見つからない (wpf-test-first Skill も、配布されている必要がある)')
+        die('csharp-test-first/scripts/add_project.py が見つからない (csharp-test-first Skill も、配布されている必要がある)')
     return AP
 
 
@@ -903,7 +903,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
         out += """
 ## テスト (MSTest)
 - ライブラリごとに、`<名前>.Tests` (MSTest v3、`Microsoft.NET.Test.Sdk`)。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
-- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`wpf-test-first` Skill。
+- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`csharp-test-first` Skill。
 """
     out += """
 ## 規約
@@ -971,7 +971,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 ## テスト (MSTest)
 - ライブラリごとに、`<名前>.Tests` (MSTest v3、`Microsoft.NET.Test.Sdk`)。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
 - Presenter のテストは、`IMainView` の偽物 (Fake) を作って、イベントを起こし、表示の結果を確かめる (`MainPresenterTests`)。
-- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`wpf-test-first` Skill (WPF 以外の .NET のソリューションでも、同じ手順)。
+- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`csharp-test-first` Skill (WPF 以外の .NET のソリューションでも、同じ手順)。
 """
     out += """
 ## 規約
@@ -1024,7 +1024,7 @@ C# のクラスライブラリ (.NET)。ソリューション: `{name}.slnx` (�
         out += """
 ## テスト (MSTest)
 - プロジェクトごとに、`<名前>.Tests` (MSTest v3、`Microsoft.NET.Test.Sdk`)。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
-- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`wpf-test-first` Skill (WPF 以外の .NET のソリューションでも、同じ手順)。
+- テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`csharp-test-first` Skill (WPF 以外の .NET のソリューションでも、同じ手順)。
 """
     out += """
 ## 規約

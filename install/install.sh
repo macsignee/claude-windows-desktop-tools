@@ -123,13 +123,13 @@ if [ "$DO_RULES" -eq 1 ]; then
     done < <(cd "$REPO/templates" && find . -type f -print0 | sed -z 's|^\./||')
 fi
 
-# 旧名の Skill (v2.0.0 で、技術名を外した): 配布先に残っていると、新しい Skill と description が重なり、取り違えの原因になる。
+# 旧名の Skill (v2.0.0 で、技術名を外した。v2.32.0 で、wpf-test-first を csharp-test-first に改名した): 配布先に残っていると、新しい Skill と description が重なり、取り違えの原因になる。
 # 自動では、消さない (配布先は、ユーザーのフォルダ)。
 if [ "$DO_SKILLS" -eq 1 ] && [ "$DRY" -eq 0 ]; then
-    for old in cpp-auto-build cpp-build-test-loop; do
+    for old in cpp-auto-build cpp-build-test-loop wpf-test-first; do
         if [ -d "$SKILLS_DIR/$old" ]; then
             echo "!!  旧名の Skill が残っています: $SKILLS_DIR/$old"
-            echo "    (新: $(case $old in cpp-auto-build) echo auto-build;; *) echo build-test-loop;; esac))。重複を避けるため、手で削除してください: rm -r \"$SKILLS_DIR/$old\""
+            echo "    (新: $(case $old in cpp-auto-build) echo auto-build;; wpf-test-first) echo csharp-test-first;; *) echo build-test-loop;; esac))。重複を避けるため、手で削除してください: rm -r \"$SKILLS_DIR/$old\""
         fi
     done
 fi

@@ -36,7 +36,7 @@ Claude Code (WSL)                              Windows
 | `build-windows.cmd` | host-tools | VS の環境を読み込み、MSBuild を実行する (単体でも使える)。C++ ツールの要求と NuGet の復元は、第 6 引数 (`Features`) で切り替える (4.24) |
 | `auto-build` | skills | ビルドのみのループ (`trigger_build.flag`)。C++ / .NET 共通 (4.24) |
 | `build-test-loop` | skills | ビルド + テスト (GoogleTest / MSTest) のループ (`trigger_test.flag`)。C++ / .NET 共通 (4.24) |
-| `wpf-test-first` | skills | WPF のテスト先行 (Red)。`PROJECT-LAYOUT.md` と、プロジェクト生成 `add_project.py` (`new-solution` も使う) (4.27) |
+| `csharp-test-first` | skills | WPF のテスト先行 (Red)。`PROJECT-LAYOUT.md` と、プロジェクト生成 `add_project.py` (`new-solution` も使う) (4.27) |
 | `add-package` | skills | パッケージの追加 (NuGet / vcpkg / ソースの取り込み)。ホスト側に、`trigger_package.flag` で実行させる (4.26) |
 | `wpf-check` | skills | WPF の静的検査 (バインディング・リソース・`InitializeComponent`・層)。読み取りだけ。Windows 不要 (4.25) |
 | `winforms-check` | skills | WinForms の静的検査 (`InitializeComponent`・`Designer.cs` の Name・層・スレッド)。読み取りだけ。Windows 不要 (4.30) |
@@ -495,10 +495,10 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
   - **再開の条件 (目安):** (a) この機能が、**GA** (Experimental でなくなる。既定で有効) になる。(b) C++ のプロジェクトから、C++/CLI / C# のプロジェクトを参照する場合の制限が、解消する。(c) Microsoft のネイティブの NuGet パッケージ (WIL、WebView2、C++/WinRT) を、このツール群で、頻繁に追加する必要が、出る。再開するときは、**TEST-PLAN の P23 / P24 の手順を、最初に、実機で行い**、そのあとで、(a) `cpp_pkg.py`、(b) ウォッチャーの `restore`、(c) `add-package` の順に、足す (上の「次の一手」の案)。
   - **(見送る前の) 次の一手の案:** 実機で、(2) と (3) を、確かめる (TEST-PLAN の P22 / P23)。**確認できてから**、(a) `cpp_pkg.py` に、`PackageReference` の追加 (`.vcxproj` の `ItemGroup` と、有効化のプロパティ) を足す、(b) ウォッチャーの `Features` に、C++ でも、`PackageReference` があるときの `restore` を足す、(c) `add-package` に、「C++ の NuGet (PackageReference)」の手順を足す、を行う。**確認できる前に、足さない** (動かない仕組みを、配ってしまうため)。
 
-### 4.27 WPF のソリューションの生成 (`new-solution --type wpf`) と、テスト先行 (`wpf-test-first`)、規約 (`rules/wpf-csharp.md`)
+### 4.27 WPF のソリューションの生成 (`new-solution --type wpf`) と、テスト先行 (`csharp-test-first`)、規約 (`rules/wpf-csharp.md`)
 **きっかけ:** C++ / MFC で作った一式 (`/new-solution` → `cpp-test-first` → `build-test-loop`、規約 `cpp-mfc.md`) を、WPF でも、同じ流れで使えるようにする。統合 (4.24)、`wpf-check` (4.25)、`add-package` (4.26) の上に、「作る」「テストを先に書く」「書き方を揃える」を足した。
 
-- **C++ の生成とは、別の経路にした (`add_layer.py` を、拡張しない)。** C++ の生成 (`.vcxproj`、GoogleTest の入れ方 3 方式、MFC の `.rc`) と、.NET の生成 (SDK 形式の `.csproj`、MSTest) は、共通部分が、ほとんどない。1 つのスクリプトに混ぜると、C++ の動作確認済みの経路を、壊しうる。**`new_solution.py` が、`--type wpf` / `--tests mstest` のときだけ、`wpf-test-first/scripts/add_project.py` を、読み込む** (WPF を使わない人は、`wpf-test-first` がなくても、C++ が動く)。C++ の経路の関数は、変えていない (`parse_layers` に、引数を足しただけ。既定は、従来どおり)。
+- **C++ の生成とは、別の経路にした (`add_layer.py` を、拡張しない)。** C++ の生成 (`.vcxproj`、GoogleTest の入れ方 3 方式、MFC の `.rc`) と、.NET の生成 (SDK 形式の `.csproj`、MSTest) は、共通部分が、ほとんどない。1 つのスクリプトに混ぜると、C++ の動作確認済みの経路を、壊しうる。**`new_solution.py` が、`--type wpf` / `--tests mstest` のときだけ、`csharp-test-first/scripts/add_project.py` を、読み込む** (WPF を使わない人は、`csharp-test-first` がなくても、C++ が動く)。C++ の経路の関数は、変えていない (`parse_layers` に、引数を足しただけ。既定は、従来どおり)。
 - **構成: View (WPF アプリ) → ViewModel → ロジック → データ。** ViewModel・ロジック・データは、**WPF 非依存のクラスライブラリ** (`net8.0`。`UseWPF` なし)。
   - **理由は、型システムによる強制:** `net8.0` (Windows 非依存) のライブラリは、`System.Windows` の型 (`Window` / `MessageBox` / `Application`) を、**そもそも、使えない** (ビルドで落ちる)。「ViewModel が View に依存しない」を、規約ではなく、ビルドで守る。テストも、STA スレッドや `Application` なしで動く (MSTest は、これらを用意しない)。
   - **`viewmodel` を層に含めない構成も、許す** (アプリが小さいとき)。その場合、ViewModel は、アプリの `ViewModels/` フォルダに入り、**テストできない**。`/add-feature` の計画で、「ViewModel 層の追加と、既存の ViewModel の移動」を、提案する。
@@ -514,13 +514,13 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
   - **`.editorconfig` の文字コード:** `[*]` は `utf-8-bom`、`.slnx` / `.json` / `.md` は `utf-8` (BOM なし。`vcpkg.json` を、VS が、BOM 付きで保存し直すのを防ぐ)。`.editorconfig` 自身は、BOM なし (BOM があると、読めない可能性)。
   - **ひな形 (`templates/dotnet/`) と、生成の定数 (`add_project.py` の `EDITORCONFIG` / `DIRECTORY_BUILD_PROPS`) は、同じ内容** (`tests/add_project_test.sh` が、一致を確認する)。
   - **`install.sh` が、規約とひな形を、`~/.claude/rules` と `~/.claude/templates` に配る。ユーザーが手で直していることがあるので、上書きせず、番号付きのバックアップ (`~1~`) を残す** (同じ内容なら、何もしない)。先頭が `.` のファイル (`.editorconfig`) も、配る (Skill の配布は、`.` 始まりを除くが、ひな形は、別の処理)。
-- **`wpf-test-first` は、`cpp-test-first` の骨格 (ゲート・Red の定義・ループの規則・完了時の報告) を、そのまま移した。WPF 固有の違い:**
+- **`csharp-test-first` は、`cpp-test-first` の骨格 (ゲート・Red の定義・ループの規則・完了時の報告) を、そのまま移した。WPF 固有の違い:**
   - **スタブ:** `NotImplementedException` を投げるスタブは、テストが、**例外で落ちる** (アサーションの失敗ではない) ので、**Red の条件を満たさない** (使わない)。ViewModel のスタブは、**通知を上げない、固定の値を返す** プロパティ (変更通知のテストが、アサーションで落ちるように)。
   - **`.csproj` への追加は、不要** (SDK 形式は、ファイルを自動で含める)。C++ の「`.vcxproj` に追加しないと、ビルドされず、`PASSED` になる」という落とし穴は、ない。代わりに、`[TestMethod]` の付け忘れ・`MSTest.TestAdapter` の参照漏れ・`static` / `async void` のテストメソッド (**テストが 1 件も実行されず、`ENV_ERROR`** (4.24 の「実行されなかった」の判定が、これを捕まえる)) を、注意として書いた。
   - **対象は、ViewModel・ロジック・データのライブラリだけ。View は、テストしない。** C++ の「UI 層は、切り出して止まる」と同じ。WPF の UI 自動化 (UI Automation) は、対象外。
   - **実装 (Green) のあと、`wpf-check` を実行する**: ユニットテストでは見つからない不具合 (バインディングの綴り、`InitializeComponent()` など) を、静的に確かめる。
   - **パッケージが要るとき (モックのライブラリなど) は、`add-package`。**
-- **`/add-feature` と `/update-from-ideas` の対応:** `CLAUDE.md` の `- メイン:` / `- テスト:` (`あり (MSTest)`) で、`wpf-test-first` を選ぶ。構成案の値に、`wpf` / `mstest` / `viewmodel` を追加した。**WPF か MFC かは、仕様からは決まらないので、ユーザーが決める** (Skill に、明記)。
+- **`/add-feature` と `/update-from-ideas` の対応:** `CLAUDE.md` の `- メイン:` / `- テスト:` (`あり (MSTest)`) で、`csharp-test-first` を選ぶ。構成案の値に、`wpf` / `mstest` / `viewmodel` を追加した。**WPF か MFC かは、仕様からは決まらないので、ユーザーが決める** (Skill に、明記)。
 - **取り下げた案:** WPF のアプリ (View) の UI テスト (UI Automation による、ウィンドウの操作)。重く、環境依存で、実機でしか確認できない。CommunityToolkit.Mvvm を既定にする案 (上記の理由)。ViewModel をアプリの中に置く構成を、既定にする案 (テストできなくなる。層を作らない構成としては、残した)。C++ の `add_layer.py` に、.NET を足す案 (上記)。
 - **検証の範囲 (誤解しないために):**
   - **WSL 側 (検証済み):** `tests/add_project_test.sh` (24 項目: `.slnx` と、Visual Studio 形式の `.sln` への追加、構成の対応付け、BOM と CRLF の保持、既存の保護、`--tests-only`、ひな形と定数の一致)、`tests/new_solution_wpf_test.sh` (51 → 59 項目 (4.28 で増加): 4 つの形の生成、依存の連鎖、名前空間、`CLAUDE.md` の記録、引数の検証 14 種、テストの後付け、`--spec`、**生成物が `wpf-check` で指摘 0 件**)。
@@ -725,7 +725,7 @@ gtest の vcpkg 一元化 (NEXT-STEPS) の前に、現在の Skill / ガイド�
 - **古い結果の誤読 (高):** `TIMEOUT` のあと、「1 回だけ再試行可」と書いていたが、ウォッチャーは、前の実行を続けており、再実行したスクリプトは、前の実行が、あとから書いた結果を、今回の結果として読んだ (Skill 間でも「報告して停止」と食い違っていた)。→ **実行 ID の照合:** スクリプトが、フラグの 1 行目に `run=<ID>` を書き、ウォッチャーが、結果のマーカーを書く直前に、同じ ID を `.claude-logs/run_id.txt` に書く。スクリプトは、一致する結果だけを受け取る (古いウォッチャーは、`run_id.txt` を書かない → 従来どおり)。**`TIMEOUT` は、再試行しない (停止して報告)。**
 - **`WATCHER_NOT_RUNNING` の誤報 (中):** ウォッチャーが別の処理 (ビルド・テスト・パッケージ操作) の最中だと、フラグを 15 秒以内に拾わず、「未起動」と出た。→ ウォッチャーが、処理の間だけ `.claude-logs/watcher_busy.txt` を置き (起動時に、残りを消す)、処理中は、`TIMEOUT` まで待つ。`TIMEOUT` のとき、回収されていないフラグは、取り下げる。メッセージに、対象のフォルダの確認を足した。
 - **gtest の 0 件が合格 (高):** `[  PASSED  ] 0 tests.` は、終了コード 0 で、`[  PASSED  ]` の行もあり、合格になった (新しい `Test*.cpp` の足し忘れを、検出できない)。→ ウォッチャーが、`ENV_ERROR` にする。Green の完了条件に、「新しいテストが、実際に実行されたこと (`tests: N passed` の件数 = ベースライン + 新規、かつ、`.claude-logs/test-results/` に、新しいテストの名前がある)」を足した。Red の前に、ベースラインの実行を足した。バグ修正では、スタブを置かない (既存の実装を消す)。
-- **止めどき (高・中):** 回数の数え方が曖昧 (スクリプトの実行回数か、修正回数か、通算か) だった。→ **`build-test-loop` に、「止めどき」の節を 1 つ**: 回数は、スクリプトの実行の合計で、5 回 (`add-feature` は、タスクごと、全体で 15 回)。`ENV_ERROR` / `WATCHER_NOT_RUNNING` / `TIMEOUT` は、再試行しない。`TEST_TIMEOUT` が 2 回続いたら、延長せずに止める。`auto-build` / `add-feature` / `wpf-test-first` / `cpp-test-first` / `ui-test-first` は、これを参照する。
+- **止めどき (高・中):** 回数の数え方が曖昧 (スクリプトの実行回数か、修正回数か、通算か) だった。→ **`build-test-loop` に、「止めどき」の節を 1 つ**: 回数は、スクリプトの実行の合計で、5 回 (`add-feature` は、タスクごと、全体で 15 回)。`ENV_ERROR` / `WATCHER_NOT_RUNNING` / `TIMEOUT` は、再試行しない。`TEST_TIMEOUT` が 2 回続いたら、延長せずに止める。`auto-build` / `add-feature` / `csharp-test-first` / `cpp-test-first` / `ui-test-first` は、これを参照する。
 - **やってはいけないこと (高):** テスト側の改変 (従来) に加え、**実装側の細工** (ハードコード、テスト用の分岐、テストをプロジェクトから外す、フィルター / 引数の変更) と、**Fake / ヘルパー / `[TestInitialize]` の改変**、テスト内の `try` / `catch` を、禁止に足した。**テストファイルの編集は、機械的な追従 (`include`・名前・シグネチャ) 以外は、コンパイルエラーを直すためでも、事前に確認する。**
 - **UI: 前回の結果の表示 (高):** `uitest_once.sh` が、終了コードに関係なく、前回のスクリーンショットと trace を表示していた (`WATCHER_NOT_RUNNING` / `TIMEOUT` でも、前回の「Passed」)。→ テストまで届いた実行 (rc 0 / 1 / 7) だけ、表示する。
 - **UI: 待ち時間 (高):** 既定 900 秒が、ビルドと、UI プロジェクトの数と、`--hold` を、考慮していなかった。→ 待ち = 600 (ビルド) + UI テストのプロジェクトの数 × (`--ui-timeout`、なければ 600) + `--hold` + 120 (最低 900)。
@@ -939,7 +939,7 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 
 要望 (ユーザー、2026-10-27): 「UI テストは、制限時間をかなり長く取らないと難しい状況が想定される。UI テストを、ビルド → テストの流れとは別に指定できるようにする (一連での動作を、既定にしない)。UI をテストファーストで組み上げる流れを作り、**プロンプトで UI を作りつつ、テストケースを作り、UI テストを実行する、というループ**を作りたい」。
 
-- **方針の変更 (2026-10-21 の決定を、取り下げる):** 以前は、「UI テストファーストは、しない。Green の『あとに、追加で』、UI テストを実行する。専用の Skill (`ui-test-first`) は、作らない」だった。**今回: (1) UI テストは、ビルド → テスト (`build_test_once.sh`) の流れに、含めない** (`PASSED` になっても、自動で、続けて実行しない)。実行するのは、**ユーザーが求めたとき**と、**`/ui-test-first` のループの中**だけ。(2) **UI テストファーストを、このループが担う。** `add-feature` / `cpp-test-first` / `wpf-test-first` / `build-test-loop` / `new-solution` の Skill と、`rules/winforms-csharp.md`、生成される `CLAUDE.md` の記述を、そろえて、変更した。
+- **方針の変更 (2026-10-21 の決定を、取り下げる):** 以前は、「UI テストファーストは、しない。Green の『あとに、追加で』、UI テストを実行する。専用の Skill (`ui-test-first`) は、作らない」だった。**今回: (1) UI テストは、ビルド → テスト (`build_test_once.sh`) の流れに、含めない** (`PASSED` になっても、自動で、続けて実行しない)。実行するのは、**ユーザーが求めたとき**と、**`/ui-test-first` のループの中**だけ。(2) **UI テストファーストを、このループが担う。** `add-feature` / `cpp-test-first` / `csharp-test-first` / `build-test-loop` / `new-solution` の Skill と、`rules/winforms-csharp.md`、生成される `CLAUDE.md` の記述を、そろえて、変更した。
 - **`uitest_once.sh` の指定 (flag の中身として、ウォッチャーに渡る。再起動は、要らない):** `--filter "式"` (`filter=`。`dotnet test --filter`。UI のループで、いま書いたテストだけを、繰り返し実行する)、`--ui-timeout 秒` (`timeout=`。ウォッチャーが UI テストのプロジェクトを強制終了するまでの時間。780 秒以上なら、Skill 側の待ち時間も、`秒 + 120` に、自動で延ばす)。`uitest.settings` にも、`timeout=` を書ける (プロジェクトごとの既定)。**制限時間の優先順:** flag > `uitest.settings` > `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC` (既定 600)。**filter は、flag だけ** (1 回ごとの指定。引用符・バッククォート・改行は、拒否する: 引数への注入を防ぐ)。ウォッチャーの画面の `[UI]` の行に、`timeout` と `filter` も出る。
 - **`ui-test-first` Skill (新規、`disable-model-invocation: true` = スラッシュコマンドのみ):** 計画 (部品の識別の名前、操作と期待の具体例、`--filter` / `--ui-timeout`。**ここで、1 回、承認を取る**) → UI テストを先に書く (Red) → 最小の View (名前つきの部品だけ) → ビルド → `--filter` で実行して Red を確認 → 実装 → 同じ `--filter` で Green → 全 UI テスト (filter なし) を 1 回 + 静的な検査 → 次のサイクルか報告。失敗したら、スクリーンショットを画像で読む。**期待値を弱めない。同じ失敗が 3 回続いたら、止めて報告する。** 連動の規則は、従来どおり、純粋な関数の単体テスト (`build_test_once.sh`) で、先に作る。`uitest.settings` が `visible` なら、実行の前に、ユーザーに、触らないよう伝える。
 - **確認できていないこと:** ウォッチャーの `filter=` / `timeout=` (ホスト側 (ps1)。Linux では検証できない。`tests/host_tools_static_test.sh` は、文字列の確認だけ)。`/ui-test-first` のループを、実機で、実際に回すこと。

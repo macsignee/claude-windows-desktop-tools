@@ -1,13 +1,13 @@
 ---
-name: wpf-test-first
-description: WPF (.NET、MVVM) の、メイン (View) + ViewModel / ロジック / データのクラスライブラリ + ライブラリごとの MSTest (xxx.Tests) のソリューション (`CLAUDE.md` が「テスト: あり (MSTest)」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は build-test-loop で行う。C++ のソリューションは cpp-test-first。既存のテストを通すだけなら、このスキルは使わない。
+name: csharp-test-first
+description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または WinForms (MVP) の、メイン (View) + ViewModel または Presenter / ロジック / データのクラスライブラリ + ライブラリごとの MSTest (xxx.Tests) のソリューション (`CLAUDE.md` が「テスト: あり (MSTest)」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。対象は、Visual Studio / MSBuild の Windows デスクトップ (WPF・WinForms) のソリューションだけ。ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、対象外。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は build-test-loop で行う。C++ のソリューションは cpp-test-first。既存のテストを通すだけなら、このスキルは使わない。
 ---
 
-# WPF テストファースト (Red を作る)
+# C# (WPF / WinForms) テストファースト (Red を作る)
 
 実装の前に、仕様をテストとして書き、**正しい理由で失敗すること (Red)** を確かめるところまでを行う。
 実装して通す (Green) 工程は、`build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ (MSTest の失敗も、GoogleTest と同じ形の要約で返る)。
-C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じで、WPF 固有の部分 (層、スタブ、MSTest の書き方) が違う。**
+C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じで、C# (.NET) 固有の部分 (層、スタブ、MSTest の書き方) が違う。WPF は ViewModel、WinForms は Presenter と `IView` の Fake でテストする。**
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。

@@ -11,7 +11,7 @@ paths:
 
 **プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらを優先する。** 詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`~/.claude/templates/dotnet/` のひな形)。
 C++ / MFC の規約 (`cpp-mfc.md`) と、同じ方針の項目 (ファイルの形式、括弧、コメントの言語) は、そろえてある。
-「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `wpf-test-first` / `wpf-check` / `add-package`) との対応や、規約を補う決まり。
+「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `csharp-test-first` / `wpf-check` / `add-package`) との対応や、規約を補う決まり。
 
 ## 1. 適用範囲
 本規約は、次の成果物に適用する。
@@ -39,7 +39,7 @@ C++ / MFC の規約 (`cpp-mfc.md`) と、同じ方針の項目 (ファイルの�
 | テスト | xUnit、NUnit、MSTest のいずれか |
 
 - 新規プロジェクトでは、特別な理由がない限り .NET Framework ではなく、**現在サポートされている .NET** を使用する。.NET 版 WPF では、最新の .NET API、言語機能、アクセシビリティ、信頼性、ツール改善などの恩恵を受けられる。
-- **ツール群の補足:** `new-solution --type wpf` は、**MSTest** のプロジェクトを作る。ウォッチャー (`dotnet test --logger trx`) と、`wpf-test-first` が検証しているのは、MSTest (v3、VSTest モード) だけ。xUnit / NUnit は、動く見込みだが、未検証。**`TargetFramework` は、プロジェクトの `.csproj` を、先に確認する** (既定は `net10.0`、アプリは `net10.0-windows`。`--tfm` で変えられる)。
+- **ツール群の補足:** `new-solution --type wpf` は、**MSTest** のプロジェクトを作る。ウォッチャー (`dotnet test --logger trx`) と、`csharp-test-first` が検証しているのは、MSTest (v3、VSTest モード) だけ。xUnit / NUnit は、動く見込みだが、未検証。**`TargetFramework` は、プロジェクトの `.csproj` を、先に確認する** (既定は `net10.0`、アプリは `net10.0-windows`。`--tfm` で変えられる)。
 - **パッケージの追加は、`add-package` Skill で行う** (`.csproj` に、名前とバージョンを、推測で書かない。バージョンは、固定する)。
 - **警告を消すための `#pragma warning disable` / `<NoWarn>` / `TreatWarningsAsErrors` の解除は、ユーザーの許可なしに、しない。**
 
@@ -135,7 +135,7 @@ MyApp.slnx
   - 名前が **`Presentation` / `Application` / `Domain` / `Infrastructure`** (`SampleApp.Domain` のように、末尾が一致するもの) → **3.2 の標準の依存**で検査する。Domain は、何も参照しない。Application は Domain だけ。Infrastructure は Application / Domain。Domain / Application / Infrastructure は、WPF に依存しない (`UseWPF` や `System.Windows` を使わない)。
   - それ以外 (`ViewModels` / `LogicLayer` / `DataLayer`) → **View → ViewModel → ロジック → データ**の向きで検査する (逆向きの参照を作らない)。
   - `--logic` / `--data` / `--viewmodel` で、名前による推定を、上書きできる。
-- **3.2 の構成は、`new-solution --layers data:SampleApp.Domain,logic:SampleApp.Application,viewmodel:SampleApp.Presentation` のように、`.` 区切りの名前で作れる** (名前が、そのまま、名前空間になる)。`Infrastructure` や、3.2 の細かいフォルダ (`UseCases` `Entities` など) は、`wpf-test-first` の `add_project.py` (名前に `.` を含めてよい) と、手で、足す。
+- **3.2 の構成は、`new-solution --layers data:SampleApp.Domain,logic:SampleApp.Application,viewmodel:SampleApp.Presentation` のように、`.` 区切りの名前で作れる** (名前が、そのまま、名前空間になる)。`Infrastructure` や、3.2 の細かいフォルダ (`UseCases` `Entities` など) は、`csharp-test-first` の `add_project.py` (名前に `.` を含めてよい) と、手で、足す。
 - 3.1 のフォルダ (`Models` `Services` `Behaviors` `Converters` `Infrastructure`) は、**必要になったときに作る** (空のフォルダを、先に作らない)。生成される小規模の構成は、`Views` / `ViewModels` / `Resources` と `App`。
 - **ViewModel・ロジック・データのクラスライブラリは、WPF 非依存** (`net10.0`、`UseWPF` なし)。ViewModel が `System.Windows` の型を使うと、**ビルドが通らない**ので、型システムが、View への依存を防ぐ。
 - テストは、**ライブラリごと**に `<名前>.Tests` (3.1 の `SampleApp.Tests` は、1 プロジェクトに、まとめた形)。
@@ -749,7 +749,7 @@ public async Task SaveAsync_Nameが空の場合_保存せずエラーを設定�
   - 期待値は、**仕様から導いた値を、直接、書く** (実装の出力を、写さない)。`Assert.AreEqual(期待値, 実際の値)` の順。浮動小数点は、許容誤差を指定する。非同期のテストは `async Task` (`async void` にしない)。
   - ロジックのテストは、データ層を、フェイクに差し替える。ファイル・DB・時刻・乱数に、直接、依存させない。データ層のテストが、ファイルを使うときは、一時フォルダに、テストごとに別のパスで作り、`[TestCleanup]` で必ず削除する。
   - **`[Ignore]`、`Assert.Inconclusive`、`.runsettings` での除外、アサーションを弱める、`[Timeout]` の延長は、ユーザーの許可なしに、しない** (`build-test-loop` と同じ)。
-  - 新しい機能は、`wpf-test-first` で、テストを先に書く。
+  - 新しい機能は、`csharp-test-first` で、テストを先に書く。
 
 ## 17. 禁止事項
 以下を、原則として禁止する。
@@ -826,7 +826,7 @@ public async Task SaveAsync_Nameが空の場合_保存せずエラーを設定�
 | 14.3 リソース | `wpf-check` RES001〜RES005、CNV001 |
 | 起動 | `wpf-check` UI001 (`InitializeComponent()`)、APP001 |
 | 5.1 Nullable、書式、命名の一部 | `.editorconfig` (Visual Studio と `dotnet format`)、ビルドの警告 |
-| 16 テスト | `build-test-loop` (実行)、`wpf-test-first` (先行) |
+| 16 テスト | `build-test-loop` (実行)、`csharp-test-first` (先行) |
 | UI テスト (FlaUI) | `build-test-loop` の「UI テスト」(ビルド → テストの流れには含めず、求めたときと、`/ui-test-first` のループで、別に実行。書き方と、失敗時のスクリーンショット)。`wpf-check` UI002 (UI テストのプロジェクトがあるとき、操作するコントロールに AutomationId がない) |
 
 - **XAML / ViewModel / `App.xaml` を編集したら、`wpf-check` を実行する** (ウォッチャーは、要らない)。ビルドとテストは、ウォッチャー経由 (`auto-build` / `build-test-loop`)。

@@ -3,7 +3,7 @@
 # Windows も .NET も不要。.slnx と .sln (Visual Studio 形式) の両方。Usage: tests/add_project_test.sh
 export LC_ALL=C
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-AP="$ROOT/skills/wpf-test-first/scripts/add_project.py"
+AP="$ROOT/skills/csharp-test-first/scripts/add_project.py"
 NS="$ROOT/skills/new-solution/scripts/new_solution.py"
 T="${TMPDIR:-/tmp}/addproj_$$"
 rm -rf "$T"; mkdir -p "$T"
