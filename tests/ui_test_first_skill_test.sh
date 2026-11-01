@@ -24,6 +24,10 @@ for f in skills/add-feature/SKILL.md skills/cpp-test-first/SKILL.md skills/cshar
 done
 ok "build-test-loop: documents --filter / --ui-timeout and that UI tests are not part of build -> test" "$(grep -q -- '--filter' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q -- '--ui-timeout' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q 'ビルド → テスト (`build_test_once.sh`) の流れに、含めない' "$ROOT/skills/build-test-loop/SKILL.md" && echo 1 || echo 0)"
 
+# new-solution: --ui-tests は、画面つきの種類で、指定がなければ、種類によらず、必ず質問する (v2.33.0)
+NS="$ROOT/skills/new-solution/SKILL.md"
+ok "new-solution: asks about --ui-tests for every GUI type (wpf / winforms / mfc / mfc-mdi / mfc-dialog) when unspecified; not for csharp-dll / win32 / console / dll / lib" "$(grep -q '`--ui-tests`: \*\*`wpf` / `winforms` / `mfc` / `mfc-mdi` / `mfc-dialog` のとき' "$NS" && grep -q '種類によって、質問を省かない' "$NS" && grep -q '`csharp-dll` / `win32` / `console` / `dll` / `lib` では、質問しない' "$NS" && echo 1 || echo 0)"
+
 # 配布: install.sh が、skills/* をコピーする (新しい Skill も、対象)
 out="$(bash "$ROOT/install/install.sh" --skills-only --dry-run --skills-dir "${TMPDIR:-/tmp}/uitf_skills_$$" 2>&1)"
 ok "install.sh --dry-run lists skills/ui-test-first/SKILL.md" "$(echo "$out" | grep -q 'ui-test-first' && echo 1 || echo 0)"
