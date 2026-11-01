@@ -8,7 +8,7 @@ disable-model-invocation: true
 # UI のテストファースト (/ui-test-first): 画面を作りながら、UI テストを先に書いて、繰り返し実行する
 
 **プロンプトで、画面を作りながら、UI テスト (FlaUI) を先に書き、実行して、直す**ループ。1 サイクルは、「1 つの画面の、1 つのまとまった動作」。
-連動の規則 (チェックで入力欄が有効になる、など) は、**純粋な関数の単体テスト** (`wpf-test-first` / `cpp-test-first`、`build-test-loop`) で確かめる。**UI テストは、画面が、規則と、つながっているか (煙テスト) と、主要な操作の流れ**を確かめる。
+連動の規則 (チェックで入力欄が有効になる、など) は、**純粋な関数の単体テスト** (`csharp-test-first` / `cpp-test-first`、`build-test-loop`) で確かめる。**UI テストは、画面が、規則と、つながっているか (煙テスト) と、主要な操作の流れ**を確かめる。
 
 UI テストは、**ビルド → テストの流れには、含まれない** (遅く、制限時間を長く取る必要がある)。この Skill のループの中と、ユーザーが求めたときだけ、`uitest_once.sh` で実行する (`build-test-loop` の「UI テスト」)。
 
@@ -46,7 +46,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - **プレビュー用のテストも、書く:** `PreviewUiTests.cs` に、`[TestMethod] [TestCategory("Preview")] public void Preview_<画面>()` を足す。**アサーションは置かない。** 画面を、見せたい状態にして (ダイアログなら `var dlg = OpenModal(...)`、タブなら `SelectTab`)、`Snap("名前", dlg)` (Claude 用の画像。ダイアログを撮るときは、`dlg` を渡す。省略すると、メインウィンドウ) と `HoldForViewing("画面の名前")` (ユーザーに見せる) を呼ぶだけ。
 
 ### 3. 最小の View を置く (配線だけ) → ビルド → Red を確認する
-- **部品を、名前つきで置くだけ** (動作は、まだ、書かない)。規則 (純粋な関数) と Presenter / ViewModel は、`wpf-test-first` / `cpp-test-first` の流れで、**先に、単体テスト (Red → Green) で作る** (`build_test_once.sh`。これは、UI テストと、別の流れ)。
+- **部品を、名前つきで置くだけ** (動作は、まだ、書かない)。規則 (純粋な関数) と Presenter / ViewModel は、`csharp-test-first` / `cpp-test-first` の流れで、**先に、単体テスト (Red → Green) で作る** (`build_test_once.sh`。これは、UI テストと、別の流れ)。
 - ビルド: `build_once.sh` (または、単体テストも含めて `build_test_once.sh`) で、ビルドが通ることを確認する。
 - **UI テストを、絞って、実行する (Red):**
   ```bash

@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.32.0] 2026-11-01 (Skill 側のみ。**Skill の名前の変更: `wpf-test-first` → `csharp-test-first`**。配布先の旧名は、手で削除する)
+
+- **`wpf-test-first` を、`csharp-test-first` に改名した。** WinForms も、同じ手順 (Red → Green。`IView` の Fake で Presenter をテストする) で扱っていたが、名前と `description` が WPF だけに見え、WinForms の依頼で選ばれにくかったため。`winforms-test-first` は、作らない (手順が同じで、重複を避ける)。
+- **`description` に、対象の範囲を書いた:** `csharp-test-first` = WPF / WinForms (Windows デスクトップの C#。ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、対象外)。`cpp-test-first` = Windows デスクトップの C++ (Visual Studio / MSBuild。Web、Linux / macOS 向け、組み込みは、対象外)。`cpp-test-first` の名前は、そのまま。
+- 参照を、すべて更新した (`add-feature` / `new-solution` (`add_project.py` を読み込むパスを含む) / `ui-test-first` / `build-test-loop` / `rules/` / テスト / README / DESIGN)。履歴の記述 (この CHANGELOG の過去の版、TEST-PLAN、HANDOFF) は、当時の名前のまま。
+- `install/install.sh`: 配布先に `wpf-test-first` が残っていたら、旧名として警告する (自動では消さない)。**再配置のあと、`rm -r ~/.claude/skills/wpf-test-first` が必要。**
+- **既存のソリューションの `CLAUDE.md` に、旧名 (`wpf-test-first`) が残っていることがある** (生成済みのファイルは、書き換えない)。新しく生成する `CLAUDE.md` は、新名。
+
 ## [2.31.0] 2026-10-31 (Skill 側のみ。**旧 NuGet 方式の GoogleTest を廃止。`--gtest nuget` / `--gtest-from` は、エラーになる (契約の変更)**。疑似フォルダで検証済み。**実機の確認は、済み (TEST-PLAN 2-14 の GN1〜GN4 すべて ✔。旧方式 (NuGet) と vcpkg 方式のテストが、同じソリューションで共存して、3 件通過)**)
 
 - **旧 NuGet 方式 (`--gtest nuget`。兄弟フォルダの `packages\` から、GoogleTest 1.8.1.8 をコピーする方式) を廃止した。** `source` は、残す (ユーザーの決定。`ClaudeProject` が source 方式で、vcpkg が使えない環境の逃げ道を、残すため)。

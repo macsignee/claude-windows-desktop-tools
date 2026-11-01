@@ -38,7 +38,7 @@ disable-model-invocation: true
 
 ## WPF (`--type wpf` のとき)
 
-**C++ とは別の経路** (GoogleTest も、DLL も、`.vcxproj` も、使わない)。生成は、`wpf-test-first` Skill の `add_project.py` を、読み込んで行う (両方とも、配布されていること)。
+**C++ とは別の経路** (GoogleTest も、DLL も、`.vcxproj` も、使わない)。生成は、`csharp-test-first` Skill の `add_project.py` を、読み込んで行う (両方とも、配布されていること)。
 
 | 項目 | 内容 |
 |---|---|

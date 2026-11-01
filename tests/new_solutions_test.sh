@@ -261,7 +261,7 @@ mkwork; mani "$GOOD"; run create "$W" --dry-run >/dev/null; run resolve "$W"
 ok "resolve: 作る前 (dry-run のあと) は、候補がない → rc=3" "$(eq $rc 3)"
 
 # ---------------------------------------------------------------- Skill が、対象の決め方 (resolve) に、触れている
-for sk in auto-build build-test-loop add-package cpp-test-first wpf-test-first ui-test-first add-feature; do
+for sk in auto-build build-test-loop add-package cpp-test-first csharp-test-first ui-test-first add-feature; do
     ok "Skill $sk: 作業フォルダでの対象の決め方 (resolve)" "$(has "$(cat "$ROOT/skills/$sk/SKILL.md")" 'new_solutions.py resolve "$PWD"')"
 done
 ok "Skill add-feature: new_solution.py に \$PWD を渡さない (\$SLN)" "$(hasnt "$(cat "$ROOT/skills/add-feature/SKILL.md")" 'new_solution.py "$PWD"')"

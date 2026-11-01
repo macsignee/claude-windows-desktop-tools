@@ -4,7 +4,7 @@
 # Usage: test_guard_note.sh <solution_dir>
 # 何も出さない場合: 基準 (.claude-logs/test_guard_base/) がない / テストファイルがない / python3 がない / フォルダがない。
 #   基準がないときに「作れ」と促さないのは、Green のあとに snapshot を取られると、改変が、基準に取り込まれてしまうため
-#   (基準を作るのは、Red を確認した直後だけ。cpp-test-first / wpf-test-first / ui-test-first の手順)。
+#   (基準を作るのは、Red を確認した直後だけ。cpp-test-first / csharp-test-first / ui-test-first の手順)。
 # 出力 (1〜6 行。終了コードは、常に 0。ビルドとテストの結果には、影響しない):
 #   TEST_GUARD: OK (error 0 / warning 0 / review 0)
 #   TEST_GUARD: REVIEW (warning N / review N) -- 全文は、`test_guard.py check` で
