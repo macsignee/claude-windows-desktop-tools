@@ -907,7 +907,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
 """
     out += """
 ## 規約
-- 規約 (**WPF プログラミング規約**) の全文は、ユーザー共通の `~/.claude/rules/wpf-csharp.md` (C# / XAML のファイルを扱うときに、自動で読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。
+- 規約は、ユーザー共通の `~/.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`~/.claude/rules/wpf-csharp.md` (**WPF プログラミング規約**の、WPF / XAML / MVVM の部分。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs` を扱うときに、読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。機械で判定できる項目は、`wpf-check` が確かめる。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
@@ -975,7 +975,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 """
     out += """
 ## 規約
-- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `~/.claude/rules/winforms-csharp.md` (C# のファイルを扱うときに、自動で読み込まれる)。C# の共通部分 (5 / 10 / 12 / 13 / 15 / 16 / 17 章) は、`wpf-csharp.md` を使う。**`wpf-csharp.md` の、WPF / XAML / MVVM の節 (6 / 7 / 8 / 9 / 14 章) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
+- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `~/.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`~/.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
@@ -1028,7 +1028,7 @@ C# のクラスライブラリ (.NET)。ソリューション: `{name}.slnx` (�
 """
     out += """
 ## 規約
-- C# の規約は、ユーザー共通の `~/.claude/rules/wpf-csharp.md` のうち、C# の部分 (5 C# コーディング規約 / 10 非同期 / 12 例外 / 15 コメント / 16 テスト / 17 禁止事項)。WPF / XAML / MVVM の節は、適用しない。`.editorconfig` が、書式を定める。
+- C# の規約は、ユーザー共通の `~/.claude/rules/csharp-common.md` (5 C# コーディング規約 / 10 非同期 / 11 依存性注入 / 12 例外 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)。WPF / XAML / MVVM の規約 (`wpf-csharp.md`) は、適用しない。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
