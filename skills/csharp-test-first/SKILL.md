@@ -24,10 +24,18 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 
 - **`IView` にイベントや、Presenter に依存 (`IDialogService` など) を足すと、既存のテストが、コンパイルで落ちる** (`IView` の Fake が、新しいメンバーを実装していない / `MainPresenter` のコンストラクターの引数が変わる)。**Fake と、既存のテストの呼び出し箇所 (`new MainPresenter(...)` の引数) だけを、機械的に直す。期待値とアサーションは、変えない。** 直した箇所は、Red の報告 (5.) に、書く。
 
+## 飛ばさない 5 つ (詳細は、5.・6.・「完了時の確認」)
+1. **Red を確認したら、「この Red を、仕様として確定してよいか」と聞いて、答えを待つ。** 省いてよいのは、依頼文に「実装まで続けて」とあるときだけ (「機能を追加して」「TDD で」では、省けない)。
+2. **Green に進む前に、`test_guard.py snapshot "$SLN_DIR"`。**
+3. **実装のあと、報告の前に、`test_guard.py check "$SLN_DIR"`。** `TEST_GUARD:` の行を、報告に含める。
+4. Form / XAML / ViewModel / Presenter を触ったら、`wpf-check` (WinForms は `winforms-check`)。
+5. **最後の報告の先頭に、テストファイルの一覧と、「期待値が、仕様と合っているか、確認をお願いします」。** Git 管理下でなくても、省かない。
+
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
-- ソリューションフォルダを `$SLN` とする。Claude Code は、このフォルダをカレントにして起動されている。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- ソリューションフォルダを `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude Code は、このフォルダをカレントにして起動されている。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **ソリューションがないとき** (カレントにも、作業フォルダの候補にも、`.slnx` / `.sln` がない): **ここで止まり、テストも、スタブも、書かない。** 「ソリューションがありません。`/new-solution --type wpf` (または `winforms`) を、ご自身で実行してください (例: `--layers logic,viewmodel --tests mstest`。WinForms は `--layers logic --tests mstest`)」と案内する。**`/new-solution` を、`Skill` ツールで呼ばない** (`disable-model-invocation` で、エラーになる)。**ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、このスキルの対象外**。この手順を使わず、そのことを伝える。
 - **ソリューションは、次の層 + テストの構成であること** (作り方と規約は、同梱の `PROJECT-LAYOUT.md`)。
 
   | 層 | プロジェクト | 種類 | テスト |
@@ -51,16 +59,16 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 **最初のソリューション・アプリ (WPF / WinForms)・層・テストは、`/new-solution --type wpf` / `--type winforms` が作る** (層 `--layers` と、テスト `--tests` を、別々に指定できる)。
 この Skill が、セットアップに関わるのは、**作ったあとで、足りないものが分かったとき**だけ。
 
-1. **設定を読む:** `$SLN` の `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*.Tests` プロジェクトと `Microsoft.NET.Test.Sdk` の有無)。
+1. **設定を読む:** `$SLN_DIR` の `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*.Tests` プロジェクトと `Microsoft.NET.Test.Sdk` の有無)。
    - **`テスト: なし` の場合、この Skill (テスト先行) は、使えない。** 「テストが、導入されていません。`/new-solution --tests mstest` で、後付けできます」と案内して止まる (ユーザーが望めば、そのコマンドへ)。
 2. **足りないものを確認する (読み取りだけ):** 対象の層のライブラリと、`<名前>.Tests` が、あるか。
    - **ライブラリはあるが、テストプロジェクトがない:** `/new-solution --tests mstest` (後付け) の対象。案内する。
    - **対象の層のライブラリがない** (例: `層: logic` で、ViewModel 層が必要になった): 次の 3. で、層を足す。
 3. **案を示して、了承を得て、同梱のスクリプトで足す。** 自分で `.csproj` や `.sln` / `.slnx` を手書きしない。
    ```bash
-   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN" DataLayer --kind data
-   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN" LogicLayer --kind logic --uses DataLayer
-   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN" ViewModels --kind viewmodel --uses LogicLayer
+   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" DataLayer --kind data
+   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" LogicLayer --kind logic --uses DataLayer
+   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" ViewModels --kind viewmodel --uses LogicLayer
    ```
    - `--tests mstest` (既定): ライブラリと、`<名前>.Tests` を足す。`--tests none`: ライブラリだけ。`--tests-only`: すでにあるライブラリに、テストだけを足す。
    - **WinForms は、`--kind viewmodel` を使わない** (層は `data` / `logic` だけ。Presenter と `IView` は、ロジック層に置く)。
@@ -136,7 +144,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 `build-test-loop` の同梱スクリプトを使う。自分で flag を作ったり、待機ループを書いたりしない。
 
 ```bash
-bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SLN" 300
+bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SLN_DIR" 300
 ```
 
 `run_in_background: true` で実行し、**完了通知が来るまで、ファイルを読まず、再実行もしない** (理由と詳細は、`build-test-loop` の「実行 (1回分)」と同じ)。**初回は、NuGet の復元と、ビルドで、長いことがある。**
@@ -169,9 +177,9 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 
 ### 6. Green へ引き渡す
 
-**Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
+**Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN_DIR/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
 テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
-- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
+- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`[Ignore]` 化・`Assert.Inconclusive` で飛ばす・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。
 - 実装のあと、**XAML / ViewModel を触ったら、`wpf-check` を実行する** (WinForms は、`Form` / `Designer.cs` / Presenter を触ったら、`winforms-check`) (バインディングのパスの誤りなど、ユニットテストでは見つからない不具合を、静的に確かめる)。

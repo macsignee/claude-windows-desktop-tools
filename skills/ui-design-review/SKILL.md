@@ -47,11 +47,11 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 
 ### 2. 作った画面 (または、既存の画面) のレビュー
 
-`$SLN` は、ソリューションのフォルダ (カレント)。作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がない) で起動しているときは、`/ui-test-first` と同じく、`python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>]` で対象を決める。
+`$SLN_DIR` は、ソリューションのフォルダ (カレント)。作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がない) で起動しているときは、`/ui-test-first` と同じく、`python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>]` で対象を決める。
 
 1. **静的検査を実行する** (読み取りだけ。Windows もウォッチャーも不要):
    ```bash
-   python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN" [--all] [--json <ファイル>] [--fail-on-warning]
+   python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN_DIR" [--all] [--json <ファイル>] [--fail-on-warning]
    ```
    既定は、warning (必須の規則への指摘) だけを出す。`--all` で、info (推奨の規則への指摘と、人の確認を促すもの (UIG-CTL101)) も出す。
 2. **各 warning を、規則の本文で確かめる。** 静的検査は、推測 (下の「誤検出と限界」)。誤検出は、報告に、理由つきで書く。

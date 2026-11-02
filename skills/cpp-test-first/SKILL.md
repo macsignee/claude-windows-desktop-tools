@@ -10,8 +10,8 @@ description: Windows デスクトップの C++ (Visual Studio / MSBuild。MFC・
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
-- ソリューションフォルダを `$SLN` とする。Claude Code は、このフォルダをカレントにして起動されている。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- ソリューションフォルダを `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude Code は、このフォルダをカレントにして起動されている。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - **ソリューションは、次の 3 層 + テストの構成であること。** (プロジェクトの作り方と規約は、同梱の `DLL-LAYOUT.md`)
 
   | 層 | プロジェクト | 種類 | MFC | テスト |
@@ -43,21 +43,21 @@ description: Windows デスクトップの C++ (Visual Studio / MSBuild。MFC・
 **最初のソリューション・メインのプロジェクト・層・テストは、`/new-solution` が作る** (層 `--layers` と、テスト `--tests` を、別々に指定できる)。
 この Skill が、セットアップに関わるのは、**作ったあとで、足りないものが分かったとき**だけ。
 
-1. **設定を読む:** `$SLN` の `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*Test` プロジェクトと GoogleTest の有無)。
+1. **設定を読む:** `$SLN_DIR` の `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*Test` プロジェクトと GoogleTest の有無)。
    - **`テスト: なし` の場合、この Skill (テスト先行) は、使えない。** 「テストが、導入されていません。`/new-solution --tests gtest` で、後付けできます」と案内して止まる (ユーザーが望めば、そのコマンドへ)。
 2. **足りないものを確認する (読み取りだけ):** 対象の層の DLL と、`<DLL名>Test` が、あるか。
    - **DLL はあるが、テスト exe がない:** `/new-solution --tests gtest` (後付け) の対象。案内する。
    - **対象の層の DLL がない** (例: `層: logic` で、データ層が必要になった): 次の 3. で、層を足す。
 3. **案を示して、了承を得て、同梱のスクリプトで足す。** 自分で `.vcxproj` や `.sln` を手書きしない。
    ```bash
-   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer --tests gtest
-   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --tests gtest --uses DataLayer
+   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" DataLayer --tests gtest
+   python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" LogicLayer --tests gtest --uses DataLayer
    ```
    - `--tests gtest` (既定): DLL と、`<Name>Test` を足す。`--kind lib`: 静的ライブラリ。`--tests-only`: すでにある DLL に、テストだけを足す。
    - GoogleTest は、**すでにあるソリューションと、同じ方式**で足される (`--gtest auto`。`gtest` プロジェクトがあれば source、それ以外は **vcpkg**。旧 NuGet 方式 (nuget) は、v2.31.0 で廃止。`packages\` に旧方式のテストがあっても、新しいテストは vcpkg で、出力に `NOTE: … 旧 NuGet 方式 …` が出る)。vcpkg 方式では、`vcpkg.json` に gtest が入り、テスト exe に `main.cpp` が置かれる。
    - 名前の既定は `DataLayer` / `LogicLayer`。終了コード 3 (すでに存在) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
    - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。
-   - 出力の `GTEST_VCPKG: no-baseline` (vcpkg 方式): ウォッチャー経由で、`package_once.sh "$SLN" --timeout 1800 "vcpkg baseline" "vcpkg install"` を実行する (`add-package` Skill。初回のみ。2 回目以降は、キャッシュで速い)。
+   - 出力の `GTEST_VCPKG: no-baseline` (vcpkg 方式): ウォッチャー経由で、`package_once.sh "$SLN_DIR" --timeout 1800 "vcpkg baseline" "vcpkg install"` を実行する (`add-package` Skill。初回のみ。2 回目以降は、キャッシュで速い)。
    - 出力の `GTEST_SOURCE: to-fetch` (source 方式): ウォッチャー経由で、取得する (`new-solution` Skill の `scripts/gtest_once.sh`。手順は、`/new-solution` の「GoogleTest の仕上げ」と同じ)。
 4. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`build-test-loop` のスクリプトを使う):** ビルドが通り、**`PASSED`** になること。
    - `BUILD_FAILED`: エラーを読んで直す。ベースのアプリ自体の、もともとのエラーなら、直さずに、報告する。
@@ -121,7 +121,7 @@ description: Windows デスクトップの C++ (Visual Studio / MSBuild。MFC・
 `build-test-loop` の同梱スクリプトを使う。自分で flag を作ったり、待機ループを書いたりしない。
 
 ```bash
-bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SLN" 300
+bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SLN_DIR" 300
 ```
 
 `run_in_background: true` で実行し、**完了通知が来るまで、ファイルを読まず、再実行もしない** (理由と詳細は、`build-test-loop` の「実行 (1回分)」と同じ)。
@@ -155,9 +155,9 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 
 ### 6. Green へ引き渡す
 
-**Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
+**Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN_DIR/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
 テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
-- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
+- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`DISABLED_` 化・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。
 - **UI テスト (`*.UITests`。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある) は、このビルド → テストの流れに、含めない。** 遅く、アプリを起動し、制限時間を長く取る必要があるため、**ユーザーが求めたとき**だけ、`uitest_once.sh` で、別に実行する (`build-test-loop` の「UI テスト」)。**画面を、プロンプトで作りながら、UI テストを書いて、繰り返し実行するときは、`/ui-test-first`** (UI テストを先に書く)。通常のテストが `PASSED` になっても、UI テストは、自動では、実行しない。

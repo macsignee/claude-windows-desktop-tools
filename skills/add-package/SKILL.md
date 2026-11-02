@@ -11,8 +11,8 @@ Claude (WSL) は、NuGet も vcpkg も、直接実行できない (ネットワ�
 
 ## 前提
 - ユーザーが、対象のソリューションで `run_watcher.cmd` を起動済みであること (ビルドと同じウォッチャー)。
-- ソリューションのフォルダ (`.sln` / `.slnx` があるフォルダ) を `$SLN` とする。`<このSkillのフォルダ>` は、スクリプトと同じ場所。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- ソリューションのフォルダ (`.sln` / `.slnx` があるフォルダ) を `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。`<このSkillのフォルダ>` は、スクリプトと同じ場所。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 
 ## どの方法を使うか
 
@@ -36,7 +36,7 @@ Claude (WSL) は、NuGet も vcpkg も、直接実行できない (ネットワ�
 ## 実行 (1 回分)
 
 ```bash
-bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN" [--timeout 秒] "<操作>" ["<操作>" ...]
+bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN_DIR" [--timeout 秒] "<操作>" ["<操作>" ...]
 ```
 - 操作は、1 引数に 1 つ。**決まった形だけ**が通る (それ以外は、`BAD_ARGS`)。
   ```
@@ -67,12 +67,12 @@ bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN" [--timeout 秒]
 
 1. 実在とバージョンの確認:
    ```bash
-   bash <Skill>/scripts/package_once.sh "$SLN" "nuget versions CommunityToolkit.Mvvm"
+   bash <Skill>/scripts/package_once.sh "$SLN_DIR" "nuget versions CommunityToolkit.Mvvm"
    ```
    名前が不確かなら、`"nuget search <語>"` (ダウンロード数と `verified` が出る)。
 2. 追加 (最新の stable を、明示):
    ```bash
-   bash <Skill>/scripts/package_once.sh "$SLN" "nuget add MyApp/MyApp.csproj CommunityToolkit.Mvvm 8.4.0"
+   bash <Skill>/scripts/package_once.sh "$SLN_DIR" "nuget add MyApp/MyApp.csproj CommunityToolkit.Mvvm 8.4.0"
    ```
    出力の `added <ID> <バージョン> -> <プロジェクト>` で、書き込まれたバージョンを確認する。中央管理 (`Directory.Packages.props`) のソリューションでも、`dotnet add package` が、正しく扱う。
 3. ビルドで確認: `auto-build`。**復元は、ビルドが行う** (`/restore`)。
@@ -87,23 +87,23 @@ bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN" [--timeout 秒]
 
 1. **セットアップ** (WSL で完結。ネットワーク不要。何度実行しても同じ):
    ```bash
-   python3 -I <Skill>/scripts/cpp_pkg.py setup "$SLN"
+   python3 -I <Skill>/scripts/cpp_pkg.py setup "$SLN_DIR"
    ```
    `vcpkg.json` を作り、各 `.vcxproj` (`gtest` という名前のプロジェクト (source 方式) を除く。すでに Vcpkg の設定があるものは、そのまま) に、マニフェストモードの設定を足す。**トリプレットは、既定で `x64-windows-static-md`** (静的ライブラリ + 動的 CRT `/MD`)。DLL で配布するなら `--linkage dynamic`。
    **`.vcxproj` が変わるので、ユーザーに、変更したことを伝える** (VS で、プロジェクトの再読み込みの確認が出ることがある)。
-2. **ポートの確認:** `"vcpkg search fmt"`。**マニフェストモードの `search` は、`builtin-baseline` が要る** (実機で判明)。`list` で `baseline:` が `(none)` なら、先に `package_once.sh "$SLN" "vcpkg baseline"` を実行する。 **`search` は、baseline 後でも約 3 分かかる (実機)。`--timeout 600` 以上で、バックグラウンドで実行する。**
+2. **ポートの確認:** `"vcpkg search fmt"`。**マニフェストモードの `search` は、`builtin-baseline` が要る** (実機で判明)。`list` で `baseline:` が `(none)` なら、先に `package_once.sh "$SLN_DIR" "vcpkg baseline"` を実行する。 **`search` は、baseline 後でも約 3 分かかる (実機)。`--timeout 600` 以上で、バックグラウンドで実行する。**
 3. **追加** (`vcpkg.json` の編集。WSL で完結):
    ```bash
-   python3 -I <Skill>/scripts/cpp_pkg.py add "$SLN" fmt
-   python3 -I <Skill>/scripts/cpp_pkg.py add "$SLN" boost-asio --features ssl --version-ge 1.84.0
+   python3 -I <Skill>/scripts/cpp_pkg.py add "$SLN_DIR" fmt
+   python3 -I <Skill>/scripts/cpp_pkg.py add "$SLN_DIR" boost-asio --features ssl --version-ge 1.84.0
    ```
    削除は `remove`、一覧は `list`。
    **ポート固有の設定は、`add` / `remove` が自動で行う** (`.vcxproj` の `<ItemDefinitionGroup Label="VcpkgDefines">`)。今は fmt の `FMT_UNICODE=0` (fmt は MSVC で `/utf-8` を要求する (C2338)。`/utf-8` は、ソースが CP932 だと文字化けするので、定義で回避)。`.vcxproj` が変わるので、ユーザーに伝える。
 4. **取得とビルド** (ホスト側。**長い。バックグラウンドで**):
    ```bash
-   bash <Skill>/scripts/package_once.sh "$SLN" --timeout 1800 "vcpkg baseline" "vcpkg install"
+   bash <Skill>/scripts/package_once.sh "$SLN_DIR" --timeout 1800 "vcpkg baseline" "vcpkg install"
    ```
-   - `vcpkg baseline` は、**初回だけ** (`vcpkg.json` に `builtin-baseline` を入れる。バージョンの固定)。`python3 -I <Skill>/scripts/cpp_pkg.py list "$SLN"` で、`baseline:` が `(none)` でなければ、不要。
+   - `vcpkg baseline` は、**初回だけ** (`vcpkg.json` に `builtin-baseline` を入れる。バージョンの固定)。`python3 -I <Skill>/scripts/cpp_pkg.py list "$SLN_DIR"` で、`baseline:` が `(none)` でなければ、不要。
    - ポートを足したあとの `vcpkg install` は、足した分だけビルドされる (キャッシュ)。
 5. **ビルドで確認:** `auto-build` / `build-test-loop`。vcpkg のライブラリは、**インクルードとリンクが自動** (`#include <fmt/core.h>`)。プロジェクトの設定の変更は、不要。
 
@@ -115,20 +115,20 @@ bash <このSkillのフォルダ>/scripts/package_once.sh "$SLN" [--timeout 秒]
 ## 手順 3: ソースの取り込み (`fetch`)
 
 ```bash
-bash <Skill>/scripts/package_once.sh "$SLN" "fetch nlohmann/json v3.11.3 json single_include"
+bash <Skill>/scripts/package_once.sh "$SLN_DIR" "fetch nlohmann/json v3.11.3 json single_include"
 ```
 - `ThirdParty\json\` に、GitHub のタグ `v3.11.3` の、`single_include` の**中身**が置かれる (サブフォルダを省くと、リポジトリ全体 (`.git` を除く))。同じ内容があれば、何もしない。
 - **インクルードパスを足す** (すべての構成に。`.vcxproj` の編集は、スクリプトで):
   ```bash
-  python3 -I <Skill>/scripts/cpp_pkg.py include-dir "$SLN/MyApp/MyApp.vcxproj" '$(SolutionDir)ThirdParty\json'
+  python3 -I <Skill>/scripts/cpp_pkg.py include-dir "$SLN_DIR/MyApp/MyApp.vcxproj" '$(SolutionDir)ThirdParty\json'
   ```
   → `#include <nlohmann/json.hpp>`。
   `.vcxproj` が変わるので、**VS で開いたままなら、プロジェクトの再読み込みが要る** (再読み込み前は、プロパティページに、反映されない。実機で確認)。ユーザーに伝える。
 - **記録する** (別の PC でも再現できるように。`ThirdParty/<名前>/` は、`.gitignore` に入り、`ThirdParty.manifest` がコミットされる):
   ```bash
-  python3 -I <Skill>/scripts/cpp_pkg.py record-fetch "$SLN" nlohmann/json v3.11.3 json single_include
+  python3 -I <Skill>/scripts/cpp_pkg.py record-fetch "$SLN_DIR" nlohmann/json v3.11.3 json single_include
   ```
-  クローンし直したあと: `bash <Skill>/scripts/package_once.sh "$SLN" --file "$SLN/ThirdParty.manifest"`。
+  クローンし直したあと: `bash <Skill>/scripts/package_once.sh "$SLN_DIR" --file "$SLN_DIR/ThirdParty.manifest"`。
 - **ソースをビルドする必要があるライブラリ** (`.cpp` が、いくつもある) は、`fetch` で置いただけでは、ビルドされない。静的ライブラリのプロジェクトを、ソリューションに足す必要がある (GoogleTest の `gtest.vcxproj` と同じ形)。**ユーザーに確認してから、行う。** vcpkg にあれば、vcpkg を使う。
 - `fetch` は、**GitHub のタグ**だけ (ブランチは不可)。リポジトリ名・タグ・名前・サブフォルダは、決まった文字だけが通る。
 

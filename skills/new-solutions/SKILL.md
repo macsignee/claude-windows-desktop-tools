@@ -68,7 +68,7 @@ ToDo/   docs/ideas/  docs/specs/  solutions.md  TodoWpf/  TodoWin/  TodoMfc/
 4. **次の手順を、伝える** (出力に、候補ごとの、Windows のパスと `run_watcher.cmd` のコマンドが出る)。**候補の数だけ、ウォッチャーを起動してもらう** (まとめて起動するなら、`run_watchers.cmd "<作業フォルダ>"`。候補ごとに別のウィンドウで `run_watcher.cmd` を起動する。`/list` を付けると、一覧だけ)。
 5. **仕様を更新したとき:** 作業フォルダの仕様書 (正本) を直し (`/update-from-ideas`)、`new_solutions.py sync-spec "$PWD" --dry-run` で、確認してから、`sync-spec` で反映する。
    **候補側で、編集されたコピーは、上書きされず、「衝突」と報告される** (終了コード 1)。ユーザーに、どちらを残すかを、確認する (候補側が不要なら、そのコピーを消して、再度 `sync-spec`)。**テストケースの種 (`*.cases.md`) は、更新されない** (チェック済みを守る)。各候補の `/add-feature` の計画で、見直す。
-6. **個別の検討:** 対象の候補は、`new_solutions.py resolve "$PWD" [<候補名>]` で決める (ほかの Skill の `$SLN` も、同じ)。**候補ごとに、`build-test-loop` / `/add-feature` などを、独立して進める。他の候補は、読まない・書かない。**
+6. **個別の検討:** 対象の候補は、`new_solutions.py resolve "$PWD" [<候補名>]` で決める (ほかの Skill の `$SLN_DIR` も、同じ)。**候補ごとに、`build-test-loop` / `/add-feature` などを、独立して進める。他の候補は、読まない・書かない。**
 
 ## しないこと
 - 作業フォルダそのものを、ソリューションにしない (`.slnx` を作らない)。

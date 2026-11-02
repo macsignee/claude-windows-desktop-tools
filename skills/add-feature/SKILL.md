@@ -14,8 +14,8 @@ disable-model-invocation: true
 用途は、プロトタイプと、TDD の練習。小さく、1 サイクルずつ、進める。
 
 ## 前提
-- カレントが、ソリューションフォルダ (`.sln` / `.slnx` があるフォルダ) であること。以降、これを `$SLN` とする。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- カレントが、ソリューションフォルダ (`.sln` / `.slnx` があるフォルダ) であること。以降、これを `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - **ソリューションがない場合は、実装に進まない。** `/new-solution` で、先に作るよう案内して止まる。
 - **`CLAUDE.md` の設定を読む** (`- 層:` / `- テスト:`)。なければ、構造から判定する (`*Test` プロジェクトと GoogleTest の有無)。判定できなければ、ユーザーに確認する。
 
@@ -35,7 +35,7 @@ disable-model-invocation: true
 ### 0a. 最初に、改行コードの規則 (`.gitattributes`) を確認する (**必ず、実行する。読み取りだけ**)
 **ほかの手順より先に、次のコマンドを、そのまま実行する** (結果を、確認するまで、次に進まない)。パスは、`install/install.sh` が配る場所。
 ```bash
-python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN" --check-git
+python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN_DIR" --check-git
 ```
 (見つからない場合は、`new-solution` Skill のフォルダの `scripts/new_solution.py` を探す。実行できないときは、その旨を 1 行で報告して、先に進む。)
 
@@ -48,7 +48,7 @@ python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN" --check-git
 | `unknown` | 1 行だけ報告する (「git の確認に失敗: <理由>。改行コードの提案は、省略します」)。0. に進む |
 
 **提案の出し方 (1 回だけ。短く):** 出力の件数と、提案する最小版を示し、AskUserQuestion (使えなければ、文章) で選んでもらう。
-- **追加する:** `python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN" --add-gitattributes` で作る。**git の操作 (ステージ・コミット) は、しない。** `git add --renormalize .` → `git status` で改行だけの変更であることを確認 → 1 回コミット、を、ユーザーに依頼する (それまでは、`git diff` に、改行だけの差分が出る、と伝える)。
+- **追加する:** `python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN_DIR" --add-gitattributes` で作る。**git の操作 (ステージ・コミット) は、しない。** `git add --renormalize .` → `git status` で改行だけの変更であることを確認 → 1 回コミット、を、ユーザーに依頼する (それまでは、`git diff` に、改行だけの差分が出る、と伝える)。
 - **今回は見送る:** 何もしない。
 - **今後も見送る:** `CLAUDE.md` の `## このソリューションの設定` の節の末尾に、`- 改行コードの提案: 見送り` の 1 行を足す。
 選ばれたら、そのまま 0. に進む (**ここで終わらせない**)。
