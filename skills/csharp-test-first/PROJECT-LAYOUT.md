@@ -59,7 +59,7 @@ MyApp/
 **同梱の `scripts/add_project.py` で作る (手書きしない)。** ソリューションの編集 (`.slnx` / `.sln`) は、ミスが出やすく、毎回の出力が揺れるため。
 
 ```bash
-python3 <Skill>/scripts/add_project.py "$SLN" ViewModels --kind viewmodel --uses LogicLayer
+python3 <Skill>/scripts/add_project.py "$SLN_DIR" ViewModels --kind viewmodel --uses LogicLayer
 ```
 - `.slnx` と `.sln` (Visual Studio が作った、構成が `Any CPU` / `x64` のもの) の両方に、追加できる。`.sln` では、プロジェクトの種類 (`{9A19103F-16F7-4668-BE54-9A1E7A4F7556}`) と、構成の対応付け (ソリューションの構成 → プロジェクトの `Any CPU`) も、足される。
 - 作るファイル: `<Name>/<Name>.csproj`、`<Name>Info.cs` (ビルド確認用の、小さな公開クラス)、`<Name>.Tests/<Name>.Tests.csproj`、`<Name>InfoTests.cs` (ベースラインの 1 件)。`--kind viewmodel` では、`ObservableObject` / `RelayCommand` / `MainViewModel` と、`MainViewModelTests.cs` も。

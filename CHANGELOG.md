@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.36.0] 2026-11-02 (Skill 側のみ。SKILL.md の変更と、変数名の変更。契約 (ファイル名・結果の値・終了コード) の変更なし。疑似フォルダと文字列の確認。実機の確認: SK2・SK3 は 2 回とも ✔、**SK1 (空のフォルダで、スキルが呼ばれない) は ✗ で、直し方は未決定** (TEST-PLAN 2-17))
+
+- **案 4: 変数 `$SLN` を、`$SLN_DIR` に改名した** (`add-feature` / `add-package` / `build-test-loop` / `cpp-test-first` / `csharp-test-first` / `ui-test-first` / `ui-design-review` / `new-solutions` の SKILL.md、`DLL-LAYOUT.md`、`PROJECT-LAYOUT.md`、`test_guard_note.sh` の出力)。`$SLN` は、「ソリューションのフォルダ」だが、名前から `.sln` のファイルと読まれ、Claude が `.sln` / `.slnx` を探しに行った (TEST-PLAN 2-15 の CT1)。定義の行に、「`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ。スクリプトの第 1 引数も、このフォルダ」を足した。`SLN_DIR=$(... resolve ...)` も同様。
+- **案 3: `csharp-test-first` に、「ソリューションがないとき」を足した。** 止まり、テストもスタブも書かず、`/new-solution --type wpf` (または `winforms`) を、ユーザー自身が実行するよう案内する。**`/new-solution` を `Skill` ツールで呼ばない** (`disable-model-invocation` でエラーになる。CT1 で起きた)。Web・MAUI・Linux / macOS 向けの .NET は、対象外と伝える。
+- **案 2: `csharp-test-first` に、「飛ばさない 5 つ」を足した** (冒頭。約 0.9KB): (1) Red のあと、「この Red を、仕様として確定してよいか」と聞いて待つ (「実装まで続けて」とあるときだけ省ける。「機能を追加して」「TDD で」では省けない)、(2) Green の前に `test_guard.py snapshot`、(3) 実装のあと、報告の前に `check`、`TEST_GUARD:` の行を報告に含める、(4) `wpf-check` / `winforms-check`、(5) 最後の報告の先頭に、テストファイルの一覧と、確認の依頼。CT3 では (1)(2)(3) が守られず、(5) は CT3・CW1 で守られなかった。CT1・CT2・CW1・RS4 では、(1)〜(3) が守られていた (実行ごとの揺れ)。
+- 変更しなかったもの: `cpp-test-first` の「飛ばさない」の節 (実機で、守られなかった例が、確認されていない)。`docs/DESIGN.md` と TEST-PLAN の過去の記述の `$SLN` (当時の名前のまま)。
+- テスト: `new_solution_winforms_test.sh` に 3 件。
+
 ## [2.35.0] 2026-11-02 (規則 (`rules/`) の変更。契約の変更なし。疑似フォルダと文字列の確認。**配布先の `~/.claude/rules/` の更新が必要 (`install.sh --rules-only`)。読み込みの条件 (`paths`) は、実機で確認済み (TEST-PLAN 2-16 の RS1〜RS3)**)
 
 - **C# の規約を、3 つに分けた。** 2 つの規則とも `paths: "**/*.cs"` で、`.cs` を 1 つ読むと、WPF と WinForms の両方 (約 62.5KB) が読み込まれていたため。`paths` は、ファイル名しか見られず、WPF か WinForms かを、中身で振り分けられない。

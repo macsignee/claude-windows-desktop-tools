@@ -25,12 +25,12 @@ counts="${summary#test_guard: }"; counts="${counts%% (*}"      # error N / warni
 if [ "$rc" = 1 ]; then
     echo "TEST_GUARD: ERROR ($counts)"
     printf '%s\n' "$out" | grep -a -E '^TMG[0-9]+ +error ' | head -n 5
-    echo "  -> Red のあとに、テストが改変された。ユーザーの明示的な許可なしに、通してはいけない: 元に戻すか、止まって確認する (承認されたら snapshot をやり直す)。全文: python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check \"\$SLN\""
+    echo "  -> Red のあとに、テストが改変された。ユーザーの明示的な許可なしに、通してはいけない: 元に戻すか、止まって確認する (承認されたら snapshot をやり直す)。全文: python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check \"\$SLN_DIR\""
 else
     warn="$(printf '%s' "$counts" | sed -n 's/.*warning \([0-9]*\).*/\1/p')"
     rev="$(printf '%s' "$counts" | sed -n 's/.*review \([0-9]*\).*/\1/p')"
     if [ "${warn:-0}" != 0 ] || [ "${rev:-0}" != 0 ]; then
-        echo "TEST_GUARD: REVIEW ($counts) -- warning / review は、変更前後を、ユーザーに見せる。全文: python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check \"\$SLN\""
+        echo "TEST_GUARD: REVIEW ($counts) -- warning / review は、変更前後を、ユーザーに見せる。全文: python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check \"\$SLN_DIR\""
     else
         echo "TEST_GUARD: OK ($counts)"
     fi

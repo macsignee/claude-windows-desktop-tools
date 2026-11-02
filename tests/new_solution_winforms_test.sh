@@ -100,5 +100,11 @@ CTF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/csharp-test-first/S
 ok "csharp-test-first: has the WPF -> WinForms mapping table (Presenter / IView Fake / Form / Program.cs / winforms-check / winforms-csharp.md)" "$(grep -q '^| 本文の用語 (WPF) | WinForms での読み替え |' "$CTF" && grep -q 'IView` の \*\*Fake\*\*' "$CTF" && grep -q '`Program.cs` (`Form` と Presenter を作って結ぶ' "$CTF" && grep -q '| `wpf-check` | `winforms-check` |' "$CTF" && grep -q '`~/.claude/rules/winforms-csharp.md` (WinForms 固有' "$CTF" && echo 1 || echo 0)"
 ok "csharp-test-first: WinForms has no ViewModel layer; fixing the Fake and call sites must not change assertions" "$(grep -q 'WinForms に、ViewModel 層は、ない' "$CTF" && grep -q '期待値とアサーションは、変えない' "$CTF" && echo 1 || echo 0)"
 
+# csharp-test-first: 守る手順・ソリューションがないとき・$SLN_DIR (v2.36.0)
+ok "csharp-test-first: lists the 5 steps not to skip (confirm the Red, snapshot, check + TEST_GUARD, winforms-check/wpf-check, test files first in the final report)" "$(grep -q '^## 飛ばさない 5 つ' "$CTF" && grep -q '「機能を追加して」「TDD で」では、省けない' "$CTF" && grep -q 'test_guard.py snapshot "$SLN_DIR"' "$CTF" && grep -q 'test_guard.py check "$SLN_DIR"' "$CTF" && grep -q '最後の報告の先頭に、テストファイルの一覧' "$CTF" && echo 1 || echo 0)"
+ok "csharp-test-first: no solution -> stop and tell the user to run /new-solution; do not call it through the Skill tool; Web / MAUI are out of scope" "$(grep -q '^- \*\*ソリューションがないとき\*\*' "$CTF" && grep -q '`/new-solution` を、`Skill` ツールで呼ばない' "$CTF" && grep -q 'ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、このスキルの対象外' "$CTF" && echo 1 || echo 0)"
+SK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills"
+ok "skills: the solution folder variable is \$SLN_DIR everywhere (no bare \$SLN), and it is defined as a folder, not a .slnx path" "$(! grep -rIq '\$SLN\b' "$SK" --include=*.md --include=*.sh && grep -q 'それを含むフォルダ' "$SK/csharp-test-first/SKILL.md" && grep -q 'それを含むフォルダ' "$SK/build-test-loop/SKILL.md" && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

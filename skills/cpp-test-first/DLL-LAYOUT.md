@@ -70,11 +70,11 @@ MFC を使わない、純粋な計算・ロジックだけの DLL を作る場�
 **同梱の `scripts/add_layer.py` で作る** (手書きしない)。上の規約は、このスクリプトが生成する内容そのもの。
 
 ```bash
-python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer
-python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" LogicLayer --uses DataLayer
-python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer --tests none        # DLL だけ (テストなし)
-python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" DataLayer --tests-only        # すでにある DLL に、テストだけを足す
-python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN" CoreLib --kind lib            # 静的ライブラリ (公開マクロなし)
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" DataLayer
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" LogicLayer --uses DataLayer
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" DataLayer --tests none        # DLL だけ (テストなし)
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" DataLayer --tests-only        # すでにある DLL に、テストだけを足す
+python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" CoreLib --kind lib            # 静的ライブラリ (公開マクロなし)
 ```
 
 - **`--tests none|gtest`** (既定 `gtest`): 層とテストは、独立した軸。`none` は、DLL だけ (テスト・GoogleTest は、作らない)。

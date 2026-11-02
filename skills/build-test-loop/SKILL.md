@@ -18,12 +18,12 @@ Claude はフラグを置いて結果を読むだけ。
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
-- ソリューションフォルダ (.sln または .slnx があるフォルダ) を `$SLN` とする。Claude はこのフォルダをルートとして動く。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- ソリューションフォルダ (.sln または .slnx があるフォルダ) を `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude はこのフォルダをルートとして動く。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - xxxTest は同じソリューションにあり、xxx をプロジェクト参照している。ソリューションをビルドすれば
   xxx → xxxTest の順は MSBuild が自動で解決する (順序を自分で指定しない)。
 - .NET のテストは、`Microsoft.NET.Test.Sdk` + MSTest (v3 以降。VSTest モード) のプロジェクト。`dotnet test` で、trx が出ること。
-- ログ中のパスは `$SLN` からの相対パス (例: `MyAppTest/TestFoo.cpp(49)`)。そのまま開ける。
+- ログ中のパスは `$SLN_DIR` からの相対パス (例: `MyAppTest/TestFoo.cpp(49)`)。そのまま開ける。
 
 ## 実行 (1回分)
 
@@ -32,7 +32,7 @@ Claude はフラグを置いて結果を読むだけ。
 失敗の要約 (`[ran N: passed X / failed Y / skipped Z]` の行と、`.claude-logs/test_summary.json`) が出ないときは、まず、古い版を実行していないか (スクリプトのパス) を確認する。
 
 ```bash
-bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
+bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN_DIR" 300
 ```
 
 **重要 (トークン節約と打ち切り防止):** Bash ツールの既定タイムアウトは120秒で、300秒待つスクリプトが
@@ -58,7 +58,7 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 | `FAILED` | 1 | テスト失敗 | テスト失敗の要約 (読み方は下記) を読み、下記の方針で修正し、再実行 |
 | `TEST_TIMEOUT` | 7 | テストが制限時間内に終わらない | 下記「`TEST_TIMEOUT` の扱い」に従う。テストの待ち時間を延ばして誤魔化さない |
 | `ENV_ERROR` | 4 | 環境エラー (VS / .NET SDK / テストが見つからない、1 件も実行されない等) | **ソースもテストも直さず**、内容を報告して停止 |
-| `WATCHER_NOT_RUNNING` | 3 | フラグが 15 秒以内に回収されず、ウォッチャーが処理中の印もない | 停止し、ユーザーに、`run_watcher.cmd` の起動と、**対象のフォルダ (`$SLN`) が、ウォッチャーの対象と同じか**の確認を依頼 |
+| `WATCHER_NOT_RUNNING` | 3 | フラグが 15 秒以内に回収されず、ウォッチャーが処理中の印もない | 停止し、ユーザーに、`run_watcher.cmd` の起動と、**対象のフォルダ (`$SLN_DIR`) が、ウォッチャーの対象と同じか**の確認を依頼 |
 | `TIMEOUT` | 5 | 今回の実行の完了マーカーが、待ち時間内に出ない (ウォッチャーは、まだ処理を続けている) | **停止して報告。再試行しない** (下の「止めどき」。ウォッチャーが空いてから、次を実行する) |
 | `BAD_ARGS` | 2 | 引数・フォルダの誤り | 引数を直して、再実行 (ソースは、直さない) |
 
@@ -84,12 +84,12 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 - **`/ui-test-first` のループ** (画面を、プロンプトで作りながら、UI テストを先に書き、繰り返し実行する)。UI テストを先に書いて Red にする、UI テストファーストは、このループが担う (従来の「しない」は、取り下げた。DESIGN 4.38)。
 
 ### UI テストの、実行の指定 (どれも、ウォッチャーの再起動は、要らない)
-`uitest_once.sh "$SLN" [待つ秒] [--filter 式] [--ui-timeout 秒] [--visible | --separate] [--slowmo ms]`
+`uitest_once.sh "$SLN_DIR" [待つ秒] [--filter 式] [--ui-timeout 秒] [--visible | --separate] [--slowmo ms]`
 - **`--filter "FullyQualifiedName~クラス名"`:** `dotnet test --filter` の式で、**いま書いた UI テストだけ**を実行する (UI のループで、毎回、全部を走らせない)。式に、引用符・改行は、使えない。`~` は「含む」、`=` は「等しい」、`&` / `|` で組み合わせる。絞った結果が 0 件だと、何も実行されず、**`ENV_ERROR` (終了コード 4。`dotnet test` の「一致するテストはありません」が、そのまま出る)** になる (式の誤りは、これで気づける。実機で確認)。
 - **`--ui-timeout 秒`:** ウォッチャーが、UI テストのプロジェクトを、強制終了するまでの時間 (既定 600 秒)。**UI テストが多い、重い画面は、長く** (例: `--ui-timeout 1800`)。指定しない既定は、`uitest.settings` の `timeout=` (プロジェクトごとの既定。例: `timeout=1800`) → ウォッチャーの `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC`。`--ui-timeout` が 780 以上なら、Skill 側の待ち時間も、自動で、`秒 + 120` に延びる。
 - デスクトップ (`--visible` / `--separate`)、操作の間の待ち (`--slowmo`) は、上の「どのデスクトップで実行されるか」。
 - **実行が、遅い・止まっているように見えるとき:** `.claude-logs/ui-timing.txt` (UI テストの各段階の時刻。実行ごとに作り直される) を読む。どの段階の間が、長いかが、分かる (ビルド完了から UI テスト開始までの空白、`dotnet test` の開始から終了まで、など)。
-- **`--hold 秒` / `--preview [秒]` (目視確認):** UI テストは、いつもは、裏 (別のデスクトップ) で実行し、**見たいときだけ、その画面を、ユーザーのデスクトップに出す。** 生成される `PreviewUiTests.cs` (`[TestCategory("Preview")]`。アサーションなし) が、画面を、見せたい状態にして、`HoldForViewing()` を呼ぶ。`--hold N` は、`HoldForViewing` が、N 秒、待つ (ウィンドウを閉じると、早く終わる)。`--preview [N]` は、`--visible --hold N` (既定 60 秒) の省略形。例: `uitest_once.sh "$SLN" --filter "TestCategory=Preview" --preview`。ウォッチャーの制限時間は、`hold + 120` 秒以上に、自動で延びる。`UiTestBase.Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。`/ui-test-first` の「目視確認」に、手順。**既存の UI テストのプロジェクト (この機能より前に作ったもの) は、先に `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py <フォルダ> --refresh-support-files` で、`UiTestBase.cs` などを更新する** (旧い版のままだと、`HoldForViewing` / `Highlight` がなく、`--present` の赤い枠が出ず、操作の間隔が、約 3 倍になる。実機で確認)。
+- **`--hold 秒` / `--preview [秒]` (目視確認):** UI テストは、いつもは、裏 (別のデスクトップ) で実行し、**見たいときだけ、その画面を、ユーザーのデスクトップに出す。** 生成される `PreviewUiTests.cs` (`[TestCategory("Preview")]`。アサーションなし) が、画面を、見せたい状態にして、`HoldForViewing()` を呼ぶ。`--hold N` は、`HoldForViewing` が、N 秒、待つ (ウィンドウを閉じると、早く終わる)。`--preview [N]` は、`--visible --hold N` (既定 60 秒) の省略形。例: `uitest_once.sh "$SLN_DIR" --filter "TestCategory=Preview" --preview`。ウォッチャーの制限時間は、`hold + 120` 秒以上に、自動で延びる。`UiTestBase.Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。`/ui-test-first` の「目視確認」に、手順。**既存の UI テストのプロジェクト (この機能より前に作ったもの) は、先に `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py <フォルダ> --refresh-support-files` で、`UiTestBase.cs` などを更新する** (旧い版のままだと、`HoldForViewing` / `Highlight` がなく、`--present` の赤い枠が出ず、操作の間隔が、約 3 倍になる。実機で確認)。
 - **`--present` (デモとして再生):** `--visible` + `--slowmo 800` (指定がなければ) + **操作する要素を赤い枠で囲む** (`UiTestBase.Find` / `OpenModal` が描く。`UITEST_PRESENT=1`)。UI テストを、そのまま、見せられる形で、ゆっくり再生する。**再生するのは、`--filter` で指定したテストだけ** (`--filter` が必須。ないと `BAD_ARGS`)。`--separate` とは、同時に使えない。入力やボタンの押下は、UIA で、一瞬で行われる (マウスのカーソルは、動かない。枠と待ちで、見せる)。
 
 ### いつ実行するか
@@ -98,7 +98,7 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN" 300
 - 実行するのは、**ソースを変えたとき**。修正の途中の、毎回は、実行しない (直したら、`--filter` で、そのテストだけ)。
 
 ```bash
-bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
+bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 ```
 使い方、出力の形、`FAILED` / `ENV_ERROR` / `TEST_TIMEOUT` の読み方は、`build_test_once.sh` と同じ。`run_in_background: true` で実行し、完了通知を待つ。
 
@@ -113,7 +113,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 ### 動いたことを、確かめる (トレースと、目で見るモード)
 - `uitest_once.sh` は、最後に、**操作の記録 (`.claude-logs/ui-screenshots/ui-trace.txt`)** から、テストごとの結果の行 (`=== テスト名: Passed` など) を出す。**UI テストが、実際に、起動して、操作したことの確認**に使う (`PASSED` と出ても、テストが 0 件でないこと、狙いのテストが動いたことを、行で確かめる)。記録は、`find: <AutomationId>` (探した要素)、`launched: <exe>`、`=== <テスト名>: start (desktop: ..., slowmo: ... ms)` などで、全文は、Read で読める。
 - **ユーザーが「目で確かめたい」と言うとき:** `uitest_once.sh <dir> [秒] --visible --slowmo 800` で、実行する (ウォッチャーの起動し直しは、要らない。待ちは、`--slowmo 1500` などで変える)。ウィンドウが、画面に出て、入力や、ボタンが、順番に動くのが見える。**実行中、ユーザーは、PC を、快適には使えない** (マウスやキーボードの入力が、フォーカスを持つテスト対象のアプリに入ることがある)。`desktop=visible` のプロジェクト (WPF) は、`--slowmo` を付けなければ、待ちなしで、ユーザーのデスクトップで動く。(ウォッチャーを `run_watcher_visible.cmd` で起動する従来の方法も、使える。`WATCH_UI_DESKTOP=default`、`WATCH_UI_SLOWMO_MS=800` が、設定される。1 回ごとの `--separate` は、これより優先される。)
-- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN" --refresh-support-files` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
+- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --refresh-support-files` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
 
 ### 失敗したら
 1. 最後に出る **スクリーンショット (`.claude-logs/ui-screenshots/*.png`) を、Read ツールで画像として開き、画面に何が写っているかを確かめる** (入力欄の値、表示、ダイアログ、アプリが落ちていないか)。例外のメッセージだけでは、分からないことがある。
@@ -132,7 +132,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 5. UI テストの修正の繰り返しは、**スクリプトの実行の合計で、5 回まで、同じ失敗は 3 回まで** (「止めどき」。単体テストの回数とは、別に数える)。それでも通らなければ、スクリーンショットと原因の仮説を、報告して止まる。
 
 ### UI テストを書く・足すとき
-- **UI テストのプロジェクトがなければ、ユーザーに、足してよいかを確認する** (`.slnx` / `.sln` が変わる)。足し方: `python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN" --dry-run` (何を作るかを見せる) → 了承 → `--dry-run` なしで実行。(新しいソリューションなら `/new-solution --ui-tests flaui`。)
+- **UI テストのプロジェクトがなければ、ユーザーに、足してよいかを確認する** (`.slnx` / `.sln` が変わる)。足し方: `python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --dry-run` (何を作るかを見せる) → 了承 → `--dry-run` なしで実行。(新しいソリューションなら `/new-solution --ui-tests flaui`。)
 - **何を書くか:** 仕様の**主要な操作の流れ** (起動して開く、入力して表示が変わる、ボタンで状態が変わる、ダイアログが開く・閉じる)。**画面あたり数件**。見た目 (レイアウト・色)、細かい計算 (単体テストで確かめる)、独自描画のコントロールは、対象にしない。
 - **要素は AutomationId で探す** (`Find("NameTextBox")`)。**操作は UIA のパターン** (`Find("Id").AsTextBox().Text = "..."` (Value)、`.AsButton().Invoke()` (Invoke))。**マウス・キーボードの入力 (`Click()`、`Keyboard.Type`) は使わない** (別のデスクトップで動かず、ユーザーの作業と干渉する)。**待ちは `WaitFor(() => 条件)`** (固定の `Thread.Sleep` を使わない)。UIA3 を使う (UIA2 は、別のデスクトップで `Invoke` が失敗する)。
 - 操作したいコントロールに AutomationId がなければ、**XAML に付ける** (ユーザーの了承を得てから)。名前は、役割が分かるもの。同じ画面の操作が増えたら、Page Object にまとめる。
@@ -227,8 +227,8 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN" 900
 禁止事項は、文章だけでは、守られたかを、確かめられない。**Red を確認したテストを、基準として、コピーしておき、いまのテストと比べる** (読み取りだけ。Windows もウォッチャーも、要らない)。
 
 ```bash
-python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"   # Red を確認した直後に、1 回 (ユーザーが、テストの変更を承認したときも、やり直す)
-python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check    "$SLN"   # 修正のあと (ビルド・テストの前でよい) と、報告の前に
+python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"   # Red を確認した直後に、1 回 (ユーザーが、テストの変更を承認したときも、やり直す)
+python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check    "$SLN_DIR"   # 修正のあと (ビルド・テストの前でよい) と、報告の前に
 ```
 
 - **対象:** `*Test/` `*.Tests/` `*.UITests/` の中のファイル、`Test*.cpp` / `*Tests.cs`、`*.runsettings`、テストの `.csproj` / `.vcxproj`。`UiDialogs.cs` / `UiTestBase.cs` (支援ファイル) は、除く。基準は `.claude-logs/test_guard_base/`。
@@ -286,7 +286,7 @@ warnings: 12 (5 unique): C4244 x5, C4996 x3, C4101 x2, ... (+2 more)
 - **警告を直すのは、ユーザーに頼まれたときだけ。** 無関係な警告の修正は、リファクタリングと同じ扱い (しない)。自分が今回編集した行に由来する警告 (未使用の変数、型の縮小など) は、報告に、そう書いて、直すかを尋ねる。
 - 詳細 (コード別の件数・場所) が必要なときだけ、次を実行する (読み取りだけ。`<このSkillのフォルダ>` はスクリプトと同じ場所):
   ```bash
-  python3 -I <このSkillのフォルダ>/scripts/summarize_build_log.py "$SLN/.claude-logs/warnings.log" --severity warning --root "$SLN"
+  python3 -I <このSkillのフォルダ>/scripts/summarize_build_log.py "$SLN_DIR/.claude-logs/warnings.log" --severity warning --root "$SLN_DIR"
   ```
   同じ内容は、`.claude-logs/warnings_summary.json` にもある。
 - **差分ビルドでは、再コンパイルされたファイルの警告だけが出る** (「すべての出力が最新」なら、件数も出ない)。件数が出ないことは、警告がないことを意味しない。

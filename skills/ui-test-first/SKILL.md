@@ -13,9 +13,9 @@ disable-model-invocation: true
 UI テストは、**ビルド → テストの流れには、含まれない** (遅く、制限時間を長く取る必要がある)。この Skill のループの中と、ユーザーが求めたときだけ、`uitest_once.sh` で実行する (`build-test-loop` の「UI テスト」)。
 
 ## 前提
-- カレントが、ソリューションフォルダ (`.sln` / `.slnx` があるフォルダ)。以降 `$SLN`。**なければ、`/new-solution` を案内して止まる。**
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN` は、カレントではなく、対象の候補。`SLN=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
-- **UI テストのプロジェクト (`<アプリ>.UITests`) があること** (名前が `UITests` / `UiTests` で終わる、または FlaUI を参照。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある)。**なければ、作る:** `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN"` (ユーザーに確認してから。WPF / WinForms / MFC)。
+- カレントが、ソリューションフォルダ (`.sln` / `.slnx` があるフォルダ)。以降 `$SLN_DIR`。**なければ、`/new-solution` を案内して止まる。**
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **UI テストのプロジェクト (`<アプリ>.UITests`) があること** (名前が `UITests` / `UiTests` で終わる、または FlaUI を参照。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある)。**なければ、作る:** `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN_DIR"` (ユーザーに確認してから。WPF / WinForms / MFC)。
 - **`CLAUDE.md` の `- メイン:` で、フレームワークを判定する** (WinForms / WPF / MFC)。**`<アプリ>.UITests/uitest.settings` の `desktop=` を読む。** `visible` (WPF の既定) なら、**実行の前に、ユーザーに伝える:** 「UI テストを、あなたのデスクトップで実行します。実行中 (数分) は、マウスとキーボードに触らないでください」。`separate` なら、不要。
 - ユーザーが、`run_watcher.cmd` を起動済みであること (なければ `WATCHER_NOT_RUNNING`。起動を依頼する)。ウォッチャーが古いと、`--filter` / `--ui-timeout` が無視される (`~/src/copy-host-tools.sh` で再配置して、再起動)。
 
@@ -50,11 +50,11 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - ビルド: `build_once.sh` (または、単体テストも含めて `build_test_once.sh`) で、ビルドが通ることを確認する。
 - **UI テストを、絞って、実行する (Red):**
   ```bash
-  bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "FullyQualifiedName~<画面>UiTests" --separate --ui-timeout 1200
+  bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN_DIR" --filter "FullyQualifiedName~<画面>UiTests" --separate --ui-timeout 1200
   ```
   **`--separate` (裏で実行) が、ループの、既定の指定。** WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) だが、**メニューを開く操作を含まないテスト**は、`--separate` で動く。**メニューを開く操作を含むテストは、別のクラス (`<画面>MenuUiTests`) に分け、WPF では `--visible` で実行する** (別のデスクトップでは、WPF のメニューのポップアップが開かず、「要素がない」という、偽の Red になる)。
   `run_in_background: true` で、完了通知を待つ。**Red の確認:** 失敗の理由が、**期待どおり** (要素がない、期待値と違う) であること。**コンパイルエラー、`ENV_ERROR`、フィルターが 0 件 (`ENV_ERROR`、終了コード 4。式の誤り) は、Red ではない** (先に直す)。
-  **Red が確認できたら、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"` (UI テストを、仕様として凍結する。**ユーザーが、テストの変更を承認したときだけ、やり直す**)。
+  **Red が確認できたら、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"` (UI テストを、仕様として凍結する。**ユーザーが、テストの変更を承認したときだけ、やり直す**)。
 
 ### 4. 実装して、Green にする (ループ)
 - View (動作) と、Presenter / ViewModel を、実装する。**1 回に、1 つのテストを、通す**ことを、目安にする。
@@ -63,31 +63,31 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 - **止めどきは、`build-test-loop` の「止めどき」に従う:** **1 つの画面の、1 サイクルで、`uitest_once.sh` の実行は、合計 5 回まで** (`BUILD_FAILED` / `FAILED` / `TEST_TIMEOUT` を通算)。**同じ失敗が、3 回続いたら**、止まって、報告する (試したこと、スクリーンショットで見たこと、次の案)。
   - **`TEST_TIMEOUT`:** まず、`.claude-logs/ui-screenshots/ui-trace.txt` の**最後の 10 行**を読む (どのテストの、どの操作で、止まったか。`TEST_TIMEOUT` でも、trace は、残る)。`--filter` を **1 つのテスト**に絞って、もう一度。**`--ui-timeout` を、延ばすのは、1 回だけ** (固まったアプリを、待っても、通らない。モーダルが `Invoke` で戻らない、ダイアログが閉じない、などを疑う)。**2 回続いたら、延長せずに、停止して報告する。**
   - **`TIMEOUT` (rc 5) / `WATCHER_NOT_RUNNING` (rc 3) / `ENV_ERROR` (rc 4):** 再試行せず、停止して報告する (ウォッチャーは、まだ、処理を続けている。ウォッチャーの画面で、終わったかを、ユーザーに確認してもらう)。**この場合、`uitest_once.sh` は、前回のスクリーンショットと trace を、表示しない** (古い結果と取り違えないため)。
-- **毎回の実行の前後と、報告の前に、`python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check "$SLN"` を実行する** (`build-test-loop` の「テストの改変の検査」)。error (テストの削除・`[Ignore]` / `Inconclusive`・アサーションを弱める・`[Timeout]` や待ちの延長・実行から外す設定) は、許可なしにしてはいけない変更。元に戻すか、止まって確認する。warning / review は、理由を報告する。
+- **毎回の実行の前後と、報告の前に、`python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check "$SLN_DIR"` を実行する** (`build-test-loop` の「テストの改変の検査」)。error (テストの削除・`[Ignore]` / `Inconclusive`・アサーションを弱める・`[Timeout]` や待ちの延長・実行から外す設定) は、許可なしにしてはいけない変更。元に戻すか、止まって確認する。warning / review は、理由を報告する。
 - **Green になったら:** その画面の、**全 UI テストを 1 回**実行して、回帰を確認する: `--filter "TestCategory!=Preview"` (**Preview のテストは、アサーションがなく、必ず通るので、回帰の件数に、混ぜない**。報告でも、Preview の件数は、別に書く)。静的な検査 (`winforms-check` / `wpf-check` / `mfc-check`) も、実行する。
 
 ### 5. 次のサイクルか、報告
 - 次の動作 (計画の、次の具体例) があれば、2. に戻る。なければ、報告して、終わる。
-- **報告:** 追加した画面とテスト (名前)、最後の実行結果 (件数)、**確認できていないこと** (見た目は、目視。**ユーザーが、目で確かめたいときは、`uitest_once.sh "$SLN" --visible --slowmo 800` で、実行する**)。
+- **報告:** 追加した画面とテスト (名前)、最後の実行結果 (件数)、**確認できていないこと** (見た目は、目視。**ユーザーが、目で確かめたいときは、`uitest_once.sh "$SLN_DIR" --visible --slowmo 800` で、実行する**)。
 
 ## 目視確認: UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す
 UI を作るときは、ユーザーが、**実際の画面を、目で見て**確かめる。一方、UI テストは、**裏 (別のデスクトップ) で、静かに回したい**。両立させる:
 
-- **ループの中の、UI テストは、裏で実行する:** `uitest_once.sh "$SLN" --filter "..." --separate` (別名 `--invisible`)。**WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) なので、メニューを使わないテストは、`--separate` を付ける** (WPF のメニューを開くテストだけ、visible。上の 3.)。
+- **ループの中の、UI テストは、裏で実行する:** `uitest_once.sh "$SLN_DIR" --filter "..." --separate` (別名 `--invisible`)。**WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) なので、メニューを使わないテストは、`--separate` を付ける** (WPF のメニューを開くテストだけ、visible。上の 3.)。
 - **ユーザーが「画面を見たい」と言ったとき、または、1 サイクルが Green になった節目に (見たいかを、1 行で聞く):** そのときの画面を、**ユーザーのデスクトップに出す**:
   ```bash
-  bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "TestCategory=Preview" --preview
+  bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN_DIR" --filter "TestCategory=Preview" --preview
   ```
   - 手順: (1) **実行の前に、ユーザーに伝えて、「出してよい」という返事を、待つ** (「今から、あなたのデスクトップに、画面を出します。最初の数秒は、テストが、画面を操作して、目的の状態にするので、マウスとキーボードに触らないでください。そのあと、60 秒、画面が残るので、自由に、操作して、確かめられます。ウィンドウを閉じると、早く終わります」)。同じ作業の中で、1 回、了承をもらえば、2 回目以降は、告知だけでよい。(2) **ビルドは、済んでいること** (最新の View を見せるため。直後なら、そのままで、よい)。(3) `run_in_background: true` で実行し、完了通知を待つ。
   - **見せる画面を絞る:** `--filter "Name~Preview_<画面>"` (その画面だけ)。**秒数:** `--preview 120`。**操作の様子も見たい:** `--slowmo 800` を足す (ボタンやメニューが、順に動く)。
   - **ユーザーが、画面を操作して、確かめたい:** `HoldForViewing` が待っている間、ユーザーは、アプリを、自由に操作できる (テストは、待っているだけ)。終わったら、ウィンドウを閉じる。
-- **Claude 自身が、画面を見る:** `Snap("名前")` が、裏でも、PNG を残す (**ユーザーに出さずに、PNG だけが欲しいときは、`uitest_once.sh "$SLN" --filter "Name~Preview_<画面>" --separate`**。`--hold` なしなので、すぐ戻る) (`.claude-logs/ui-screenshots/名前-window.png`)。**Read ツールで、画像として読む** (レイアウトの崩れ、はみ出し、文字の欠けを確かめる)。ユーザーに見せる前に、先に、読んで、明らかな崩れを、直しておく。
+- **Claude 自身が、画面を見る:** `Snap("名前")` が、裏でも、PNG を残す (**ユーザーに出さずに、PNG だけが欲しいときは、`uitest_once.sh "$SLN_DIR" --filter "Name~Preview_<画面>" --separate`**。`--hold` なしなので、すぐ戻る) (`.claude-logs/ui-screenshots/名前-window.png`)。**Read ツールで、画像として読む** (レイアウトの崩れ、はみ出し、文字の欠けを確かめる)。ユーザーに見せる前に、先に、読んで、明らかな崩れを、直しておく。
 - **見た目の指摘 (「ここを広く」「この色は」) は、ユーザーから、言葉で受ける。** それを、プレビューのテストで確かめる必要は、ない (見た目は、UI テストの対象外)。直して、もう一度、プレビューを出す。
 
 ### デモとして再生する (`--present`)
 **書いた UI テストを、そのまま、ユーザー (や、見ている人) への、デモとして、再生する:**
 ```bash
-bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "FullyQualifiedName~<画面>UiTests" --present --ui-timeout 900
+bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN_DIR" --filter "FullyQualifiedName~<画面>UiTests" --present --ui-timeout 900
 ```
 - **ユーザーのデスクトップで、ゆっくり** (`--visible` と、操作の間の待ち 800 ms (`--slowmo` で変えられる)) 再生し、**これから操作する要素を、赤い枠で囲む** (`Find` / `OpenModal` が描く)。入力やボタンの押下は、UIA で、一瞬で行われる (マウスのカーソルは、動かない)。枠と待ちで、「何を、どの順に、操作したか」を、見せる。
 - **再生するのは、`--filter` で指定したテストだけ** (`--filter` が、必須。ないと、`BAD_ARGS`)。見せたい動作のテストだけを、選ぶ (すべてを、通すと、長い。`--ui-timeout` を、必要なら、長くする)。最後に、各テストの終わりで、最後の状態を、`slowmo` の 2 倍の時間、見せる。**実行の前に、ユーザーに、告知して、了承を待つ** (画面が動く。同じ作業の中で、1 回、了承をもらえば、あとは、告知だけ)。
@@ -95,7 +95,7 @@ bash ~/.claude/skills/build-test-loop/scripts/uitest_once.sh "$SLN" --filter "Fu
 - ふだんの実行 (`--present` なし) では、枠も待ちも、ない。`--separate` とは、組み合わせられない。
 
 ## 実行のコツ
-- **ガイドラインの検査:** 画面が Green になったら、`python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN"` (読み取りだけ) を実行し、warning を報告に添える (`/ui-design-review`)。**必須の規則を満たせないときは、自分で例外にせず、ユーザーに、例外申請を提案する。**
+- **ガイドラインの検査:** 画面が Green になったら、`python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN_DIR"` (読み取りだけ) を実行し、warning を報告に添える (`/ui-design-review`)。**必須の規則を満たせないときは、自分で例外にせず、ユーザーに、例外申請を提案する。**
 - **制限時間:** 1 回の `uitest_once.sh` が、`TEST_TIMEOUT` になるときは、`--ui-timeout` を長くする。毎回の指定が面倒なら、`uitest.settings` に `timeout=1800` を書く。`--filter` で、絞る (全部を、毎回、走らせない)。調査用の、重いテストは、**新しく**、テストごとに `[Timeout]` を付け、ログを 1 行ごとに書く (killed されても、結果が残る)。**既存の `[Timeout]` を、通すために延ばすのは、禁止** (`build-test-loop` の「止めどき」)。
 - **デスクトップ:** `--visible` / `--separate` で、1 回だけ、変えられる。WPF のメニューは、別のデスクトップでは、開かない。
 - **フィルターの式の例:** `FullyQualifiedName~LoginDialog` (クラス名に含む)、`Name=Greeting_NameEntered_ShowsGreeting` (テスト名)、`FullyQualifiedName~Settings&Name~Ok` (組み合わせ)。引用符は、使えない。
