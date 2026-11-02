@@ -7,7 +7,7 @@
 
 **2026-10-24 の版からの変更 (2026-10-31):** 確認済みの区分に、それ以降の追加 (WinForms、`new-solutions`、`test_guard`、UI ガイドライン、v2.27.0〜v2.31.0) を足した。未了の項目に、**扱い (閉じる / 保留 / 小さく確認 / 廃止)** と、保留の**再開条件**を付けた。旧 NuGet 方式の廃止 (v2.31.0) に伴い、N3・N10 を閉じた。
 
-**2026-10-31 の版からの変更 (2026-11-02):** v2.32.0 (`wpf-test-first` → `csharp-test-first`) と v2.33.0 (`/new-solution` の `--ui-tests` の質問) の実機の確認 (CT1〜CT4、UQ1〜UQ4) を、確認済みの区分に足した。CT5 は、「小さく確認」(任意) に残した。
+**2026-10-31 の版からの変更 (2026-11-02):** v2.32.0 (`wpf-test-first` → `csharp-test-first`) と v2.33.0 (`/new-solution` の `--ui-tests` の質問) の実機の確認 (CT1〜CT5、UQ1〜UQ4) を、確認済みの区分に足した (「小さく確認」の表は、空になった)。
 
 ## 1. 確認済み
 
@@ -34,8 +34,8 @@
 | 旧 NuGet 方式の廃止 (v2.31.0) | 2-14 | GN1〜GN4 | 旧方式のテストと、vcpkg 方式のテストが、同じソリューションで共存する |
 | ビルド結果の要約の行 | 1-8 | H9 | `build_test_once.sh` (2026-10-25)、`uitest_once.sh` (2026-10-31) |
 | `/new-solution` (C++) | 2-0c | N2、N3v ほか (✔ の行) | 詳細は、TEST-PLAN の 2-0c |
-| テスト先行 Skill の改名 (v2.32.0) | 2-15 | CT1〜CT4、UQ1〜UQ4 | WinForms (CT1・CT2)・WPF (CT3) の依頼文から `csharp-test-first` が選ばれ、C++ (CT4) では `cpp-test-first` が選ばれる。v2.33.0: `/new-solution` が、WinForms・WPF・MFC ダイアログで `--ui-tests` を質問し (UQ1〜UQ3)、`csharp-dll` では質問しない (UQ4)。最初の動作は、実行ごとに揺れる (CT2 の別の実行)。CT3 は、Red 後の確認と `test_guard` が、守られなかった (TEST-PLAN の知見 4) |
-| C# の規約の 3 分割 (v2.35.0) | 2-16 | RS1〜RS3 | `paths` の絞り込みが、実機で効く: WinForms の Presenter = 共通 + WinForms (約 37KB)、画面と無関係の `.cs` = 共通のみ (約 13KB)、WPF の ViewModel = 共通 + WPF (約 41KB)。分割前は、どれも約 62.5KB |
+| テスト先行 Skill の改名 (v2.32.0) | 2-15 | CT1〜CT5、CW1、UQ1〜UQ4 | WinForms (CT1・CT2)・WPF (CT3) の依頼文から `csharp-test-first` が選ばれ、C++ (CT4) では `cpp-test-first` が選ばれ、ASP.NET Core (CT5) ではどちらも選ばれない。CW1 = v2.34.0 の読み替え表。WinForms が Presenter と `IView` の Fake で、Green まで進む (`test_guard`・`winforms-check` を含む)。v2.33.0: `/new-solution` が、WinForms・WPF・MFC ダイアログで `--ui-tests` を質問し (UQ1〜UQ3)、`csharp-dll` では質問しない (UQ4)。最初の動作は、実行ごとに揺れる (CT2 の別の実行)。CT3 は、Red 後の確認と `test_guard` が、守られなかった (TEST-PLAN の知見 4) |
+| C# の規約の 3 分割 (v2.35.0) | 2-16 | RS1〜RS4 | `paths` の絞り込みが、実機で効く (RS4: WinForms の Red → Green が、分割後の規則で進む): WinForms の Presenter = 共通 + WinForms (約 37KB)、画面と無関係の `.cs` = 共通のみ (約 13KB)、WPF の ViewModel = 共通 + WPF (約 41KB)。分割前は、どれも約 62.5KB |
 
 ## 2. 未了の項目と扱い
 
@@ -52,9 +52,6 @@
 
 | ID | 節 | 内容 | 状況 |
 |---|---|---|---|
-| CW1 | 2-15 | v2.34.0: `csharp-test-first` が、WinForms で、読み替え表に沿って進む (Presenter と `IView` の Fake。直した既存テストの報告) | ✔ Green まで (2026-11-02。`test_guard`・`winforms-check` を含む) |
-| RS4 | 2-16 | v2.35.0: WinForms で `csharp-test-first` の流れが、分割後の規則 (`csharp-common.md` の「16 テスト規約」) で、取り違えなく進む | 未実施 (任意) |
-| CT5 | 2-15 | ASP.NET Core のプロジェクトで、「先にテストを書いて」。どちらも選ばれない | 未実施 (任意。省いてよい) |
 
 ### 2-3. 一部のみ確認 (△)。理由と、再開条件
 
@@ -90,5 +87,5 @@
 - **2026-10-24 の方針 (公開の前提にしない。C++ / MFC の系統は、その系統の作業を再開するときに、まとめて確認する) を、引き継ぐ。** ホスト側ツールの確認 (H4、T8、T9、R 系、M 系) は、2026-10-24 に完了している。
 - **保留の項目は、「再開条件」がそろったときに、確認する。** 確認したら、TEST-PLAN に結果を書き、ここの要約を更新する。
 - **確認していない項目を、✔ にしない。** 他の確認で、同じ点が実機で確認できた場合だけ、根拠 (TEST-PLAN の行) を書いて、✔ にする (H9 は、2-12 の HV4 の出力が根拠)。
-- 小さく確認の項目 (H8・WF3・N4) は、2026-10-31 にすべて ✔。CT5 (2-15。ASP.NET Core で、どちらも選ばれない) は、任意で、未実施。
+- 小さく確認の項目 (H8・WF3・N4) は、2026-10-31 にすべて ✔。CT5 (2-15。ASP.NET Core で、どちらも選ばれない) も、2026-11-02 に ✔。
 - **スキルの選択の確認 (CT 系) は、確認用のフォルダを、毎回、新しいパスにし、起動前にメモリが空であることを確かめる** (TEST-PLAN 2-15)。
