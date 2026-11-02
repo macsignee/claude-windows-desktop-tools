@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.34.0] 2026-11-02 (Skill 側のみ。`csharp-test-first` の本文の変更。契約の変更なし。SKILL.md の文字列の確認のみ。**実機の確認は、未実施**)
+
+- **`csharp-test-first` の本文に、WPF と WinForms の読み替え表を足した。** 本文は WPF の用語 (ViewModel、`PropertyChanged`、`App.xaml.cs`、`wpf-check`) で書かれ、WinForms の記述は 1 行だけだった。WinForms でうまく動いたのは、`CLAUDE.md` と `rules/winforms-csharp.md` を読んだ Claude の読み替えによる (TEST-PLAN 2-15 の知見 3)。
+- 読み替え表: View = `Form` / `Designer.cs`、ViewModel = **Presenter** と `IView` (置き場所は、ロジック層、なければアプリの `Presenters/`)、通知とコマンド = `IView` のイベントとプロパティ、フェイク = `IView` の Fake (`RaiseXxx()`) とサービスの Fake、組み立てる場所 = `Program.cs`、検査 = `winforms-check`、規約 = `winforms-csharp.md`。**WinForms に、ViewModel 層は、ない** (`--kind viewmodel` は、使わない)。
+- **`IView` にイベントや依存 (`IDialogService`) を足すと、既存のテストがコンパイルで落ちる** (Fake と `new MainPresenter(...)` の引数)。Fake と呼び出し箇所だけを、機械的に直し、期待値とアサーションは、変えない。直した箇所は、Red の報告に書く (CT2・CT3 の実機で、実際に起きた)。
+- 前提の層の表、対象外の説明、セットアップ、手順 0 の表、手順 1 の観点、手順 2 のスタブ、手順 3 の規約の参照先に、WinForms の記述を足した。
+- テスト: `new_solution_winforms_test.sh` に、2 件 (表の存在と、主な語)。
+
 ## [2.33.0] 2026-11-01 (Skill 側のみ。`/new-solution` の質問の変更。契約の変更なし。疑似フォルダでの検証 + SKILL.md の文字列の確認。**実機の確認は、未実施**)
 
 - **`/new-solution`: `--ui-tests` を、画面つきの種類 (`wpf` / `winforms` / `mfc` / `mfc-mdi` / `mfc-dialog`) で、引数にも構成案にも指定がなければ、必ず質問する。** 実機の確認 (TEST-PLAN 2-15) で、WPF だけ「UI テスト (FlaUI) を含めますか?」と聞かれ、WinForms では聞かれず (Claude が「なし」と決めた) 、揺れていたため。仕様に、質問の規則がなかった。`csharp-dll` / `win32` / `console` / `dll` / `lib` は、質問しない。既定は `none`。UI テストを、ビルド → テストの流れに含めない方針は、そのまま。

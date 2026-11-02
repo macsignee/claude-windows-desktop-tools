@@ -7,7 +7,22 @@ description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または 
 
 実装の前に、仕様をテストとして書き、**正しい理由で失敗すること (Red)** を確かめるところまでを行う。
 実装して通す (Green) 工程は、`build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ (MSTest の失敗も、GoogleTest と同じ形の要約で返る)。
-C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じで、C# (.NET) 固有の部分 (層、スタブ、MSTest の書き方) が違う。WPF は ViewModel、WinForms は Presenter と `IView` の Fake でテストする。**
+C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じで、C# (.NET) 固有の部分 (層、スタブ、MSTest の書き方) が違う。**
+
+**WPF と WinForms の読み替え (以降の本文は、WPF の用語で書く。WinForms のときは、次の表で読み替える):** 種類は、`CLAUDE.md` の `- メイン:` の行 (`WPF (MVVM)` / `WinForms (MVP)`) で決める。
+
+| 本文の用語 (WPF) | WinForms での読み替え |
+|---|---|
+| View (`Window` / XAML / code-behind) | `Form` / `*.Designer.cs`。**テストしない** |
+| ViewModel と ViewModel 層 (`ViewModels`) | **Presenter** と `IView` (`IMainView` など)。置き場所は、**ロジック層があればそこ** (`LogicLayer`)、なければアプリの `Presenters/` (アプリを参照する `<アプリ名>.Tests` が、テストする)。**WinForms に、ViewModel 層は、ない** (`--kind viewmodel` は、使わない) |
+| `PropertyChanged` の通知、コマンドの `CanExecute` / `Execute` | `IView` の **イベント** (`NameChanged` / `ClearRequested` など) を起こして、`IView` の **プロパティ** (表示の結果) と、サービスの Fake が受け取った値を確かめる |
+| ViewModel のテストでの、ロジック層のフェイク | Presenter のテストでの、`IView` の **Fake** (イベントを起こす `RaiseXxx()` を持つ) と、`IDialogService` などの Fake |
+| WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) | WinForms の型 (`Control` / `Form` / `MessageBox` / `Application` / `Timer` / `Clipboard`)。Presenter では、使わない (`IDialogService` などに分ける) |
+| 組み立てる場所 (`App.xaml.cs` の `OnStartup`) | `Program.cs` (`Form` と Presenter を作って結ぶ。`IDialogService` の実装 (`MessageBox.Show` を呼ぶ) も、ここで渡す) |
+| `wpf-check` | `winforms-check` |
+| 規約 `~/.claude/rules/wpf-csharp.md` | `~/.claude/rules/winforms-csharp.md` (「13 テスト規約」) |
+
+- **`IView` にイベントや、Presenter に依存 (`IDialogService` など) を足すと、既存のテストが、コンパイルで落ちる** (`IView` の Fake が、新しいメンバーを実装していない / `MainPresenter` のコンストラクターの引数が変わる)。**Fake と、既存のテストの呼び出し箇所 (`new MainPresenter(...)` の引数) だけを、機械的に直す。期待値とアサーションは、変えない。** 直した箇所は、Red の報告 (5.) に、書く。
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
@@ -22,16 +37,18 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
   | ロジック | `LogicLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
   | データ | `DataLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
 
+  (WinForms のとき: View = メインの WinForms アプリ (`net10.0-windows`)。Presenter / `IView` = `LogicLayer` (WinForms 非依存)。ViewModel の行は、ない。データ層は、同じ。)
+
 - **テストは、ライブラリ単位で作る。** ViewModel のテストは `ViewModels.Tests` に、ロジックのテストは `LogicLayer.Tests` に。テストプロジェクトは、対応するライブラリをプロジェクト参照している。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
-- **テスト対象は、ViewModel・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind は、対象にしない。
-  - 対象が View (XAML / code-behind) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (またはロジック層) の、WPF 非依存のクラスに切り出す案を、ユーザーに示す。
+- **テスト対象は、ViewModel (WinForms は Presenter)・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind (WinForms は `Form`・`UserControl`・`*.Designer.cs`) は、対象にしない。
+  - 対象が View (XAML / code-behind。WinForms は `Form` のイベントハンドラー) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (WinForms は Presenter。またはロジック層) の、WPF (WinForms) 非依存のクラスに切り出す案を、ユーザーに示す。
   - **ViewModel 層がなく、ViewModel がアプリの中 (`ViewModels/` フォルダ) にある場合も、同じ。** そのままでは、テストできない (アプリは、WPF の exe)。ViewModel 層 (クラスライブラリ) を作って、ViewModel を移す案を示す (下記「セットアップ」)。
   - 切り出し・移動の変更は、ユーザーの了承を得てから、行う。
 - **ViewModel が、WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) を使っている場合も、そのままではテストできない** (MSTest は、STA スレッドも `Application` も、ない)。インターフェース (`IDialogService` など) に分けて、フェイクに差し替えられるようにする案を示す。
 
 ## セットアップ (層やテストを、あとから足すとき)
 
-**最初のソリューション・WPF アプリ・層・テストは、`/new-solution --type wpf` が作る** (層 `--layers` と、テスト `--tests` を、別々に指定できる)。
+**最初のソリューション・アプリ (WPF / WinForms)・層・テストは、`/new-solution --type wpf` / `--type winforms` が作る** (層 `--layers` と、テスト `--tests` を、別々に指定できる)。
 この Skill が、セットアップに関わるのは、**作ったあとで、足りないものが分かったとき**だけ。
 
 1. **設定を読む:** `$SLN` の `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*.Tests` プロジェクトと `Microsoft.NET.Test.Sdk` の有無)。
@@ -46,6 +63,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
    python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN" ViewModels --kind viewmodel --uses LogicLayer
    ```
    - `--tests mstest` (既定): ライブラリと、`<名前>.Tests` を足す。`--tests none`: ライブラリだけ。`--tests-only`: すでにあるライブラリに、テストだけを足す。
+   - **WinForms は、`--kind viewmodel` を使わない** (層は `data` / `logic` だけ。Presenter と `IView` は、ロジック層に置く)。
    - `--kind viewmodel`: `ObservableObject` / `RelayCommand` / `MainViewModel` も作る (ViewModel 層を、アプリの中から切り出すときは、**既存の ViewModel を、移す。上書きしない**。名前が重なるものは、先に、ユーザーと決める)。
    - 名前の既定は `DataLayer` / `LogicLayer` / `ViewModels`。終了コード 3 (すでに存在する) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
    - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。
@@ -67,9 +85,10 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 | 画面の状態・コマンド・表示用の変換 | ViewModel / ViewModel のテスト | WPF の型を使わない。ロジック層は、**フェイク**に差し替える。`PropertyChanged` の通知と、コマンドの `CanExecute` / `Execute` を確かめる |
 | 業務ルール、計算、検証 | ロジック / ロジックのテスト | データ層は、**フェイク** (`IxxxRepository` の、メモリ上の実装) に差し替える。実ファイルや DB に触れない |
 | 保存、読み出し、外部とのやり取り | データ / データのテスト | 実ファイルを使ってよいが、**一時フォルダに、テストごとに別のパスで作り、`[TestCleanup]` で必ず削除する** |
-| 画面 (XAML、code-behind) | (テストしない) | View。ViewModel への切り出し案を示して止まる |
+| 画面の状態・イベントへの反応・表示用の変換 (**WinForms**) | Presenter (ロジック層。ない構成では、アプリの `Presenters/`) / そのテスト | WinForms の型を使わない。**`IView` の Fake** でイベントを起こし (`RaiseXxx()`)、`IView` のプロパティと、サービス (`IDialogService` など) の Fake が受け取った値を確かめる |
+| 画面 (XAML、code-behind。WinForms は `Form` / `Designer.cs`) | (テストしない) | View。ViewModel (WinForms は Presenter) への切り出し案を示して止まる |
 
-1 つの依頼が、複数の層にまたがる場合 (例: 計算ルールの追加と、画面への表示) は、**層ごとに、下の層から順番に、この手順を回す** (データ → ロジック → ViewModel)。まとめて Red にしない (失敗の原因が、層をまたいで混ざるため)。
+1 つの依頼が、複数の層にまたがる場合 (例: 計算ルールの追加と、画面への表示) は、**層ごとに、下の層から順番に、この手順を回す** (データ → ロジック → ViewModel (WinForms は Presenter))。まとめて Red にしない (失敗の原因が、層をまたいで混ざるため)。
 
 ### 1. 仕様を、テストケースの一覧にする (コードを書く前)
 **入力は、確定済みの仕様。** ユーザーが、先に、ブレインストーミング (`/brainstorm` など) で仕様を固めている場合は、その成果物 (仕様書のファイル、または、会話に出ている確定事項) を、読んで使う。
@@ -81,6 +100,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 - 正常系 (代表的な入力)
 - 境界値 (0、最小、最大、空、1 件、上限の直前と直後)
 - 異常系 (不正な入力、範囲外、`null` や空文字、期待する失敗の仕方: 戻り値か、例外か)
+- Presenter (WinForms): イベントを起こしたときの、`IView` のプロパティの値と、サービスの呼び出し (引数、回数)。入力が空・同じイベントの連続も、境界値として考える。
 - ViewModel: **プロパティの変更通知 (`PropertyChanged` が、正しい名前で、上がること)**、コマンドの実行可否 (`CanExecute`)、実行後の状態
 - バグ修正の場合: **そのバグを再現するテストを、最初の 1 件にする。**
 
@@ -94,12 +114,13 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 - 仮の実装は、「値を返すだけで、仕様を満たさない」ものにする (`return 0;`、`return "";`、`return false;`、`return default!;` など)。テストが、たまたまスタブの値で通ることがないように、**期待値と異なる値**にする。
   - `NotImplementedException` を投げるスタブは、**テストが、例外で落ちる** (アサーションの失敗ではない) ので、Red の条件を満たさない。使わない。
 - ViewModel のプロパティのスタブは、**通知を上げない、固定の値を返す** プロパティにする (変更通知のテストが、アサーションで落ちる)。
+- Presenter (WinForms) のスタブは、**イベントを購読して、何もしない、または、固定の (仕様と異なる) 値を、`IView` かサービスへ渡す** ハンドラーにする。`IView` に足したイベントの宣言と、Fake の実装は、コンパイルを通すために、ここで足す。
 - 新しい `.cs` は、SDK 形式なので、`.csproj` に追加しなくてよい (**自動で含まれる**)。置き場所は、そのライブラリのフォルダの下。ファイル名は、型の名前と一致させる。
 - **ViewModel を WPF 非依存のライブラリに置く。** `System.Windows` の型 (`Window` / `MessageBox` / `Application`) を使うと、ライブラリが、ビルドできない (`net10.0` に、ない)。
 - 新しい型に `public` を付ける (`internal` のままだと、テストプロジェクトから見えない: `CS0122`。`InternalsVisibleTo` で、わざと見せているときを除く)。
 
 ### 3. テストを書く (対象の層に対応する `<名前>.Tests` 側)
-- 既存のテストの書き方 (ファイルの命名 `<クラス名>Tests.cs`、`[TestClass]` / `[TestMethod]`、`using` の形) に合わせる。**規約の全文は、`~/.claude/rules/wpf-csharp.md` の「テスト (MSTest)」。**
+- 既存のテストの書き方 (ファイルの命名 `<クラス名>Tests.cs`、`[TestClass]` / `[TestMethod]`、`using` の形) に合わせる。**規約の全文は、`~/.claude/rules/wpf-csharp.md` の「テスト (MSTest)」 (WinForms は、`~/.claude/rules/winforms-csharp.md` の「13 テスト規約」)。**
 - 1 つのテストで、1 つのことを確かめる。名前は、`メソッド_条件_期待` (例: `Greeting_NameEmpty_AsksForName`)。Arrange / Act / Assert の順に書き、空行で区切る。
 - 期待値は、**仕様から導いた値を、直接、書く。** 実装の出力を、写さない (まだ実装がない)。**`Assert.AreEqual(期待値, 実際の値)` の順** (逆にしない)。
 - 浮動小数点は、許容誤差を指定する (`Assert.AreEqual(1.0, x, 1e-9)`)。例外は、`Assert.ThrowsException<T>`。非同期は、`async Task` (`async void` にしない)。
@@ -153,7 +174,7 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 - **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`[Ignore]` 化・`Assert.Inconclusive` で飛ばす・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。
-- 実装のあと、**XAML / ViewModel を触ったら、`wpf-check` を実行する** (WinForms は、Form / `Designer.cs` / Presenter を触ったら、`winforms-check`。WinForms も、この手順 (Red → Green) は同じ。`IView` の Fake で Presenter をテストする) (バインディングのパスの誤りなど、ユニットテストでは見つからない不具合を、静的に確かめる)。
+- 実装のあと、**XAML / ViewModel を触ったら、`wpf-check` を実行する** (WinForms は、`Form` / `Designer.cs` / Presenter を触ったら、`winforms-check`) (バインディングのパスの誤りなど、ユニットテストでは見つからない不具合を、静的に確かめる)。
 - **UI テスト (`*.UITests`。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある) は、このビルド → テストの流れに、含めない。** 遅く、アプリを起動し、制限時間を長く取る必要があるため、**ユーザーが求めたとき**だけ、`uitest_once.sh` で、別に実行する (`build-test-loop` の「UI テスト」)。**画面を、プロンプトで作りながら、UI テストを書いて、繰り返し実行するときは、`/ui-test-first`** (UI テストを先に書く)。通常のテストが `PASSED` になっても、UI テストは、自動では、実行しない。
 - 通ったあとの整理 (リファクタリング) は、**テストを変えずに**行い、そのたびに、テストが通ることを、確認する。
 
