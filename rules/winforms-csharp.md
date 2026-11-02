@@ -1,7 +1,10 @@
 ---
 paths:
-  - "**/*.cs"
-  - "**/*.csproj"
+  - "**/*.Designer.cs"
+  - "**/Forms/**/*.cs"
+  - "**/Presenters/**/*.cs"
+  - "**/*Presenter*.cs"
+  - "**/I*View.cs"
 ---
 
 # WinForms プログラミング規約 (ユーザー共通)
@@ -10,9 +13,10 @@ paths:
 
 **適用の順序:**
 1. プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、それが最優先。
-2. **WinForms のソリューション (`CLAUDE.md` が「WinForms (MVP)」) では、本規約を適用する。** WPF 規約 (`wpf-csharp.md`) の **C# の部分 (5 C# コーディング規約 / 10 非同期処理 / 12 例外処理 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)** は、そのまま共通で使う。**WPF / XAML / MVVM に固有の節 (6 View / 7 ViewModel / 8 MVVM ライブラリ / 9 データバインディング / 14 XAML) は、適用しない。**
-3. C# のクラスライブラリ (`CLAUDE.md` が「C# クラスライブラリ」) は、本規約の「3 層」と「6 テスト」と、`wpf-csharp.md` の C# の部分を使う。
+2. **WinForms のソリューション (`CLAUDE.md` が「WinForms (MVP)」) では、本規約を適用する。** 共通規約 (`csharp-common.md`。`.cs` を読むときに、自動で読み込まれる) の **C# の部分 (5 C# コーディング規約 / 10 非同期処理 / 11 依存性注入 / 12 例外処理 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)** は、そのまま共通で使う。**WPF / XAML / MVVM に固有の節 (6 View / 7 ViewModel / 8 MVVM ライブラリ / 9 データバインディング / 14 XAML) は、適用しない。**
+3. C# のクラスライブラリ (`CLAUDE.md` が「C# クラスライブラリ」) は、本規約の「3 層」と「6 テスト」と、`csharp-common.md` を使う。
 
+**この文書は、`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を読むときに、読み込まれる** (WPF の規約は、読み込まれない)。
 詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`~/.claude/templates/dotnet/` のひな形)。
 「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `csharp-test-first` / `winforms-check` / `add-package`) との対応。機械で判定できる項目は、**`winforms-check`** が確かめる (付録)。
 
@@ -87,7 +91,7 @@ Solution/
 - `IsXxx` / `HasXxx` / `CanXxx` / `ShouldXxx`。`Flag` / `Status` / `Check` は、使わない (`winforms-check` の NAM001)。
 
 ## 5. C# コーディング規約
-`wpf-csharp.md` の「5 C# コーディング規約」を、そのまま適用する (ファイルは UTF-8 BOM + CRLF、インデントはスペース 4、Allman、`file_scoped` の名前空間、`Nullable` 有効、波括弧を常に付ける)。
+`csharp-common.md` の「5 C# コーディング規約」を、そのまま適用する (ファイルは UTF-8 BOM + CRLF、インデントはスペース 4、Allman、`file_scoped` の名前空間、`Nullable` 有効、波括弧を常に付ける)。
 
 ### 5.1 WinForms 固有の補足
 - **`*.Designer.cs` は、Visual Studio のデザイナーが書き直すファイル。** 手で書くときは、デザイナーが読める形を保つ:
@@ -152,7 +156,7 @@ Solution/
 - `BackgroundWorker` は、新しく書かない (`async` / `await` にする)。
 
 ## 9. 例外処理・ログ
-`wpf-csharp.md` の「12 例外処理」「13 ログ」を、そのまま適用する (空の `catch` 禁止、`throw ex;` 禁止 (`throw;`)。`winforms-check` の EXC001 / EXC002)。
+`csharp-common.md` の「12 例外処理」「13 ログ」を、そのまま適用する (空の `catch` 禁止、`throw ex;` 禁止 (`throw;`)。`winforms-check` の EXC001 / EXC002)。
 
 ### 9.1 WinForms 固有の補足
 - **未処理の例外の受け口を、`Program.cs` に、1 か所**作る: `Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException)`、`Application.ThreadException` (UI スレッド)、`AppDomain.CurrentDomain.UnhandledException` (それ以外)。ログを残し、ユーザーに、分かる文言で伝える。
@@ -164,15 +168,15 @@ Solution/
 - コントロールが `IDisposable` (`Font`、`Image`、`Brush` など) を、自分で作るときは、`Dispose` する。
 
 ## 11. 依存性注入
-`wpf-csharp.md` の「11 依存性注入規約」の考え方を使う。**組み立ては、`Program.cs` (composition root)。** Form の中で、Service を `new` しない (`winforms-check` の WFL004)。小さなアプリでは、手で組み立てる (DI コンテナは、必要になってから)。
+`csharp-common.md` の「11 依存性注入規約」の考え方を使う。**組み立ては、`Program.cs` (composition root)。** Form の中で、Service を `new` しない (`winforms-check` の WFL004)。小さなアプリでは、手で組み立てる (DI コンテナは、必要になってから)。
 
 ## 12. コメント規約
-`wpf-csharp.md` の「15 コメント規約」を、そのまま適用する (コメントは日本語。「なぜ」を書く。`///` は、公開 API)。**`*.Designer.cs` の英語のコメントは、デザイナーが書くので、直さない。**
+`csharp-common.md` の「15 コメント規約」を、そのまま適用する (コメントは日本語。「なぜ」を書く。`///` は、公開 API)。**`*.Designer.cs` の英語のコメントは、デザイナーが書くので、直さない。**
 
 ## 13. テスト規約
 
 ### 13.1 単体テスト (MSTest)
-`wpf-csharp.md` の「16 テスト規約」を、そのまま適用する (`メソッド_条件_期待` の名前、1 テスト 1 検証、ファイルは `<クラス名>Tests.cs`)。
+`csharp-common.md` の「16 テスト規約」を、そのまま適用する (`メソッド_条件_期待` の名前、1 テスト 1 検証、ファイルは `<クラス名>Tests.cs`)。
 - **テストの対象は、Presenter と、ロジック層 / データ層。** `IView` の Fake を作り、イベントを起こして、表示 (プロパティ) の結果を確かめる (生成される `MainPresenterTests` が、手本)。
 - **Form (`Forms/`) は、単体テストしない** (UI テスト、または、目視)。
 - ロジック層がない構成では、`<アプリ名>.Tests` が、アプリを参照して、`Presenters/` をテストする (TFM は、アプリと同じ `-windows`)。

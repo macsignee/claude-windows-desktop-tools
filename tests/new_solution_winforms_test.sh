@@ -97,7 +97,7 @@ ok "--spec: winforms is accepted from the 構成案" "$([ $rc = 0 ] && [ -f "$D/
 
 # csharp-test-first: WinForms の読み替え表 (v2.34.0)
 CTF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/csharp-test-first/SKILL.md"
-ok "csharp-test-first: has the WPF -> WinForms mapping table (Presenter / IView Fake / Form / Program.cs / winforms-check / winforms-csharp.md)" "$(grep -q '^| 本文の用語 (WPF) | WinForms での読み替え |' "$CTF" && grep -q 'IView` の \*\*Fake\*\*' "$CTF" && grep -q '`Program.cs` (`Form` と Presenter を作って結ぶ' "$CTF" && grep -q '| `wpf-check` | `winforms-check` |' "$CTF" && grep -q 'winforms-csharp.md` (「13 テスト規約」)' "$CTF" && echo 1 || echo 0)"
+ok "csharp-test-first: has the WPF -> WinForms mapping table (Presenter / IView Fake / Form / Program.cs / winforms-check / winforms-csharp.md)" "$(grep -q '^| 本文の用語 (WPF) | WinForms での読み替え |' "$CTF" && grep -q 'IView` の \*\*Fake\*\*' "$CTF" && grep -q '`Program.cs` (`Form` と Presenter を作って結ぶ' "$CTF" && grep -q '| `wpf-check` | `winforms-check` |' "$CTF" && grep -q '`~/.claude/rules/winforms-csharp.md` (WinForms 固有' "$CTF" && echo 1 || echo 0)"
 ok "csharp-test-first: WinForms has no ViewModel layer; fixing the Fake and call sites must not change assertions" "$(grep -q 'WinForms に、ViewModel 層は、ない' "$CTF" && grep -q '期待値とアサーションは、変えない' "$CTF" && echo 1 || echo 0)"
 
 echo "PASS: $pass / FAIL: $fail"

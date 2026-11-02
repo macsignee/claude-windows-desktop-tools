@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.35.0] 2026-11-02 (規則 (`rules/`) の変更。契約の変更なし。疑似フォルダと文字列の確認。**配布先の `~/.claude/rules/` の更新が必要 (`install.sh --rules-only`)。読み込みの条件 (`paths`) は、実機で確認済み (TEST-PLAN 2-16 の RS1〜RS3)**)
+
+- **C# の規約を、3 つに分けた。** 2 つの規則とも `paths: "**/*.cs"` で、`.cs` を 1 つ読むと、WPF と WinForms の両方 (約 62.5KB) が読み込まれていたため。`paths` は、ファイル名しか見られず、WPF か WinForms かを、中身で振り分けられない。
+  - **`rules/csharp-common.md` (新規。約 12.9KB):** C# の共通の章 (5 C# コーディング規約 / 10 非同期 / 11 依存性注入 / 12 例外 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)。`paths` は `**/*.cs`。**章の番号は、元のまま** (ツールの検出コードと文書が、番号を使っているため。欠けた番号は、固有の章)。
+  - **`rules/wpf-csharp.md` (約 27.7KB):** WPF / XAML / MVVM の章 (1〜4、6〜9、14、18、19、付録)。`paths` は、`**/*.xaml`、`**/*.xaml.cs`、`**/ViewModels/**/*.cs`、`**/*ViewModel*.cs`、`**/Views/**/*.cs`。`**/*.cs` と `**/*.csproj` を外した。
+  - **`rules/winforms-csharp.md` (約 24.2KB):** `paths` は、`**/*.Designer.cs`、`**/Forms/**/*.cs`、`**/Presenters/**/*.cs`、`**/*Presenter*.cs`、`**/I*View.cs`。共通の章への参照を、`csharp-common.md` に変えた。
+- **読み込みの大きさ (バイト数。概算):** WinForms の Presenter・Form = 62.5KB → 37.1KB (約 41% 減)。WPF の ViewModel・XAML = 62.5KB → 40.6KB (約 35% 減)。画面と無関係の `.cs` = 62.5KB → 12.9KB (約 79% 減)。
+- **限界:** 振り分けは、**ファイル名と置き場所の規約** (`Forms/`、`Presenters/`、`ViewModels/`、`*Presenter*.cs` など) による。生成されるソリューションは、これに従う。名前が標準と違うと、共通の規則だけが読まれる (固有の規則は、`wpf-check` / `winforms-check` が、機械で確かめる)。`.csproj` を読むときの自動の読み込みは、なくなった。
+- 参照を更新した: `new-solution` (SKILL.md、生成する `CLAUDE.md`)、`csharp-test-first` (SKILL.md、`PROJECT-LAYOUT.md`)、README、`add_project.py` と `templates/dotnet/.editorconfig` のコメント。**生成済みの `CLAUDE.md` は、書き換えない** (`wpf-csharp.md` を指していても、リンクは切れない)。
+- テスト: `tests/rules_split_test.sh` (新規。13 件)。
+- **配布:** `install.sh --skills-only` は、規則を配らない。`install.sh --rules-only` (または、オプションなし) が要る。**v2.32.0 でも、規則の再配布が必要だった** (配布先が、旧名 `wpf-test-first` のままになっていた。2026-11-02 に、`--rules-only` で更新済み)。
+
 ## [2.34.0] 2026-11-02 (Skill 側のみ。`csharp-test-first` の本文の変更。契約の変更なし。SKILL.md の文字列の確認のみ。**実機の確認は、未実施**)
 
 - **`csharp-test-first` の本文に、WPF と WinForms の読み替え表を足した。** 本文は WPF の用語 (ViewModel、`PropertyChanged`、`App.xaml.cs`、`wpf-check`) で書かれ、WinForms の記述は 1 行だけだった。WinForms でうまく動いたのは、`CLAUDE.md` と `rules/winforms-csharp.md` を読んだ Claude の読み替えによる (TEST-PLAN 2-15 の知見 3)。

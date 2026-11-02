@@ -20,7 +20,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 | WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) | WinForms の型 (`Control` / `Form` / `MessageBox` / `Application` / `Timer` / `Clipboard`)。Presenter では、使わない (`IDialogService` などに分ける) |
 | 組み立てる場所 (`App.xaml.cs` の `OnStartup`) | `Program.cs` (`Form` と Presenter を作って結ぶ。`IDialogService` の実装 (`MessageBox.Show` を呼ぶ) も、ここで渡す) |
 | `wpf-check` | `winforms-check` |
-| 規約 `~/.claude/rules/wpf-csharp.md` | `~/.claude/rules/winforms-csharp.md` (「13 テスト規約」) |
+| 規約 `~/.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `~/.claude/rules/winforms-csharp.md` (WinForms 固有。`Forms/` `Presenters/` `*Presenter*.cs` などを読むときに、読み込まれる)。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
 
 - **`IView` にイベントや、Presenter に依存 (`IDialogService` など) を足すと、既存のテストが、コンパイルで落ちる** (`IView` の Fake が、新しいメンバーを実装していない / `MainPresenter` のコンストラクターの引数が変わる)。**Fake と、既存のテストの呼び出し箇所 (`new MainPresenter(...)` の引数) だけを、機械的に直す。期待値とアサーションは、変えない。** 直した箇所は、Red の報告 (5.) に、書く。
 
@@ -120,7 +120,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 - 新しい型に `public` を付ける (`internal` のままだと、テストプロジェクトから見えない: `CS0122`。`InternalsVisibleTo` で、わざと見せているときを除く)。
 
 ### 3. テストを書く (対象の層に対応する `<名前>.Tests` 側)
-- 既存のテストの書き方 (ファイルの命名 `<クラス名>Tests.cs`、`[TestClass]` / `[TestMethod]`、`using` の形) に合わせる。**規約の全文は、`~/.claude/rules/wpf-csharp.md` の「テスト (MSTest)」 (WinForms は、`~/.claude/rules/winforms-csharp.md` の「13 テスト規約」)。**
+- 既存のテストの書き方 (ファイルの命名 `<クラス名>Tests.cs`、`[TestClass]` / `[TestMethod]`、`using` の形) に合わせる。**規約の全文は、`~/.claude/rules/csharp-common.md` の「16 テスト規約」 (WinForms は、これに加えて、`~/.claude/rules/winforms-csharp.md` の「13 テスト規約」)。**
 - 1 つのテストで、1 つのことを確かめる。名前は、`メソッド_条件_期待` (例: `Greeting_NameEmpty_AsksForName`)。Arrange / Act / Assert の順に書き、空行で区切る。
 - 期待値は、**仕様から導いた値を、直接、書く。** 実装の出力を、写さない (まだ実装がない)。**`Assert.AreEqual(期待値, 実際の値)` の順** (逆にしない)。
 - 浮動小数点は、許容誤差を指定する (`Assert.AreEqual(1.0, x, 1e-9)`)。例外は、`Assert.ThrowsException<T>`。非同期は、`async Task` (`async void` にしない)。

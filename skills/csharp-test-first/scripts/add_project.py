@@ -108,7 +108,7 @@ DIRECTORY_BUILD_PROPS = '''<Project>
 </Project>
 '''
 
-EDITORCONFIG = '''# C# / WPF の書式 (~/.claude/rules/wpf-csharp.md と同じ)。Visual Studio と dotnet format が読む。
+EDITORCONFIG = '''# C# / WPF の書式 (~/.claude/rules/csharp-common.md の「5 C# コーディング規約」と同じ)。Visual Studio と dotnet format が読む。
 root = true
 
 [*]
