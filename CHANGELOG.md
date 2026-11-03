@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.37.0] 2026-11-02 (Skill 側のみ。`csharp-test-first` の `SKILL.md` の分割。契約の変更なし。疑似フォルダと文字列の確認。**実機の確認は、未実施** (TEST-PLAN 2-18))
+
+- **`csharp-test-first` の「セットアップ」(層やテストを、あとから足す手順。3.9KB) を、`references/setup.md` に分けた。** `SKILL.md` は、33.1KB から 30.2KB に減った (約 9%)。本文には、入口 (約 1KB) だけを残した: 足りないときだけ `references/setup.md` を読む / **自分で `.csproj` や `.sln` / `.slnx` を手書きしない、既存のプロジェクトを上書きしない、ベースラインが緑になる前に本物のテストを書かない** (読まなくても守る規則) / `テスト: なし` のときは使えない (案内して止まる)。
+- **理由:** `csharp-test-first` を読み込んだ 9 つの実機のセッション (CT1〜CT3、CW1、RS4、SK2、SK2b など) の履歴で、`add_project.py` は、一度も実行されなかった。層とテストは、`/new-solution` が最初に作る。
+- `add-feature` の参照 (`csharp-test-first` の「セットアップ」) を、`references/setup.md` に更新した。`install.sh` は、`references/` も、そのまま配る (`find -type f`)。
+- **Red の報告に、1 文を足した** (手順 5): テストケースの一覧に出したテストを、Red の前に外したとき (スタブで通ってしまう、など) は、外したテストの名前と理由を書く。スタブで通るテストを残すときも、その旨を書く (真偽の対のテストは、片方が通ることがある)。SK2b で、Claude が、通ってしまったテストを、黙って削除し、件数が一覧と合わなかった。SU1 では、通るテストを残して報告した (報告は出ていたが、規則 (「すべて Red」) には反していた)。**スタブの直し方 (対のテストの扱い) までは、書かない** (3 回目が起きたら、検討する)。`SKILL.md` は、30.6KB。
+- 見送った案: WinForms の読み替え表の分離 (WinForms の流れが、表が本文にあることで通っていた (CW1・RS4)。分離すると、読みに行くとは限らず、再確認が要る)。`build-test-loop` (53KB) の分割 (別の作業)。
+- テスト: `new_solution_winforms_test.sh` に 4 件 (51 件)。
+
 ## [2.36.0] 2026-11-02 (Skill 側のみ。SKILL.md の変更と、変数名の変更。契約 (ファイル名・結果の値・終了コード) の変更なし。疑似フォルダと文字列の確認。実機の確認: SK2・SK3 は 2 回とも ✔、**SK1 (空のフォルダで、スキルが呼ばれない) は ✗ で、直し方は未決定** (TEST-PLAN 2-17))
 
 - **案 4: 変数 `$SLN` を、`$SLN_DIR` に改名した** (`add-feature` / `add-package` / `build-test-loop` / `cpp-test-first` / `csharp-test-first` / `ui-test-first` / `ui-design-review` / `new-solutions` の SKILL.md、`DLL-LAYOUT.md`、`PROJECT-LAYOUT.md`、`test_guard_note.sh` の出力)。`$SLN` は、「ソリューションのフォルダ」だが、名前から `.sln` のファイルと読まれ、Claude が `.sln` / `.slnx` を探しに行った (TEST-PLAN 2-15 の CT1)。定義の行に、「`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ。スクリプトの第 1 引数も、このフォルダ」を足した。`SLN_DIR=$(... resolve ...)` も同様。

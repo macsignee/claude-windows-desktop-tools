@@ -100,7 +100,7 @@ python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$SLN_DIR" --check
 - ここでの承認は、**計画に書いた範囲の、ファイルの作成と編集**に対するもの。計画にないものは、実行中に、改めて確認する。
 
 ### 4. 層・テストの追加 (計画に含めた場合だけ)
-同梱の `add_layer.py` (`cpp-test-first` の「セットアップ」。**WPF は `add_project.py`** (`csharp-test-first` の「セットアップ」)) で、層を足す。**テストあり** なら `--tests gtest` (DLL + `<DLL名>Test`。WPF は `--tests mstest` で、ライブラリ + `<名前>.Tests`)、**テストなし** なら `--tests none` (DLL だけ)。`CLAUDE.md` の `- 層:` の行も、合わせる。
+同梱の `add_layer.py` (`cpp-test-first` の「セットアップ」。**WPF は `add_project.py`** (`csharp-test-first` の `references/setup.md`)) で、層を足す。**テストあり** なら `--tests gtest` (DLL + `<DLL名>Test`。WPF は `--tests mstest` で、ライブラリ + `<名前>.Tests`)、**テストなし** なら `--tests none` (DLL だけ)。`CLAUDE.md` の `- 層:` の行も、合わせる。
 **ベースライン (ビルド成功、テストありなら `PASSED`) が緑になるまで、次へ進まない。** (NuGet の復元など、ユーザーの作業が必要なときは、依頼して、待つ。)
 
 ### 5. タスクごとに、Red → 確認 → Green (テストあり。計画の順に、1 タスクずつ)

@@ -50,38 +50,14 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 - **テストは、ライブラリ単位で作る。** ViewModel のテストは `ViewModels.Tests` に、ロジックのテストは `LogicLayer.Tests` に。テストプロジェクトは、対応するライブラリをプロジェクト参照している。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
 - **テスト対象は、ViewModel (WinForms は Presenter)・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind (WinForms は `Form`・`UserControl`・`*.Designer.cs`) は、対象にしない。
   - 対象が View (XAML / code-behind。WinForms は `Form` のイベントハンドラー) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (WinForms は Presenter。またはロジック層) の、WPF (WinForms) 非依存のクラスに切り出す案を、ユーザーに示す。
-  - **ViewModel 層がなく、ViewModel がアプリの中 (`ViewModels/` フォルダ) にある場合も、同じ。** そのままでは、テストできない (アプリは、WPF の exe)。ViewModel 層 (クラスライブラリ) を作って、ViewModel を移す案を示す (下記「セットアップ」)。
+  - **ViewModel 層がなく、ViewModel がアプリの中 (`ViewModels/` フォルダ) にある場合も、同じ。** そのままでは、テストできない (アプリは、WPF の exe)。ViewModel 層 (クラスライブラリ) を作って、ViewModel を移す案を示す (`references/setup.md`)。
   - 切り出し・移動の変更は、ユーザーの了承を得てから、行う。
 - **ViewModel が、WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) を使っている場合も、そのままではテストできない** (MSTest は、STA スレッドも `Application` も、ない)。インターフェース (`IDialogService` など) に分けて、フェイクに差し替えられるようにする案を示す。
 
-## セットアップ (層やテストを、あとから足すとき)
-
-**最初のソリューション・アプリ (WPF / WinForms)・層・テストは、`/new-solution --type wpf` / `--type winforms` が作る** (層 `--layers` と、テスト `--tests` を、別々に指定できる)。
-この Skill が、セットアップに関わるのは、**作ったあとで、足りないものが分かったとき**だけ。
-
-1. **設定を読む:** `$SLN_DIR` の `CLAUDE.md` の `- 層:` と `- テスト:` の行 (なければ、構造から判定: `*.Tests` プロジェクトと `Microsoft.NET.Test.Sdk` の有無)。
-   - **`テスト: なし` の場合、この Skill (テスト先行) は、使えない。** 「テストが、導入されていません。`/new-solution --tests mstest` で、後付けできます」と案内して止まる (ユーザーが望めば、そのコマンドへ)。
-2. **足りないものを確認する (読み取りだけ):** 対象の層のライブラリと、`<名前>.Tests` が、あるか。
-   - **ライブラリはあるが、テストプロジェクトがない:** `/new-solution --tests mstest` (後付け) の対象。案内する。
-   - **対象の層のライブラリがない** (例: `層: logic` で、ViewModel 層が必要になった): 次の 3. で、層を足す。
-3. **案を示して、了承を得て、同梱のスクリプトで足す。** 自分で `.csproj` や `.sln` / `.slnx` を手書きしない。
-   ```bash
-   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" DataLayer --kind data
-   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" LogicLayer --kind logic --uses DataLayer
-   python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" ViewModels --kind viewmodel --uses LogicLayer
-   ```
-   - `--tests mstest` (既定): ライブラリと、`<名前>.Tests` を足す。`--tests none`: ライブラリだけ。`--tests-only`: すでにあるライブラリに、テストだけを足す。
-   - **WinForms は、`--kind viewmodel` を使わない** (層は `data` / `logic` だけ。Presenter と `IView` は、ロジック層に置く)。
-   - `--kind viewmodel`: `ObservableObject` / `RelayCommand` / `MainViewModel` も作る (ViewModel 層を、アプリの中から切り出すときは、**既存の ViewModel を、移す。上書きしない**。名前が重なるものは、先に、ユーザーと決める)。
-   - 名前の既定は `DataLayer` / `LogicLayer` / `ViewModels`。終了コード 3 (すでに存在する) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
-   - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。
-   - **MSTest のバージョンは、スクリプトの既定** (実在を確認した版)。新しい版にするときは、`add-package` の `nuget versions MSTest.TestFramework` で確認して、`--mstest-version` で指定する。
-   - **NuGet の復元は、ウォッチャーのビルドが行う** (`/restore`)。ホストが nuget.org に届く必要がある。
-4. **メインから層を使う配線 (ProjectReference、`DataContext` の設定) は、ここでは、しない。** 必要になったときに、ユーザーの了承を得て行う。
-5. **ベースラインを確認する (下記「手順」の 4. と同じ実行方法で、`build-test-loop` のスクリプトを使う):** ビルドが通り、**`PASSED`** になること。
-   - `BUILD_FAILED`: エラーを読んで直す。ベースのアプリ自体の、もともとのエラーなら、直さずに、報告する。
-   - `ENV_ERROR`: .NET SDK、NuGet の復元 (ネットワーク)、テストが 1 件も実行されない、を確認して、ユーザーに報告する。
-   - **ベースラインが緑になる前に、本物のテストを書かない。**
+## セットアップ (層やテストが、足りないとき)
+最初のソリューション・アプリ・層・テストは、`/new-solution --type wpf` / `winforms` が作る。**ここで足すのは、作ったあとで、足りないものが分かったときだけ** (`CLAUDE.md` の `- テスト:` が `なし`、対象の層のライブラリや `<名前>.Tests` がない)。その場合は、**`references/setup.md` を読んで、従う** (同梱の `add_project.py`、案を示して了承を得る、ベースラインの確認)。足りないものがなければ、読まない。
+- **自分で `.csproj` や `.sln` / `.slnx` を手書きしない。既存のプロジェクトを上書きしない。ベースラインが緑になる前に、本物のテストを書かない。**
+- `テスト: なし` のときは、この Skill (テスト先行) は使えない。「テストが、導入されていません。`/new-solution --tests mstest` で、後付けできます」と案内して止まる。
 
 ## 手順
 
@@ -170,6 +146,7 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 ### 5. Red を報告し、テストを確定する
 次を、簡潔に報告する。
 - 書いたテストの一覧 (名前と、確かめていること)、それぞれの失敗の理由 (`Expected` と `Actual`)。
+- **テストケースの一覧に出したテストを、Red の前に外したとき (スタブで通ってしまう、など) は、外したテストの名前と理由を、ここに書く** (黙って外さない。件数が、一覧と合わなくなる)。スタブで通るテストを残すときも、その旨を書く (真偽の対のテストは、片方が通ることがある)。
 - 作った・変更したファイル (スタブ、テスト、`.csproj` (層を足した場合))。
 - 「この Red を、仕様として確定してよいか」を、ユーザーに確認する。**テストは、仕様の表明であり、ここで、人が、中身を確かめる最後の機会になる。**
 

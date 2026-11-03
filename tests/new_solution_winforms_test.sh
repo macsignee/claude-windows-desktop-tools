@@ -106,5 +106,15 @@ ok "csharp-test-first: no solution -> stop and tell the user to run /new-solutio
 SK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills"
 ok "skills: the solution folder variable is \$SLN_DIR everywhere (no bare \$SLN), and it is defined as a folder, not a .slnx path" "$(! grep -rIq '\$SLN\b' "$SK" --include=*.md --include=*.sh && grep -q 'それを含むフォルダ' "$SK/csharp-test-first/SKILL.md" && grep -q 'それを含むフォルダ' "$SK/build-test-loop/SKILL.md" && echo 1 || echo 0)"
 
+# csharp-test-first: セットアップを references/setup.md に分離 (v2.37.0)
+ok "csharp-test-first: a test dropped before the Red (or kept although the stub passes it) must be named in the Red report" "$(grep -q 'Red の前に外したとき (スタブで通ってしまう、など) は、外したテストの名前と理由を、ここに書く' "$CTF" && grep -q '真偽の対のテストは、片方が通ることがある' "$CTF" && echo 1 || echo 0)"
+CREF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/csharp-test-first/references/setup.md"
+ok "csharp-test-first: setup moved to references/setup.md (add_project.py, --kind viewmodel, the baseline step) and the SKILL.md keeps only a short entry with the safety rules" "$([ -f "$CREF" ] && grep -q 'add_project.py' "$CREF" && grep -q -- '--kind viewmodel' "$CREF" && grep -q 'ベースライン' "$CREF" && grep -q '^## セットアップ (層やテストが、足りないとき)' "$CTF" && grep -q 'references/setup.md' "$CTF" && grep -q '自分で `.csproj` や `.sln` / `.slnx` を手書きしない' "$CTF" && ! grep -q 'add_project.py "$SLN_DIR" DataLayer' "$CTF" && echo 1 || echo 0)"
+ok "csharp-test-first: SKILL.md stays small (<= 31000 bytes; was 33111 before the split)" "$([ "$(wc -c < "$CTF" | tr -d ' ')" -le 31000 ] && echo 1 || echo 0)"
+ok "add-feature points to csharp-test-first references/setup.md (not the removed section)" "$(grep -q 'csharp-test-first` の `references/setup.md`' "$(dirname "$CTF")/../add-feature/SKILL.md" && echo 1 || echo 0)"
+CSF_T="${TMPDIR:-/tmp}/csf_$$"; bash "$(dirname "$CTF")/../../install/install.sh" --skills-only --skills-dir "$CSF_T" >/dev/null 2>&1
+ok "install.sh --skills-only copies csharp-test-first/references/setup.md (identical to the repo)" "$([ -f "$CSF_T/csharp-test-first/references/setup.md" ] && cmp -s "$CSF_T/csharp-test-first/references/setup.md" "$CREF" && echo 1 || echo 0)"
+rm -rf "$CSF_T" 2>/dev/null
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
