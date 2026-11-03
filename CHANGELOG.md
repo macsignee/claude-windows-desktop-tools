@@ -2,6 +2,21 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.41.0] 2026-11-03 (規則 (`rules/`) とひな形 (`templates/`) の取り込み。規則の 1 か所の誤りの修正と、改名。スクリプトの動作と契約の変更なし。疑似フォルダと文字列の確認。**実機の確認は、`install.sh` の出力の確認のみ** (TEST-PLAN 2-22))
+
+- **C++ / MFC の規則を、リポジトリに取り込み、`rules/mfc-cpp.md` (19KB) にした。** もとは、`~/.claude/rules/cpp-mfc.md` (2026-10-16 作成。ユーザー個人の規則で、リポジトリの外にあり、`git` の履歴が、なく、`install.sh` も配らなかった)。`paths` は、`**/*.cpp` `**/*.h` `**/*.hpp` `**/*.cc` `**/*.cxx` で、すでに C++ に絞られている。
+- **名前を、`wpf-csharp.md` / `winforms-csharp.md` の `<技術>-<言語>` に揃えた** (`cpp-mfc.md` → `mfc-cpp.md`。ユーザーの指示)。命名の方針: 言語の共通 = `<言語>-common.md` (`csharp-common.md`)、技術ごと = `<技術>-<言語>.md` (`wpf-csharp.md` / `winforms-csharp.md` / `mfc-cpp.md`)。
+- **規則の誤りを、1 か所、直した (113 行目):** 「MFC のクラスの **`public`** メンバー変数 (`CWnd::m_hWnd`、`CView::m_pDocument`、…)」の `CView::m_pDocument` は、`protected` (Visual Studio 2022 の `afxwin.h`、MSVC 14.44.35207 の 4668〜4669 行目で確認)。「`public` / `protected` メンバー変数」に直し、`m_pDocument` に「(`protected`。派生クラスから触れる)」を添えた。助言 (`GetDocument()` を使う) は、そのまま。**ほかは、内容を変えていない。**
+- **C++ のひな形を、取り込んだ:** `templates/cpp/.clang-format` / `.clang-tidy` / `.editorconfig` (`~/.claude/templates/cpp/` の、そのままのコピー。`mfc-cpp.md` の 12 行目と 156 行目が参照している)。批判的に確認し、`mfc-cpp.md` と食い違わないことを確かめた (Allman、インデント 4、`SortIncludes: Never`、`readability-function-size` = 100、CRLF、`charset` を書かない)。`install.sh` が、`~/.claude/templates/cpp/` に配る (配布先の既存のファイルと同じ内容なので、`same`)。
+- **旧名の警告:** 配布先に、旧名の `cpp-mfc.md` が残っていると、`mfc-cpp.md` と同じ `paths` で、二重に読み込まれる。`install.sh` が、旧名を見つけたら、警告する (自動では、消さない)。**配布のあと、`rm ~/.claude/rules/cpp-mfc.md` が必要。**
+- **変換の道具 `scripts/convert_to_utf8_bom.py` を、取り込み、2 点、直した:** Shift-JIS (CP932) のソースを、UTF-8 (BOM 付き) / CRLF に変換する。`mfc-cpp.md` (29 行目) と `csharp-common.md` (87 行目) が、参照している。セッション履歴に、実行が 15 件あり、実際に使われていた (MFC のプロジェクトのソースの変換など)。もとは、`~/.claude/scripts/` にあり、リポジトリの外だった。`install.sh` が、`~/.claude/scripts/` に配る (`--scripts-dir`。`--rules-only` に含まれる)。**ビルドの流れには、組み込まれていない。手動で、ファイルを指定して、1 回だけ実行する** (規則の「変換だけの、別のコミット」)。
+  - **欠陥の修正 (1): BOM なしの UTF-8 を、Shift-JIS と誤認して、文字化けを、無警告で書き込んでいた。** UTF-8 の日本語は、CP932 としても、たまたま読めることが多く、往復の確認も、通ってしまう。実測で、日本語のコメント 16 行のうち、6 行が受理された (「`// 画像を読み込む`」が、「`// 逕ｻ蜒上ｒ隱ｭ縺ｿ霎ｼ繧\x80`」になる)。**UTF-8 として読めて、非 ASCII を含むファイルは、`NG` にして、書かない。** ASCII だけのファイルは、変換する (BOM が付く)。
+  - **欠陥の修正 (2): 存在しないファイルを指定すると、`FileNotFoundError` のトレースバックで止まっていた。** `NG` にして、ほかのファイルを、続けて処理する。
+  - 変換の部分 (CP932 の読み込み、往復の確認、単独の CR の拒否、CRLF への統一、BOM、末尾の改行) は、変えていない。
+- **見送ったもの:** `mfc-cpp.md` の分割 (`cpp-common.md` との分割。最初の非 MFC の C++ プロジェクトを取り込むときに、検討する)。ひな形の修正 (下の気づき)。ソースの文字コードを、ビルドのたびに、検出する仕組み (規則は、「編集の前に、人が、変換する」運用)。C++ の `/new-solution` が、`.clang-format` / `.editorconfig` / `.clang-tidy` を、生成する (WPF は、`.editorconfig` を生成する)。
+- **気づき (誤りではない):** ひな形の `.editorconfig` の `[*.{cpp,h,hpp}]` に、規則の `paths` にある `.cc` / `.cxx` が、ない。`.clang-format` の `ColumnLimit: 120` は、規則に書かれていない。`.editorconfig` に `trim_trailing_whitespace` がない (`templates/dotnet` は、`true`)。規則の 135 行目は、ユーザーの PC の絶対パス (`C:\Workspace\macsignee\...\mfciterators.h`) を参照している (別のマシンでは、動かない)。
+- テスト: `rules_split_test.sh` を、新しい名前に直し、8 件に (20 件)。`tests/convert_utf8_bom_test.sh` (新規。10 件。検証だけで書かない、`--apply` の変換、BOM 付きのスキップ、単独の CR、BOM なしの UTF-8 の拒否 (6 例)、存在しないファイル、CP932 として読めないバイト列、配布)。
+
 ## [2.40.0] 2026-11-03 (Skill 側と規則の記述の変更。スクリプトの動作と契約の変更なし。疑似フォルダと文字列の確認。**実機の確認は、未実施** (TEST-PLAN 2-21))
 
 - **`build-test-loop` の「UI テスト (FlaUI)」の節 (24.6KB) を、`references/ui-tests.md` (25.1KB) に分けた。** `SKILL.md` は、53.3KB から 30.0KB に減った (約 44%)。本文には、入口 (約 1.2KB) だけを残した: UI テストは、ビルド → テストの流れに含めない (`PASSED` になっても、自動では、続けて実行しない) / 実行するのは、ユーザーが求めたときと、`/ui-test-first` のループの中だけ / UI テストのプロジェクトがあっても、求められていなければ、実行しない / `uitest_once.sh` の基本形 / **UI テストを、実行する・書く・足す・失敗を調べるときは、先に `references/ui-tests.md` を読む**。

@@ -1,0 +1,7 @@
+# 上限 100 行の判定だけを有効にする (ほかのチェックは、無効)。
+# modernize-use-override は、`virtual` を消すため、有効にしない (規約: virtual と override の両方を書く)。
+Checks: '-*,readability-function-size'
+CheckOptions:
+  - key: readability-function-size.LineThreshold
+    value: '100'
+# ウィザード生成と外部ライブラリは、チェック対象にしない (ファイルを指定して実行するときに、除く)。

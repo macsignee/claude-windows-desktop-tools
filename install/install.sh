@@ -3,19 +3,21 @@
 #
 #   skills/*      -> ~/.claude/skills/            (WSL の Claude Code が読むユーザー Skill)
 #   host-tools/*  -> /mnt/c/tools/cpp-watcher/    (Windows 側で動かす 3 ファイル + README。C++ と .NET の両方に使う)
-#   rules/*.md    -> ~/.claude/rules/              (ユーザー共通のコーディング規約。C# / XAML を扱うときに、自動で読み込まれる)
+#   rules/*.md    -> ~/.claude/rules/              (ユーザー共通のコーディング規約。C++ / C# / XAML を扱うときに、自動で読み込まれる)
 #   templates/*   -> ~/.claude/templates/          (.editorconfig などのひな形)
+#   scripts/*     -> ~/.claude/scripts/            (規約が参照する道具。convert_to_utf8_bom.py = Shift-JIS から UTF-8 (BOM 付き) への変換)
 #
-# Usage: install/install.sh [--skills-dir DIR] [--host-dir DIR] [--rules-dir DIR] [--templates-dir DIR]
+# Usage: install/install.sh [--skills-dir DIR] [--host-dir DIR] [--rules-dir DIR] [--templates-dir DIR] [--scripts-dir DIR]
 #                           [--skills-only | --host-only | --rules-only] [--dry-run]
 #
 #   --skills-dir DIR  Skill のコピー先 (既定: $HOME/.claude/skills)
 #   --host-dir DIR    ホスト側ツールのコピー先 (既定: /mnt/c/tools/cpp-watcher)
 #   --rules-dir DIR   規約のコピー先 (既定: $HOME/.claude/rules)
 #   --templates-dir DIR  ひな形のコピー先 (既定: $HOME/.claude/templates)
+#   --scripts-dir DIR    規約が参照する道具のコピー先 (既定: $HOME/.claude/scripts)
 #   --skills-only     Skill だけをコピーする
 #   --host-only       ホスト側ツールだけをコピーする
-#   --rules-only      規約とひな形だけをコピーする (既存のファイルは、上書きせず、番号付きのバックアップ (~) を残す)
+#   --rules-only      規約・ひな形・道具 (scripts/) だけをコピーする (既存のファイルは、上書きせず、番号付きのバックアップ (~) を残す)
 #   --dry-run         何もコピーせず、行う内容だけを表示する
 #
 # 注意:
@@ -30,6 +32,7 @@ SKILLS_DIR="$HOME/.claude/skills"
 HOST_DIR="/mnt/c/tools/cpp-watcher"
 RULES_DIR="$HOME/.claude/rules"
 TEMPLATES_DIR="$HOME/.claude/templates"
+SCRIPTS_DIR="$HOME/.claude/scripts"
 DO_SKILLS=1
 DO_HOST=1
 DO_RULES=1
@@ -41,6 +44,7 @@ while [ $# -gt 0 ]; do
         --host-dir)   HOST_DIR="${2:?--host-dir に DIR が必要}"; shift 2 ;;
         --rules-dir)  RULES_DIR="${2:?--rules-dir に DIR が必要}"; shift 2 ;;
         --templates-dir) TEMPLATES_DIR="${2:?--templates-dir に DIR が必要}"; shift 2 ;;
+        --scripts-dir) SCRIPTS_DIR="${2:?--scripts-dir に DIR が必要}"; shift 2 ;;
         --skills-only) DO_HOST=0; DO_RULES=0; shift ;;
         --host-only)   DO_SKILLS=0; DO_RULES=0; shift ;;
         --rules-only)  DO_SKILLS=0; DO_HOST=0; shift ;;
@@ -121,6 +125,20 @@ if [ "$DO_RULES" -eq 1 ]; then
     while IFS= read -r -d '' f; do
         copy_file_backup "$REPO/templates/$f" "$TEMPLATES_DIR/$f"
     done < <(cd "$REPO/templates" && find . -type f -print0 | sed -z 's|^\./||')
+    echo "== 道具 -> $SCRIPTS_DIR"
+    while IFS= read -r -d '' f; do
+        copy_file_backup "$REPO/scripts/$f" "$SCRIPTS_DIR/$f"
+    done < <(cd "$REPO/scripts" && find . -type f -not -name '*.pyc' -not -path '*/__pycache__/*' -print0 | sed -z 's|^\./||')
+fi
+
+# 旧名の規則 (v2.41.0 で、cpp-mfc.md を mfc-cpp.md に改名して、リポジトリに取り込んだ。名前は、wpf-csharp.md などの <技術>-<言語> に揃えた):
+# 配布先に残っていると、同じ paths で、二重に読み込まれる。自動では、消さない (配布先は、ユーザーのフォルダ)。
+if [ "$DO_RULES" -eq 1 ] && [ "$DRY" -eq 0 ]; then
+    for old in cpp-mfc.md; do
+        if [ -f "$RULES_DIR/$old" ]; then
+            echo "!!  旧名の規則が残っています: $RULES_DIR/$old (新: mfc-cpp.md)。同じ paths で、二重に読み込まれるので、手で削除してください: rm \"$RULES_DIR/$old\""
+        fi
+    done
 fi
 
 # 旧名の Skill (v2.0.0 で、技術名を外した。v2.32.0 で、wpf-test-first を csharp-test-first に改名した): 配布先に残っていると、新しい Skill と description が重なり、取り違えの原因になる。
