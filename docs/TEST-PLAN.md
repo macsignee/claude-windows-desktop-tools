@@ -737,3 +737,11 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | LY1 | 新しい空のフォルダで、`/new-solution --type wpf --tests mstest` (`--layers` なし) | `--layers` の質問で、**推奨が `data,logic`**。選択肢に、`viewmodel` が出ない。答えて作成すると、`DataLayer` と `LogicLayer` (と `.Tests`) ができ、`ViewModels` は、できない | 主な合否 ✔、選択肢の出し方に逸脱あり (2026-11-03 実機。`CSharpTF\LY1`、`/new-solution --type wpf --tests mstest` (`--layers` なし)。履歴で確認)。`--layers` の質問で、**推奨は `data,logic (推奨)`** (説明: 「データ層 (Model) とロジック層を分ける。ViewModel はアプリの ViewModels/ フォルダに入る」)。**「data,logic」を選び**、UI テストは「なし」、TFM は既定 (`net10.0`)、作成は「はい」。作成されたもの: `DataLayer`、`DataLayer.Tests`、`LogicLayer`、`LogicLayer.Tests`、`LY1` (WPF アプリ)、`LY1.slnx`、`CLAUDE.md`。**`ViewModels` は、作られなかった。** ベースライン `PASSED` (2 件)。**逸脱: 選択肢に、`viewmodel` が出た** (`data,logic,viewmodel` = 「データ層・ロジック層に加え、ViewModel も独立したクラスライブラリにする。ViewModel もテストしたい場合」。ほかは、`logic のみ`、`none (層なし)`)。v2.38.0 の `SKILL.md` は、「選択肢に、`viewmodel` を出さない」としていたが、Claude は、推奨ではない 2 番目の選択肢として、出した。**推奨は `data,logic` のままで、「ViewModel もテストしたい場合」の説明つきなので、狙い (Model を含める、ViewModel は、テストしたいときに足す) には、合う。** 規則の文面と、実際の動作が、食い違っている。**決定 (ユーザー、2026-11-03): このままの結果で、修正は不要。`viewmodel` を、選択肢から外す強い考えはない** (推奨が `data,logic` で、`ViewModels` が作られず、「ViewModel もテストしたい場合」の説明つきで出るなら、よい)。`SKILL.md` の文面 (「選択肢に、`viewmodel` を出さない」) は、直さない。実行によって、`viewmodel` が出ることも、出ないことも、ある (どちらも許容)。ウォッチャーの版の `NOTE` (2.36.0 / Skill = 2.38.0) が、出た |
 | LY2 | LY1 の質問で、「ViewModel をテストしたい」と答える (または、依頼文に書く) | `data,logic,viewmodel` が、提案される | 見送り (2026-11-03、ユーザーの決定。LY1 で、推奨が `data,logic` であり、`viewmodel` が、「ViewModel もテストしたい場合」の説明つきの選択肢として出ることを確認できたため、LY2 の追加の確認は、不要) |
 
+### 2-20. 空のフォルダで、csharp-test-first が選ばれない問題への対応 (v2.39.0。`docs/DESIGN.md` 4.55)
+
+**v2.39.0 で追加。文字列の単体テストは通っている。実機の確認は、行わない** (ユーザーの決定。SK1 の再実行は、実行しない)。確認するなら、次のとおり (任意。新しいパス、メモリが空、`install.sh --skills-only` の後)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| SK1b | 空のフォルダで、「TDD で進めたい。テキストボックスに入力した文字をメッセージボックスで表示する機能を追加してください。」 | `Skill(csharp-test-first)` が呼ばれ、目隠しを環境の不具合と見なさず、`/new-solution` を案内して止まる | 見送り (実機の確認は、行わない。効果は、未確認) |
+

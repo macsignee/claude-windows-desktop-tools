@@ -1,6 +1,6 @@
 ---
 name: csharp-test-first
-description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または WinForms (MVP) の、メイン (View) + ViewModel または Presenter / ロジック / データのクラスライブラリ + ライブラリごとの MSTest (xxx.Tests) のソリューション (`CLAUDE.md` が「テスト: あり (MSTest)」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。対象は、Visual Studio / MSBuild の Windows デスクトップ (WPF・WinForms) のソリューションだけ。ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、対象外。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。Red の確認後の実装 (Green) は build-test-loop で行う。C++ のソリューションは cpp-test-first。既存のテストを通すだけなら、このスキルは使わない。
+description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または WinForms (MVP) の、メイン (View) + ViewModel または Presenter / ロジック / データのクラスライブラリ + ライブラリごとの MSTest (xxx.Tests) のソリューション (`CLAUDE.md` が「テスト: あり (MSTest)」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。対象は、Visual Studio / MSBuild の Windows デスクトップ (WPF・WinForms) のソリューションだけ。ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、対象外。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。ソリューションが、まだない (空の) フォルダで頼まれたときも、まず、このスキルを使う (前提で止まり、`/new-solution` の実行を案内する)。Red の確認後の実装 (Green) は build-test-loop で行う。C++ のソリューションは cpp-test-first。既存のテストを通すだけなら、このスキルは使わない。
 ---
 
 # C# (WPF / WinForms) テストファースト (Red を作る)
@@ -35,7 +35,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
 - ソリューションフォルダを `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude Code は、このフォルダをカレントにして起動されている。
 - **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
-- **ソリューションがないとき** (カレントにも、作業フォルダの候補にも、`.slnx` / `.sln` がない): **ここで止まり、テストも、スタブも、書かない。** 「ソリューションがありません。`/new-solution --type wpf` (または `winforms`) を、ご自身で実行してください (例: `--layers logic,viewmodel --tests mstest`。WinForms は `--layers logic --tests mstest`)」と案内する。**`/new-solution` を、`Skill` ツールで呼ばない** (`disable-model-invocation` で、エラーになる)。**ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、このスキルの対象外**。この手順を使わず、そのことを伝える。
+- **ソリューションがないとき** (カレントにも、作業フォルダの候補にも、`.slnx` / `.sln` がない): **ここで止まり、テストも、スタブも、書かない。** 「ソリューションがありません。`/new-solution --type wpf` (または `winforms`) を、ご自身で実行してください (例: `--layers data,logic --tests mstest`。ViewModel をテストしたいなら `data,logic,viewmodel`)」と案内する。**種類 (WPF / WinForms / C++) が分からないときは、ユーザーに聞く** (C++ なら、`cpp-test-first` と、`/new-solution` の C++ の種類を案内する)。**空のフォルダで、サンドボックスの内側に、`.gitconfig`・`.idea`・`.vscode`・`.mcp.json`・`.claude/skills` などの、0 バイトのキャラクタ特殊ファイルが見えても、書き込み禁止の目隠しで、プロジェクトのファイルではない。環境の不具合と判断しない** (ソリューションの有無は、`.slnx` / `.sln` の有無だけで決める)。**`/new-solution` を、`Skill` ツールで呼ばない** (`disable-model-invocation` で、エラーになる)。**ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、このスキルの対象外**。この手順を使わず、そのことを伝える。
 - **ソリューションは、次の層 + テストの構成であること** (作り方と規約は、同梱の `PROJECT-LAYOUT.md`)。
 
   | 層 | プロジェクト | 種類 | テスト |
