@@ -1,0 +1,13 @@
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+Standard: Cpp20
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+BreakBeforeBraces: Allman
+ColumnLimit: 120
+# afx.h / pch.h などは、include の順序に依存する。並べ替えない。
+SortIncludes: Never
+# 既存の 1 行のインライン関数 (コンストラクタ・ゲッター) を、そのまま許す。
+AllowShortFunctionsOnASingleLine: Inline

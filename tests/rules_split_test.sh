@@ -30,5 +30,31 @@ ok "a plain .cs read (common only) <= 15000 bytes (${bc})" "$([ "$bc" -le 15000 
 out="$(bash "$ROOT/install/install.sh" --rules-only --dry-run --rules-dir "${TMPDIR:-/tmp}/rs_$$" 2>&1)"
 ok "install.sh --rules-only --dry-run lists the 3 rule files" "$(echo "$out" | grep -q 'csharp-common.md' && echo "$out" | grep -q 'wpf-csharp.md' && echo "$out" | grep -q 'winforms-csharp.md' && echo 1 || echo 0)"
 
+# C++ / MFC の規則 (mfc-cpp.md) と、C++ のひな形 (templates/cpp/) も、リポジトリに入っている (v2.41.0)。
+# 名前は、wpf-csharp.md / winforms-csharp.md の <技術>-<言語> に揃えた (旧名 cpp-mfc.md は、取り込む前に、リポジトリの外にあった)
+CPP="$ROOT/rules/mfc-cpp.md"
+ok "mfc-cpp.md is in the repo (named like wpf-csharp.md), the old cpp-mfc.md is not; paths are the C++ extensions only (not **/*.cs), UTF-8 without BOM, LF" "$([ -f "$CPP" ] && [ ! -e "$ROOT/rules/cpp-mfc.md" ] && head -n 1 "$CPP" | grep -q '^---$' && fm "$CPP" | grep -q '"\*\*/\*\.cpp"' && fm "$CPP" | grep -q '"\*\*/\*\.h"' && ! fm "$CPP" | grep -q '\.cs"' && [ "$(head -c3 "$CPP" | xxd -p)" = 2d2d2d ] && ! grep -q $'\r' "$CPP" && grep -q '^# C++ / MFC コーディング規約' "$CPP" && echo 1 || echo 0)"
+ok "mfc-cpp.md: CView::m_pDocument is not called public (it is protected in afxwin.h)" "$(grep -q 'CView::m_pDocument` (`protected`。派生クラスから触れる)' "$CPP" && ! grep -q '`public` メンバー変数 (`CWnd::m_hWnd`、`CView::m_pDocument`' "$CPP" && echo 1 || echo 0)"
+ok "mfc-cpp.md: iterating MFC collections with iterators is a recommendation (not required), mfciterators.h is only an example without the personal absolute path" "$(grep -q '使うことを、推奨する\*\* (必須ではない。使わなくてもよい)' "$CPP" && grep -q '\*\*一例:\*\* 自作の `mfciterators.h`' "$CPP" && grep -q '特定のファイルに、固定しない' "$CPP" && ! grep -q 'C:\\Workspace' "$CPP" && ! grep -q '実装例:\*\* 自作の' "$CPP" && echo 1 || echo 0)"
+ok "wpf-csharp.md refers to mfc-cpp.md (not the old name) and the file exists in the repo" "$(grep -q 'mfc-cpp.md' "$W" && ! grep -q 'cpp-mfc.md' "$W" && [ -f "$CPP" ] && echo 1 || echo 0)"
+CPPT="${TMPDIR:-/tmp}/rs_cpp_$$"; bash "$ROOT/install/install.sh" --rules-only --rules-dir "$CPPT" --templates-dir "$CPPT/t" --scripts-dir "$CPPT/s" >/dev/null 2>&1
+ok "install.sh --rules-only copies mfc-cpp.md (identical to the repo)" "$([ -f "$CPPT/mfc-cpp.md" ] && cmp -s "$CPPT/mfc-cpp.md" "$CPP" && echo 1 || echo 0)"
+ok "install.sh copies templates/cpp/ (.clang-format .clang-tidy .editorconfig)" "$([ -f "$CPPT/t/cpp/.clang-format" ] && [ -f "$CPPT/t/cpp/.clang-tidy" ] && [ -f "$CPPT/t/cpp/.editorconfig" ] && echo 1 || echo 0)"
+rm -rf "$CPPT" 2>/dev/null
+# 旧名 (cpp-mfc.md) が、配布先に残っているとき、警告が出る (二重に読み込まれるため)
+CPPO="${TMPDIR:-/tmp}/rs_old_$$"; mkdir -p "$CPPO"; echo old > "$CPPO/cpp-mfc.md"
+out="$(bash "$ROOT/install/install.sh" --rules-only --rules-dir "$CPPO" --templates-dir "$CPPO/t" --scripts-dir "$CPPO/s" 2>&1)"
+ok "install.sh warns when the old cpp-mfc.md is left in the rules folder (it would be loaded twice)" "$(echo "$out" | grep -q '旧名の規則が残っています' && echo "$out" | grep -q 'mfc-cpp.md' && [ -f "$CPPO/cpp-mfc.md" ] && echo 1 || echo 0)"
+rm -rf "$CPPO" 2>/dev/null
+
+# templates/cpp/: mfc-cpp.md の規則 (Allman、スペース 4、include の順序を変えない、関数は 100 行まで、CRLF、charset を書かない) と食い違わない
+TC="$ROOT/templates/cpp"
+ok "templates/cpp matches mfc-cpp.md (Allman, indent 4, SortIncludes Never, function-size 100, CRLF for cpp/h/hpp, no charset line)" "$(grep -q 'BreakBeforeBraces: Allman' "$TC/.clang-format" && grep -q 'IndentWidth: 4' "$TC/.clang-format" && grep -q 'UseTab: Never' "$TC/.clang-format" && grep -q 'SortIncludes: Never' "$TC/.clang-format" && grep -q "LineThreshold" "$TC/.clang-tidy" && grep -q "value: '100'" "$TC/.clang-tidy" && grep -q 'readability-function-size' "$TC/.clang-tidy" && grep -q 'end_of_line = crlf' "$TC/.editorconfig" && grep -q 'indent_size = 4' "$TC/.editorconfig" && ! grep -q '^charset' "$TC/.editorconfig" && grep -q 'LineThreshold: 100' "$CPP" && echo 1 || echo 0)"
+
+# 再発防止 (v2.41.0): install.sh を実際に実行する (ドライランでも --skills-only でもない) テストは、--scripts-dir を、必ず、渡す。
+# 渡さないと、ホームの ~/.claude/scripts/ を、テストが、実際に上書きしてしまう (2026-11-03 に起きた。バックアップ .~1~ が残った)。
+bad_install="$(grep -n 'install\.sh"\? ' "$ROOT"/tests/*.sh | grep -v 'dry-run' | grep -v -- '--skills-only' | grep -v -- '--scripts-dir' | grep -v '^[^:]*:[0-9]*:[[:space:]]*#' | grep -v 'ok "' )"
+ok "no test runs install.sh for real (not dry-run, not --skills-only) without --scripts-dir (it would overwrite the real ~/.claude/scripts)" "$([ -z "$bad_install" ] && echo 1 || { echo "$bad_install" >&2; echo 0; })"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]

@@ -761,3 +761,13 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 3. **決定 (ユーザー、2026-11-03): 直さない。** 「先に読む」を、場面を指定する書き方 (例: `TEST_TIMEOUT` になったとき、同じ失敗が 2 回続いたとき、ダイアログ・メニュー・コンボを操作するとき) に直す案は、見送り。実害が出たときに、足す。BT3 (例外の場面で読まれるか) も、スキップ。
 4. **`build-test-loop` の `test_guard.py` の節 (B) の分離は、見送り** (2026-11-03、ユーザーの決定。DESIGN 4.56)。実際に分離できるのは、約 1.3〜1.9KB (4〜6%) で、毎回必要な `TEST_GUARD:` 行と `RESULT_INFO:` / `NOTE` の説明、安全規則を含むため。`SKILL.md` の見直しは、ここで完了 (53.3KB → 30.0KB)。
 
+### 2-22. C++ / MFC の規則 (`mfc-cpp.md`)・ひな形 (`templates/cpp/`)・変換の道具 (`scripts/convert_to_utf8_bom.py`) の取り込み (v2.41.0。`docs/DESIGN.md` 4.57)
+
+**v2.41.0 で追加。文字列と、道具の単体テストは通っている (`rules_split_test.sh`、`convert_utf8_bom_test.sh`)。実機では、`install.sh` の出力で確かめる。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| CR1 | `install/install.sh --rules-only` を実行する | 出力の「規約」に、`mfc-cpp.md` が、新しいファイルとして出る (旧名がないので、`same` ではなく、コピー)。**配布先に旧名 `cpp-mfc.md` が残っていると、「旧名の規則が残っています」の警告が出る** | 未実施 (任意) |
+| CR2 | CR1 の警告が出たら、`rm ~/.claude/rules/cpp-mfc.md` を実行し、もう一度 `install.sh --rules-only` を実行する | 警告が出ない。`~/.claude/rules/` に、`mfc-cpp.md` だけがある (旧名がない) | 未実施 (任意) |
+| CR3 | `install/install.sh --rules-only` の「ひな形」の出力 | `~/.claude/templates/cpp/` の 3 ファイルは、すでに同じ内容なので、`same` | 未実施 (任意) |
+| CR4 | `install/install.sh --rules-only` の「道具」の出力 | `~/.claude/scripts/convert_to_utf8_bom.py` が、更新される (修正のため、配布先の旧い版と、内容が違う。旧い版は、`convert_to_utf8_bom.py.~1~` として、バックアップされる)。配布のあとは、`python3 -I ~/.claude/scripts/convert_to_utf8_bom.py <BOM なしの UTF-8 のファイル>` が `NG` を出す | 未実施 (任意) |

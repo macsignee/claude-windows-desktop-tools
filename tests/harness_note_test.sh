@@ -13,7 +13,7 @@ ok() { if [ "$2" = 1 ]; then PASS=$((PASS+1)); echo "ok   $1"; else FAIL=$((FAIL
 b() { [ "$1" = 0 ] && echo 1 || echo 0; }
 
 # --- 配布 (一時フォルダへ)
-bash "$ROOT/install/install.sh" --skills-dir "$T/skills" --host-dir "$T/host" --rules-dir "$T/rules" --templates-dir "$T/tpl" >"$T/inst.log" 2>&1
+bash "$ROOT/install/install.sh" --skills-dir "$T/skills" --host-dir "$T/host" --rules-dir "$T/rules" --templates-dir "$T/tpl" --scripts-dir "$T/scripts" >"$T/inst.log" 2>&1
 ok "install: succeeds" "$(b $?)"
 V="$(tr -d '\r\n' < "$ROOT/VERSION")"
 ok "install: the repo VERSION is placed in every skill ($(ls -d "$ROOT"/skills/*/ | wc -l) skills)" "$(for d in "$ROOT"/skills/*/; do [ "$(cat "$T/skills/$(basename "$d")/VERSION" 2>/dev/null)" = "$V" ] || exit 1; done; echo 1)"

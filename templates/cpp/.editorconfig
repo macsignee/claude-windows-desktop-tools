@@ -1,0 +1,18 @@
+root = true
+
+# 新しく書くソース: CRLF、スペース 4。
+# charset は書かない: EditorConfig には CP932 を表す値がなく、`utf-8-bom` を全体に書くと、
+# VS が、保存のときに、Shift-JIS の既存ファイルを、意図せず変換する。
+# 変換が終わった (UTF-8 BOM 付きにした) フォルダにだけ、そのフォルダ用の節で `charset = utf-8-bom` を足す。
+[*.{cpp,h,hpp}]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+
+# サードパーティのコード・ビルド生成物のフォルダは、プロジェクトごとに、次の形で、規則を外す。
+# [{vendor/**,include/**}]
+# end_of_line = unset
+# indent_style = unset
+# indent_size = unset
+# insert_final_newline = unset
