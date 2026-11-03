@@ -37,14 +37,14 @@ C++ と WPF の統合 (v2.4.x〜v2.5.5) に関わる節 (1-5 / 1-6 / 1-7 / UI �
 ## 0. 事前準備
 
 - テスト用の C++ ソリューション (`MyApp.sln`): `MyApp` (本体) と `MyAppTest` (GoogleTest、`MyApp` をプロジェクト参照)。
-- ホスト側ツール 3 ファイルを、同じフォルダに配置 (例: `C:\tools\cpp-watcher\`)。形式が崩れていないこと。
+- ホスト側ツール 3 ファイルを、同じフォルダに配置 (例: `C:\tools\claude-watcher\`。v2.42.0 より前は `cpp-watcher`)。形式が崩れていないこと。
   ```powershell
-  Get-Content C:\tools\cpp-watcher\watch_and_build.ps1 -Encoding Byte -TotalCount 3   # 239 187 191 なら BOM あり
+  Get-Content C:\tools\claude-watcher\watch_and_build.ps1 -Encoding Byte -TotalCount 3   # 239 187 191 なら BOM あり
   ```
 - Skill を `~/.claude/skills/` (または、プロジェクトの `.claude/skills/`) に配置 → **新しいセッション**で起動。
 - ウォッチャーの起動:
   ```bat
-  C:\tools\cpp-watcher\run_watcher.cmd C:\path\to\MyApp
+  C:\tools\claude-watcher\run_watcher.cmd C:\path\to\MyApp
   ```
   ヘッダーに `QuickEdit : disabled` が出ること。
 
@@ -767,7 +767,19 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CR1 | `install/install.sh --rules-only` を実行する | 出力の「規約」に、`mfc-cpp.md` が、新しいファイルとして出る (旧名がないので、`same` ではなく、コピー)。**配布先に旧名 `cpp-mfc.md` が残っていると、「旧名の規則が残っています」の警告が出る** | 未実施 (任意) |
-| CR2 | CR1 の警告が出たら、`rm ~/.claude/rules/cpp-mfc.md` を実行し、もう一度 `install.sh --rules-only` を実行する | 警告が出ない。`~/.claude/rules/` に、`mfc-cpp.md` だけがある (旧名がない) | 未実施 (任意) |
+| CR1 | `install/install.sh --rules-only` を実行する | 出力の「規約」に、`mfc-cpp.md` が、新しいファイルとして出る (旧名がないので、`same` ではなく、コピー)。旧名の警告は、v2.42.0 で削除した (出ない) | 未実施 (任意) |
+| CR2 | (削除) 旧名 `cpp-mfc.md` の警告と、その確認 | v2.42.0 で、旧名の警告を削除したため、確認は、なし。旧名 `~/.claude/rules/cpp-mfc.md` は、ユーザーが、手で削除する | 削除済み (2026-11-03。実機で、削除を確認) |
 | CR3 | `install/install.sh --rules-only` の「ひな形」の出力 | `~/.claude/templates/cpp/` の 3 ファイルは、すでに同じ内容なので、`same` | 未実施 (任意) |
 | CR4 | `install/install.sh --rules-only` の「道具」の出力 | `~/.claude/scripts/convert_to_utf8_bom.py` が、更新される (修正のため、配布先の旧い版と、内容が違う。旧い版は、`convert_to_utf8_bom.py.~1~` として、バックアップされる)。配布のあとは、`python3 -I ~/.claude/scripts/convert_to_utf8_bom.py <BOM なしの UTF-8 のファイル>` が `NG` を出す | 未実施 (任意) |
+
+### 2-23. リポジトリ名の変更と、ウォッチャーの配布先・ミューテックス名の変更 (v2.42.0。`docs/DESIGN.md` 4.58)
+
+**v2.42.0 で追加。文字列と、`install.sh` の単体テストは通っている (`host_tools_static_test.sh`)。ホスト側 (`watch_and_build.ps1`) は、この環境では、実行できないので、実機で確かめる。** 事前に、**動いているウォッチャーを、すべて止める。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| RN1 | `install/install.sh` (または `--host-only`) を実行する | 「ホスト側ツール -> /mnt/c/tools/claude-watcher」と、「Windows 側のパス: C:\tools\claude-watcher」が出る。旧い配布先の警告は、ない (v2.42.0 で削除。旧い `C:\tools\cpp-watcher\` は、ユーザーが、手で削除する) | 未実施 |
+| RN2 | `C:\tools\claude-watcher\run_watcher.cmd <プロジェクトのフォルダ>` を実行する | 起動バナーに、`Version      : 2.42.0` が出る (HV1 と同じ) | 未実施 |
+| RN3 | RN2 のウォッチャーを動かしたまま、同じフォルダで、もう 1 つ、ウォッチャーを起動する | 2 つ目が、`ERROR: a watcher is already running for this folder: ...` で、拒否される (新しいミューテックス名で、排他が効く。TEST-PLAN 1-4 と同じ) | 未実施 |
+| RN4 | RN1〜RN3 を確認したら、旧い `C:\tools\cpp-watcher\` を削除し、Windows 側のショートカットなどが、新しいパスを指していることを確かめる | 旧いパスを、指すものが、残っていない | 未実施 (任意) |
+

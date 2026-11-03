@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.42.0] 2026-11-03 (**契約の変更: ウォッチャーのミューテックス名。ホスト側ツールの再配置と、ウォッチャーの再起動が必要。** リポジトリ名と、ホスト側の配布先の既定のフォルダ名の変更。スキルと規則の動作の変更なし。疑似フォルダと文字列の確認。**実機の確認は、ウォッチャーの起動と二重起動** (TEST-PLAN 2-23))
+
+- **リポジトリ名を、`cpp-claude-build-tools` から `claude-windows-desktop-tools` に変更する** (ユーザーの決定。C++ 専用ではなくなったため。Windows デスクトップの C++ / MFC / Win32 / WPF / WinForms / C#)。GitHub での名前の変更、手元のフォルダの名前の変更、メモリの更新は、ユーザーの作業 (DESIGN 4.58 の手順)。
+- **ウォッチャーのミューテックス名を、`Local\cpp-claude-build-tools-watcher-<hash>` から `Local\claude-windows-desktop-tools-watcher-<hash>` に変えた** (`host-tools/watch_and_build.ps1`。UTF-8 BOM + CRLF を保った)。**新旧のウォッチャーは、同じフォルダで、互いを排他しない。ウォッチャーを、すべて止めてから、再配置して、起動し直す。**
+- **ホスト側の配布先の既定を、`/mnt/c/tools/cpp-watcher` (`C:\tools\cpp-watcher\`) から `/mnt/c/tools/claude-watcher` (`C:\tools\claude-watcher\`) に変えた** (`install.sh`)。`cpp` が、C++ 専用に見えるため。`--host-dir` で、配布先を、変えることは、これまでどおり。旧い配布先 (`C:\tools\cpp-watcher\`) は、**ユーザーが、手で削除する** (公開前で、旧名を使う人が、ほかにいないため、`install.sh` は、警告しない)。
+- README、`host-tools/README.md`、DESIGN (契約の項とリポジトリ名)、TEST-PLAN の手順の例のパスを、新しい名前に直した。**履歴の記述 (CHANGELOG の過去の版、TEST-PLAN の過去の結果、引き継ぎ文書) の旧名は、書き換えていない。**
+- 変えなかったもの: 言語固有の名前 (`cpp-test-first`、`mfc-cpp.md`、`templates/cpp/`、`add_layer.py` など)。
+- テスト: `host_tools_static_test.sh` に 3 件 (ミューテックス名、既定の配布先、`--host-only` が 3 つのファイルと VERSION をコピーする)。`rules_split_test.sh` の再発防止の検査に、「`--host-only` で実際に実行するテストは、`--host-dir` を渡す」を足した。`new_solutions_test.sh` の、配置先のパスを固定で書かない検査を、新旧の名前の両方に。
+- **旧名の警告を、すべて、削除した (ユーザーの指示。公開前で、旧名を使う人が、ほかにいないため):** `install.sh` の、旧い配布先 `cpp-watcher` (v2.42.0)、旧名の規則 `cpp-mfc.md` (v2.41.0)、旧名の Skill `cpp-auto-build` / `cpp-build-test-loop` / `wpf-test-first` (v2.0.0 / v2.32.0) の、3 つの警告と、環境変数 `OLD_HOST_DIR`、それらのテスト (`rules_split_test.sh`、`host_tools_static_test.sh`)。README の、旧名の併記と、旧名の削除の項も、外した。**手元の環境の旧いものは、手で削除する** (`~/.claude/rules/cpp-mfc.md` は、削除済み。`C:\tools\cpp-watcher\` は、残っている)。
+
 ## [2.41.0] 2026-11-03 (規則 (`rules/`) とひな形 (`templates/`) の取り込み。規則の 1 か所の誤りの修正と、改名。スクリプトの動作と契約の変更なし。疑似フォルダと文字列の確認。**実機の確認は、`install.sh` の出力の確認のみ** (TEST-PLAN 2-22))
 
 - **C++ / MFC の規則を、リポジトリに取り込み、`rules/mfc-cpp.md` (19KB) にした。** もとは、`~/.claude/rules/cpp-mfc.md` (2026-10-16 作成。ユーザー個人の規則で、リポジトリの外にあり、`git` の履歴が、なく、`install.sh` も配らなかった)。`paths` は、`**/*.cpp` `**/*.h` `**/*.hpp` `**/*.cc` `**/*.cxx` で、すでに C++ に絞られている。

@@ -1,4 +1,4 @@
-# cpp-claude-build-tools
+# claude-windows-desktop-tools
 
 Claude Code (WSL) が、Windows 側の Visual Studio で、**C++ (GoogleTest) と .NET (WPF / WinForms / C# クラスライブラリ。MSTest) の、ビルドとテストを実行し、エラーや失敗を自分で直す**ためのツール一式。
 
@@ -18,7 +18,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 - [`rules/`](rules/): ユーザー共通のコーディング規約 (4 つ。→ 「3. 規約 (rules)」)。配布先: `~/.claude/rules/` (WSL)。
 - [`templates/`](templates/): 規約が参照する、設定ファイルのひな形 (→ 「4. ひな形 (templates)」)。配布先: `~/.claude/templates/` (WSL)。
 - [`scripts/`](scripts/): 規約が参照する道具 (→ 「5. 道具 (scripts)」)。配布先: `~/.claude/scripts/` (WSL)。
-- [`host-tools/`](host-tools/): Windows 側のウォッチャーと、起動・ビルド用の `.cmd` (→ 「6. ホスト側ツール」)。配布先: Windows 側の任意のフォルダ (既定: `C:\tools\cpp-watcher\`)。
+- [`host-tools/`](host-tools/): Windows 側のウォッチャーと、起動・ビルド用の `.cmd` (→ 「6. ホスト側ツール」)。配布先: Windows 側の任意のフォルダ (既定: `C:\tools\claude-watcher\`)。
 - [`install/`](install/): `install.sh` (配布先へコピーする。バイトを変えない。→ 「7. 配布」)。
 - [`tools/`](tools/): `check-formats.sh` (文字コード・改行・BOM の検証)。
 - [`tests/`](tests/): 単体テスト (`*_test.sh`。→ 「8. テスト」)。Windows は不要。
@@ -96,7 +96,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 - `winforms-csharp.md` (24KB): WinForms / MVP の固有部分。`paths`: `*.Designer.cs` `Forms/` `Presenters/` `*Presenter*.cs` `I*View.cs`。
 - 読み込みの大きさの目安: WinForms の Presenter = `csharp-common.md` + `winforms-csharp.md`。WPF の ViewModel = `csharp-common.md` + `wpf-csharp.md`。画面と無関係の `.cs` = `csharp-common.md` だけ。
 - プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらが、優先される。書式の詳細は、プロジェクトの `.editorconfig` (C++ は `.clang-format`) が正。
-- 配布: `install/install.sh --rules-only`。**旧名 `cpp-mfc.md` が配布先に残っていると、`mfc-cpp.md` と二重に読み込まれる。削除する** (`install.sh` が警告する)。
+- 配布: `install/install.sh --rules-only`。
 
 ## 4. ひな形 (`templates/`)
 
@@ -133,7 +133,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
   ```
 - 配るもの (オプションなしは、すべて):
   - Skill → `~/.claude/skills` (`--skills-only`)。
-  - ホスト側ツール → `/mnt/c/tools/cpp-watcher` (`--host-only`)。
+  - ホスト側ツール → `/mnt/c/tools/claude-watcher` (`--host-only`)。
   - 規約・ひな形・道具 → `~/.claude/rules`、`~/.claude/templates`、`~/.claude/scripts` (`--rules-only`)。
   - **Skill だけを配っても、規約は、配られない。** 規約を変えたときは、`--rules-only` も、実行する。
 - 配布先を変えるオプション: `--skills-dir DIR`、`--host-dir DIR`、`--rules-dir DIR`、`--templates-dir DIR`、`--scripts-dir DIR`。
@@ -141,7 +141,6 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 - 配布先は、**コピー先であって、編集する場所ではない。** 直すときは、このリポジトリを直して、配り直す。
 - Skill を読み込ませるには、Claude Code のセッションを、新しく起動する。ホスト側を再配置したら、ウォッチャーを再起動する (起動時に読み込むため)。
 - 配布先に、このリポジトリの版 (`VERSION`) も置く (各 Skill のフォルダと、ホスト側のフォルダ)。ウォッチャーは、起動バナーに版を出し、結果の `run_id.txt` に書く。Skill 側 (`*_once.sh`) が照合し、**不一致なら、出力の末尾に `NOTE:` を出す (警告だけ。実行は止めない)。**
-- 旧名が配布先に残っていたら、削除する (`install.sh` が警告する): Skill の `cpp-auto-build`、`cpp-build-test-loop`、`wpf-test-first`。規約の `cpp-mfc.md`。
 
 ## 8. テスト (`tests/`)
 

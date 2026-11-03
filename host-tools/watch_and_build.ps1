@@ -298,7 +298,7 @@ $sha1 = [System.Security.Cryptography.SHA1]::Create()
 $pathHash = (($sha1.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($TargetDir.ToLowerInvariant())) |
     ForEach-Object { $_.ToString("x2") }) -join "")
 $createdNew = $false
-$WatcherMutex = New-Object System.Threading.Mutex($true, "Local\cpp-claude-build-tools-watcher-$pathHash", [ref]$createdNew)
+$WatcherMutex = New-Object System.Threading.Mutex($true, "Local\claude-windows-desktop-tools-watcher-$pathHash", [ref]$createdNew)
 if (-not $createdNew) {
     Write-Host "ERROR: a watcher is already running for this folder: $TargetDir" -ForegroundColor Red
     Write-Host "       Use that window, or close it first." -ForegroundColor Red

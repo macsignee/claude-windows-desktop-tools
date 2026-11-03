@@ -79,5 +79,14 @@ ok "run_watchers.cmd: the folder of the file is kept in HERE before the argument
 ok "run_watchers.cmd: /list starts nothing; no candidate -> message; default folder = current" "$(grep -qF '/i "%~1"=="/list"' "$WS" && grep -qF 'if defined LISTONLY exit /b 0' "$WS" && grep -qF 'No candidate folder' "$WS" && grep -qF 'set "WORK=%CD%"' "$WS" && echo 1 || echo 0)"
 ok "run_watchers.cmd: balanced parentheses outside echo / rem lines" "$(grep -v '^rem' "$WS" | grep -v 'echo' | tr -d '\r' | python3 -c 'import sys;t=sys.stdin.read();print(1 if t.count("(")==t.count(")") else 0)')"
 
+# v2.42.0: リポジトリ名の変更 (cpp-claude-build-tools -> claude-windows-desktop-tools)、ホスト側の配布先の変更 (cpp-watcher -> claude-watcher)
+ok "ps1: the named mutex uses the new repo name (not the old one)" "$(grep -qF -- 'Local\claude-windows-desktop-tools-watcher-$pathHash' "$PS" && ! grep -q 'cpp-claude-build-tools' "$PS" && echo 1 || echo 0)"
+INS="$ROOT/install/install.sh"
+ok "install.sh: the default host folder is claude-watcher" "$(grep -q '^HOST_DIR="/mnt/c/tools/claude-watcher"' "$INS" && echo 1 || echo 0)"
+HT="${TMPDIR:-/tmp}/ht_$$"; mkdir -p "$HT"
+bash "$INS" --host-only --host-dir "$HT/new" >/dev/null 2>&1
+ok "install.sh --host-only copies the 3 watcher files (and VERSION) to the given folder" "$([ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
+rm -rf "$HT" 2>/dev/null
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
