@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.38.0] 2026-11-03 (Skill 側のみ。`new-solution` の SKILL.md の記述。スクリプトと契約の変更なし。文字列の確認のみ。**実機の確認は、未実施** (TEST-PLAN 2-19))
+
+- **`/new-solution --type wpf` で `--layers` を省略したときの推奨を、`data,logic` と明記した** (データ層 = Model を含める)。**選択肢に、`viewmodel` を出さない。** ViewModel を**テストしたい**と言われたら、`viewmodel` を足した `data,logic,viewmodel` を提案する (`viewmodel` がないと、ViewModel は、アプリの `ViewModels/` に入り、テストできない。あとから足すこともできる: `csharp-test-first` の `references/setup.md`)。**`--layers` の指定がある場合は、そのまま使う** (層を、勝手に足さない)。
+- **経緯:** 実機の確認 (SK2・SU2) で、ViewModel 層は作られるが、データ層 (Model) が作られないことに、違和感が出た。原因は、**既定ではなく、確認の手順で案内した引数** (`--layers logic,viewmodel`、`--layers logic`) だった。スクリプトには、`--layers` の既定がなく、省略するとエラーになる (既定は、`SKILL.md` の質問にだけある)。質問の経路では、すでに `viewmodel` は選択肢になく、`logic,data` が推奨だった。今回は、WPF でも同じ推奨であることと、`viewmodel` の扱いを、明記した。
+- **実機の確認 (LY1) の結果:** 推奨は `data,logic`、`ViewModels` は作られず、期待どおり。ただし、Claude は、`viewmodel` を、「ViewModel もテストしたい場合」の説明つきの、推奨ではない選択肢として出した (文面は「出さない」)。**ユーザーは、許容し、文面は直さない**。
+- **見送ったもの:** 層のプロジェクト名を `<ソリューション名>.<層名>` にする案 (規模が大きく、`wpf-check` / `winforms-check` が、プロジェクト名の正規表現で層を判定するため、ソリューション名が、判定に混ざる)。
+- テスト: `new_solution_wpf_test.sh` に 1 件 (61 件)。
+
 ## [2.37.0] 2026-11-02 (Skill 側のみ。`csharp-test-first` の `SKILL.md` の分割。契約の変更なし。疑似フォルダと文字列の確認。**実機の確認は、未実施** (TEST-PLAN 2-18))
 
 - **`csharp-test-first` の「セットアップ」(層やテストを、あとから足す手順。3.9KB) を、`references/setup.md` に分けた。** `SKILL.md` は、33.1KB から 30.2KB に減った (約 9%)。本文には、入口 (約 1KB) だけを残した: 足りないときだけ `references/setup.md` を読む / **自分で `.csproj` や `.sln` / `.slnx` を手書きしない、既存のプロジェクトを上書きしない、ベースラインが緑になる前に本物のテストを書かない** (読まなくても守る規則) / `テスト: なし` のときは使えない (案内して止まる)。
