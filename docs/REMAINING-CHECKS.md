@@ -34,7 +34,7 @@
 | 旧 NuGet 方式の廃止 (v2.31.0) | 2-14 | GN1〜GN4 | 旧方式のテストと、vcpkg 方式のテストが、同じソリューションで共存する |
 | ビルド結果の要約の行 | 1-8 | H9 | `build_test_once.sh` (2026-10-25)、`uitest_once.sh` (2026-10-31) |
 | `/new-solution` (C++) | 2-0c | N2、N3v ほか (✔ の行) | 詳細は、TEST-PLAN の 2-0c |
-| テスト先行 Skill の改名 (v2.32.0) | 2-15 | CT1〜CT5、CW1、SU1・SU2、UQ1〜UQ4、LY1 | WinForms (CT1・CT2)・WPF (CT3) の依頼文から `csharp-test-first` が選ばれ、C++ (CT4) では `cpp-test-first` が選ばれ、ASP.NET Core (CT5) ではどちらも選ばれない。CW1 = v2.34.0 の読み替え表。SU1・SU2 = v2.37.0 の「セットアップ」の分離。SU1 は、足りない層の場面で `references/setup.md` を読み、`add_project.py` で層を足した。SU2 は、通常の流れで読まなかった (主な合否 ✔。(5) 報告の先頭は ✗)。LY1 = v2.38.0: WPF で `--layers` を省略した質問の推奨が `data,logic`、`ViewModels` は作られない (選択肢に `viewmodel` が出るが、許容。文面は直さない)。WinForms が Presenter と `IView` の Fake で、Green まで進む (`test_guard`・`winforms-check` を含む)。v2.33.0: `/new-solution` が、WinForms・WPF・MFC ダイアログで `--ui-tests` を質問し (UQ1〜UQ3)、`csharp-dll` では質問しない (UQ4)。最初の動作は、実行ごとに揺れる (CT2 の別の実行)。CT3 は、Red 後の確認と `test_guard` が、守られなかった (TEST-PLAN の知見 4) |
+| テスト先行 Skill の改名 (v2.32.0) | 2-15 | CT1〜CT5、CW1、SU1・SU2、UQ1〜UQ4、LY1、BT1・BT2 | WinForms (CT1・CT2)・WPF (CT3) の依頼文から `csharp-test-first` が選ばれ、C++ (CT4) では `cpp-test-first` が選ばれ、ASP.NET Core (CT5) ではどちらも選ばれない。CW1 = v2.34.0 の読み替え表。SU1・SU2 = v2.37.0 の「セットアップ」の分離。SU1 は、足りない層の場面で `references/setup.md` を読み、`add_project.py` で層を足した。SU2 は、通常の流れで読まなかった (主な合否 ✔。(5) 報告の先頭は ✗)。BT1・BT2 = v2.40.0 の `build-test-loop` の UI テストの節の分離。BT1 は、ベースラインで `build-test-loop` が読み込まれ、`PASSED`、`references/ui-tests.md` は読まれなかった。BT2 は、`/ui-test-first` の Red → Green が通った (分離で壊れていない。`references/ui-tests.md` は読まれず、不要だった)。LY1 = v2.38.0: WPF で `--layers` を省略した質問の推奨が `data,logic`、`ViewModels` は作られない (選択肢に `viewmodel` が出るが、許容。文面は直さない)。WinForms が Presenter と `IView` の Fake で、Green まで進む (`test_guard`・`winforms-check` を含む)。v2.33.0: `/new-solution` が、WinForms・WPF・MFC ダイアログで `--ui-tests` を質問し (UQ1〜UQ3)、`csharp-dll` では質問しない (UQ4)。最初の動作は、実行ごとに揺れる (CT2 の別の実行)。CT3 は、Red 後の確認と `test_guard` が、守られなかった (TEST-PLAN の知見 4) |
 | C# の規約の 3 分割 (v2.35.0) | 2-16 | RS1〜RS4 | `paths` の絞り込みが、実機で効く (RS4: WinForms の Red → Green が、分割後の規則で進む): WinForms の Presenter = 共通 + WinForms (約 37KB)、画面と無関係の `.cs` = 共通のみ (約 13KB)、WPF の ViewModel = 共通 + WPF (約 41KB)。分割前は、どれも約 62.5KB |
 
 ## 2. 未了の項目と扱い
@@ -45,6 +45,7 @@
 |---|---|---|
 | N3、N10 | 2-0c | 旧 NuGet 方式 (`--gtest nuget`) を、v2.31.0 で廃止した。エラーになることは、GN4 で確認済み (`docs/DESIGN.md` 4.50) |
 | WS10 | 2-4 | 保留のまま閉じた (2026-10-24)。VS で作った `.sln` に、`add_project.py` でライブラリ + テストを追加する確認。**VS で `.sln` を作ってから** |
+| BT3 | 2-21 | スキップ (2026-11-03、ユーザーの決定)。BT1・BT2 で、通常のループが通ることを確認済み。例外の場面 (失敗・`TEST_TIMEOUT`) で `references/ui-tests.md` が読まれるかは、未確認 |
 | SU3 | 2-18 | 見送り (2026-11-03、ユーザーの決定)。SU1・SU2 で、入口の記述の読み込みと、通常の流れを確認済み |
 | LY2 | 2-19 | 見送り (2026-11-03、ユーザーの決定)。LY1 で、推奨が `data,logic`、`viewmodel` が「ViewModel もテストしたい場合」の説明つきの選択肢として出ることを確認済み |
 | P23、P24 | 1-6 | 見送り (2026-10-19、ユーザーの決定。C++ の `PackageReference` は Experimental) |
@@ -54,7 +55,6 @@
 
 | ID | 節 | 内容 | 状況 |
 |---|---|---|---|
-| BT1〜BT3 | 2-21 | v2.40.0: `build-test-loop` の UI テストの節の分離。通常の流れは変わらない (BT1)。UI テストを扱うとき `references/ui-tests.md` が読まれる (BT2)。失敗・`TEST_TIMEOUT` の対処 (BT3。任意) | BT1 = ✔ (2026-11-03。`build-test-loop` が読み込まれ、`PASSED`、`references/ui-tests.md` は読まれなかった。ウォッチャーも 2.40.0 に揃った)。BT2 = 流れは ✔ (2026-11-03。Red → Green、`uitest_once.sh` が `--filter` `--separate` `--ui-timeout` つきで実行された)。ただし `references/ui-tests.md` は読まれなかった (`ui-test-first` の SKILL.md の例だけで足りた)。BT3 = 未実施 (任意。失敗や `TEST_TIMEOUT` が起きたときに、`references/ui-tests.md` が読まれるかは、未確認) |
 | SK1〜SK3 | 2-17 | v2.36.0: `csharp-test-first` が、ソリューションがないとき止まる (SK1)。「飛ばさない 5 つ」が、守られる (SK2。2 回)。`$SLN_DIR` で、`.sln` を探しに行かない (SK3) | SK1 = ✗ (1 回目。空のフォルダで、スキルが呼ばれず、目隠しを環境の不具合と誤読して止まり、応答も英語)。**v2.39.0 で、description と規則を直した。効果は未確認 (実機の確認は、行わない。ユーザーの決定。TEST-PLAN 2-20)**。応答が英語になる件は、リポジトリでは直さない (Claude Code の `language` 設定は、ユーザーの環境)。SK2・SK3 = ✔ 2 回 (2026-11-02。SK2、SK2b。どちらも、5 つとも守られた) |
 
 ### 2-3. 一部のみ確認 (△)。理由と、再開条件
