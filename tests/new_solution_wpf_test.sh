@@ -140,5 +140,9 @@ MD
 out="$(python3 "$NS" "$D" --spec "$D/docs/specs/f.md" --dry-run)"
 ok "--spec: reads wpf / layers / mstest / namespace from the plan" "$([ "$(has "$out" 'type=wpf')" = 1 ] && [ "$(has "$out" 'tests=mstest')" = 1 ] && [ "$(has "$out" '名前空間       : Spec')" = 1 ] && [ "$(has "$out" 'ViewModels.Tests')" = 1 ] && echo 1 || echo 0)"
 
+# new-solution: WPF で --layers を省略したときの推奨は data,logic (viewmodel は、選択肢に出さず、テストしたいときに足す) (v2.38.0)
+NSK="$ROOT/skills/new-solution/SKILL.md"
+ok "new-solution SKILL.md: WPF recommends data,logic when --layers is omitted; viewmodel is offered only when the user wants to test the ViewModel; an explicit --layers is used as given" "$(grep -q 'WPF でも、推奨は `data,logic`' "$NSK" && grep -q '選択肢に、`viewmodel` を出さない' "$NSK" && grep -q 'data,logic,viewmodel` を提案する' "$NSK" && grep -q '`--layers` の指定がある場合は、そのまま使う' "$NSK" && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]
