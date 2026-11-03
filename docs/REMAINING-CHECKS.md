@@ -54,6 +54,7 @@
 
 | ID | 節 | 内容 | 状況 |
 |---|---|---|---|
+| BT1〜BT3 | 2-21 | v2.40.0: `build-test-loop` の UI テストの節の分離。通常の流れは変わらない (BT1)。UI テストを扱うとき `references/ui-tests.md` が読まれる (BT2)。失敗・`TEST_TIMEOUT` の対処 (BT3。任意) | BT1 = ✔ (2026-11-03。`build-test-loop` が読み込まれ、`PASSED`、`references/ui-tests.md` は読まれなかった。ウォッチャーも 2.40.0 に揃った)。BT2 = 流れは ✔ (2026-11-03。Red → Green、`uitest_once.sh` が `--filter` `--separate` `--ui-timeout` つきで実行された)。ただし `references/ui-tests.md` は読まれなかった (`ui-test-first` の SKILL.md の例だけで足りた)。BT3 = 未実施 (任意。失敗や `TEST_TIMEOUT` が起きたときに、`references/ui-tests.md` が読まれるかは、未確認) |
 | SK1〜SK3 | 2-17 | v2.36.0: `csharp-test-first` が、ソリューションがないとき止まる (SK1)。「飛ばさない 5 つ」が、守られる (SK2。2 回)。`$SLN_DIR` で、`.sln` を探しに行かない (SK3) | SK1 = ✗ (1 回目。空のフォルダで、スキルが呼ばれず、目隠しを環境の不具合と誤読して止まり、応答も英語)。**v2.39.0 で、description と規則を直した。効果は未確認 (実機の確認は、行わない。ユーザーの決定。TEST-PLAN 2-20)**。応答が英語になる件は、リポジトリでは直さない (Claude Code の `language` 設定は、ユーザーの環境)。SK2・SK3 = ✔ 2 回 (2026-11-02。SK2、SK2b。どちらも、5 つとも守られた) |
 
 ### 2-3. 一部のみ確認 (△)。理由と、再開条件

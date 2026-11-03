@@ -745,3 +745,18 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 |---|---|---|---|
 | SK1b | 空のフォルダで、「TDD で進めたい。テキストボックスに入力した文字をメッセージボックスで表示する機能を追加してください。」 | `Skill(csharp-test-first)` が呼ばれ、目隠しを環境の不具合と見なさず、`/new-solution` を案内して止まる | 見送り (実機の確認は、行わない。効果は、未確認) |
 
+### 2-21. build-test-loop の SKILL.md の分割 (v2.40.0。`docs/DESIGN.md` 4.56)
+
+**v2.40.0 で追加。疑似フォルダの文字列の単体テストは通っている。実機で、(1) 通常の流れが変わらないことと、(2) UI テストを扱うとき `references/ui-tests.md` が読まれることを確かめる。** 事前に、**`install.sh --skills-only` と `install.sh --rules-only` の両方**で再配置する (規則の参照も変わった)。`~/.claude/skills/build-test-loop/references/ui-tests.md` があることを確かめる。**確認用のフォルダは、毎回、新しいパス。セッションは、作成と確認で、分ける。プロンプトは、1 つだけ。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| BT1 | 新しい WPF のソリューション (`/new-solution --type wpf --tests mstest`、UI テストは「なし」) を作る | ベースラインで `Skill(build-test-loop)` が読み込まれ、`PASSED` (SK2 の 1 回目と同じ)。`references/ui-tests.md` は、読まれない | ✔ (2026-11-03 実機。`CSharpTF\BT1`、`/new-solution --type wpf --tests mstest`。履歴で確認)。`--layers` の質問で「data,logic (推奨)」、UI テストは「なし」、作成は「この構成で作成する」。作成のあと、**`Skill(build-test-loop)` が読み込まれ** (ベースラインの確認)、`build_test_once.sh` が `PASSED` (build: SUCCESS / tests: 2 件 = `DataLayer.Tests` 1、`LogicLayer.Tests` 1)。**セッションの履歴に、`references/ui-tests.md` の Read も、UI テストに関するコマンドも、ない** (期待どおり。UI テストの 24.6KB は、読まれなかった)。配布先: `~/.claude/skills/build-test-loop/references/ui-tests.md` がある。**ウォッチャーの版の `NOTE` が出た** (ウォッチャー 2.36.0 / Skill 2.40.0)。続けて、ユーザーが、`install.sh` (オプションなし) を、自分のシェルで実行し (Claude のサンドボックスは、`~/.claude/skills` と `/mnt/c/tools` に書き込めず、`!` で実行するよう案内した)、ウォッチャーを再起動した → **`build_test_once.sh` の出力が `watcher=2.40.0`、`NOTE: 版の不一致` が出なくなった** (v2.29.0 の機能が、再度、確認できた)。`install.sh` の出力: 規則とひな形は `same` (すでに最新) |
+| BT2 | UI テストのあるソリューション (`--ui-tests flaui`) で、新しいセッションを起動し、`/ui-test-first` で、小さな画面の UI テストを書く (または、「UI テストを実行して」) | `references/ui-tests.md` が読まれ、`uitest_once.sh` が、`--filter` などの指定つきで、正しく実行される | 流れは ✔、「`references/ui-tests.md` が読まれる」は ✗ (読まれなかったが、不要だった) (2026-11-03 実機。`CSharpTF\BT2` (`--ui-tests flaui`)、新しいセッションで `/ui-test-first`。履歴で確認)。`/ui-test-first` に作る画面の指定がなく、**質問して止まった** (「既存の MainWindow に機能を追加」、ウォッチャーは「起動済み」)。機能は、「名前欄の下に『文字数』ラベルを追加し、入力した名前の文字数を『文字数: N』と表示する」。`Skill(ui-design-review)` で、ガイドラインの規則を確認し、**画面の計画 (部品の表と、操作と期待の表。5 件) を示して**、「進めてください」で、UI テストを先に書いた。**履歴: `Read` したのは、`MainWindow.xaml`、`MainViewModel.cs`、`PreviewUiTests.cs`、`MainWindowUiTests.cs` で、`references/ui-tests.md` は、一度も読まれなかった。`Skill(build-test-loop)` も、呼ばれなかった** (スクリプトを、直接、呼んだ)。`uitest_once.sh "$PWD" --filter "FullyQualifiedName~MainWindowUiTests" --separate --ui-timeout 900` (`ui-test-first` の `SKILL.md` の例と同じ形) で、**Red (4 件失敗)** → `test_guard.py snapshot` → 実装 → `test_guard.py check` → `uitest_once.sh` で **Green (7 件)** → 全 UI テスト (Preview 除く) で回帰確認 → `wpf-check` (error 0 / warning 0) → `test_guard` (error 0)。**`SKILL.md` の分離で、通常の `/ui-test-first` のループは、壊れなかった。** 失敗・`TEST_TIMEOUT` は起きず、`references/ui-tests.md` が必要な場面 (BT3) は、確認できていない。見た目の目視は、「実行しますか?」と聞いて、終わった (`--preview`) |
+| BT3 | BT2 の途中で、UI テストが失敗したとき (または、`TEST_TIMEOUT`) | 「失敗したら」「`TEST_TIMEOUT`」の手順 (`references/ui-tests.md`) に沿って対処する | 未実施 (任意。起きたときだけ) |
+
+**BT1・BT2 から得られた知見 (v2.40.0):**
+1. **通常の流れは、`references/ui-tests.md` を読まなくても、回る。** BT1 (ベースライン) では、`build-test-loop` が読み込まれ、UI テストの節は読まれなかった (UI テストがない)。BT2 (`/ui-test-first`) では、`build-test-loop` の `SKILL.md` も、`references/ui-tests.md` も、読まれず、`ui-test-first` の `SKILL.md` の例だけで、Red → Green まで通った。
+2. **「先に `references/ui-tests.md` を読む」(`ui-test-first` の冒頭と、`build-test-loop` の入口) は、守られなかった** (BT2。`build-test-loop` の入口は、そもそも読み込まれなかった)。読まなくても、実害は出なかった。必要になるのは、失敗・`TEST_TIMEOUT`・ダイアログやメニューの操作など、例外の場面 (未確認)。
+3. **未決定:** 「先に読む」を、場面を指定する書き方 (例: `TEST_TIMEOUT` になったとき、同じ失敗が 2 回続いたとき、ダイアログ・メニュー・コンボを操作するとき、は、`references/ui-tests.md` を読む) に、直すか。
+

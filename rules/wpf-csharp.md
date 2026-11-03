@@ -537,6 +537,6 @@ Converter には、表示形式の変換のみ実装する。
 | 起動 | `wpf-check` UI001 (`InitializeComponent()`)、APP001 |
 | 5.1 Nullable、書式、命名の一部 | `.editorconfig` (Visual Studio と `dotnet format`)、ビルドの警告 |
 | 16 テスト | `build-test-loop` (実行)、`csharp-test-first` (先行) |
-| UI テスト (FlaUI) | `build-test-loop` の「UI テスト」(ビルド → テストの流れには含めず、求めたときと、`/ui-test-first` のループで、別に実行。書き方と、失敗時のスクリーンショット)。`wpf-check` UI002 (UI テストのプロジェクトがあるとき、操作するコントロールに AutomationId がない) |
+| UI テスト (FlaUI) | `build-test-loop` の `references/ui-tests.md`(ビルド → テストの流れには含めず、求めたときと、`/ui-test-first` のループで、別に実行。書き方と、失敗時のスクリーンショット)。`wpf-check` UI002 (UI テストのプロジェクトがあるとき、操作するコントロールに AutomationId がない) |
 
 - **XAML / ViewModel / `App.xaml` を編集したら、`wpf-check` を実行する** (ウォッチャーは、要らない)。ビルドとテストは、ウォッチャー経由 (`auto-build` / `build-test-loop`)。

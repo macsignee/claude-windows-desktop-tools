@@ -1467,7 +1467,7 @@ def claude_md_section(ui, app):
 - **画面の連動の規則 (チェックで入力欄が有効になる、など) は、純粋な関数の単体テストで確かめる。UI テストは、ダイアログごとに、煙テスト 1 件** (開く → 規則の結果が、実画面に反映されている → OK / キャンセルの結果が、メインに返る)。
 - **どのデスクトップで実行するか:** `{ui}/uitest.settings` の `desktop=visible` (ユーザーのデスクトップ。実行中は、PC に触らない) / `separate` (別のデスクトップ)。作成時に、WPF は visible、それ以外は separate が入る。1 回だけ変えるには、`uitest_once.sh --visible` / `--separate` (`--invisible`)。
 - **メニュー:** WPF のメニューは、別のデスクトップでは、ポップアップが開かない → WPF は、`uitest.settings` が visible (`uitest_once.sh --visible` で、明示もできる。古いウォッチャーは、`run_watcher_visible.cmd`。`UiDialogs.ExpandMenu` が、分かりやすい失敗にする)。WinForms は、ダイアログを開く処理を、アプリ側で `BeginInvoke` で遅らせる。MFC は、`UiDialogs.MenuCommand` (`WM_COMMAND`)。
-- 書き方の規約と手順: `build-test-loop` の「UI テスト」。
+- 書き方の規約と手順: `build-test-loop` の `references/ui-tests.md`。
 '''
 
 

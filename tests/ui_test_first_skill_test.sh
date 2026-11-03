@@ -14,9 +14,18 @@ ok "stops after 3 identical failures; names the per-framework identifiers (WinFo
 ok "tells the user not to touch the PC when uitest.settings is desktop=visible" "$(grep -q 'マウスとキーボードに触らないでください' "$S" && echo 1 || echo 0)"
 
 ok "visual check: Preview tests + --preview / --hold, tell the user before showing, Snap for Claude's own check, background tests use --separate" "$(grep -q 'TestCategory("Preview")' "$S" && grep -q -- '--preview' "$S" && grep -q 'HoldForViewing' "$S" && grep -q 'Snap(' "$S" && grep -q -- '--separate' "$S" && grep -q '実行の前に、ユーザーに伝える' "$S" && echo 1 || echo 0)"
-ok "build-test-loop documents --hold / --preview and PreviewUiTests" "$(grep -q -- '--hold' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q -- '--preview' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q 'PreviewUiTests' "$ROOT/skills/build-test-loop/SKILL.md" && echo 1 || echo 0)"
+BTLU="$ROOT/skills/build-test-loop/references/ui-tests.md"
+ok "build-test-loop (references/ui-tests.md) documents --hold / --preview and PreviewUiTests" "$(grep -q -- '--hold' "$BTLU" && grep -q -- '--preview' "$BTLU" && grep -q 'PreviewUiTests' "$BTLU" && echo 1 || echo 0)"
 
-ok "demo playback: --present documented (needs --filter) in the skill and build-test-loop" "$(grep -q -- '--present' "$S" && grep -q -- '--present' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q '赤い枠' "$S" && echo 1 || echo 0)"
+ok "demo playback: --present documented (needs --filter) in the skill and build-test-loop (references/ui-tests.md)" "$(grep -q -- '--present' "$S" && grep -q -- '--present' "$BTLU" && grep -q '赤い枠' "$S" && echo 1 || echo 0)"
+# build-test-loop の SKILL.md から、UI テストの詳細を references/ui-tests.md に分離 (v2.40.0)
+BTLS="$ROOT/skills/build-test-loop/SKILL.md"
+ok "build-test-loop: SKILL.md keeps a short UI-test entry (not part of build -> test; only when asked or in /ui-test-first; uitest_once.sh; read references/ui-tests.md first) and the details moved out" "$(grep -q '^## UI テスト (FlaUI): ビルド → テストの流れとは、別に、指定されたときだけ実行する' "$BTLS" && grep -q '自動では、続けて実行しない' "$BTLS" && grep -q '求められていなければ、実行しない' "$BTLS" && grep -q '先に `references/ui-tests.md` を読む' "$BTLS" && ! grep -q '^### ' "$BTLS" && [ -f "$BTLU" ] && grep -q 'UiDialogs' "$BTLU" && grep -q '^## 失敗したら' "$BTLU" && grep -q '^## いつ実行するか' "$BTLU" && echo 1 || echo 0)"
+ok "build-test-loop: SKILL.md stays small (<= 32000 bytes; was 53294 before the split)" "$([ "$(wc -c < "$BTLS" | tr -d ' ')" -le 32000 ] && echo 1 || echo 0)"
+ok "every skill / rule that pointed to the UI-test section now points to references/ui-tests.md (no old wording)" "$(! grep -rIq '`build-test-loop` の「UI テスト」' "$ROOT/skills" "$ROOT/rules" && grep -q 'references/ui-tests.md' "$ROOT/skills/ui-test-first/SKILL.md" && echo 1 || echo 0)"
+CSF2="${TMPDIR:-/tmp}/btl_$$"; bash "$ROOT/install/install.sh" --skills-only --skills-dir "$CSF2" >/dev/null 2>&1
+ok "install.sh --skills-only copies build-test-loop/references/ui-tests.md (identical to the repo)" "$([ -f "$CSF2/build-test-loop/references/ui-tests.md" ] && cmp -s "$CSF2/build-test-loop/references/ui-tests.md" "$BTLU" && echo 1 || echo 0)"
+rm -rf "$CSF2" 2>/dev/null
 
 # 方針: UI テストは、ビルド → テストの流れに、含めない (ユーザーが求めたときと /ui-test-first だけ)
 for f in skills/add-feature/SKILL.md skills/cpp-test-first/SKILL.md skills/csharp-test-first/SKILL.md skills/build-test-loop/SKILL.md skills/new-solution/SKILL.md rules/winforms-csharp.md; do

@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.40.0] 2026-11-03 (Skill 側と規則の記述の変更。スクリプトの動作と契約の変更なし。疑似フォルダと文字列の確認。**実機の確認は、未実施** (TEST-PLAN 2-21))
+
+- **`build-test-loop` の「UI テスト (FlaUI)」の節 (24.6KB) を、`references/ui-tests.md` (25.1KB) に分けた。** `SKILL.md` は、53.3KB から 30.0KB に減った (約 44%)。本文には、入口 (約 1.2KB) だけを残した: UI テストは、ビルド → テストの流れに含めない (`PASSED` になっても、自動では、続けて実行しない) / 実行するのは、ユーザーが求めたときと、`/ui-test-first` のループの中だけ / UI テストのプロジェクトがあっても、求められていなければ、実行しない / `uitest_once.sh` の基本形 / **UI テストを、実行する・書く・足す・失敗を調べるときは、先に `references/ui-tests.md` を読む**。
+- **理由:** `Skill(build-test-loop)` を読み込んだ 32 のセッション (この環境の履歴) のうち、`uitest_once.sh` を実際に実行したのは、5 つだけ (約 16%)。残りの 27 (約 84%) は、24.6KB を、使わずに読み込んでいた。`/new-solution` の作成のあとのベースライン確認でも、読み込まれる。
+- 移した小見出し (見出しは、1 段上げて `##` にした): UI テストの、実行の指定 / いつ実行するか / UI テストが多いとき (`TEST_TIMEOUT`) / 動いたことを、確かめる (トレースと、目で見るモード) / 失敗したら / UI テストを書く・足すとき / ダイアログ・メニュー・コンボなどの UI テスト (`UiDialogs`) / コントロール別の、実機の結果の表 / 注意。参照文書の中の「止めどき」は、「`SKILL.md` の『止めどき』」に直した。
+- **参照を更新した (10 か所):** 「`build-test-loop` の『UI テスト』」→「`build-test-loop` の `references/ui-tests.md`」 (`auto-build` / `add-feature` / `new-solution` / `cpp-test-first` / `csharp-test-first` / `ui-test-first` の SKILL.md、規則 (`wpf-csharp.md` / `winforms-csharp.md`)、**`add_ui_tests.py` が生成する UI テストの文書**)。`ui-test-first` には、「実行の指定・いつ実行するか・失敗したら・書き方は、`references/ui-tests.md` を、先に読む」を明記した。
+- **規則 (`rules/`) の記述も変わった:** `install.sh --rules-only` も、必要。`--skills-only` だけでは、配布先の規則の参照が、古いまま (「UI テスト」の節を見る、と書かれたまま)。
+- 見送ったもの: 「テストの改変の検査 (`test_guard.py`)」の節 (4.8KB) の分離。この節は、「テストを弱めない」という安全の規則の、機械による確認の説明で、基盤のスキルなので、今回の効果を見てから、検討する。
+- テスト: `ui_test_first_skill_test.sh` の 2 件を、`references/ui-tests.md` を見るように直し、5 件足した (21 件)。
+
 ## [2.39.0] 2026-11-03 (Skill 側のみ。`csharp-test-first` の description と `SKILL.md`。契約の変更なし。文字列の確認のみ。**実機の確認は、行わない** (ユーザーの決定。TEST-PLAN 2-20))
 
 - **SK1 (空のフォルダで、スキルが呼ばれず、応答が英語になった) への対応:**
