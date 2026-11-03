@@ -125,16 +125,16 @@ paths:
 ## コレクションと反復
 - **シリアライズするデータのコレクションは、標準ライブラリのコンテナではなく、MFC のコレクションを優先する** (`CArray` `CList` `CMap` `CTypedPtrArray` `CStringArray` など。`CArchive` で、そのまま読み書きできる)。判断は、「**その中身が、`CArchive` に書かれる・読まれるか**」。シリアライズしない内部の作業用データは、標準ライブラリのコンテナでよい。
 - **ループは、極力、イテレータ (範囲 `for`) で書く。** 添字 (`for (int i = 0; i < n; ++i)`) は、添字そのものが必要なときだけ。
-- **MFC のコレクションの反復には、C++20 の反復子の要件を満たす `begin()` / `end()` (自由関数) を使い、範囲 `for` と `std::ranges` で扱えるようにする。**
+- **MFC のコレクション (`CArray` `CList` `CMap` `CStringArray` `CTypedPtrArray` など) を、イテレータ (範囲 `for`、`std::ranges`) で操作できるようにする、ライブラリ・関数・クラスを使うことを、推奨する** (必須ではない。使わなくてもよい)。C++20 の反復子の要件を満たす `begin()` / `end()` (自由関数) を提供する形が、使いやすい。プロジェクトに、すでに、そのようなものがあれば、それを使う。
   ```cpp
   for (const auto& point : points)   // CArray<CPoint>
   {
       ...
   }
   ```
-  - **実装例:** 自作の `mfciterators.h` (`C:\Workspace\macsignee\source\repos\cppsamples\MFCIterator\mfciterators.h`)。`CArray` `CStringArray` `CList` `CMap` `CTypedPtrArray` などに対応し、`IsMFCArray` などの `concept` で、MFC のコレクションを判定する。`cppsamples\MFCIterator\MFCIterator.cpp` が、`std::` のアルゴリズム、`std::ranges`、`views` を、確認している。
+  - **一例:** 自作の `mfciterators.h` (`CArray` `CStringArray` `CList` `CMap` `CTypedPtrArray` などに対応し、`IsMFCArray` などの `concept` で、MFC のコレクションを判定する)。どれを使うかは、プロジェクトで決める (特定のファイルに、固定しない)。
 - **コンテナ (標準ライブラリのもの、`std::span`、MFC のコレクション) の操作には、`<algorithm>` の関数ではなく、`std::ranges` と `views` を使う** (例: `std::find_if` ではなく `std::ranges::find_if`、`std::ranges::sort`、`std::views::filter` / `transform`)。
-  - MFC のコレクションにも、上記の `begin()` / `end()` があれば、そのまま使える。
+  - イテレータで操作できるコレクションは、`std::ranges` と `views` が、そのまま使える。
 
 ## テンプレート
 - **複雑な SFINAE (`std::enable_if` など) や、特殊化を、極力避ける。** 型の条件は、`concept` と `requires` で書く。分岐は、`if constexpr` か、オーバーロードで書く。
