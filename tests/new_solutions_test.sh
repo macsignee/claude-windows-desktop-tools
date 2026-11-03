@@ -277,7 +277,7 @@ mkwork; mani '| 名前 | 種類 | 層 | テスト |
 | LibCs | csharp-dll | none | mstest |
 | LibSt | lib | logic | none |'; run create "$W"
 ok "DLL の候補 (dll / csharp-dll / lib) を作れる: rc=0" "$(eq $rc 0)"
-ok "create: run_watcher.cmd の場所を、出力に書く (配置先のパスは、固定で書かない)" "$([ "$(has "$out" "ホスト側ツール")" = 1 ] && [ "$(has "$out" "cpp-watcher")" = 0 ] && echo 1 || echo 0)"
+ok "create: run_watcher.cmd の場所を、出力に書く (配置先のパスは、固定で書かない)" "$([ "$(has "$out" "ホスト側ツール")" = 1 ] && [ "$(has "$out" "cpp-watcher")" = 0 ] && [ "$(has "$out" "claude-watcher")" = 0 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: 質問は、候補ごとにまとめる。選択肢は exe だけにしない、「その他」を出さない" "$([ "$(has "$NSS" "候補ごとに、まとめて聞く")" = 1 ] && [ "$(has "$NSS" "「その他」の選択肢は、出さない")" = 1 ] && echo 1 || echo 0)"
 ok "DLL: LibCpp.slnx / LibCs.slnx / LibSt.slnx" "$([ "$(isf "$W/LibCpp/LibCpp.slnx")" = 1 ] && [ "$(isf "$W/LibCs/LibCs.slnx")" = 1 ] && [ "$(isf "$W/LibSt/LibSt.slnx")" = 1 ] && echo 1 || echo 0)"
 ok "Skill update-from-ideas: 作業フォルダでは、構成案を出さない" "$(has "$(cat "$ROOT/skills/update-from-ideas/SKILL.md")" "構成案は、出さない")"

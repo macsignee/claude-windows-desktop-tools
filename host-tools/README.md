@@ -28,7 +28,7 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
 | `run_watchers.cmd` | **(任意)** 作業フォルダの下の、候補 (`.sln` / `.slnx` のあるサブフォルダ) ごとに、`run_watcher.cmd` を起動する (Windows ターミナルの、候補ごとのタブ)。`/new-solutions` で作った候補を、まとめて起動するとき |
 | `build-windows.cmd` | VS の環境を読み込んで MSBuild を実行する (C++ ツールの要求と NuGet の復元は、第 6 引数で切り替える)。単体でも使える |
 
-置き場所は任意です (例: `C:\tools\cpp-watcher\`)。**上の 3 ファイルは、1つでも欠けると動きません。** `run_watchers.cmd` は、任意です (使うときは、同じフォルダに置く)。
+置き場所は任意です (例: `C:\tools\claude-watcher\`)。**上の 3 ファイルは、1つでも欠けると動きません。** `run_watchers.cmd` は、任意です (使うときは、同じフォルダに置く)。
 
 ### 候補をまとめて起動 (`run_watchers.cmd`)
 ```bat
@@ -97,7 +97,7 @@ Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空�
 ### ps1 を直接起動する (詳細オプション)
 `run_watcher.cmd` では渡せないオプションを使うときは、ps1 を直接起動します。
 ```bat
-powershell -ExecutionPolicy Bypass -NoProfile -File C:\tools\cpp-watcher\watch_and_build.ps1 ^
+powershell -ExecutionPolicy Bypass -NoProfile -File C:\tools\claude-watcher\watch_and_build.ps1 ^
   -TargetDir C:\proj\MyApp -SolutionPath MyApp.sln -TestTimeoutSec 300
 ```
 

@@ -178,7 +178,7 @@ C++ のネイティブテストは、GoogleTest のみ。**C++ の `CppUnitTestF
 ### 4.13 ウォッチャーの二重起動の防止
 同じプロジェクトフォルダで、ウォッチャーが 2 つ動くと、同じフラグを奪い合い、結果が混ざる。
 ウォッチャー自身が、二重起動を拒否する。手動で起動した場合も、守られる。
-- プロジェクトフォルダの、フルパス (小文字) の SHA1 から、名前付きミューテックス `Local\cpp-claude-build-tools-watcher-<hash>` を作る。
+- プロジェクトフォルダの、フルパス (小文字) の SHA1 から、名前付きミューテックス `Local\claude-windows-desktop-tools-watcher-<hash>` を作る (v2.42.0 で、旧名 `Local\cpp-claude-build-tools-watcher-<hash>` から変更。4.58)。
   取得できなければ (すでに動いている)、メッセージ (`ERROR: a watcher is already running for this folder`) を出して、**終了コード 3** で終了する。
 - ロックファイルは使わない。ミューテックスは、プロセスの終了時 (異常終了を含む) に、OS が解放するため、古いロックが残らない。
   プロジェクトのフォルダに、ファイルを作らないので、`.gitignore` の追記も、不要。
@@ -327,7 +327,7 @@ Windows の Git は、`autocrlf=true` が既定のことが多く、LF に直す
   - **提案は、`/add-feature` の最初の読み取り確認で、1 回だけ、作業を止めずに行う。** 選択肢: 追加する / 今回は見送る / 今後も見送る (`CLAUDE.md` の `- 改行コードの提案: 見送り` に記録。以降は `declined`)。
   - **`--add-gitattributes` は、ファイルを作るだけ。git のステージ・コミットは、しない** (`git add --renormalize .` と、1 回のコミットは、ユーザーが行う)。
   - **自動では、作らない:** 既存のリポジトリへの追加は、保存が CRLF のファイルを、一斉に「変更あり」に見せるため。
-- **このリポジトリ (cpp-claude-build-tools) は、別の規則のまま:** `.cmd` / `.ps1` は、CP932 と BOM のバイトを守るため `-text` (4.x 参照)。
+- **このリポジトリ (claude-windows-desktop-tools。旧名 cpp-claude-build-tools) は、別の規則のまま:** `.cmd` / `.ps1` は、CP932 と BOM のバイトを守るため `-text` (4.x 参照)。
 
 ### 4.22 ビルドエラーは、集約した要約で渡す (`summarize_build_log.py`)
 **問題:** `build_once.sh` は、`build_error.log` の先頭 40 行を、そのまま出していた。同じエラー (ヘッダの宣言漏れなど) が、多数のファイルで繰り返されると、40 行が同じエラーで埋まり、別の原因が見えない。件数や、コンパイルとリンクの区別も、分からない。
@@ -984,10 +984,22 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 - **理由 (取り込み):** (1) `install.sh` が、配らなかった。(2) `git` の履歴がなく、変更の記録も、戻す手段も、なかった。(3) 別のマシンに、環境を作るとき、別に持っていく必要があった。(4) `wpf-csharp.md` などが、「C++ の規約と、同じ方針」と参照しているのに、参照先が、リポジトリの中になかった。理由を書いた記録は、見つからなかった (推測: リポジトリの管理の前に、個人の規則として作られた)。
 - **イテレータの記述 (ユーザーの指示、2026-11-03):** 「コレクションと反復」の、MFC のコレクションを `begin()` / `end()` で反復する記述を、必須から「**推奨**」に直した (「MFC のコレクションを、イテレータで操作できるようにする、ライブラリ・関数・クラスを使うことを、推奨する。必須ではない」)。実装例の `mfciterators.h` は、「一例」とし、ユーザーの PC の絶対パス (別のマシンでは、動かない) を外した。「どれを使うかは、プロジェクトで決める」。「ループは、極力、イテレータで書く」(上の項目) は、そのまま (ライブラリがないときは、添字でよい、とまでは、書いていない)。
 - **ひな形の評価:** `mfc-cpp.md` の 12 行目と 156 行目が、「`.clang-format` が正 (なければ、`~/.claude/templates/cpp/` のひな形)」「`.clang-tidy` の `readability-function-size` (`LineThreshold: 100`)」と、参照している。3 ファイルは、規則と食い違わない (Allman、インデント 4、`SortIncludes: Never`、関数は 100 行まで、CRLF、`charset` を書かない (規則 31 行目の理由と同じ))。**誤りは、なし。** 気づき: `.editorconfig` の glob に `.cc` / `.cxx` がない、`ColumnLimit: 120` は規則に書かれていない、`trim_trailing_whitespace` がない。いずれも、変えていない (実害がない)。リポジトリの C++ の生成 (`new_solution.py`) は、これらを、生成しない (WPF は、`.editorconfig` を生成する)。取り込むことで、`install.sh` が `~/.claude/templates/cpp/` に配るようになる。
-- **旧名の扱い:** 配布先の旧名 `cpp-mfc.md` が、残ると、`mfc-cpp.md` と同じ `paths` で、二重に読み込まれる (約 19KB の重複)。`install.sh` が、旧名を見つけたら、警告する。自動では、消さない (配布先は、ユーザーのフォルダ)。
+- **旧名の扱い:** 配布先の旧名 `cpp-mfc.md` が、残ると、`mfc-cpp.md` と同じ `paths` で、二重に読み込まれる (約 19KB の重複)。`install.sh` が、旧名を見つけたら、警告した。自動では、消さない (配布先は、ユーザーのフォルダ)。**(v2.42.0 で、この警告は削除した。公開前で、旧名を使う人が、ほかにいないため。4.58)**
 - **変換の道具 `convert_to_utf8_bom.py` (決定: ユーザー、2026-11-03。使われているなら取り込む):** セッション履歴に、実行が 15 件あり、実際に使われていた (MFC のプロジェクトのソースの変換)。`mfc-cpp.md` と `csharp-common.md` が、`~/.claude/scripts/convert_to_utf8_bom.py` を参照する。もとは、`~/coding-rules-draft/user-level/` (Git 管理外の、作業フォルダ。`install.sh`、`rules/cpp-mfc.md`、`scripts/`、`templates/cpp/` の一式) にあった。**ビルドの流れには、組み込まれていない。手動で、ファイルを指定して、1 回だけ、実行する。** `scripts/` に取り込み、`install.sh` が `~/.claude/scripts/` に配る (`--rules-only` に含まれる)。
 - **道具の評価:** 良い点: 既定は検証だけ、`--apply` で書く。往復の確認 (CP932 に戻すと一致する)、単独の CR の拒否、BOM 付きのスキップ。**欠陥: BOM なしの UTF-8 を、Shift-JIS と誤認して、文字化けを、無警告で書き込む** (実測: 日本語のコメント 16 行のうち 6 行が、受理され、文字化けした)。往復の確認は、文字化けした文字列でも、成り立つため、検出できない。**修正:** UTF-8 として読めて、非 ASCII を含むなら、`NG` にして、書かない。軽微な欠陥: 存在しないファイルで、トレースバックで止まる → `NG` にして、続ける。変換の部分は、変えていない。
 - **しないこと:** 規則の分割 (`cpp-common.md` との分割。`paths` が C++ に絞られていて、読み込みの重複の問題が、ない。最初の非 MFC の C++ プロジェクトを取り込むときに、検討する)。ひな形の修正。ソースの文字コードを、ビルドのたびに、検出する仕組み (規則は、「編集の前に、人が、変換する」運用。必要になったら、別の作業)。
+
+### 4.58 リポジトリ名の変更: `cpp-claude-build-tools` → `claude-windows-desktop-tools` (v2.42.0)
+
+C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規約、ひな形、仕様のワークフローまで含むようになり、`cpp` の名前が、実態と合わなくなった (ユーザーの指摘、2026-11-03)。
+
+- **決定 (ユーザー):** リポジトリ名は、`claude-windows-desktop-tools`。言語の名前を含めず、README と Skill の description が掲げている対象 (Windows デスクトップ。C++ / MFC / Win32 / WPF / WinForms / C#) と一致する。**ホスト側の配布先の既定のフォルダも、`cpp-watcher` から `claude-watcher` に変える** (私の推奨に沿って。ユーザーの確認は、リポジトリ名のみ。変えたくなければ、`install.sh` の既定を戻すか、`--host-dir` で指定する)。
+- **見送った候補:** `claude-vs-build-tools` (Visual Studio / MSBuild に絞った名前。規約や仕様のワークフローを含まない)、`claude-win-tdd-kit` (TDD を前に出した名前。ビルド・テストの自動修正が隠れる)。
+- **リポジトリの中の変更 (機能に関わるのは 2 点):** (1) ウォッチャーのミューテックス名 (契約。`Local\claude-windows-desktop-tools-watcher-<hash>`)。(2) `install.sh` の既定の配布先 (`/mnt/c/tools/claude-watcher`)。旧い配布先 (`/mnt/c/tools/cpp-watcher`) は、警告しない (公開前で、旧名を使う人が、ほかにいない。ユーザーが、手で削除する)。README、`host-tools/README.md`、DESIGN、TEST-PLAN の手順の例のパスも直した。**履歴の旧名 (CHANGELOG の過去の版、TEST-PLAN の過去の結果、引き継ぎ文書) は、そのまま。**
+- **ミューテックス名の変更の影響:** 新旧のウォッチャーは、互いを排他しない。**ウォッチャーを、すべて止めてから、再配置して、起動し直す。** (新旧を、同じフォルダに、同時に起動すると、二重起動を防げない。)
+- **残りの手順 (ユーザーの作業。順序が重要):** (1) 事前: 保留中の PR をマージ、ウォッチャーを全部止める。(2) このバージョン (v2.42.0) の PR をマージ。(3) GitHub: Settings、または `gh repo rename claude-windows-desktop-tools -R macsignee/cpp-claude-build-tools`。旧い URL は、Web も git も、転送される。手元の `origin` を `git remote set-url origin git@github.com:macsignee/claude-windows-desktop-tools.git` に変更。(4) 手元のフォルダ: Claude Code とウォッチャーを終了して、`mv ~/src/cpp-claude-build-tools ~/src/claude-windows-desktop-tools`。Claude Code のプロジェクトの保管場所 (`~/.claude/projects/-home-shigene-makoto-src-cpp-claude-build-tools/`) は、パスをキーにしているため、新しいフォルダでは、新しい保管場所になる (古いセッションの履歴を引き継ぐなら、このフォルダを、`-home-shigene-makoto-src-claude-windows-desktop-tools` に名前変更する。**実際に効くかは、未確認**)。(5) `install/install.sh` で配り直し、新しい配布先 (`C:\tools\claude-watcher\`) から、ウォッチャーを起動して、起動バナーの版を確かめる。Windows 側のショートカットなどを、新しいパスに直し、確認できたら、旧い `C:\tools\cpp-watcher\` を削除する。(6) メモリ (`project_cpp-claude-build-tools-wpf.md` のファイル名と `name:`、`MEMORY.md` の索引、`project_windows-ui-guidelines.md`) を、新しい名前に直す。
+- **確認 (実機):** `install.sh` の出力 (新しい配布先)、ウォッチャーの起動 (版)、同じフォルダでの二重起動が、拒否される (TEST-PLAN 2-23)。
+- **旧名の警告の削除 (ユーザーの指示、2026-11-03):** 公開前で、旧名を使う人が、ほかにいないため、`install.sh` の、旧名の警告 (旧い配布先 `cpp-watcher`、旧名の規則 `cpp-mfc.md`、旧名の Skill `cpp-auto-build` / `cpp-build-test-loop` / `wpf-test-first`) を、すべて削除した。README の、旧名の併記と、旧名の削除の項も、外した。手元の環境の旧いもの (`C:\tools\cpp-watcher\` など) は、ユーザーが、手で削除する。
 
 ### 4.39 目視確認 (プレビュー): UI テストは裏で、見たい画面だけ、ユーザーのデスクトップに出す (v2.19.0)
 
