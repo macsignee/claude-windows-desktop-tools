@@ -758,5 +758,6 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 **BT1・BT2 から得られた知見 (v2.40.0):**
 1. **通常の流れは、`references/ui-tests.md` を読まなくても、回る。** BT1 (ベースライン) では、`build-test-loop` が読み込まれ、UI テストの節は読まれなかった (UI テストがない)。BT2 (`/ui-test-first`) では、`build-test-loop` の `SKILL.md` も、`references/ui-tests.md` も、読まれず、`ui-test-first` の `SKILL.md` の例だけで、Red → Green まで通った。
 2. **「先に `references/ui-tests.md` を読む」(`ui-test-first` の冒頭と、`build-test-loop` の入口) は、守られなかった** (BT2。`build-test-loop` の入口は、そもそも読み込まれなかった)。読まなくても、実害は出なかった。必要になるのは、失敗・`TEST_TIMEOUT`・ダイアログやメニューの操作など、例外の場面 (未確認)。
-3. **未決定:** 「先に読む」を、場面を指定する書き方 (例: `TEST_TIMEOUT` になったとき、同じ失敗が 2 回続いたとき、ダイアログ・メニュー・コンボを操作するとき、は、`references/ui-tests.md` を読む) に、直すか。
+3. **決定 (ユーザー、2026-11-03): 直さない。** 「先に読む」を、場面を指定する書き方 (例: `TEST_TIMEOUT` になったとき、同じ失敗が 2 回続いたとき、ダイアログ・メニュー・コンボを操作するとき) に直す案は、見送り。実害が出たときに、足す。BT3 (例外の場面で読まれるか) も、スキップ。
+4. **`build-test-loop` の `test_guard.py` の節 (B) の分離は、見送り** (2026-11-03、ユーザーの決定。DESIGN 4.56)。実際に分離できるのは、約 1.3〜1.9KB (4〜6%) で、毎回必要な `TEST_GUARD:` 行と `RESULT_INFO:` / `NOTE` の説明、安全規則を含むため。`SKILL.md` の見直しは、ここで完了 (53.3KB → 30.0KB)。
 
