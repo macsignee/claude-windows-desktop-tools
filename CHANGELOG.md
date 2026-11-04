@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.51.2] 2026-11-04 (修正: `TargetPath` の問い合わせに `SolutionDir` を渡す)
+
+- **不具合 (実機の確認 OD2b で発見):** v2.51.1 でも、`OutDir` を変えたテスト (`LogicLayerTest`) は、見つからなかった (`1 passed (DataLayerTest 1)`)。`out\bin\Debug\LogicLayerTest.exe` は、できていた。**原因 (実機の MSBuild の出力で確認):** `.vcxproj` を単体で MSBuild に渡すと、`SolutionDir` が空になり、`OutDir` が `$(SolutionDir)out\bin\...` のプロジェクトの `TargetPath` が、プロジェクトの下の別の場所 (`LogicLayerTest\out\bin\Debug\LogicLayerTest.exe`) を指す。`-p:SolutionDir=<ソリューション>\` を渡すと、exe がある `UiHostCheck\out\bin\Debug\LogicLayerTest.exe` になる。
+- **修正 (`host-tools/lib/tests.ps1`):** `MSBuild -getProperty:TargetPath` に、`-p:SolutionDir=<ソリューションフォルダ>\` を渡す。
+- 確認: OD2b は不合格 → 修正。OD2c は未実施。
+
 ## [2.51.1] 2026-11-04 (修正: 一部のテストだけ `OutDir` を変えたとき、そのテストを黙って飛ばしていた (v2.50.0 の `TargetPath` の探し直し))
 
 - **不具合 (実機の確認 OD2 で発見):** `Find-TestExes` は、既定の出力先 (`<ソリューション>\<プラットフォーム>\<構成>\`) で、テスト exe が 1 つでも見つかると、そこで終わり、`TargetPath` の探し直しを呼ばなかった。`LogicLayerTest` だけ `OutDir` を変え、`DataLayerTest` が既定の場所に残る構成で、`DataLayerTest` の 1 件だけが実行され、**`LogicLayerTest` (3 件) が、黙って飛ばされた (結果は `PASSED`)。**

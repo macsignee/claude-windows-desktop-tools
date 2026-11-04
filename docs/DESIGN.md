@@ -1156,3 +1156,10 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **判断:** 探し直しは、「全体で、1 つも見つからないとき」ではなく、「**プロジェクトごとに、exe が見つからなかったとき**」にする。既定の出力先で見つかった exe 名に、`<プロジェクト名>.exe` がないテストプロジェクトだけ、MSBuild に聞く。全部が見つかるときは、MSBuild を呼ばない。
 - **限界:** `TargetName` を変えて、exe 名がプロジェクト名と違うテストプロジェクトは、毎回、MSBuild に聞く (結果は、重複なしで合わせるので、誤りはない。少し遅くなるだけ)。ビルドに失敗して exe がないテストも、毎回、聞くが、ファイルがないので、飛ばされる。
 - **確認できていないこと (実機。TEST-PLAN 2-30 の OD2b):** 修正後の、両方の出力先のテストの実行。
+
+### 4.69 `TargetPath` の問い合わせに `SolutionDir` を渡す (v2.51.2。4.66・4.68 の修正)
+
+- **きっかけ:** 実機の確認 OD2b (2026-11-04)。4.68 の修正のあとも、`OutDir` を `$(SolutionDir)out\bin\$(Configuration)\` にしたテストが、見つからなかった。exe は、`out\bin\Debug\` にあった。
+- **原因 (実機の MSBuild の出力で確認、2026-11-04):** `.vcxproj` を単体で評価すると、ソリューション経由で渡される `SolutionDir` が定義されない。`OutDir` が `$(SolutionDir)` を使うと、`TargetPath` が、期待した場所にならない。`MSBuild LogicLayerTest.vcxproj -getProperty:TargetPath -p:Configuration=Debug -p:Platform=x64` は `...\UiHostCheck\LogicLayerTest\out\bin\Debug\LogicLayerTest.exe`、`-p:SolutionDir=...\UiHostCheck\` を足すと `...\UiHostCheck\out\bin\Debug\LogicLayerTest.exe`。
+- **判断:** `-p:SolutionDir=<ソリューションフォルダ>\` を、必ず渡す (末尾は `\`)。`SolutionDir` を使わない `OutDir` には、影響しない。
+- **確認できていないこと (実機。TEST-PLAN 2-30 の OD2c):** 修正後の、両方の出力先のテストの実行。`-getProperty:TargetPath` 自体は、実機の MSBuild (VS 18) で動くことを確認した。

@@ -39,6 +39,8 @@ function Find-TestExesByTargetPath([string[]]$FoundNames = @()) {
     if (-not $HasCpp) { return @() }
     $found = @()
     $msbuild = $null
+    # .vcxproj を単体で MSBuild に渡すと、SolutionDir が空になり、OutDir に $(SolutionDir) を使うプロジェクトの TargetPath が、別の場所を指す。ソリューションと同じ値を渡す
+    $slnDir = $SolutionDir.TrimEnd('\') + '\'
     foreach ($p in $ProjectPaths) {
         if ($p -notmatch '\.vcxproj$') { continue }
         if (-not (Test-Path -LiteralPath $p)) { continue }
@@ -48,7 +50,7 @@ function Find-TestExesByTargetPath([string[]]$FoundNames = @()) {
         if (-not $msbuild) { $msbuild = Get-MSBuildExe }
         if (-not $msbuild) { return @() }
         try {
-            $out = @(& $msbuild $p -nologo -getProperty:TargetPath "-p:Configuration=$Configuration" "-p:Platform=$Platform" 2>$null)
+            $out = @(& $msbuild $p -nologo -getProperty:TargetPath "-p:Configuration=$Configuration" "-p:Platform=$Platform" "-p:SolutionDir=$slnDir" 2>$null)
             $target = @($out | Where-Object { $_ -and $_.ToString().Trim() } | Select-Object -Last 1)
             if ($target.Count -eq 0) { continue }
             $path = $target[0].ToString().Trim()
