@@ -81,7 +81,8 @@ fake "" & W=$!; out="$(bash "$BUILD" "$E" 30)"; rc=$?; kill $W 2>/dev/null; wait
 ok "build_once (old watcher): still SUCCESS, rc=0, NOTE about the old watcher" "$([ $rc = 0 ] && [ "$(head -n 1 <<<"$out")" = SUCCESS ] && grep -q '^NOTE: ウォッチャーが古い' <<<"$out" && echo 1 || echo 0)"
 
 # --- watch_and_build.ps1 (静的)
-P="$ROOT/host-tools/watch_and_build.ps1"
+# 本体 + lib\*.ps1 を 1 つにつなげて検査する (機能ごとに、lib に分かれているため)
+P="$T/watch_all.ps1"; cat "$ROOT/host-tools/watch_and_build.ps1" "$ROOT"/host-tools/lib/*.ps1 > "$P"
 ok "ps1: reads VERSION next to the script into WatcherVersion (unknown when missing)" "$(grep -q 'script:WatcherVersion = "unknown"' "$P" && grep -q 'Join-Path $verDir "VERSION"' "$P" && echo 1 || echo 0)"
 ok "ps1: run_id.txt keeps run= on the first line, then watcher= / kind= / input= / finished=" "$(grep -q 'run=$($script:CurrentRunId)`r`nwatcher=$($script:WatcherVersion)`r`nkind=$($script:CurrentKind)`r`ninput=$TargetDir`r`nfinished=' "$P" && echo 1 || echo 0)"
 ok "ps1: CurrentKind is set for gtest / package / build-test-uitest" "$(grep -q 'CurrentKind = "gtest"' "$P" && grep -q 'CurrentKind = "package"' "$P" && grep -q 'CurrentKind = $(if ($runUiTests) { "uitest" } elseif ($runTests) { "test" } else { "build" })' "$P" && echo 1 || echo 0)"

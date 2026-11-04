@@ -148,7 +148,7 @@ done
 ok "ui-test-first: Preview_<screen> naming + the regression run excludes Preview; --separate is the loop default (menu tests are separate); TEST_TIMEOUT: read ui-trace, 1 extension, stop on 2; user consent for visible; UiDialogsExtra for project-specific helpers" "$(grep -q 'Preview_<画面>' "$UTF" && grep -q 'TestCategory!=Preview' "$UTF" && grep -q -- '--separate' "$UTF" && grep -q 'MenuUiTests' "$UTF" && grep -q '最後の 10 行' "$UTF" && grep -q '2 回続いたら' "$UTF" && grep -q '了承' "$UTF" && grep -q 'UiDialogsExtra.cs' "$UTF" && ! grep -q '<画面>_Preview' "$UTF" && echo 1 || echo 0)"
 
 # ---- GTEST_* 環境変数の除去
-WP="$ROOT/host-tools/watch_and_build.ps1"
+WP="$T/watch_all.ps1"; cat "$ROOT/host-tools/watch_and_build.ps1" "$ROOT"/host-tools/lib/*.ps1 > "$WP"   # 本体 + lib\*.ps1
 ok "watcher: GTEST_* environment variables are removed at startup (a leftover GTEST_FILTER made every test run 0 tests), with a notice" "$(grep -q "Name -like 'GTEST_\*'" "$WP" && grep -q 'RemovedGtestEnv' "$WP" && grep -q 'removed from the watcher process' "$WP" && echo 1 || echo 0)"
 
 # ---- package_once.sh / gtest_once.sh の実行 ID の照合 (v2.20.1)
@@ -237,7 +237,7 @@ ok "gtest_once: watcher busy -> TIMEOUT (rc=5), not WATCHER_NOT_RUNNING; the unp
 rm -f "$T/.claude-logs/watcher_busy.txt"
 
 # ウォッチャー (ps1): gtest / package のフラグから、実行 ID を読み、マーカーの直前に run_id.txt を書く。# run= の行は、操作でもタグでもない
-WP="$ROOT/host-tools/watch_and_build.ps1"
+WP="$T/watch_all.ps1"; cat "$ROOT/host-tools/watch_and_build.ps1" "$ROOT"/host-tools/lib/*.ps1 > "$WP"   # 本体 + lib\*.ps1
 ok "watcher: Get-RunIdFromFlag accepts the comment form '# run=<ID>'; the gtest / package blocks read it; both marker writers call Write-RunId first" "$(grep -q "match '(?m)^#?\\\\s\*run=" "$WP" && grep -q 'CurrentRunId = Get-RunIdFromFlag \$GtestTriggerFile' "$WP" && grep -q 'CurrentRunId = Get-RunIdFromFlag \$PackageTriggerFile' "$WP" && awk '/^function Write-GtestMarker/{f=1} f&&/Write-RunId/{print "1"; exit} f&&/^}/{exit}' "$WP" | grep -q 1 && awk '/^function Write-PackageMarker/{f=1} f&&/Write-RunId/{print "1"; exit} f&&/^}/{exit}' "$WP" | grep -q 1 && echo 1 || echo 0)"
 ok "watcher: a gtest flag whose first line is the comment (no tag) falls back to the default tag" "$(grep -q "gtestTagLine -match '\^\\\\s\*#'" "$WP" && echo 1 || echo 0)"
 

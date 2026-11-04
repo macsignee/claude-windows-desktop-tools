@@ -23,7 +23,7 @@ rem Notes:
 rem   - Folders whose name starts with "." (.claude, .git ...) are skipped.
 rem   - A candidate that already has a watcher is refused by run_watcher.cmd itself; nothing breaks.
 rem   - A candidate created after this run needs its own run_watcher.cmd (or run this again).
-rem   - Needs run_watcher.cmd, watch_and_build.ps1 and build-windows.cmd in the same folder as this file.
+rem   - Needs run_watcher.cmd, watch_and_build.ps1, build-windows.cmd and the lib\ folder in the same folder as this file.
 rem   - This file is ASCII only (CP932 safe), CRLF.
 rem ============================================================
 setlocal EnableExtensions
