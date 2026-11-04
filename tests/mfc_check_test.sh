@@ -21,6 +21,30 @@ def w(path, text, enc="utf-8"):
     data = text.replace("\n", "\r\n")
     open(path, "wb").write(data.encode("utf-16") if enc == "utf-16" else data.encode(enc))
 VCX = '<?xml version="1.0" encoding="utf-8"?>\n<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n<PropertyGroup Label="Configuration"><ConfigurationType>%s</ConfigurationType><UseOfMfc>Dynamic</UseOfMfc></PropertyGroup>\n%s</Project>\n'
+def defs(d):
+    return f"<ItemDefinitionGroup><ClCompile><PreprocessorDefinitions>{d};%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile></ItemDefinitionGroup>\n"
+def vcx(kind, extra="", mfc="Dynamic"):
+    return (VCX % (kind, extra)).replace("<UseOfMfc>Dynamic</UseOfMfc>", f"<UseOfMfc>{mfc}</UseOfMfc>")
+EXT_MAIN = '''#include <afxwin.h>
+#include <afxdllx.h>
+static AFX_EXTENSION_MODULE ExtDLL = { false, nullptr };
+extern "C" int APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID)
+{
+    if (dwReason == DLL_PROCESS_ATTACH)
+    {
+        if (!AfxInitExtensionModule(ExtDLL, hInstance)) return 0;
+        new CDynLinkLibrary(ExtDLL);
+    }
+    else if (dwReason == DLL_PROCESS_DETACH)
+    {
+        AfxTermExtensionModule(ExtDLL);
+    }
+    return 1;
+}
+'''
+STD_APP = "#include <afxwin.h>\nclass CStdApp : public CWinApp\n{\n};\nCStdApp theApp;\n"
+STD_API_H = "#ifdef STD_EXPORTS\n#define STD_API __declspec(dllexport)\n#else\n#define STD_API __declspec(dllimport)\n#endif\nSTD_API int Foo();\nSTD_API const char* Bar(int x);\n"
+STD_OK_CPP = '#include "Api.h"\n#include <afxwin.h>\nint Foo()\n{\n    // 先頭で呼ぶ\n    AFX_MANAGE_STATE(AfxGetStaticModuleState());\n    return 1;\n}\nconst char* Bar(int x)\n{\n    AFX_MANAGE_STATE(AfxGetStaticModuleState());\n    return "a";\n}\n'
 def refs(*names):
     return "<ItemGroup>" + "".join(f'<ProjectReference Include="..\\{n}\\{n}.vcxproj" />' for n in names) + "</ItemGroup>\n"
 
@@ -308,10 +332,50 @@ w("layers/LogicLayer/pch.h", '#include <afxwin.h>\n')
 w("layers/DataLayer/DataLayer.vcxproj", VCX % ("StaticLibrary", refs("LogicLayer")))
 w("layers/DataLayer/Data.cpp", "int g() { return 1; }\n")
 w("ok-layers/Main/Main.vcxproj", VCX % ("Application", refs("LogicLayer")))
-w("ok-layers/LogicLayer/LogicLayer.vcxproj", VCX % ("DynamicLibrary", refs("DataLayer")))
+w("ok-layers/LogicLayer/LogicLayer.vcxproj", VCX % ("DynamicLibrary", refs("DataLayer") + defs("_AFXEXT")))
 w("ok-layers/LogicLayer/Logic.cpp", '#include <afx.h>\n#include <afxtempl.h>\nCString f() { return CString(); }\n')
+w("ok-layers/LogicLayer/dllmain.cpp", EXT_MAIN)
 w("ok-layers/DataLayer/DataLayer.vcxproj", VCX % ("StaticLibrary", ""))
 w("ok-layers/DataLayer/Data.cpp", "int g() { return 1; }\n")
+
+# ---------------- MFC の DLL の設定 (DLL001〜DLL008) ----------------
+w("dll-ok/App/App.vcxproj", vcx("Application", refs("ExtOk", "StdOk")))
+w("dll-ok/App/main.cpp", "int main() { return 0; }\n")
+w("dll-ok/ExtOk/ExtOk.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT")))
+w("dll-ok/ExtOk/dllmain.cpp", EXT_MAIN)
+w("dll-ok/StdOk/StdOk.vcxproj", vcx("DynamicLibrary", defs("_USRDLL")))
+w("dll-ok/StdOk/StdOk.cpp", STD_APP)
+w("dll-ok/StdOk/Api.h", STD_API_H)
+w("dll-ok/StdOk/Func.cpp", STD_OK_CPP)
+w("dll-ok/StdStaticOk/StdStaticOk.vcxproj", vcx("DynamicLibrary", defs("_USRDLL"), "Static"))
+w("dll-ok/StdStaticOk/StdStaticOk.cpp", STD_APP)
+w("dll-ok/StdStaticOk/Api.h", STD_API_H)
+w("dll-ok/StdStaticOk/Func.cpp", '#include "Api.h"\nint Foo()\n{\n    return 1;\n}\nconst char* Bar(int x)\n{\n    return "a";\n}\n')
+w("dll-ok/Plain/Plain.vcxproj", vcx("DynamicLibrary", defs("_USRDLL"), "false"))
+w("dll-ok/Plain/Plain.cpp", "int Plain() { return 1; }\n")
+
+w("dll-bad/Both/Both.vcxproj", vcx("DynamicLibrary", defs("_USRDLL;_AFXEXT")))
+w("dll-bad/Both/dllmain.cpp", EXT_MAIN)
+w("dll-bad/ExtStatic/ExtStatic.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT"), "Static"))
+w("dll-bad/ExtStatic/dllmain.cpp", EXT_MAIN)
+w("dll-bad/ExtNoInit/ExtNoInit.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT")))
+w("dll-bad/ExtNoInit/a.cpp", "int f() { return 1; }\n")
+w("dll-bad/ExtNoTerm/ExtNoTerm.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT")))
+w("dll-bad/ExtNoTerm/dllmain.cpp", '#include <afxwin.h>\n#include <afxdllx.h>\nstatic AFX_EXTENSION_MODULE ExtDLL = { false, nullptr };\nextern "C" int APIENTRY DllMain(HINSTANCE h, DWORD r, LPVOID)\n{\n    if (r == DLL_PROCESS_ATTACH) { AfxInitExtensionModule(ExtDLL, h); }\n    return 1;\n}\n')
+w("dll-bad/NoKind/NoKind.vcxproj", vcx("DynamicLibrary"))
+w("dll-bad/NoKind/a.cpp", "int f() { return 1; }\n")
+w("dll-bad/StdNoApp/StdNoApp.vcxproj", vcx("DynamicLibrary", defs("_USRDLL")))
+w("dll-bad/StdNoApp/a.cpp", "int f() { return 1; }\n")
+w("dll-bad/StdNoState/StdNoState.vcxproj", vcx("DynamicLibrary", defs("_USRDLL")))
+w("dll-bad/StdNoState/App.cpp", STD_APP)
+w("dll-bad/StdNoState/Api.h", STD_API_H)
+w("dll-bad/StdNoState/Func.cpp", '#include "Api.h"\n#include <afxwin.h>\nint Foo()\n{\n    return 1;\n}\nconst char* Bar(int x)\n{\n    CString s;\n    AFX_MANAGE_STATE(AfxGetStaticModuleState());\n    return "a";\n}\n')
+w("dll-bad/MainStatic/MainStatic.vcxproj", vcx("Application", refs("ExtOk"), "Static"))
+w("dll-bad/MainStatic/main.cpp", "int main() { return 0; }\n")
+w("dll-bad/MainNoMfc/MainNoMfc.vcxproj", vcx("Application", refs("ExtOk"), "false"))
+w("dll-bad/MainNoMfc/main.cpp", "int main() { return 0; }\n")
+w("dll-bad/ExtOk/ExtOk.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT")))
+w("dll-bad/ExtOk/dllmain.cpp", EXT_MAIN)
 # ---------------- UI004 (UI テストのプロジェクトがあるときの、IDC_STATIC のままの操作対象) ----------------
 RC_UI = '''#include "resource.h"
 #include "afxres.h"
@@ -404,6 +468,25 @@ ok "layers: LAY002 GUI header in a source file is a warning" "$(has "$out" 'warn
 ok "layers: LAY002 in pch.h is only info" "$(has "$out" 'info    LAY002')"
 out="$(python3 -I "$S" "$T/ok-layers" --all)"; rc=$?
 ok "ok-layers: rc=0, no findings" "$([ $rc = 0 ] && [ "$(has "$out" 'error 0 / warning 0')" = 1 ] && echo 1 || echo 0)"
+
+# ---- MFC の DLL の設定 ----
+out="$(python3 -I "$S" "$T/dll-ok" --all --max-lines 100)"; rc=$?
+ok "dll-ok: rc=0, error / warning なし、DLL の指摘なし (拡張 DLL・標準 DLL (共有/静的)・MFC なしの DLL が、正常。MFC の DLL の afxwin.h は、info の LAY002 だけ)" "$([ $rc = 0 ] && [ "$(has "$out" 'error 0 / warning 0')" = 1 ] && [ "$(grep -c ' DLL0' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+ok "dll-ok: MFC の DLL の LAY002 は info (warning にしない)" "$([ "$(has "$out" 'info    LAY002')" = 1 ] && [ "$(has "$out" 'warning LAY002')" = 0 ] && echo 1 || echo 0)"
+out="$(python3 -I "$S" "$T/dll-bad" --all --max-lines 100)"; rc=$?
+ok "dll-bad: rc=1" "$([ $rc = 1 ] && echo 1 || echo 0)"
+ok "dll-bad: DLL001 _USRDLL と _AFXEXT の併用" "$(has "$out" 'Both: _USRDLL と _AFXEXT が、同じ構成で、両方')"
+ok "dll-bad: DLL002 拡張 DLL で UseOfMfc が Dynamic でない" "$(has "$out" 'ExtStatic: MFC 拡張 DLL (_AFXEXT) だが、UseOfMfc が Dynamic でない')"
+ok "dll-bad: DLL003 MFC 有効なのに _USRDLL も _AFXEXT もない" "$(has "$out" 'NoKind: UseOfMfc が有効だが')"
+ok "dll-bad: DLL004 標準 DLL に CWinApp 派生がない" "$(has "$out" 'StdNoApp: MFC 標準 DLL に、CWinApp 派生')"
+ok "dll-bad: DLL005 拡張 DLL に AfxInitExtensionModule がない" "$(has "$out" 'ExtNoInit: MFC 拡張 DLL に、DllMain の AfxInitExtensionModule がない')"
+ok "dll-bad: DLL006 CDynLinkLibrary がない" "$(has "$out" 'ExtNoTerm: MFC 拡張 DLL に、new CDynLinkLibrary がない')"
+ok "dll-bad: DLL006 AfxTermExtensionModule がない" "$(has "$out" 'ExtNoTerm: MFC 拡張 DLL に、AfxTermExtensionModule がない')"
+ok "dll-bad: DLL007 AFX_MANAGE_STATE がない公開関数 (Foo)" "$(has "$out" '公開関数 Foo が、先頭で AFX_MANAGE_STATE を呼んでいない')"
+ok "dll-bad: DLL007 AFX_MANAGE_STATE が先頭でない公開関数 (Bar)" "$(has "$out" '公開関数 Bar が、先頭で AFX_MANAGE_STATE を呼んでいない')"
+ok "dll-bad: DLL008 静的 MFC のメインが拡張 DLL を参照" "$(has "$out" 'MainStatic: MFC 拡張 DLL ExtOk を参照しているが')"
+ok "dll-bad: DLL008 MFC なしのメインが拡張 DLL を参照" "$(has "$out" 'MainNoMfc: MFC 拡張 DLL ExtOk を参照しているが')"
+ok "dll-bad: 正常なプロジェクト (ExtOk) には、指摘が出ない" "$([ "$(grep -c 'ExtOk: ' <<<"$out")" = 0 ] && echo 1 || echo 0)"
 
 # ---- 例外系 ----
 out="$(python3 -I "$S" "$T/empty")"; rc=$?

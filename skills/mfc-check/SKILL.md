@@ -1,6 +1,6 @@
 ---
 name: mfc-check
-description: MFC のプロジェクトの「コンパイルは通るが、実行時に壊れる」部分 (リソース ID の重複・未定義、メッセージマップとハンドラの不整合、ダイアログと DDX の不整合、層の依存の違反) を、静的に検査して、要約を返す手順。ボタンやメニューが反応しない、`.rc` / `resource.h` / メッセージマップを編集した、ライブラリ (DLL) に GUI の依存が混ざっていないか確かめたい、といった依頼で使う。Windows のウォッチャーは不要 (読み取りだけ)。
+description: MFC のプロジェクトの「コンパイルは通るが、実行時に壊れる」部分 (リソース ID の重複・未定義、メッセージマップとハンドラの不整合、ダイアログと DDX の不整合、層の依存の違反、MFC の DLL (拡張 DLL・標準 DLL) の設定の食い違い) を、静的に検査して、要約を返す手順。ボタンやメニューが反応しない、`.rc` / `resource.h` / メッセージマップを編集した、ライブラリ (DLL) に GUI の依存が混ざっていないか確かめたい、といった依頼で使う。Windows のウォッチャーは不要 (読み取りだけ)。
 ---
 
 # MFC の「見えない部分」の検査 (mfc-check)
@@ -73,8 +73,16 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | DLG010 | warning | 同じメンバーを、別の ID に対して、複数の `DDX_Control` に渡している | メンバーを、ID ごとに分ける (コピー&ペーストの誤りに多い)。**2 回目以降は、実行時に何も起きず、警告も出ない** (MFC は、接続済みのメンバーを探さない)。`if` / `else` の分岐ごとに渡す書き方は、指摘しない。 |
 | DLG009 | info | `AFX_DIALOG_LAYOUT` が、存在しないダイアログのもの | VS が残した不要な定義。消してよい (`.rc` を編集する注意に従う)。 |
 | LAY001 | error | ライブラリ (DLL / lib) で、GUI のクラス (`CWnd` `CDialog` `AfxMessageBox` など) を使っている | UI の処理を、メイン側に移す。ロジックは、GUI に依存させない (`CLAUDE.md` の層の規則)。 |
-| LAY002 | warning | ライブラリで、GUI のヘッダー (`afxwin.h` など) を include している (`pch.h` / `framework.h` は info) | 必要か確認する。MFC 拡張 DLL の `framework.h` なら、そのままでよいことが多い。 |
+| LAY002 | warning | ライブラリで、GUI のヘッダー (`afxwin.h` など) を include している (`pch.h` / `framework.h` は info。**MFC の DLL (拡張 DLL・標準 DLL) の層は、すべて info**) | 必要か確認する。MFC の DLL なら、意図した include なので、そのままでよい。 |
 | LAY003 | error | プロジェクト参照の向きが、層 (UI → ロジック → データ) に反する | 参照を逆にするか、共通部分を下の層に移す。 |
+| DLL001 | error | `_USRDLL` と `_AFXEXT` が、同じ構成で、両方定義されている | 標準 DLL (`_USRDLL`) か、拡張 DLL (`_AFXEXT`) の、どちらか 1 つにする。 |
+| DLL002 | error | 拡張 DLL (`_AFXEXT`) だが、`UseOfMfc` が `Dynamic` でない | 拡張 DLL は、共有 MFC が必須。`UseOfMfc` を `Dynamic` にする。 |
+| DLL003 | warning | `UseOfMfc` が有効だが、`_USRDLL` も `_AFXEXT` も定義されていない | 標準 DLL なら `_USRDLL`、拡張 DLL なら `_AFXEXT` を足す (`cpp-test-first` の `DLL-LAYOUT.md`)。 |
+| DLL004 | warning | 標準 DLL (`_USRDLL` + MFC) に、`CWinApp` 派生のクラス (と、グローバルの `theApp`) がない | `CWinApp` 派生と `theApp` を足す。MFC の初期化 (`InitInstance`) が、行われない。 |
+| DLL005 | error | 拡張 DLL に、`AfxInitExtensionModule` がない (`DllMain`) | `DllMain` で、`AfxInitExtensionModule` を呼ぶ。リソースや `CObject` の動的生成が、実行時に壊れる。 |
+| DLL006 | warning | 拡張 DLL に、`new CDynLinkLibrary` または `AfxTermExtensionModule` がない | `DllMain` に足す (リソース チェーンへの追加と、終了時の後始末)。 |
+| DLL007 | warning | **標準 DLL (共有 MFC)** の公開関数 (`<名前>_API` / `__declspec(dllexport)` の関数) が、先頭で `AFX_MANAGE_STATE` を呼んでいない | 関数の先頭 (オブジェクトの宣言よりも前) で、`AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。MFC のリソースやモジュールの状態が、呼び出し元の exe のものになる。 |
+| DLL008 | error | 拡張 DLL を参照する exe / DLL の `UseOfMfc` が `Dynamic` でない (MFC なしの exe も) | 参照する側も、`UseOfMfc=Dynamic` にする (MFC のランタイムが、2 つになるのを防ぐ)。テスト exe も、同じ。 |
 
 ## ループのルール
 1. **`.rc` / `resource.h` / メッセージマップ / ライブラリの構成を編集したら、編集のあとで、実行する。** 編集していない状態で再実行しない。
@@ -106,3 +114,4 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 - **`DDX_Control` の型の検査 (DLG003) は、MFC 標準のコントロールクラス** (`CEdit` `CListCtrl` `CComboBox` など) **だけ。** 自作の派生クラスは、判定しない。
 - **DLG004 (ボタンのハンドラ) は、`ON_*_RANGE` があるクラスでは、行わない。** 親ウィンドウがコマンドを受ける設計 (モードレスなど) は、誤検出になりうる。
 - 層の判定は、プロジェクト名 (`Logic` / `Data`) と、`.vcxproj` の種類による。テストプロジェクト (名前が `Test` で終わる) は、対象外。
+- **MFC の DLL の検査 (DLL001〜DLL008):** `.vcxproj` の `UseOfMfc` と `PreprocessorDefinitions` (構成ごと) と、ソースの文字列で判定する。`.def` でエクスポートする関数、`extern "C"` でマクロなしの関数は、DLL007 の対象外 (公開の関数は、`<名前>_API` / `__declspec(dllexport)` のマクロで探す)。クラスのメンバー関数 (`class <名前>_API Foo`) も、DLL007 の対象外 (自由関数だけ)。静的 MFC (`UseOfMfc=Static`) の標準 DLL は、`AFX_MANAGE_STATE` が不要なので、DLL007 を出さない。プロパティシート (`.props`) で定義した `_AFXEXT` などは、読まない。

@@ -825,3 +825,14 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 |---|---|---|---|
 | CS1 | `--type win32 --layers none --tests none` で作ったフォルダで、Claude Code を起動し、「`main.cpp` に、ウィンドウのタイトルを変える処理を足して」と頼む | `cpp-common.md` が読み込まれ、`mfc-cpp.md` は読み込まれない (`~/.claude/projects/*/*.jsonl` で、読み込みを確かめる)。`CLAUDE.md` に「MFC を使わない (Win32 API と C++)」 | ✔ (2026-11-04、`Cs1Win32`) セッションの記録の `nested_memory` は `cpp-common.md` の 1 件だけ (`mfc-cpp.md` はない)。`::SetWindowTextW`・大文字の `constexpr` で、規約が効いた。ビルド `SUCCESS`。注: `grep mfc-cpp.md` は、`CLAUDE.md` と `cpp-common.md` の本文に当たるので、確認には使えない (`nested_memory` のパスで見る) |
 | CS2 | `--type mfc-dialog` で作ったフォルダで、「ダイアログに、ボタンを 1 つ足して」と頼む | `*Dlg` 系の編集で、`mfc-cpp.md` も読み込まれる。`CLAUDE.md` の「`mfc-cpp.md` も読んでから書く」に従う | ✔ (2026-11-04、`Cs2Mfc`) `nested_memory` は `cpp-common.md` と `mfc-cpp.md` の 2 件 (`SampleDlg` の読み込みの直後)。ボタンの追加 (`.rc`・`Resource.h`・メッセージマップ) が、ビルド `SUCCESS` |
+
+### 2-28. `mfc-check` の MFC の DLL の検査 (v2.48.0。`docs/DESIGN.md` 4.64)
+
+**v2.48.0 で追加。静的テスト (`mfc_check_test.sh`) は通っている。** 先に、`install/install.sh --skills-only` で、Skill を配る。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| DC1 | `python3 ~/.claude/skills/mfc-check/scripts/mfc_check.py` を、実物のウィザードの DLL (`MFCLibrary1`・`MFCLibrary1/MFCLibrary2`) と、生成した DLL (`MfcExtCheck`・`MfcStdCheck`) に実行する | どれも、error 0 / warning 0 (LAY002 の info だけ) | ✔ (2026-11-04、リポジトリのスクリプトで確認。配布した Skill での確認は、未実施) |
+| DC2 | `MfcStdCheck` の `LogicLayer` の公開関数から `AFX_MANAGE_STATE` の行を消し、`mfc_check.py` を実行する | DLL007 の warning が 1 件 | 未実施 |
+| DC3 | `MfcExtCheck` の `LogicLayer.vcxproj` で、`_USRDLL` を足す (標準 DLL との併用にする) | DLL001 の error。(元に戻す) | 未実施 |
+| DC4 | `MfcExtCheck` のメイン (`MfcExtCheck.vcxproj`) の `UseOfMfc` を `false` にし、`mfc_check.py` を実行する | DLL008 の error (ビルドが通れば、実行時の挙動も見る)。(元に戻す) | 未実施 |

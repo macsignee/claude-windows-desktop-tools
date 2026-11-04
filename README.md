@@ -75,7 +75,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-6. 静的検査 (Windows 不要。読み取りだけ)
 
-- **`mfc-check`** (自動): MFC の、リソース ID の重複・未定義、メッセージマップとハンドラの不整合、ダイアログと DDX の不整合、層の依存の違反。
+- **`mfc-check`** (自動): MFC の、リソース ID の重複・未定義、メッセージマップとハンドラの不整合、ダイアログと DDX の不整合、層の依存の違反、MFC の DLL (拡張 DLL・標準 DLL) の設定の食い違い。
 - **`wpf-check`** (自動): WPF の、バインディングのパスの誤り、`StaticResource` のキー、`InitializeComponent()` の呼び忘れ、`StartupUri` などの誤り、層の依存の違反、規約のうち機械で判定できる項目。
 - **`winforms-check`** (自動): WinForms の、`InitializeComponent()` の呼び忘れ、`Designer.cs` の `Name`、層の依存、スレッド、規約のうち機械で判定できる項目。
 - 3 つとも、スクリプトの引数は同じ: `<dir> [--json <out.json>] [--max-lines 40] [--all]`。
