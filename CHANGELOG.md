@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.51.0] 2026-11-04 (機能追加: 画面の設計の記録 `docs/design/<画面>.md`、案の比較 (任意)。実際に使われている Skill 一式の `/design` の検討による)
+
+- `/ui-test-first` の手順 1: **既存の設計 (`docs/design/<画面>.md`) を、先に読む** (あれば、変更する行だけを示す)。**新規で、構成が定まらないときだけ、2〜3 案を、部品の一覧と文字の配置図で比べる** (任意。画像・外部のツールは使わない)。
+- **承認のあとに、設計を `docs/design/<画面>.md` に保存する** (選んだ案、部品、操作と期待、守る規則 ID、選ばなかった案と理由、変更履歴)。承認のゲートは、1 回のまま。
+- `ui-design-review` の「画面を作る前」に、設計の記録の置き場所を 1 行追加。
+- **取り入れなかったもの:** `/design` という Skill の新設 (Claude Design / frontend-design / Figma は Web 向けで、WinForms / WPF / MFC に合わない。点検は `ui-design-review` が持つ)、design-reviewer。
+- 契約 (ファイル名・結果の値・終了コード) の変更なし。`claude-spec-workflow` v1.1.0 の `/add-feature` が、この記録を読む。
+
 ## [2.50.0] 2026-11-04 (機能追加: テスト exe を TargetPath で探す (ホスト側)、修正の方針 (`fix-policy.md`)。他部署の引き継ぎ資料 (`CLAUDE_HANDOFF.md`) の検討による。ホスト側と Skill 側。ホスト側は実機で未確認)
 
 - **ホスト側 (`host-tools/lib/tests.ps1`): テスト exe を、MSBuild の `TargetPath` で、探し直す。** 既定の出力先 (`<ソリューション>\<プラットフォーム>\<構成>\`) に、`*Test.exe` が**見つからなかったときだけ**、名前が `Test` / `Tests` で終わる `.vcxproj` ごとに、`MSBuild -getProperty:TargetPath` で、実際の出力先を取る (`OutDir` を変えた既存のプロジェクトのため)。MSBuild は、vswhere で探す (`Get-MSBuildExe`)。`-getProperty` が使えない古い MSBuild や、失敗したときは、空を返す (従来どおり、「見つからない」)。**既定の出力先に見つかったときの動作は、変えない。**

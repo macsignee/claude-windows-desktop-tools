@@ -14,6 +14,8 @@ ok "stops after 3 identical failures; names the per-framework identifiers (WinFo
 ok "tells the user not to touch the PC when uitest.settings is desktop=visible" "$(grep -q 'マウスとキーボードに触らないでください' "$S" && echo 1 || echo 0)"
 
 ok "visual check: Preview tests + --preview / --hold, tell the user before showing, Snap for Claude's own check, background tests use --separate" "$(grep -q 'TestCategory("Preview")' "$S" && grep -q -- '--preview' "$S" && grep -q 'HoldForViewing' "$S" && grep -q 'Snap(' "$S" && grep -q -- '--separate' "$S" && grep -q '実行の前に、ユーザーに伝える' "$S" && echo 1 || echo 0)"
+ok "design record: checks docs/design/<screen>.md first, optional 2-3 option comparison (text only), saves it after the approval, and ui-design-review points to it" "$(grep -q 'docs/design/<画面>.md' "$S" && grep -q '2〜3 案' "$S" && grep -q '選ばなかった案と理由' "$S" && grep -q '画像や外部のツールは、使わない' "$S" && grep -q 'docs/design/<画面>.md' "$ROOT/skills/ui-design-review/SKILL.md" && echo 1 || echo 0)"
+ok "design record: does not overwrite a decided design (edits changed rows, appends 変更履歴) and never writes it from guesses" "$(grep -q '変わった行だけを直し' "$S" && grep -q '推測して書かない' "$S" && echo 1 || echo 0)"
 BTLU="$ROOT/skills/build-test-loop/references/ui-tests.md"
 ok "build-test-loop (references/ui-tests.md) documents --hold / --preview and PreviewUiTests" "$(grep -q -- '--hold' "$BTLU" && grep -q -- '--preview' "$BTLU" && grep -q 'PreviewUiTests' "$BTLU" && echo 1 || echo 0)"
 
