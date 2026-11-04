@@ -19,16 +19,17 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
   build_error.log / test_error.log     ◀───  失敗時のみ
 ```
 
-## 1. 構成 (3ファイルは必ず同じフォルダに置く)
+## 1. 構成 (3ファイルと `lib\` は、必ず同じフォルダに置く)
 
 | ファイル | 役割 |
 |---|---|
 | `run_watcher.cmd` | 入口。プロジェクトフォルダを指定して ps1 を起動する (ダブルクリック/ドラッグ&ドロップ可) |
-| `watch_and_build.ps1` | **ウォッチャー本体。** フラグ監視、ビルド/テスト実行、GoogleTest のソース取得、結果ファイルの書き出し |
+| `watch_and_build.ps1` | **ウォッチャー本体。** 引数、パス解決、ソリューションの判定、二重起動の防止、フラグの監視ループ。機能ごとの関数は、`lib\*.ps1` を読み込む |
+| `lib\*.ps1` (8 ファイル) | `watch_and_build.ps1` が読み込む、機能ごとの関数。`gtest` (GoogleTest の取得)、`package` (nuget / vcpkg / fetch)、`common` (共通)、`build` (ビルドの呼び出し)、`tests` (テストの実行)、`test-results` (結果の解析)、`ui-settings` (`uitest.settings`)、`uitest-desktop` (UI テストのデスクトップ基盤) |
 | `run_watchers.cmd` | **(任意)** 作業フォルダの下の、候補 (`.sln` / `.slnx` のあるサブフォルダ) ごとに、`run_watcher.cmd` を起動する (Windows ターミナルの、候補ごとのタブ)。`/new-solutions` で作った候補を、まとめて起動するとき |
 | `build-windows.cmd` | VS の環境を読み込んで MSBuild を実行する (C++ ツールの要求と NuGet の復元は、第 6 引数で切り替える)。単体でも使える |
 
-置き場所は任意です (例: `C:\tools\claude-watcher\`)。**上の 3 ファイルは、1つでも欠けると動きません。** `run_watchers.cmd` は、任意です (使うときは、同じフォルダに置く)。
+置き場所は任意です (例: `C:\tools\claude-watcher\`)。**`run_watcher.cmd`・`watch_and_build.ps1`・`build-windows.cmd` の 3 ファイルと `lib\` は、1つでも欠けると動きません** (`lib\` が欠けると、`library script not found` で、終了コード 2)。 `run_watchers.cmd` は、任意です (使うときは、同じフォルダに置く)。
 
 ### 候補をまとめて起動 (`run_watchers.cmd`)
 ```bat

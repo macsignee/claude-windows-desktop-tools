@@ -9,10 +9,14 @@ PS="$ROOT/host-tools/watch_and_build.ps1"
 CMD="$ROOT/host-tools/run_watcher.cmd"
 pass=0; fail=0
 ok() { if [ "$2" = 1 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
-ps() { tr -d '\r' < "$PS" | sed '1s/^\xef\xbb\xbf//'; }
+LIBS="$ROOT"/host-tools/lib/*.ps1
+# 本体 + lib\*.ps1 (機能ごとの関数) を、つなげて検査する。BOM は、各ファイルの先頭から除く
+ps() { for f in "$PS" $LIBS; do tr -d '\r' < "$f" | sed '1s/^\xef\xbb\xbf//'; done; }
 cnt() { ps | grep -c -- "$1"; }
 
-ok "ps1: UTF-8 BOM + CRLF" "$([ "$(head -c3 "$PS" | xxd -p)" = efbbbf ] && [ "$(grep -vc $'\r$' "$PS")" = 0 ] && echo 1 || echo 0)"
+ok "ps1: UTF-8 BOM + CRLF (main and every lib\\*.ps1)" "$(r=1; for f in "$PS" $LIBS; do [ "$(head -c3 "$f" | xxd -p)" = efbbbf ] && [ "$(grep -vc $'\r$' "$f")" = 0 ] || r=0; done; echo $r)"
+ok "ps1: lib has the 8 function files, and the main script dot-sources each one (exit 2 when one is missing)" "$(r=1; for n in gtest package common build test-results ui-settings uitest-desktop tests; do [ -f "$ROOT/host-tools/lib/$n.ps1" ] && grep -q "\"$n\"" "$PS" || r=0; done; [ "$(ls "$ROOT"/host-tools/lib/*.ps1 | wc -l)" = 8 ] && grep -qF '. $libPath' "$PS" && tr -d '\r' < "$PS" | awk '/library script not found/{f=1} f&&/exit 2/{print "y"; exit}' | grep -q y || r=0; echo $r)"
+ok "ps1: the main script keeps no feature function (they live in lib)" "$(! tr -d '\r' < "$PS" | grep -E '^function (Invoke-Tests|Invoke-PackageOps|Invoke-GtestFetch|Invoke-BuildScript|Initialize-UiDesktopRunner|Resolve-UiRun)' | grep -q . && echo 1 || echo 0)"
 ok "ps1: -SolutionPath is optional (no Mandatory on it)" "$(ps | awk '/^param\(/,/\[string\]\$Platform/' | grep -B1 '\[string\]\$SolutionPath' | grep -q Mandatory && echo 0 || echo 1)"
 ok "ps1: TargetDir is still mandatory" "$(ps | awk '/^param\(/,/\[string\]\$SolutionPath/' | grep -B1 '\[string\]\$TargetDir' | grep -q 'Mandatory=\$true' && echo 1 || echo 0)"
 ok "ps1: an explicit -SolutionPath that does not exist is still an error (exit 2)" "$(ps | awk '/SolutionExplicit\) \{/,/^}/' | grep -q 'exit 2' && echo 1 || echo 0)"
@@ -23,9 +27,9 @@ ok "ps1: the old one-shot startup assignments are gone (no top-level \$HasCpp / 
 ok "ps1: the build trigger returns an environment error (exit code 2) when there is no solution, without running the build script" "$(ps | grep -q 'if (-not \$SolutionPath) {' && ps | grep -q 'ERROR: no .sln / .slnx found in' && ps | awk '/if \(-not \$SolutionPath\) \{/,/\$exitCode = 2/' | grep -q 'exitCode = 2' && echo 1 || echo 0)"
 ok "ps1: Invoke-BuildScript is only reached when a solution exists" "$(ps | awk '/if \(-not \$SolutionPath\) \{/{f=1} f&&/Invoke-BuildScript/{print "after"; exit}' | grep -q after && echo 1 || echo 0)"
 ok "ps1: the banner copes with a missing solution" "$(ps | grep -q "no .sln / .slnx in ' + \$TargetDir" && echo 1 || echo 0)"
-ok "ps1: brackets are balanced (outside the known baseline: { } -1, ( ) +1 from strings and comments)" "$(python3 - "$PS" <<'PY'
+ok "ps1: brackets are balanced (outside the known baseline: { } -1, ( ) +1 from strings and comments)" "$(python3 - "$PS" $LIBS <<'PY'
 import re,sys
-t=open(sys.argv[1],'rb').read().decode('utf-8-sig')
+t=''.join(open(f,'rb').read().decode('utf-8-sig') for f in sys.argv[1:])
 t=re.sub(r"@'.*?'@","",t,flags=re.S)
 c={k:t.count(k) for k in '{}()[]'}
 print(1 if (c['{']-c['}'],c['(']-c[')'],c['[']-c[']'])==(-1,1,0) else 0)
@@ -85,7 +89,7 @@ INS="$ROOT/install/install.sh"
 ok "install.sh: the default host folder is claude-watcher" "$(grep -q '^HOST_DIR="/mnt/c/tools/claude-watcher"' "$INS" && echo 1 || echo 0)"
 HT="${TMPDIR:-/tmp}/ht_$$"; mkdir -p "$HT"
 bash "$INS" --host-only --host-dir "$HT/new" >/dev/null 2>&1
-ok "install.sh --host-only copies the 3 watcher files (and VERSION) to the given folder" "$([ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
+ok "install.sh --host-only copies the 3 watcher files, lib\\*.ps1 (8 files) and VERSION to the given folder" "$([ "$(ls "$HT"/new/lib/*.ps1 2>/dev/null | wc -l)" = 8 ] && [ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
 rm -rf "$HT" 2>/dev/null
 
 echo "PASS: $pass / FAIL: $fail"

@@ -2,7 +2,7 @@
 # install.sh - このリポジトリの成果物を、配布先へコピーする (バイトを変えない)。
 #
 #   skills/*      -> ~/.claude/skills/            (WSL の Claude Code が読むユーザー Skill)
-#   host-tools/*  -> /mnt/c/tools/claude-watcher/ (Windows 側で動かす 3 ファイル + README。C++ と .NET の両方に使う)
+#   host-tools/*  -> /mnt/c/tools/claude-watcher/ (Windows 側で動かす 3 ファイル + lib\*.ps1 (ウォッチャーの機能ごとの関数) + README。C++ と .NET の両方に使う)
 #   rules/*.md    -> ~/.claude/rules/              (ユーザー共通のコーディング規約。C++ / C# / XAML を扱うときに、自動で読み込まれる)
 #   templates/*   -> ~/.claude/templates/          (.editorconfig などのひな形)
 #   scripts/*     -> ~/.claude/scripts/            (規約が参照する道具。convert_to_utf8_bom.py = Shift-JIS から UTF-8 (BOM 付き) への変換)

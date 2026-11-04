@@ -783,3 +783,14 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | RN3 | RN2 のウォッチャーを動かしたまま、同じフォルダで、もう 1 つ、ウォッチャーを起動する | 2 つ目が、`ERROR: a watcher is already running for this folder: ...` で、拒否される (新しいミューテックス名で、排他が効く。TEST-PLAN 1-4 と同じ) | 未実施 |
 | RN4 | RN1〜RN3 を確認したら、旧い `C:\tools\cpp-watcher\` を削除し、Windows 側のショートカットなどが、新しいパスを指していることを確かめる | 旧いパスを、指すものが、残っていない | 未実施 (任意) |
 
+
+### 2-24. `watch_and_build.ps1` の `lib\` への分割 (v2.43.0。`docs/DESIGN.md` 4.59)
+
+**v2.43.0 で追加。静的テスト (`host_tools_static_test.sh` ほか) は通っている。ホスト側は、この環境では実行できないので、実機で確認する。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| WS1 | `install/install.sh --host-only` を実行し、`C:\tools\claude-watcher\lib\` に 8 つの `.ps1` があることを確かめ、ウォッチャーを再起動する | 起動バナーに `Version      : 2.43.0` が出る。`library script not found` が出ない | 未実施 |
+| WS2 | WS1 のウォッチャーで、`build_once.sh` と `build_test_once.sh` を、それぞれ 1 回流す | 分割の前と同じ結果 (`build_result.txt`・`test_result.txt`)。WSL 側の Skill の変更は、不要 | 未実施 |
+| WS3 | `gtest_once.sh` (取得済みなら、冪等の OK) と `package_once.sh "nuget versions <ID>"` を流す | どちらも OK (`lib\gtest.ps1`・`lib\package.ps1` の関数が、本体から呼ばれる) | 未実施 |
+| WS4 | (任意) UI テストのプロジェクトで `uitest_once.sh` を流す。そのあと、`lib\build.ps1` を一時的に退避して、ウォッチャーを起動する | UI テストが通る (`lib\ui-settings.ps1`・`lib\uitest-desktop.ps1`)。退避したときは、`ERROR: library script not found: ...` で終了コード 2 になる (戻す) | 未実施 |

@@ -115,9 +115,9 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ## 6. ホスト側ツール (`host-tools/`)
 
-- Windows 側に置く。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-windows.cmd` の 3 ファイルは、同じフォルダに置く。**
+- Windows 側に置く。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-windows.cmd` の 3 ファイルと、`lib\` フォルダ (`watch_and_build.ps1` が読み込む 8 ファイル) は、同じフォルダに置く。** `install.sh` は、`lib\` も配る。
 - `run_watcher.cmd`: 入口。プロジェクトのフォルダを指定して、ウォッチャーを起動する (ダブルクリック、ドラッグ&ドロップも可)。
-- `watch_and_build.ps1`: ウォッチャー本体。フラグの監視、ビルド・テストの実行、結果ファイルの書き出し。
+- `watch_and_build.ps1`: ウォッチャー本体 (フラグの監視ループ)。機能ごとの関数 (ビルド・テストの実行、GoogleTest の取得、パッケージ操作、UI テストの基盤) は、`lib\*.ps1` に分かれている。
 - `build-windows.cmd`: Visual Studio の環境を読み込んで、MSBuild を実行する。
 - `run_watcher_visible.cmd [ProjectDir] [Solution] [Platform] [Configuration]` (引数は `run_watcher.cmd` と同じ): UI テストを、**ユーザー自身のデスクトップで、目で見ながら**実行する設定で、ウォッチャーを起動する (任意)。操作の間に、遅延を入れる (環境変数 `WATCH_UI_SLOWMO_MS`。既定 800 ms)。実行中は、PC を使いにくい。
 - `run_watchers.cmd [WorkFolder] [/list] [/windows]`: 作業フォルダの直下の、候補 (`.sln` / `.slnx` のあるサブフォルダ) ごとに、ウォッチャーを起動する (任意。`/new-solutions` 用)。既定は、Windows ターミナル (`wt.exe`) の 1 つのウィンドウに、候補ごとのタブ。`/windows` は、候補ごとのコンソール窓。`/list` は、候補の一覧。タブ / 窓を閉じると、そのウォッチャーだけが止まる。

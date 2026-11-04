@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.43.0] 2026-11-04 (**ホスト側ツールの再配置が必要: `host-tools/lib\` が増えた。** ウォッチャーの動作と契約の変更なし。`watch_and_build.ps1` の整理)
+
+- **`host-tools/watch_and_build.ps1` (1748 行) を、機能ごとの 8 ファイル (`host-tools/lib/*.ps1`) に分けた (ユーザーの決定。動作は変えない。関数の本文は、1 行も変えていない)。** 本体は 558 行 (`param`・パス解決・ソリューションの判定・二重起動の防止・クイック編集の無効化・監視ループ) になった。`lib\` は、本体が、`. $libPath` (ドットソース) で、同じスコープに読み込む。`$script:` の変数は、そのまま共有される。
+  - `gtest.ps1` (GoogleTest の取得。117 行)、`package.ps1` (nuget / vcpkg / fetch。306 行)、`common.ps1` (実行 ID・処理中の印・外部プロセスの出力の読み取りなど。73 行)、`build.ps1` (`Invoke-BuildScript`。32 行)、`test-results.ps1` (trx の集計・失敗行・ハングの判定・完了マーカー。108 行)、`ui-settings.ps1` (`uitest.settings` と、デスクトップの解決。86 行)、`uitest-desktop.ps1` (別デスクトップの実行基盤・WPF のソフトウェアレンダリング。215 行)、`tests.ps1` (テストの実行。`Invoke-Tests` ほか。276 行)。
+  - **`lib\` のファイルが 1 つでも欠けると、`ERROR: library script not found: ...` (終了コード 2) で起動しない。** `install.sh` は、`host-tools/` を、フォルダごと配る (`lib\` も含む)。手で配るときは、`lib\` ごとコピーする。**ウォッチャーの再起動が要る。**
+  - 変えなかったもの: ミューテックス名、フラグ名、結果ファイルの形式、終了コード (2・3)、`build-windows.cmd`、`run_watcher*.cmd`。
+- テスト: `host_tools_static_test.sh` (本体 + `lib` をつなげて検査。BOM + CRLF を全ファイルで。`lib` の 8 ファイルと読み込みの確認、本体に機能の関数が残っていないこと。`--host-only` が `lib\*.ps1` の 8 ファイルを配ること)、`harness_note_test.sh` と `loop_hardening_test.sh` (本体 + `lib` をつなげて検査) の対象を広げた。括弧の釣り合いの基準値は、分割の前後で同じ。
+- README・`host-tools/README.md`・DESIGN 4.59・TEST-PLAN 2-24 (実機の確認 WS1〜WS4) を更新。
+
 ## [2.42.0] 2026-11-03 (**契約の変更: ウォッチャーのミューテックス名。ホスト側ツールの再配置と、ウォッチャーの再起動が必要。** リポジトリ名と、ホスト側の配布先の既定のフォルダ名の変更。スキルと規則の動作の変更なし。疑似フォルダと文字列の確認。**実機の確認は、ウォッチャーの起動と二重起動** (TEST-PLAN 2-23))
 
 - **リポジトリ名を、`cpp-claude-build-tools` から `claude-windows-desktop-tools` に変更する** (ユーザーの決定。C++ 専用ではなくなったため。Windows デスクトップの C++ / MFC / Win32 / WPF / WinForms / C#)。GitHub での名前の変更、手元のフォルダの名前の変更、メモリの更新は、ユーザーの作業 (DESIGN 4.58 の手順)。

@@ -1052,3 +1052,14 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 ### 4.35 UI テストの制限時間を、環境変数で変える (v2.15.0)
 
 実機の調査 (2026-10-26、`poc/dialog-flaui`、ListView の 5 種類の表示形式などで、UI テストが多くなった) で、ウォッチャーの UI テストの制限 (`-UiTestTimeoutSec`、テストプロジェクト 1 つあたり、既定 600 秒) に達して、`dotnet test` のプロセスごと強制終了された (finally も実行されず、trx も `ui-trace.txt` も残らない)。`uitest_once.sh` の秒数 (既定 900) は、Skill 側の待ち時間で、別物。→ `watch_and_build.ps1` の `-UiTestTimeoutSec` の既定値を、**環境変数 `WATCH_UI_TIMEOUT_SEC`** (なければ 600) から読む (`WATCH_UI_DESKTOP` / `WATCH_UI_SLOWMO_MS` と同じ作り)。明示した引数が、優先。UI テストの側の対策 (分割、ログの 1 行ごとの書き出し) は、`build-test-loop/SKILL.md` に記録した。**ホスト側 (ps1) の変更なので、Linux で検証できない。** `tests/host_tools_static_test.sh` は、文字列による構造の確認だけ。
+
+### 4.59 `watch_and_build.ps1` を、機能ごとの `lib\*.ps1` に分ける (v2.43.0)
+
+- **背景:** `watch_and_build.ps1` が 1748 行に膨らんだ (ユーザーの指摘)。内訳は、テスト関連が約 780 行 (UI テストのデスクトップ基盤 160 行、`Invoke-Tests` 163 行)、パッケージ操作が約 305 行、GoogleTest の取得が約 115 行、ヘッダーのコメントが約 80 行、残りが本体。
+- **決定 (ユーザー):** 8 つに分ける。`gtest` / `package` / `common` / `build` / `test-results` / `ui-settings` / `uitest-desktop` / `tests`。`Invoke-Tests` (163 行) は、1 つの関数の中を割ると、挙動が変わりうるので、割らず、ファイルごと動かす。
+- **方式: ドットソース。** 本体が `. $libPath` で読み込む。関数と、`$script:` の変数 (`UiRun` 21 か所、`CurrentRunId`、`CurrentKind` など) は、本体と同じスコープなので、書き換えなしで動く。`$PSScriptRoot` の `lib\` を見る (`run_watcher.cmd` が `-File` で起動するので、`$PSScriptRoot` は、ps1 の場所)。`install.sh` の `copy_tree` は、サブフォルダも配るので、変更なし。
+- **作り方:** 関数の境界を機械で判定して (here-string の中の `}` を除く)、元の行を、そのまま移した。元と新しい全ファイルの行の差は、節の見出し 4 行 (各 `lib` の見出しに置き換え) と、読み込みのブロック、各 `lib` の先頭の 2 行のコメントだけ。
+- **契約 (変えない):** ミューテックス名、フラグ・結果ファイル、終了コード 2・3。新しく、`lib\` の欠落 = 終了コード 2。
+- **テスト:** 本体の文字列を直接検査していた 3 本のテストは、本体 + `lib` をつなげたものを検査する。
+- **注意 (実機):** Windows PowerShell 5.1 で、ドットソースしたファイルの関数・変数が、本体から見えること。`lib\*.ps1` も、BOM 付き UTF-8 + CRLF (BOM がないと、CP932 と誤認する)。→ TEST-PLAN 2-24。
+- **見送り:** `Invoke-Tests` の内部の分割 (C++ と .NET と集約)、ヘッダーのコメントの `host-tools/README.md` への移動 (本体の `.DESCRIPTION` は、`Get-Help` が読むので、そのまま)。
