@@ -1163,3 +1163,15 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **原因 (実機の MSBuild の出力で確認、2026-11-04):** `.vcxproj` を単体で評価すると、ソリューション経由で渡される `SolutionDir` が定義されない。`OutDir` が `$(SolutionDir)` を使うと、`TargetPath` が、期待した場所にならない。`MSBuild LogicLayerTest.vcxproj -getProperty:TargetPath -p:Configuration=Debug -p:Platform=x64` は `...\UiHostCheck\LogicLayerTest\out\bin\Debug\LogicLayerTest.exe`、`-p:SolutionDir=...\UiHostCheck\` を足すと `...\UiHostCheck\out\bin\Debug\LogicLayerTest.exe`。
 - **判断:** `-p:SolutionDir=<ソリューションフォルダ>\` を、必ず渡す (末尾は `\`)。`SolutionDir` を使わない `OutDir` には、影響しない。
 - **確認できていないこと (実機。TEST-PLAN 2-30 の OD2c):** 修正後の、両方の出力先のテストの実行。`-getProperty:TargetPath` 自体は、実機の MSBuild (VS 18) で動くことを確認した。
+
+### 4.70 プロジェクトを足す入口 `/add-project` (v2.52.0)
+
+- **きっかけ (ユーザー、2026-11-04):** 「ソリューションにプロジェクトを追加していく流れを作りたい」。範囲の決定: C++ と .NET の両方、入口は新しい `/add-project`、種類は層・画面を持つ DLL + 画面ホスト・テストの後付け / UI テストの後付け (新しい種類の exe などは、含めない)。参照の生成も含める (2 段階: v2.52.0 は案内、v2.53.0 で生成)。
+- **調べた現状:** 部品は、すでにある (`add_layer.py`、`add_project.py`、`add_ui_host.py`、`new_solution.py --tests / --ui-tests`)。足りなかったのは、(1) 通しの入口 (何を足すかの質問、承認、足したあとの確認)、(2) `CLAUDE.md` の更新 (`add_layer.py` / `add_project.py` は、更新しない。`/add-feature` が手作業で直す記述だけ)、(3) 使う側から新しい層への参照 (`add_layer.py` は、新しい側から下への `--uses` だけ。メイン exe から層 DLL への参照は、生成しない)。
+- **判断:**
+  - **入口は、Skill 1 つと、読み取りだけの補助スクリプト 1 つ。** 作る処理は、既存のスクリプトに任せ、二重に書かない。`solution_state.py` は、種類・役割・テストの対応・参照・`CLAUDE.md` との食い違い・参照の向きの違反・参照されていない層・足せるものを、`KEY: 値` で出す (Python 標準ライブラリだけ。何も書かない)。
+  - **役割は、名前から決める** (`mfc_check` の規則と同じ考え方)。ただし、`ViewModels` は、`View` を含んでも、画面の層ではない (先に viewmodel と判定する。静的テストで固定)。
+  - **`CLAUDE.md` の書き換えは、3 か所だけ** (`- 層:`、層の表、`- テスト:`)。書いてある層は、消さない・並べ替えない。`add_ui_host.py` が自分で足す節は、二重に足さない。
+  - **承認のゲートは、1 回** (案 = 既存のスクリプトの `--dry-run`)。既存のプロジェクトの書き換え (参照の追加) は、v2.52.0 では、了承を得てからの別の作業。
+- **見送り:** 新しい種類のプロジェクト (別の exe、コンソールの道具)、ソリューションの新規作成 (`/new-solution`)、`claude-spec-workflow` の `/add-feature` からの呼び出し (v2.53.0 の後で検討)。
+- **確認できていないこと (実機。TEST-PLAN 2-31):** `/add-project` の対話の使い勝手、`CLAUDE.md` の更新の実際の差分、足したあとのビルド・テスト。

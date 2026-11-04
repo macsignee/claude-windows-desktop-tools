@@ -14,7 +14,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ## 1. フォルダの構成
 
-- [`skills/`](skills/): Claude Code の Skill (12 個。→ 「2. Skill」)。配布先: `~/.claude/skills/` (WSL)。
+- [`skills/`](skills/): Claude Code の Skill (13 個。→ 「2. Skill」)。配布先: `~/.claude/skills/` (WSL)。
 - [`rules/`](rules/): ユーザー共通のコーディング規約 (4 つ。→ 「3. 規約 (rules)」)。配布先: `~/.claude/rules/` (WSL)。
 - [`templates/`](templates/): 規約が参照する、設定ファイルのひな形 (→ 「4. ひな形 (templates)」)。配布先: `~/.claude/templates/` (WSL)。
 - [`scripts/`](scripts/): 規約が参照する道具 (→ 「5. 道具 (scripts)」)。配布先: `~/.claude/scripts/` (WSL)。
@@ -29,7 +29,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-1. 起動のしかた
 
-- **スラッシュコマンドだけで起動する Skill** (依頼文では、自動では、起動しない。`disable-model-invocation: true`): `/new-solution`、`/new-solutions`、`/ui-test-first`。
+- **スラッシュコマンドだけで起動する Skill** (依頼文では、自動では、起動しない。`disable-model-invocation: true`): `/new-solution`、`/add-project`、`/new-solutions`、`/ui-test-first`。
 - **依頼文で、自動で選ばれる Skill** (引数なし。description に合う依頼で起動する): `auto-build`、`build-test-loop`、`cpp-test-first`、`csharp-test-first`、`mfc-check`、`wpf-check`、`winforms-check`、`add-package`、`ui-design-review` (`/ui-design-review [画面名 / ファイル / 規則 ID]` で、引数つきの起動も可)。
 - Skill の一覧は、Claude Code の起動時に読み込まれる。**配布したあとは、セッションを、新しく起動する。**
 - 各 Skill の下の `scripts/` は、Skill が内部で呼ぶスクリプト。`references/` は、必要なときだけ読む詳細 (読み込みを小さくするため)。
@@ -62,6 +62,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
   - ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
   - 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
   - 守る手順: Red のあとの確認、Green の前の `test_guard.py snapshot`、実装のあとの `check`、`wpf-check` / `winforms-check`、報告の先頭にテストファイル。
+- **`/add-project [layer | tests | ui-host | ui-tests] [名前]`**: すでにあるソリューション (C++ / .NET) に、プロジェクトを足していく入口。現状を読む (`scripts/solution_state.py`。読み取りだけ) → 何を足すか質問 → 案 (`--dry-run`) を示して承認 → 既存のスクリプト (`add_layer.py` / `add_project.py` / `add_ui_host.py` / `new_solution.py`) で作る → 足りない参照の案内 → `CLAUDE.md` の「層:」「層の表」「テスト:」を合わせる → ビルド・テスト・静的検査で確かめる。足せるもの: 層 (ロジック・データ・ViewModel、C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL) とテスト、画面を持つ DLL + 画面ホスト、テストの後付け、UI テストの後付け。ソリューションの新規作成は `/new-solution`。
 - **`/ui-test-first [作りたい画面・動作の説明]`**: 画面を、プロンプトで作りながら、UI テスト (FlaUI) を先に書き、実行して、直す、小さなループ。WinForms / WPF / MFC。`uitest_once.sh` で、絞って (`--filter`)、長い制限時間 (`--ui-timeout`) で、実行する。
 
 ### 2-5. ビルドとテストの実行

@@ -866,3 +866,15 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | OD2b | OD2 の構成のまま (3 つの `.vcxproj` の `OutDir` を `$(SolutionDir)out\bin\$(Configuration)\` にしたまま。`DataLayerTest` は、既定の出力先のまま) で、v2.51.1 を `install/install.sh` で配り、ウォッチャーを再起動して (バナー 2.51.1)、`build_test_once.sh` を実行する | `PASSED`。**`DataLayerTest` (既定の出力先) と `LogicLayerTest` (`out\bin\Debug`) の両方が、実行される** (`tests: 4 passed (DataLayerTest 1, LogicLayerTest 3)`)。確認のあと、`.vcxproj` を元に戻し (`.od2bak`)、OD1 と同じ結果に戻ることも確認する | **不合格 (2026-11-04、ウォッチャー 2.51.1)。** 修正後も `1 passed (DataLayerTest 1)`。`out\bin\Debug\LogicLayerTest.exe` はあるのに見つからない。原因 (実機の MSBuild の出力で確認): `.vcxproj` を単体で MSBuild に渡すと `SolutionDir` が空で、`TargetPath` が `LogicLayerTest\out\bin\Debug\LogicLayerTest.exe` (プロジェクトの下) になる。`-p:SolutionDir=<ソリューション>\` を渡すと、`UiHostCheck\out\bin\Debug\LogicLayerTest.exe` (exe がある場所) になる。→ v2.51.2 で `-p:SolutionDir` を渡す。OD2c で再確認 |
 | OD2c | OD2b と同じ構成で、v2.51.2 を `install/install.sh` で配り、ウォッチャーを再起動して (バナー 2.51.2)、`build_test_once.sh` を実行する | `PASSED`、`tests: 4 passed (DataLayerTest 1, LogicLayerTest 3)`。確認のあと、`.vcxproj` を元に戻し (`.od2bak`)、OD1 と同じ結果に戻ることも確認する | ✔ (2026-11-04、ウォッチャー 2.51.2。`PASSED`、`tests: 4 passed (DataLayerTest 1, LogicLayerTest 3)`。`DataLayerTest` は既定の出力先、`LogicLayerTest` は `out\bin\Debug` から実行された) |
 
+### 2-31. `/add-project` の入口と `solution_state.py` (v2.52.0。`docs/DESIGN.md` 4.70)
+
+**v2.52.0 で追加。静的テスト (`tests/add_project_skill_test.sh`、32 件) は通っている (生成したソリューション 10 種で、`solution_state.py` の出力と、`SKILL.md` の文面を検証)。実機で確認する (Windows のウォッチャー、Visual Studio、`/add-project` の対話が要る)。** 先に、`install/install.sh` で、Skill を配る (`--skills-only` でよい。ホスト側の変更はない)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| AP1 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers logic,data --tests gtest` で作る。そこで `python3 ~/.claude/skills/add-project/scripts/solution_state.py "$PWD"` を実行する | `KIND: cpp`、層とテストの対応、`SUGGEST_REF: <メイン> -> LogicLayer`、`ADDABLE` に layer / ui-host / ui-tests。`MISMATCH` なし | 未実施 |
+| AP2 | 同じフォルダで、`/add-project layer` (名前 `ReportLayer`、`--uses DataLayer`、テストあり) | 質問 → 案 (dry-run) → 承認で止まる → 作成 → `CLAUDE.md` に追加 → ビルド `SUCCESS`、テスト `PASSED` (追加分 1 件を含む)。報告に、足りない参照 (`SUGGEST_REF`) | 未実施 |
+| AP3 | 同じフォルダで、`/add-project tests` (テストのない層を、先に `--tests none` で足しておく) | `tests-for:<名前>` が選べる。後付けのあと、`PASSED` | 未実施 |
+| AP4 | 新しいフォルダに、`/new-solution --type wpf --layers data,logic --tests mstest` で作り、`/add-project layer` (名前 `ViewModels`、種類 `viewmodel`) | 作成 → `CLAUDE.md` の `- 層:` に `viewmodel` が足される → `wpf-check` の指摘 0 件 → `PASSED` | 未実施 |
+| AP5 | 上流の層が、下の層を参照する依頼 (例: `DataLayer` を `--uses LogicLayer` で足す) | 手順 2 で、向きの違反と指摘して、止まる (作らない) | 未実施 |
+| AP6 | `CLAUDE.md` の `- テスト:` を、わざと `なし` に書き換えて、`/add-project` を起動する | 手順 1 で、`MISMATCH` を、先に伝える | 未実施 |

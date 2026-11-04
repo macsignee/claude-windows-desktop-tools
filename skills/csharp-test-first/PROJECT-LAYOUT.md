@@ -56,7 +56,7 @@ MyApp/
 
 ## 新しいライブラリとテストを、組で作るとき (了承を得た場合)
 
-**同梱の `scripts/add_project.py` で作る (手書きしない)。** ソリューションの編集 (`.slnx` / `.sln`) は、ミスが出やすく、毎回の出力が揺れるため。
+**同梱の `scripts/add_project.py` で作る (手書きしない)。** **現状の読み取り、承認、`CLAUDE.md` の更新、ビルドとテストでの確認まで、通しで進めるときは、`/add-project`** (`add_project.py` を呼ぶ入口)。 ソリューションの編集 (`.slnx` / `.sln`) は、ミスが出やすく、毎回の出力が揺れるため。
 
 ```bash
 python3 <Skill>/scripts/add_project.py "$SLN_DIR" ViewModels --kind viewmodel --uses LogicLayer
