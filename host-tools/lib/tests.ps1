@@ -9,14 +9,18 @@ function Find-TestExes {
     # ただし、Visual Studio の既定では、Win32 だけ、プラットフォームのフォルダが付かない (<ソリューションフォルダ>\<Configuration>\)。両方を探す
     $dirs = @(Join-Path (Join-Path $SolutionDir $platDir) $Configuration)
     if ($platDir -eq "Win32") { $dirs += (Join-Path $SolutionDir $Configuration) }
+    $found = @()
     foreach ($dir in $dirs) {
         if (Test-Path -LiteralPath $dir) {
             $found = @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -match $TestExePattern } | Sort-Object Name)
-            if ($found.Count -gt 0) { return $found }
+            if ($found.Count -gt 0) { break }
         }
     }
-    # 既定の出力先 (<ソリューション>\<プラットフォーム>\<構成>\) にない: OutDir を変えたプロジェクトかもしれない。MSBuild の TargetPath で探す
-    return @(Find-TestExesByTargetPath)
+    # 既定の出力先に exe がないテストプロジェクトは、OutDir を変えたものかもしれない。そのプロジェクトだけ、MSBuild の TargetPath で探す
+    # (一部のテストだけ OutDir を変えたとき、既定の出力先に見つかった分だけで終わって、残りを黙って飛ばさないため)
+    $extra = @(Find-TestExesByTargetPath @($found | ForEach-Object { $_.Name }))
+    if ($extra.Count -eq 0) { return $found }
+    return @(@($found) + $extra | Sort-Object FullName -Unique | Sort-Object Name)
 }
 
 # vswhere で、MSBuild.exe を探す (見つからなければ $null)
@@ -28,19 +32,25 @@ function Get-MSBuildExe {
     return $found[0]
 }
 
-# 既定の出力先に、テスト exe がないときの、探し直し。名前が Test(s) で終わる .vcxproj ごとに、MSBuild の TargetPath (実際の出力先) を取る。
-# 既定の出力先に見つかったときは、呼ばれない (既存の動作は、変わらない)。-getProperty が使えない古い MSBuild では、何も見つからない (空を返す)。
-function Find-TestExesByTargetPath {
+# 既定の出力先に、exe がないテストプロジェクトの、探し直し。名前が Test(s) で終わる .vcxproj のうち、既定の出力先に見つかった exe 名
+# (引数 FoundNames) に、プロジェクト名 + .exe がないものだけ、MSBuild の TargetPath (実際の出力先) を取る。
+# 全部が既定の出力先に見つかったときは、MSBuild を呼ばない (既存の動作は、変わらない)。-getProperty が使えない古い MSBuild では、何も見つからない (空を返す)。
+function Find-TestExesByTargetPath([string[]]$FoundNames = @()) {
     if (-not $HasCpp) { return @() }
-    $msbuild = Get-MSBuildExe
-    if (-not $msbuild) { return @() }
     $found = @()
+    $msbuild = $null
+    # .vcxproj を単体で MSBuild に渡すと、SolutionDir が空になり、OutDir に $(SolutionDir) を使うプロジェクトの TargetPath が、別の場所を指す。ソリューションと同じ値を渡す
+    $slnDir = $SolutionDir.TrimEnd('\') + '\'
     foreach ($p in $ProjectPaths) {
         if ($p -notmatch '\.vcxproj$') { continue }
         if (-not (Test-Path -LiteralPath $p)) { continue }
-        if ([System.IO.Path]::GetFileNameWithoutExtension($p) -notmatch '(Test|Tests)$') { continue }
+        $base = [System.IO.Path]::GetFileNameWithoutExtension($p)
+        if ($base -notmatch '(Test|Tests)$') { continue }
+        if ($FoundNames -contains ($base + '.exe')) { continue }
+        if (-not $msbuild) { $msbuild = Get-MSBuildExe }
+        if (-not $msbuild) { return @() }
         try {
-            $out = @(& $msbuild $p -nologo -getProperty:TargetPath "-p:Configuration=$Configuration" "-p:Platform=$Platform" 2>$null)
+            $out = @(& $msbuild $p -nologo -getProperty:TargetPath "-p:Configuration=$Configuration" "-p:Platform=$Platform" "-p:SolutionDir=$slnDir" 2>$null)
             $target = @($out | Where-Object { $_ -and $_.ToString().Trim() } | Select-Object -Last 1)
             if ($target.Count -eq 0) { continue }
             $path = $target[0].ToString().Trim()
