@@ -62,7 +62,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
   - ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
   - 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
   - 守る手順: Red のあとの確認、Green の前の `test_guard.py snapshot`、実装のあとの `check`、`wpf-check` / `winforms-check`、報告の先頭にテストファイル。
-- **`/add-project [layer | tests | ui-host | ui-tests] [名前]`**: すでにあるソリューション (C++ / .NET) に、プロジェクトを足していく入口。現状を読む (`scripts/solution_state.py`。読み取りだけ) → 何を足すか質問 → 案 (`--dry-run`) を示して承認 → 既存のスクリプト (`add_layer.py` / `add_project.py` / `add_ui_host.py` / `new_solution.py`) で作る → 足りない参照の案内 → `CLAUDE.md` の「層:」「層の表」「テスト:」を合わせる → ビルド・テスト・静的検査で確かめる。足せるもの: 層 (ロジック・データ・ViewModel、C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL) とテスト、画面を持つ DLL + 画面ホスト、テストの後付け、UI テストの後付け。ソリューションの新規作成は `/new-solution`。
+- **`/add-project [layer | tests | ui-host | ui-tests] [名前]`**: すでにあるソリューション (C++ / .NET) に、プロジェクトを足していく入口。現状を読む (`scripts/solution_state.py`。読み取りだけ) → 何を足すか質問 → 案 (`--dry-run`) を示して承認 → 既存のスクリプト (`add_layer.py` / `add_project.py` / `add_ui_host.py` / `new_solution.py`) で作る → 使う側のプロジェクトに、参照を足す (`scripts/add_reference.py`。向き・循環・MFC の設定を検査して、断ることがある) → `CLAUDE.md` の「層:」「層の表」「テスト:」を合わせる → ビルド・テスト・静的検査で確かめる。足せるもの: 層 (ロジック・データ・ViewModel、C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL) とテスト、画面を持つ DLL + 画面ホスト、テストの後付け、UI テストの後付け。ソリューションの新規作成は `/new-solution`。
 - **`/ui-test-first [作りたい画面・動作の説明]`**: 画面を、プロンプトで作りながら、UI テスト (FlaUI) を先に書き、実行して、直す、小さなループ。WinForms / WPF / MFC。`uitest_once.sh` で、絞って (`--filter`)、長い制限時間 (`--ui-timeout`) で、実行する。
 
 ### 2-5. ビルドとテストの実行
