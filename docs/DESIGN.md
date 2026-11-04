@@ -1143,3 +1143,9 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **見送り:** `devenv.com`、Preview 版の VS (`VC_INCLUDE_PRERELEASE`)、環境変数による設定、ソリューションの自動検出の順位付け (複数あるときは、ユーザーに確認する規則で足りる)、ZIP、`vc-mfc-auto-detect-wsl-build` の新規作成 (二重になる)。
 - **確認できていないこと (実機。TEST-PLAN 2-30):** `-getProperty:TargetPath` の、実機の MSBuild (VS 18) での値。
 
+### 4.67 実際に使われている Skill 一式の検討: `/design` と画面の設計の記録 (v2.51.0)
+
+- **資料:** ユーザーが貼った、別の Skill 一式の概要 (brainstorm / update-from-ideas / design / add-feature / feature-spec)。`/design` は、Claude Design / frontend-design / Figma で、UI の案を発散・収束させ、`docs/design/<機能>.md` に残す。
+- **判断:** `/design` は、新設しない。道具が Web 向けで合わず、点検 (アクセシビリティ・一貫性・キーボード・DPI) は、`ui-design-review` (規則 ID つき) が、すでに持つ。`ui-test-first` の手順 1 の計画が、部品・識別名・具体例を表にして、承認を取る。
+- **足りなかったもの (採用):** (A) 実装の前に、複数の案を比べる段階 (新規の画面で、迷うときだけ。文字の図)。(B) 決まった設計を `docs/` に残す場所 (`docs/design/<画面>.md`。計画は、会話の表で、残らなかった)。
+- **確認できていないこと:** 実機での使い勝手 (案の比較が、実際の画面づくりで役に立つか)。静的テスト (`ui_test_first_skill_test.sh`) は、文面のみ。
