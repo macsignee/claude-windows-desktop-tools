@@ -15,7 +15,41 @@ function Find-TestExes {
             if ($found.Count -gt 0) { return $found }
         }
     }
-    return @()
+    # 既定の出力先 (<ソリューション>\<プラットフォーム>\<構成>\) にない: OutDir を変えたプロジェクトかもしれない。MSBuild の TargetPath で探す
+    return @(Find-TestExesByTargetPath)
+}
+
+# vswhere で、MSBuild.exe を探す (見つからなければ $null)
+function Get-MSBuildExe {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path -LiteralPath $vswhere)) { return $null }
+    $found = @(& $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" 2>$null | Where-Object { $_ })
+    if ($found.Count -eq 0) { return $null }
+    return $found[0]
+}
+
+# 既定の出力先に、テスト exe がないときの、探し直し。名前が Test(s) で終わる .vcxproj ごとに、MSBuild の TargetPath (実際の出力先) を取る。
+# 既定の出力先に見つかったときは、呼ばれない (既存の動作は、変わらない)。-getProperty が使えない古い MSBuild では、何も見つからない (空を返す)。
+function Find-TestExesByTargetPath {
+    if (-not $HasCpp) { return @() }
+    $msbuild = Get-MSBuildExe
+    if (-not $msbuild) { return @() }
+    $found = @()
+    foreach ($p in $ProjectPaths) {
+        if ($p -notmatch '\.vcxproj$') { continue }
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        if ([System.IO.Path]::GetFileNameWithoutExtension($p) -notmatch '(Test|Tests)$') { continue }
+        try {
+            $out = @(& $msbuild $p -nologo -getProperty:TargetPath "-p:Configuration=$Configuration" "-p:Platform=$Platform" 2>$null)
+            $target = @($out | Where-Object { $_ -and $_.ToString().Trim() } | Select-Object -Last 1)
+            if ($target.Count -eq 0) { continue }
+            $path = $target[0].ToString().Trim()
+            if ((Test-Path -LiteralPath $path -PathType Leaf) -and ([System.IO.Path]::GetFileName($path) -match $TestExePattern)) {
+                $found += Get-Item -LiteralPath $path
+            }
+        } catch { }
+    }
+    return @($found | Sort-Object Name)
 }
 
 # .NET のテストプロジェクト: Microsoft.NET.Test.Sdk / MSTest を参照している、IsTestProject が true、または名前が Test(s) で終わる。
@@ -138,7 +172,7 @@ function Invoke-Tests([switch]$Ui) {
     }
     if ($exes.Count -eq 0 -and $projects.Count -eq 0) {
         Write-TestEnvError @("ERROR: no tests found for $Configuration|$Platform under $SolutionDir",
-            "  GoogleTest exe matching '$TestExePattern' : none (C++ project in solution: $HasCpp)",
+            "  GoogleTest exe matching '$TestExePattern' : none (looked in the default output folder, then at the MSBuild TargetPath of each *Test/*Tests .vcxproj; C++ project in solution: $HasCpp)",
             "  .NET test project (Microsoft.NET.Test.Sdk / MSTest, or a name ending in Test/Tests) : none (.NET project in solution: $HasDotnet)")
         return
     }

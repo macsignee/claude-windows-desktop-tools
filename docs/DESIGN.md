@@ -1127,3 +1127,19 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **既存のファイルの編集:** ロジック層とその単体テストの `.vcxproj` / `.vcxproj.filters` に、項目を足す (文字列の挿入。`ItemGroup` の末尾か、`Microsoft.Cpp.targets` の前の新しい `ItemGroup`)。filters は、そのフィルターが定義されているときだけ。
 - **見送り:** `/new-solution` の層 (`--layers ... ui`) への組み込み (今回は、後付けのみ)。WPF / WinForms (クラスライブラリの View は、これまでの経路で、足りる)。画面ホストが、複数のダイアログを選んで開く形 (いまは、サンプルの 1 つ)。DLL に、画面と、ViewModel 相当 (MFC に依存する) の両方を持たせる形。
 - **実機で確認 (2026-11-04。TEST-PLAN 2-29):** 標準 DLL (`UiHostCheck`) と拡張 DLL (`UiHostExt`) の、どちらも、ビルド・単体テスト・UI テスト (3 件) が通った。DLL のリソースから、ダイアログが開く。MFC の静的テキスト (ID 3003) の UIA の `Name` で、表示の文を読める (推測が当たった)。拡張 DLL でも、ホスト (MFC の exe) から、DLL のリソースが見つかる。**未確認 (任意):** 目視 (UH4)。
+
+### 4.66 他部署の引き継ぎ資料の検討: TargetPath と修正の方針 (v2.50.0)
+
+- **きっかけ:** 他部署の引き継ぎ資料 (`CLAUDE_HANDOFF.md`。WSL の Claude Code が、`cmd.exe` で、Visual Studio と GoogleTest を直接動かす Skill の要件) を、検討した (ユーザー、2026-11-04)。
+- **前提の違い:** 資料は、`cmd.exe` を直接呼ぶ。このリポジトリは、ウォッチャー経由 (サンドボックスが、`cmd.exe` / `powershell.exe` を実行できないため。結果の形式も、決まる)。方式は、変えない。Python の排除も、採用しない (生成と検査が Python)。
+- **すでに満たしていたもの:** vswhere による検出、リビルド・クリーン (`MSBuildTarget`)、`build.log` / `errors.log` / `warnings.log`、修正の上限、テストの改変の禁止 (資料は文章。ここは `test_guard.py` で機械的に)。
+- **採用 (ユーザー、2026-11-04。「1〜5 すべて」):**
+  1. **`TargetPath`:** 資料の「テスト exe の場所を決め打ちしない」。いまは、`<ソリューション>\<プラットフォーム>\<構成>\` を探す。`OutDir` を変えたプロジェクトで、見つからない。→ 既定の場所に見つからなかったときだけ、`MSBuild -getProperty:TargetPath` で探し直す (既存の動作は、変えない。MSBuild は、vswhere で探す)。`-getProperty` は、新しい MSBuild (17.12 以降) の機能。使えないときは、空を返す。
+  2. **警告の方針:** `ignore` / `report` / `fix`。環境変数ではなく、依頼の指示 (既定は `report`)。
+  3. **テスト失敗の、止める条件:** 環境に依存するもの (フォーカス・DPI・ロケール・タイムゾーン)、フレーク、外部依存、非同期の競合、クラッシュ。
+  4. **修正の前の確認:** `git status` / `git diff --stat`。**ダイアログではなく、Claude が、自分で確認する。** 重なるときだけ、停止して報告する。
+  5. **完了報告の項目。**
+- **置き場所:** 2〜5 は、`build-test-loop/references/fix-policy.md` に、まとめた (`build-test-loop` の SKILL.md は、32000 バイトの上限に近いため、本文には、参照だけ)。`auto-build` からも、同じファイルを参照する。
+- **見送り:** `devenv.com`、Preview 版の VS (`VC_INCLUDE_PRERELEASE`)、環境変数による設定、ソリューションの自動検出の順位付け (複数あるときは、ユーザーに確認する規則で足りる)、ZIP、`vc-mfc-auto-detect-wsl-build` の新規作成 (二重になる)。
+- **確認できていないこと (実機。TEST-PLAN 2-30):** `-getProperty:TargetPath` の、実機の MSBuild (VS 18) での値。
+
