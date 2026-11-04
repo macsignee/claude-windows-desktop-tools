@@ -89,7 +89,8 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 - 配布先は `~/.claude/rules/`。**`paths` に合うファイルを Claude が読むときだけ、自動で読み込まれる** (読み込みを小さくするため、技術ごとに分けている)。
 - 名前の方針: 言語の共通 = `<言語>-common.md`、技術ごと = `<技術>-<言語>.md`。
-- `mfc-cpp.md` (19KB): C++ / MFC の規約。`paths`: `*.cpp` `*.h` `*.hpp` `*.cc` `*.cxx`。
+- `cpp-common.md` (16KB): C++ の共通の規約 (MFC・Win32・コンソール・DLL・ライブラリ)。`paths`: `*.cpp` `*.h` `*.hpp` `*.cc` `*.cxx`。
+- `mfc-cpp.md` (5KB): MFC 固有の規約。`paths`: MFC のウィザードが作るファイル名 (`*Dlg` `*View` `*Doc` `MainFrm` `*Frame`) だけ。MFC のプロジェクトの `CLAUDE.md` が、読むよう指示する。MFC を使わないプロジェクトには、適用しない。
 - `csharp-common.md` (13KB): C# の共通部分 (C# のコーディング規約、非同期、依存性注入、例外、ログ、コメント、テスト、禁止事項)。`paths`: `*.cs`。章の番号は、WPF 規約のまま。
 - `wpf-csharp.md` (28KB): WPF / XAML / MVVM の固有部分。`paths`: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
 - `winforms-csharp.md` (24KB): WinForms / MVP の固有部分。`paths`: `*.Designer.cs` `Forms/` `Presenters/` `*Presenter*.cs` `I*View.cs`。
@@ -101,12 +102,12 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 - 配布先は `~/.claude/templates/`。
 - `templates/dotnet/.editorconfig`、`templates/dotnet/Directory.Build.props`: C# / WPF 用。`/new-solution` が生成するものと、同じ内容。規約 (`csharp-common.md`) が参照する。
-- `templates/cpp/.clang-format`、`.clang-tidy`、`.editorconfig`: C++ 用。`mfc-cpp.md` が参照する (Allman、インデント 4、`#include` の順序は変えない、関数は 100 行まで (`readability-function-size`)、`.cpp` / `.h` / `.hpp` は CRLF)。`/new-solution` (C++) は、生成しない。
+- `templates/cpp/.clang-format`、`.clang-tidy`、`.editorconfig`: C++ 用。`cpp-common.md` が参照する (Allman、インデント 4、`#include` の順序は変えない、関数は 100 行まで (`readability-function-size`)、`.cpp` / `.h` / `.hpp` は CRLF)。`/new-solution` (C++) は、生成しない。
 - 手で直した既存のファイルは、上書きせず、番号付きのバックアップ (`*.~N~`) を残す。バックアップは、読み込まれない。消してよい。
 
 ## 5. 道具 (`scripts/`)
 
-- 配布先は `~/.claude/scripts/`。規約 (`mfc-cpp.md`、`csharp-common.md`) が参照する。
+- 配布先は `~/.claude/scripts/`。規約 (`cpp-common.md`、`csharp-common.md`) が参照する。
 - `convert_to_utf8_bom.py`: Shift-JIS (CP932) のソースを、UTF-8 (BOM 付き) / CRLF に変換する。
   - 使い方: `python3 -I ~/.claude/scripts/convert_to_utf8_bom.py [--apply] <ファイル>...`。既定は、検証だけ (書かない)。`--apply` で書き換える。
   - **手動で、ファイルを指定して、1 回だけ実行する** (規約の「変換だけの、別のコミット」)。ビルドの流れには、組み込まれていない。

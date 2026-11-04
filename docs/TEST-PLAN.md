@@ -816,3 +816,12 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | SD2 | ウォッチャーを、そのフォルダで起動し、`package_once.sh <dir> --timeout 1800 "vcpkg baseline" "vcpkg install"` → `build_once.sh <dir>` を実行する | `build_once.sh` = `SUCCESS` (`C1010` / `LNK` のエラーなし)。`x64\Debug\` に `LogicLayer.dll`・`DataLayer.dll` | ✔ (2026-11-04) `package_once.sh` = `OK` (gtest 1.18.0)。`build_once.sh` = `SUCCESS` (MSBuild exit 0。`LogicLayer.dll`・`DataLayer.dll`・`.lib`・`.exp`、テスト exe 2 つ)。注: MSBuild の vcpkg 連携は VS 2022 の `vcpkg.exe` を使う (MX2 と同じ。実害なし) |
 | SD3 | `build_test_once.sh <dir>` を実行する | `PASSED` (tests: 2 passed)。**MFC なしのテスト exe が、標準 DLL (共有 MFC) をロードして、`AFX_MANAGE_STATE` つきの関数を呼べる** | ✔ (2026-11-04) `PASSED`、`build: SUCCESS / tests: 2 passed (DataLayerTest 1, LogicLayerTest 1)` |
 | SD4 | 生成した `LogicLayer.vcxproj` を、実物 `MFCLibrary2.vcxproj` と比べる (`UseOfMfc`・`_USRDLL`・`_AFXEXT` なし・PCH)。(任意) Visual Studio のプロパティページ、`AFX_MANAGE_STATE` を外した関数を、MFC のダイアログを使う関数に変えて動かす確認 | 設定が実物と一致する | △ (2026-11-04) 静的な比較は ✔: 生成した `LogicLayer.vcxproj` (Debug|x64) と、実物 `MFCLibrary2.vcxproj` が、`ConfigurationType`・`UseOfMfc`・`CharacterSet`・`PrecompiledHeader` (Use)・`PrecompiledHeaderFile`・`SubSystem`・`_USRDLL`・`_WINDOWS`・`_AFXEXT` なし で一致 (違いは、意図的な `LOGICLAYER_EXPORTS` のみ)。**未実施 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` の確認 |
+
+### 2-27. C++ の規約の分割 (v2.47.0。`docs/DESIGN.md` 4.63)
+
+**v2.47.0 で追加。静的テスト (`rules_split_test.sh`、`new_solution_test.sh`) は通っている。実機で確認する。** 先に、`install/install.sh --rules-only` と `--skills-only` を実行する (`~/.claude/rules/` に `cpp-common.md` が増え、`mfc-cpp.md` が新しい版に変わる)。Claude Code は、起動し直す。作業フォルダは、新しいパス。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| CS1 | `--type win32 --layers none --tests none` で作ったフォルダで、Claude Code を起動し、「`main.cpp` に、ウィンドウのタイトルを変える処理を足して」と頼む | `cpp-common.md` が読み込まれ、`mfc-cpp.md` は読み込まれない (`~/.claude/projects/*/*.jsonl` で、読み込みを確かめる)。`CLAUDE.md` に「MFC を使わない (Win32 API と C++)」 | 未実施 |
+| CS2 | `--type mfc-dialog` で作ったフォルダで、「ダイアログに、ボタンを 1 つ足して」と頼む | `*Dlg` 系の編集で、`mfc-cpp.md` も読み込まれる。`CLAUDE.md` の「`mfc-cpp.md` も読んでから書く」に従う | 未実施 |

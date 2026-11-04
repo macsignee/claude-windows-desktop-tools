@@ -56,6 +56,7 @@
 | ID | 節 | 内容 | 状況 |
 |---|---|---|---|
 | RN1〜RN4 | 2-23 | v2.42.0 (改名): `install.sh` が新しい配布先 `claude-watcher` に配る (RN1。旧い `cpp-watcher` の警告は、ない。手で削除する)。起動バナーが 2.42.0 (RN2)。新しいミューテックス名で、二重起動が拒否される (RN3)。旧い配布先の削除 (RN4。任意) | 未実施 (**ウォッチャーを全部止めてから**。再配置のあと、起動し直す) |
+| CS1・CS2 | 2-27 | v2.47.0 (C++ の規約の分割): win32 のプロジェクトでは `cpp-common.md` だけが読み込まれる (CS1)。MFC のプロジェクトでは、`mfc-cpp.md` も読み込まれる (CS2)。**未実施** (`install.sh --rules-only` のあと、Claude Code を起動し直す) |
 | SD1〜SD4 | 2-26 | v2.46.0 (MFC 標準 DLL の生成): 作った一式が実機でビルドでき (SD2)、MFC なしのテスト exe から標準 DLL (共有 MFC) の関数を呼べ (SD3)、設定が実物 (`MFCLibrary2`) と一致する (SD4)。SD1〜SD3 ✔、SD4 は静的比較 ✔ (2026-11-04)。**未実施 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` の確認 |
 | MX1〜MX4 | 2-25 | v2.45.0 (MFC 拡張 DLL の生成): MX1〜MX3 ✔、MX4 は静的比較 ✔ (2026-11-04)。**未実施 (任意):** Visual Studio のプロパティページでの見比べ、`AFX_EXT_CLASS` クラスの利用 |
 | WS1〜WS4 | 2-24 | v2.43.0 (`watch_and_build.ps1` の `lib\` への分割): `lib\` の 8 ファイルが配られ、ウォッチャーが起動する (WS1)。build / test / gtest / package / UI テストが、分割の前と同じに動く (WS2〜WS4)。**完了 (✔ 2026-11-04。TEST-PLAN 2-24)** |

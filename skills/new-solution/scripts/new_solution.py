@@ -633,10 +633,14 @@ UI / メイン → ロジック → データ (のインターフェース)
 - テスト exe は、自前の `main.cpp` (`main()` を書いたもの) を持つ。vcpkg の `gtest_main` は、自動ではリンクされない。出力に「Running main() from ...」の行は出ない。
 - GoogleTest は C++17 以上が必要 (プロジェクトは C++20)。
 """
-    out += """
+    is_mfc = kind in (KIND['mfc'], KIND['mfc-mdi'], KIND['mfc-dialog']) or (bool(layers) and layer_kind in ('mfc-ext-dll', 'mfc-std-dll'))
+    mfc_rule = ('- MFC を使うコード (MFC のメイン、MFC の層) は、`~/.claude/rules/mfc-cpp.md` も読んでから書く (ウィザード生成の `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイルでは、自動では読み込まれない)。\n'
+                if is_mfc else f'- このソリューションは、MFC を使わない{" (Win32 API と C++)" if kind == KIND["win32"] else ""}。MFC の規約 (`mfc-cpp.md`) は、適用しない。MFC のクラス (`CString` `CWnd` など) を、持ち込まない。\n')
+    out += f"""
 ## 規約
 - C++20。ファイルは UTF-8 (BOM 付き)、改行は CRLF。`.rc` は ASCII。
-- `git commit` / `git push` は、ユーザーの指示があるときだけ。
+- C++ の規約: `~/.claude/rules/cpp-common.md` (`.cpp` / `.h` を扱うときに、自動で読み込まれる)。
+{mfc_rule}- `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
     return out
 

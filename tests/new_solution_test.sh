@@ -362,6 +362,19 @@ check "XML として読める (slnx / vcxproj)" xml_ok "$D"
 rc_is 0 "メインが MFC でなくても (console)、標準 DLL の層を作れる" python3 "$NEW" "$WORK/Q/StdConsole" --type console --layers logic --layer-kind mfc-std-dll --tests none
 check "console + 標準 DLL: 層に UseOfMfc と theApp" bash -c "grep -q 'UseOfMfc' '$WORK/Q/StdConsole/LogicLayer/LogicLayer.vcxproj' && grep -q 'theApp' '$WORK/Q/StdConsole/LogicLayer/LogicLayer.cpp'"
 
+echo "== 13. 規約の案内 (cpp-common.md / mfc-cpp.md。v2.47.0)"
+D="$WORK/Q/W32Rules"; mkdir -p "$D"
+rc_is 0 "win32 + 層 + gtest を作成" python3 "$NEW" "$D" --type win32 --layers logic,data --tests gtest --gtest vcpkg
+check "win32: MFC なし (UseOfMfc / _AFXEXT / afx がどこにもない)" bash -c "! grep -rqi 'UseOfMfc\|_AFXEXT\|afxwin\|afx.h' '$D' --include=*.vcxproj --include=*.cpp --include=*.h"
+check "win32: CLAUDE.md は cpp-common.md を指し、MFC を使わない (Win32 API と C++)、mfc-cpp.md は適用しないと書く" bash -c "grep -q 'rules/cpp-common.md' '$D/CLAUDE.md' && grep -q 'MFC を使わない (Win32 API と C++)' '$D/CLAUDE.md' && grep -q '適用しない' '$D/CLAUDE.md' && ! grep -q 'mfc-cpp.md. も読んでから' '$D/CLAUDE.md'"
+D="$WORK/Q/ConRules"; mkdir -p "$D"
+python3 "$NEW" "$D" --type console --layers none --tests none >/dev/null 2>&1
+check "console: MFC を使わないと書く ((Win32 API と C++) は win32 のときだけ)" bash -c "grep -q 'MFC を使わない。MFC の規約' '$D/CLAUDE.md' && ! grep -q 'Win32 API と C++' '$D/CLAUDE.md'"
+D="$WORK/Q/MfcRules"; mkdir -p "$D"
+python3 "$NEW" "$D" --type mfc-dialog --layers none --tests none >/dev/null 2>&1
+check "MFC のメイン: CLAUDE.md が mfc-cpp.md を読むよう指示する" bash -c "grep -q 'rules/cpp-common.md' '$D/CLAUDE.md' && grep -q 'rules/mfc-cpp.md. も読んでから' '$D/CLAUDE.md' && ! grep -q 'MFC を使わない。MFC の規約' '$D/CLAUDE.md'"
+check "console + 標準 DLL の層: CLAUDE.md が mfc-cpp.md を読むよう指示する" bash -c "grep -q 'rules/mfc-cpp.md. も読んでから' '$WORK/Q/StdConsole/CLAUDE.md'"
+
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
 exit "$fail"
