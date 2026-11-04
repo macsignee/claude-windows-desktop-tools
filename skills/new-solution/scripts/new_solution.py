@@ -3,7 +3,7 @@
 
 Usage:
   新規:        python3 new_solution.py <FOLDER> --type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib --layers none|logic|data|logic,data
-                                       --tests none|gtest [--layer-kind dll|lib|mfc-ext-dll] [--namespace NS] [--toolset v145]
+                                       --tests none|gtest [--layer-kind dll|lib|mfc-ext-dll|mfc-std-dll] [--namespace NS] [--toolset v145]
                                        [--gtest auto|vcpkg|source] [--dry-run]
                WPF (.NET): python3 new_solution.py <FOLDER> --type wpf --layers none|data|logic|viewmodel の組み合わせ --tests none|mstest
                                        [--namespace NS] [--tfm net10.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
@@ -25,7 +25,7 @@ Usage:
            / wpf (WPF、MVVM。.NET。ソリューションは .slnx、各プロジェクトは SDK 形式の .csproj。NuGet の復元は、ウォッチャーのビルドが行う)
   --layers 作る層: logic -> LogicLayer、data -> DataLayer。none は、層を作らない。
            名前を変えるなら logic:OrderLogic,data:OrderData のように指定する (省略時の既定の名前は、作成後に変更もできる)
-  --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ) / mfc-ext-dll (MFC 拡張 DLL。MFC の型・シリアライズを持ち込む層。メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ)。全部の層に、同じ種類を使う
+  --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ) / mfc-ext-dll (MFC 拡張 DLL。MFC の型・シリアライズを持ち込む層。メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ) / mfc-std-dll (MFC 標準 DLL。共有 MFC。CWinApp 派生の theApp。エクスポート関数の先頭に AFX_MANAGE_STATE。メインは何でもよい)。全部の層に、同じ種類を使う
   --tests  gtest: 作った DLL / 静的ライブラリ (層と、メインが dll / lib ならメイン) に、<名前>Test (GoogleTest の exe) を作る。none: テストを作らない
   --gtest  GoogleTest の入れ方: auto (既定。vcpkg。すでに gtest プロジェクトがあれば source) /
            vcpkg (vcpkg.json に gtest を入れ、テスト exe に main.cpp を置く。baseline と install は、ウォッチャー経由: package_once.sh) /
@@ -59,7 +59,7 @@ except ImportError:
     sys.exit(2)
 
 die = AL.die
-KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (MVP)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
+KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (MVP)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
 DOTNET_TYPES = ('wpf', 'winforms', 'csharp-dll')
 MFC_TYPES = ('mfc', 'mfc-mdi', 'mfc-dialog')   # MFC の exe (mfc は SDI)
 EXE_TYPES = ('console', 'win32') + MFC_TYPES    # exe の種類 (名前が Test で終わると、出力名を変える)
@@ -573,13 +573,17 @@ def claude_md(name, kind, layers, tests, layer_kind='dll', gtest_mode='vcpkg'):
     layer_txt = ('なし' if not layers else
                  ','.join(k if default else f'{k}:{nm}' for k, nm in layers))
     test_txt = 'あり (GoogleTest)' if tests else 'なし'
-    lk = {'lib': '静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL'}.get(layer_kind, 'DLL')
-    if layer_kind == 'mfc-ext-dll':
+    lk = {'lib': '静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL'}.get(layer_kind, 'DLL')
+    if layer_kind == 'mfc-std-dll':
+        lk_note = ('- ロジック層・データ層は、MFC 標準 DLL (共有 MFC。`UseOfMfc=Dynamic`、`_USRDLL`。`_AFXEXT` は付けない。`CWinApp` 派生の `theApp`)。'
+                   '**エクスポートする関数は、先頭で `AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。** MFC のオブジェクト (`CObject` 派生・`CString`) を、DLL の境界で受け渡さない (必要なら拡張 DLL `--layer-kind mfc-ext-dll`)。'
+                   '**.cpp は、先頭で `#include "pch.h"` する** (`cpp-test-first` の `DLL-LAYOUT.md`)。')
+    elif layer_kind == 'mfc-ext-dll':
         lk_note = ('- ロジック層・データ層は、MFC 拡張 DLL (`UseOfMfc=Dynamic`、`_AFXEXT`。`_USRDLL` は付けない)。`CObject` 派生クラスには `AFX_EXT_CLASS`、それ以外の公開には `<名前>_API` を付ける。'
                    'テスト exe も、同じ共有 MFC ランタイム (`UseOfMfc=Dynamic`) を使う。**.cpp は、先頭で `#include "pch.h"` する** (`cpp-test-first` の `DLL-LAYOUT.md`)。')
     else:
         lk_note = (f'- ロジック層・データ層は、{lk}。生成される既定は、MFC を使わない通常の{lk}。MFC の型 (`CObject` 派生・シリアライズ) を持ち込む場合は、'
-                   'MFC 拡張 DLL (`--layer-kind mfc-ext-dll`。メインが MFC のとき) にする (`cpp-test-first` の `DLL-LAYOUT.md`)。')
+                   'MFC 拡張 DLL (`--layer-kind mfc-ext-dll`。メインが MFC のとき) にする。MFC のリソース・ダイアログを持つ、MFC なしの exe からも使う DLL は、MFC 標準 DLL (`--layer-kind mfc-std-dll`) (`cpp-test-first` の `DLL-LAYOUT.md`)。')
     out = f"""# CLAUDE.md ({name})
 
 C++ のプロトタイプ。ソリューション: `{name}.slnx` (フォルダ名と同名)。
@@ -1379,7 +1383,7 @@ def add_tests_mode(a, folder, name, sln_name):
 
 SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace',
              'UIテスト': 'ui_tests', 'TFM': 'tfm'}
-SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib', 'mfc-ext-dll'),
+SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'),
                 'tests': ('none', 'gtest', 'mstest'), 'ui_tests': ('none', 'flaui')}
 
 
@@ -1452,7 +1456,7 @@ def main():
     ap.add_argument('--toolset')
     ap.add_argument('--gtest-from')
     ap.add_argument('--gtest', choices=['auto', 'vcpkg', 'source', 'nuget'])
-    ap.add_argument('--layer-kind', choices=['dll', 'lib', 'mfc-ext-dll'])
+    ap.add_argument('--layer-kind', choices=['dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'])
     ap.add_argument('--ui-tests', choices=['none', 'flaui'])
     ap.add_argument('--spec')
     ap.add_argument('--check-git', action='store_true')

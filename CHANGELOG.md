@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.46.0] 2026-11-04 (機能追加: MFC 標準 DLL の生成。既定の動作・契約の変更なし。Skill の再配置が必要)
+
+- **`add_layer.py --kind mfc-std-dll` と `new_solution.py --layer-kind mfc-std-dll` (仕様書の「層の種類: mfc-std-dll」も) で、MFC 標準 DLL (Regular DLL。共有 MFC) を生成できるようにした (ユーザーの決定。名前は `mfc-std-dll`、リンク方式は共有 MFC のみ)。**
+  - **実物 (`MFCLibrary2`。Visual Studio の「MFC DLL」ウィザードの標準 DLL) を読んで、設定を合わせた:** `UseOfMfc=Dynamic`、`_USRDLL` (`_AFXEXT` なし)、`pch.h` (Use) / `pch.cpp` (Create)、`C<Name>App : public CWinApp` とグローバルな `theApp` (`<Name>.h` / `.cpp`。`dllmain.cpp` は作らない)、`framework.h` / `targetver.h`。全ファイル BOM 付き UTF-8 + CRLF。
+  - **エクスポート関数の先頭に `AFX_MANAGE_STATE(AfxGetStaticModuleState());`** (共有 MFC のとき必須。ビルド確認用の関数に入れた。`Api.h` と `CLAUDE.md` にも注意を書く)。MFC のオブジェクトを DLL の境界で受け渡さない注意も書く。
+  - **テスト exe は MFC なし** (標準 DLL は、MFC を自分で読み込む。`--tests-only` も同じ)。**メインは何でもよい** (拡張 DLL と違い、MFC なしの exe からも使える。`console` + 標準 DLL の層も作れる)。
+  - **ウィザードとの違い (意図的。拡張 DLL と同じ):** `.def`、`.rc` / `.rc2`、`Resource.h`、x86 の構成は作らない。静的リンクは、選べない。
+  - 既定 (`--kind dll`) と、拡張 DLL (`--kind mfc-ext-dll`) の出力は、変えていない (テストで確認)。
+- `DLL-LAYOUT.md` (「MFC 標準 DLL を作るとき」を追加)、`new-solution/SKILL.md`、README を更新。
+- テスト: `add_layer_test.sh` (+12 件: 設定の各項目、`AFX_MANAGE_STATE` が最初の文であること、BOM + CRLF、テスト exe が MFC なし、`--tests-only`、拡張 DLL の不変)、`new_solution_test.sh` (+7 件: 層・テスト・`CLAUDE.md`、`console` + 標準 DLL)。生成側を壊すと、テストが失敗することも確認した。
+- **実機で確認 (2026-11-04、TEST-PLAN 2-26、`MfcStdCheck`):** SD1 生成 ✔、SD2 ビルド `SUCCESS` ✔、SD3 `PASSED` (tests: 2 passed)。MFC なしのコンソールのテスト exe が、標準 DLL (共有 MFC) をロードして通った。SD4 は、実物 `MFCLibrary2.vcxproj` との静的比較 ✔ (違いは意図的な `LOGICLAYER_EXPORTS` のみ)。**未確認 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` の挙動の確認。
+
 ## [2.45.0] 2026-11-04 (機能追加: MFC 拡張 DLL の生成。既定の動作・契約の変更なし。Skill の再配置が必要)
 
 - **`add_layer.py --kind mfc-ext-dll` と `new_solution.py --layer-kind mfc-ext-dll` (仕様書の「層の種類: mfc-ext-dll」も) で、MFC 拡張 DLL を生成できるようにした (ユーザーの決定。名前は `mfc-ext-dll`)。** これまでは、常に MFC を使わない通常の DLL (`_USRDLL`) で、拡張 DLL にするには、`.vcxproj` と定型コードを、毎回、手で直していた。

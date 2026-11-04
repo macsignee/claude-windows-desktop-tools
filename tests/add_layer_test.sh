@@ -216,6 +216,25 @@ S8="$WORK/sln8"; make_sln "$S8"; python3 "$SCRIPT" "$S8" ExtData --kind mfc-ext-
 python3 "$SCRIPT" "$S8" ExtData --tests-only --gtest vcpkg >/dev/null 2>&1
 check "--tests-only: 拡張 DLL を検出して、テスト exe も UseOfMfc=Dynamic にする" bash -c "[ \"\$(grep -c '<UseOfMfc>Dynamic</UseOfMfc>' '$S8/ExtDataTest/ExtDataTest.vcxproj')\" = 2 ]"
 
+echo "== MFC 標準 DLL (--kind mfc-std-dll)"
+S9="$WORK/sln9"; make_sln "$S9"
+python3 "$SCRIPT" "$S9" StdLogic --kind mfc-std-dll --gtest vcpkg >"$WORK/out_std.txt" 2>&1; rc=$?
+check "mfc-std-dll: 作成できる (rc=0)" test "$rc" -eq 0
+SV="$S9/StdLogic/StdLogic.vcxproj"; ST="$S9/StdLogicTest/StdLogicTest.vcxproj"
+check "標準 DLL: UseOfMfc=Dynamic (Debug / Release の 2 か所)、DynamicLibrary" bash -c "[ \"\$(grep -c '<UseOfMfc>Dynamic</UseOfMfc>' '$SV')\" = 2 ] && grep -q '<ConfigurationType>DynamicLibrary</ConfigurationType>' '$SV'"
+check "標準 DLL: _USRDLL を定義し、_AFXEXT は付けない (拡張 DLL との違い)、<NAME>_EXPORTS" bash -c "[ \"\$(grep -c '_USRDLL' '$SV')\" = 2 ] && ! grep -q '_AFXEXT' '$SV' && grep -q 'STDLOGIC_EXPORTS' '$SV'"
+check "標準 DLL: pch.h を使い (Use)、pch.cpp は Create。dllmain.cpp はない (CWinApp が入口)" bash -c "[ \"\$(grep -c '<PrecompiledHeader>Use</PrecompiledHeader>' '$SV')\" = 2 ] && tr -d '\r' < '$SV' | grep -A1 'ClCompile Include=\"pch.cpp\"' | grep -q Create && [ ! -e '$S9/StdLogic/dllmain.cpp' ]"
+check "標準 DLL: CWinApp 派生クラスと theApp (StdLogic.h / .cpp)" bash -c "grep -q 'class CStdLogicApp : public CWinApp' '$S9/StdLogic/StdLogic.h' && grep -q 'CStdLogicApp theApp;' '$S9/StdLogic/StdLogic.cpp' && grep -q 'InitInstance' '$S9/StdLogic/StdLogic.cpp'"
+check "標準 DLL: エクスポート関数 (ModuleInfo.cpp) の、最初の文 (コメントを除く) が AFX_MANAGE_STATE" python3 -c 'import re,sys; t=open(sys.argv[1],encoding="utf-8-sig").read().replace("\r",""); m=re.search(r"StdLogicModuleName\(\)\s*\{\s*((?://[^\n]*\n\s*)*)(\S[^\n]*)", t); sys.exit(0 if m and m.group(2).startswith("AFX_MANAGE_STATE(AfxGetStaticModuleState());") else 1)' "$S9/StdLogic/StdLogicModuleInfo.cpp"
+check "標準 DLL: ModuleInfo.cpp は、先頭で pch.h を include" bash -c "tr -d '\r' < '$S9/StdLogic/StdLogicModuleInfo.cpp' | sed '1s/^\xef\xbb\xbf//' | head -1 | grep -q '#include \"pch.h\"'"
+check "標準 DLL: Api.h に、AFX_MANAGE_STATE と、MFC オブジェクトを境界で渡さない注意" bash -c "grep -q 'AFX_MANAGE_STATE' '$S9/StdLogic/StdLogicApi.h' && grep -q 'mfc-ext-dll' '$S9/StdLogic/StdLogicApi.h'"
+check "標準 DLL: 全ファイルが BOM + CRLF" bash -c "for f in '$S9'/StdLogic/*.cpp '$S9'/StdLogic/*.h; do [ \"\$(head -c3 \$f | xxd -p)\" = efbbbf ] && [ \"\$(grep -vc \$'\\r\$' \$f)\" = 0 ] || exit 1; done"
+check "テスト exe: MFC なし (UseOfMfc なし、_AFXEXT なし)。DLL をプロジェクト参照" bash -c "! grep -q 'UseOfMfc' '$ST' && ! grep -q '_AFXEXT' '$ST' && grep -q 'ProjectReference Include=\"..\\\\StdLogic\\\\StdLogic.vcxproj\"' '$ST'"
+check "拡張 DLL の出力は、変わらない (UseOfMfc、_AFXEXT、dllmain.cpp。_USRDLL なし)" bash -c "python3 '$SCRIPT' '$S9' ExtOk --kind mfc-ext-dll --gtest vcpkg >/dev/null 2>&1 && grep -q '_AFXEXT' '$S9/ExtOk/ExtOk.vcxproj' && ! grep -q '_USRDLL' '$S9/ExtOk/ExtOk.vcxproj' && [ -f '$S9/ExtOk/dllmain.cpp' ]"
+S10="$WORK/sln10"; make_sln "$S10"; python3 "$SCRIPT" "$S10" StdData --kind mfc-std-dll --tests none --gtest vcpkg >/dev/null 2>&1
+python3 "$SCRIPT" "$S10" StdData --tests-only --gtest vcpkg >/dev/null 2>&1
+check "--tests-only: 標準 DLL のテスト exe は、MFC なし" bash -c "[ -f '$S10/StdDataTest/StdDataTest.vcxproj' ] && ! grep -q 'UseOfMfc' '$S10/StdDataTest/StdDataTest.vcxproj'"
+
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
 exit "$fail"

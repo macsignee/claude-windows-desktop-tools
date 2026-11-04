@@ -1085,3 +1085,15 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **実機で確認 (2026-11-04。TEST-PLAN 2-25):** (a) 生成した一式が、ビルドできた (`SUCCESS`)。(b) `UseOfMfc=Dynamic` のコンソールのテスト exe が、拡張 DLL を読み込み、ベースラインのテストが通った (`AfxWinInit` を呼ばない exe でも問題なし)。(c) 設定は、実物と一致 (静的比較)。**未確認:** メインの MFC exe からの参照、`AFX_EXT_CLASS` クラスの利用 (今回は作らない。任意の確認)。
 - **観察 (本機能とは無関係):** この PC では、MSBuild の vcpkg 連携が VS 2022 の `vcpkg.exe` を使う (`package_once.sh` は VS 18 のもの。`VcpkgRoot` が事前に設定されているとみられる)。両方が同じ `vcpkg.json` を読むので、ビルドは成功した。原因 (環境変数など) は未確認。
 - **見送り (今回の範囲外):** 設定の食い違いを検出する検査 (`mfc-check` に足す案: `UseOfMfc` の DLL とテスト exe の不一致、`_USRDLL` と `_AFXEXT` の同時定義、`DllMain` の欠落)、メインの exe から層の DLL への参照の自動生成、通常の DLL から拡張 DLL への変換の自動化。
+
+### 4.62 MFC 標準 DLL の生成 (v2.46.0)
+
+- **問題の整理 (2026-11-04):** 拡張 DLL (4.61) の次の対応。標準 DLL (Regular DLL) は、`_USRDLL` を持つ点で、いまの「通常の DLL」(MFC なし。`_USRDLL`) と似ているが、**`UseOfMfc` と `CWinApp` 派生の `theApp` が加わり、エクスポート関数に `AFX_MANAGE_STATE` が要る**。拡張 DLL (`_AFXEXT`、`DllMain` の定型コード、`AFX_EXT_CLASS`) とは、入口・公開の仕方・呼び出し側の条件が違う。
+- **決定 (ユーザー):** 名前は `mfc-std-dll` (「標準 DLL」に合わせる。`mfc-regular-dll` は、不採用)。リンク方式は、共有 MFC のみ (静的リンクの選択肢は、見送り)。実物は `MFCLibrary2`。
+- **実物から読み取った設定:** `Keyword=MFCDLLProj`、`UseOfMfc=Dynamic`、`_USRDLL` (`_AFXEXT` なし)、`PrecompiledHeader=Use` + `pch.h`、`pch.cpp` が Create、`.def`、`CMFCLibrary2App : public CWinApp` と `CMFCLibrary2App theApp;`、`.cpp` の注意書き (共有 MFC のとき、エクスポート関数の先頭に `AFX_MANAGE_STATE(AfxGetStaticModuleState())`)。
+- **拡張 DLL との違い (設計):** 入口は `theApp` (`dllmain.cpp` は作らない)。公開は、関数と値のクラス (`<Name>_API`)。MFC のオブジェクトは、境界で渡さない。**呼び出し側の条件が、ない** (MFC なしの exe からも使える) ので、`new_solution.py` は、メインの種類を制限しない (拡張 DLL は、MFC のメインだけ)。**テスト exe は MFC なし** (拡張 DLL は `UseOfMfc=Dynamic` が必要だった)。
+- **ウィザードと変えたところ (拡張 DLL と同じ理由):** `.def` / `.rc` / `.rc2` / `Resource.h` は作らない。`<Name>.h` は、`resource.h` を include しない。`framework.h` は最小限。x64 のみ。`<NAME>_EXPORTS` と `<NAME>_API` を残した。ビルド確認用の関数に、`AFX_MANAGE_STATE` を入れた (入れ忘れの手本)。
+- **既定は、変えない:** 通常の DLL と、拡張 DLL の出力は、テストで固定した。
+- **実機で確認 (2026-11-04。TEST-PLAN 2-26):** (a) 生成した一式が、ビルドできた (`SUCCESS`)。(b) MFC なしのコンソールのテスト exe が、標準 DLL (共有 MFC) をロードし、`AFX_MANAGE_STATE` つきの関数を呼べた (2 件 `PASSED`)。(c) 設定は、実物 (`MFCLibrary2`) と一致 (静的比較)。**未確認 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` を外した場合の挙動。
+- **観察 (生成とは無関係):** MSBuild の vcpkg 連携が VS 2022 の `vcpkg.exe` を使い、コンパイラは VS 18 (MX2 と同じ。ビルドは通る)。
+- **見送り:** 静的リンク (`UseOfMfc=Static`)、設定の食い違いの検出 (`mfc-check`。拡張 DLL の分と、まとめて)、`AFX_MANAGE_STATE` の入れ忘れの検出、メインの exe からの参照の自動生成。
