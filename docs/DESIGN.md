@@ -1072,3 +1072,16 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **残した記述:** `/new-solution` が `CLAUDE.md` に書く 3 行、`cpp-test-first` / `csharp-test-first` / `build-test-loop` の、`/add-feature` への言及 (入口の契約。別リポジトリの Skill が、読む)。
 - **`/add-feature` は、必須にしない (ユーザーの指示、2026-11-04):** 仕様づくりの 2 つは、`/add-feature` なしで完結する。実装は、`cpp-test-first` / `csharp-test-first` が、確定した仕様書を入力にできる (もともと、`/add-feature` から呼ばれた場合と、直接の場合の、両方を書いてある)。`CLAUDE.md` の 3 行の 3 つ目にも「任意」と書く。
 - **注意:** 2 つのリポジトリで、仕様書の形式と `CLAUDE.md` の 3 行を、合わせて保つ。形式を変えるときは、両方を直す。
+
+### 4.61 MFC 拡張 DLL の生成 (v2.45.0)
+
+- **問題の整理 (2026-11-04):** (1) `DLL-LAYOUT.md` に、拡張 DLL の設計と設定が文章であったが、`add_layer.py` / `/new-solution` は、MFC を使わない通常の DLL (`_USRDLL`) しか作れず、毎回 `.vcxproj` と定型コードを手で直していた。(2) 設定の食い違い (`UseOfMfc`、`_USRDLL` と `_AFXEXT` の同時定義、`DllMain` の欠落) を、検出する手段がなかった (今回は、手を付けていない)。(3) `mfc-check` の K4〜K6 が、実物を扱う機会を待っていた。(4) 通常の DLL にするか、拡張 DLL にするかの判断の基準が、`DLL-LAYOUT.md` の 1 文 (「仕様で MFC 型を持ち込むなら」) だけだった。
+- **決定 (ユーザー):** 範囲は「生成まで」。種類の名前は `mfc-ext-dll` (最初の案の `mfc-ext` から変更)。実物は `MFCLibrary1` (Visual Studio の「MFC DLL」ウィザード。拡張 DLL を選んだもの)。
+- **実物から読み取った設定 (生成の根拠):** `Keyword=MFCDLLProj`、`UseOfMfc=Dynamic`、プリプロセッサ定義は `_AFXEXT` (`_USRDLL` なし。`_AFXDLL` は `UseOfMfc` が定義する)、`PrecompiledHeader=Use` + `pch.h`、`pch.cpp` が Create、`dllmain.cpp` は空 (= 使わない)、`ModuleDefinitionFile` (`.def`)、`dllmain.cpp` の定型コード、全ソースが BOM 付き UTF-8 + CRLF、`.vcxproj` は BOM なし。
+- **ウィザードと変えたところ (理由):** `.def` / `.rc` / `.rc2` / `Resource.h` は作らない (公開は `__declspec` と `AFX_EXT_CLASS`。リソースを持つ DLL になったら、手で足す。ひな形を小さく保つ)。`framework.h` は、`afxwin.h` と `afxext.h` だけ (OLE・DB・DAO は、必要になったら)。x64 のみ (既存の `add_layer.py` の方針)。公開マクロ `<Name>_API` は、通常の DLL と同じ形を残した (`<NAME>_EXPORTS` を定義)。`CObject` 派生には `AFX_EXT_CLASS` (`Api.h` のコメントに書く)。
+- **テスト exe:** `UseOfMfc=Dynamic` にする (同じ共有 MFC ランタイム。`DLL-LAYOUT.md` の、もともとの規約)。`_AFXEXT` と、DPI のマニフェストは、付けない (`vcxproj()` に、`mfc_only` を足して分けた)。`--tests-only` では、既存の DLL の `_AFXEXT` を見て、判定する。
+- **メインが MFC のときだけ:** 拡張 DLL は、MFC のランタイムを使う exe からしか使えない。`new_solution.py` は、それ以外 (`win32` / `console` / `dll` / `lib`) で `--layer-kind mfc-ext-dll` を、何も書かずに、拒否する (終了コード 2)。
+- **既定は、変えない:** 通常の DLL の出力 (`_USRDLL`、UseOfMfc なし、PCH なし) は、テストで固定した。
+- **実機で確認 (2026-11-04。TEST-PLAN 2-25):** (a) 生成した一式が、ビルドできた (`SUCCESS`)。(b) `UseOfMfc=Dynamic` のコンソールのテスト exe が、拡張 DLL を読み込み、ベースラインのテストが通った (`AfxWinInit` を呼ばない exe でも問題なし)。(c) 設定は、実物と一致 (静的比較)。**未確認:** メインの MFC exe からの参照、`AFX_EXT_CLASS` クラスの利用 (今回は作らない。任意の確認)。
+- **観察 (本機能とは無関係):** この PC では、MSBuild の vcpkg 連携が VS 2022 の `vcpkg.exe` を使う (`package_once.sh` は VS 18 のもの。`VcpkgRoot` が事前に設定されているとみられる)。両方が同じ `vcpkg.json` を読むので、ビルドは成功した。原因 (環境変数など) は未確認。
+- **見送り (今回の範囲外):** 設定の食い違いを検出する検査 (`mfc-check` に足す案: `UseOfMfc` の DLL とテスト exe の不一致、`_USRDLL` と `_AFXEXT` の同時定義、`DllMain` の欠落)、メインの exe から層の DLL への参照の自動生成、通常の DLL から拡張 DLL への変換の自動化。

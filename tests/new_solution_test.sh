@@ -340,6 +340,18 @@ D="$WORK/R/V_dlgtests"; mkdir -p "$D"
 python3 "$NEW" "$D" --type mfc-dialog --layers logic --tests gtest --gtest vcpkg >/dev/null 2>&1
 check "mfc-dialog + テスト: テストのプロジェクトができる" test -f "$D/LogicLayerTest/LogicLayerTest.vcxproj"
 
+echo "== 11. MFC 拡張 DLL (--layer-kind mfc-ext-dll)"
+D="$WORK/Q/MfcExt"; mkdir -p "$D"
+rc_is 0 "mfc-dialog + 層を MFC 拡張 DLL で作成" python3 "$NEW" "$D" --type mfc-dialog --layers logic,data --layer-kind mfc-ext-dll --tests gtest --gtest vcpkg
+check "層が拡張 DLL (_AFXEXT、UseOfMfc=Dynamic、_USRDLL なし)" bash -c "for l in LogicLayer DataLayer; do grep -q '_AFXEXT' '$D/'\$l/\$l.vcxproj && grep -q 'UseOfMfc' '$D/'\$l/\$l.vcxproj && ! grep -q '_USRDLL' '$D/'\$l/\$l.vcxproj && [ -f '$D/'\$l/dllmain.cpp ] || exit 1; done"
+check "テスト exe も UseOfMfc=Dynamic" bash -c "for t in LogicLayerTest DataLayerTest; do grep -q 'UseOfMfc' '$D/'\$t/\$t.vcxproj || exit 1; done"
+check "CLAUDE.md: MFC 拡張 DLL の説明 (AFX_EXT_CLASS、pch.h)" bash -c "grep -q 'MFC 拡張 DLL' '$D/CLAUDE.md' && grep -q 'AFX_EXT_CLASS' '$D/CLAUDE.md' && grep -q 'pch.h' '$D/CLAUDE.md'"
+check "XML として読める (slnx / vcxproj)" xml_ok "$D"
+rc_is 2 "メインが MFC でないとき (console) は、mfc-ext-dll を拒否する" python3 "$NEW" "$WORK/Q/ExtBad" --type console --layers logic --layer-kind mfc-ext-dll --tests none
+check "拒否したとき、何も書かない" bash -c "[ ! -e '$WORK/Q/ExtBad' ] || [ -z \"\$(ls -A '$WORK/Q/ExtBad' 2>/dev/null)\" ]"
+rc_is 0 "既定 (--layer-kind なし) の MFC の層は、通常の DLL のまま" python3 "$NEW" "$WORK/Q/MfcPlain" --type mfc --layers logic --tests none
+check "既定の層は、_AFXEXT なし" bash -c "! grep -q '_AFXEXT' '$WORK/Q/MfcPlain/LogicLayer/LogicLayer.vcxproj'"
+
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
 exit "$fail"
