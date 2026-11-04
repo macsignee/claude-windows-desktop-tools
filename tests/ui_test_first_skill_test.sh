@@ -28,7 +28,7 @@ ok "install.sh --skills-only copies build-test-loop/references/ui-tests.md (iden
 rm -rf "$CSF2" 2>/dev/null
 
 # 方針: UI テストは、ビルド → テストの流れに、含めない (ユーザーが求めたときと /ui-test-first だけ)
-for f in skills/add-feature/SKILL.md skills/cpp-test-first/SKILL.md skills/csharp-test-first/SKILL.md skills/build-test-loop/SKILL.md skills/new-solution/SKILL.md rules/winforms-csharp.md; do
+for f in skills/cpp-test-first/SKILL.md skills/csharp-test-first/SKILL.md skills/build-test-loop/SKILL.md skills/new-solution/SKILL.md rules/winforms-csharp.md; do
     ok "$f: UI tests are not run automatically after PASSED; points to /ui-test-first" "$(grep -q 'ui-test-first' "$ROOT/$f" && ! grep -q '続けて `uitest_once.sh`' "$ROOT/$f" && ! grep -q 'Green になってから 1 回' "$ROOT/$f" && echo 1 || echo 0)"
 done
 ok "build-test-loop: documents --filter / --ui-timeout and that UI tests are not part of build -> test" "$(grep -q -- '--filter' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q -- '--ui-timeout' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q 'ビルド → テスト (`build_test_once.sh`) の流れに、含めない' "$ROOT/skills/build-test-loop/SKILL.md" && echo 1 || echo 0)"

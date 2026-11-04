@@ -1063,3 +1063,12 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **テスト:** 本体の文字列を直接検査していた 3 本のテストは、本体 + `lib` をつなげたものを検査する。
 - **注意 (実機):** Windows PowerShell 5.1 で、ドットソースしたファイルの関数・変数が、本体から見えること。`lib\*.ps1` も、BOM 付き UTF-8 + CRLF (BOM がないと、CP932 と誤認する)。→ TEST-PLAN 2-24。
 - **見送り:** `Invoke-Tests` の内部の分割 (C++ と .NET と集約)、ヘッダーのコメントの `host-tools/README.md` への移動 (本体の `.DESCRIPTION` は、`Get-Help` が読むので、そのまま)。
+
+### 4.60 仕様づくりと機能追加の Skill を、別リポジトリに分ける (v2.44.0)
+
+- **決定 (ユーザー、2026-11-04):** `/brainstorm`・`/update-from-ideas`・`/add-feature` は、ビルドツールとは、意味が合わないので、別リポジトリ `claude-spec-workflow` に移す。移す範囲 (3 つとも / 仕様づくりの 2 つだけ) と、履歴の扱い (持ち越す / ファイルだけ) は、どちらでもよいとのことで、**最初の指示どおり、3 つとも、ファイルだけ移した。**
+- **調べた結合:** `/add-feature` は、このリポジトリの 10 個の Skill を呼ぶ側 (`cpp-test-first` 7 回、`csharp-test-first` 7 回、`new-solution` 7 回、`build-test-loop` 6 回、ほか)。`/update-from-ideas` は、`new-solution` の引数の語彙で、「## 構成案」を書く (11 回)。`/brainstorm` は、`new-solution` に 3 回。**このため、新しいリポジトリは、このリポジトリを前提にする (README に明記)。** 仕様書の形式 (構成案・具体例・境界値と異常系) の「読む側」は、このリポジトリに残る (`new_solution.py --spec`、`spec_import.py`、`new_solutions.py`)。
+- **案として、見送った:** 仕様づくりの 2 つだけを移し、`/add-feature` を残す案 (推奨したが、ユーザーは、どちらでもよいとした)。`add-feature` が、このリポジトリの Skill の司令塔である点は、変わらない。再検討するなら、`add-feature` だけを戻す。
+- **残した記述:** `/new-solution` が `CLAUDE.md` に書く 3 行、`cpp-test-first` / `csharp-test-first` / `build-test-loop` の、`/add-feature` への言及 (入口の契約。別リポジトリの Skill が、読む)。
+- **`/add-feature` は、必須にしない (ユーザーの指示、2026-11-04):** 仕様づくりの 2 つは、`/add-feature` なしで完結する。実装は、`cpp-test-first` / `csharp-test-first` が、確定した仕様書を入力にできる (もともと、`/add-feature` から呼ばれた場合と、直接の場合の、両方を書いてある)。`CLAUDE.md` の 3 行の 3 つ目にも「任意」と書く。
+- **注意:** 2 つのリポジトリで、仕様書の形式と `CLAUDE.md` の 3 行を、合わせて保つ。形式を変えるときは、両方を直す。

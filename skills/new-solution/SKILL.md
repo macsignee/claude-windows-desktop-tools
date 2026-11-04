@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # 新しいソリューションを作る (/new-solution)
 
-**新規プロジェクトでは、仕様が先でもよい:** `/brainstorm` → `/update-from-ideas` で、仕様書を固めると、`/update-from-ideas` が、**構成案** (メインの種類・層・テスト・名前空間) を、仕様書に書き、このコマンドの引数を、提案する。
+**新規プロジェクトでは、仕様が先でもよい:** (別リポジトリ `claude-spec-workflow` の) `/brainstorm` → `/update-from-ideas` で、仕様書を固めると、`/update-from-ideas` が、**構成案** (メインの種類・層・テスト・名前空間) を、仕様書に書き、このコマンドの引数を、提案する。
 **`--spec <仕様書>` で、その構成案を読み込める。** 器が先でも、よい。構成案のキーは、`メインの種類` / `層` / `層の種類` / `テスト` / `名前空間` / `UIテスト` (`none` | `flaui`) / `TFM` (.NET のみ)。
 **新規作成のとき、`--spec` は、仕様書の内容も、ソリューションへ取り込む** (`scripts/spec_import.py`):
 - 仕様書と、その `元:` のメモを、`docs/specs/`・`docs/ideas/` に置く (すでにそこにあれば、そのまま。既存のファイルは、上書きしない)。
@@ -185,7 +185,7 @@ disable-model-invocation: true
 この確認は、`/add-feature` の最初の読み取り確認でも、行われる。
 
 ## 設定の記録
-作成時に、`CLAUDE.md` に、次の 3 行が書かれる。**`/brainstorm` / `/add-feature` / `/update-from-ideas` が、これを読んで、動きを切り替える。**
+作成時に、`CLAUDE.md` に、次の 3 行が書かれる。**`claude-spec-workflow` の `/brainstorm` / `/add-feature` / `/update-from-ideas` が、これを読んで、動きを切り替える。**
 ```
 - メイン: <名前> (<種類>)
 - 層: data,logic | なし      (既定でない名前は、data:OrderData,logic:OrderLogic のように記録)
@@ -204,5 +204,5 @@ disable-model-invocation: true
 - カレントの外への書き込み。既存のソリューション・プロジェクトの上書き。
 - ユーザーの了承なしの作成。`--tests` の、黙った既定値の採用。
 - 自分で、フラグファイルを置く (取得は、`gtest_once.sh`)。
-- 機能のコード、仕様書の作成 (`/brainstorm` / `/update-from-ideas` / `/add-feature` の仕事)。
+- 機能のコード、仕様書の作成 (別リポジトリ `claude-spec-workflow` の `/brainstorm` / `/update-from-ideas` / `/add-feature` の仕事)。
 - `git commit` / `git push` / `git init`。
