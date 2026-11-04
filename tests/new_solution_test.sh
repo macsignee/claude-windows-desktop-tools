@@ -352,6 +352,16 @@ check "拒否したとき、何も書かない" bash -c "[ ! -e '$WORK/Q/ExtBad'
 rc_is 0 "既定 (--layer-kind なし) の MFC の層は、通常の DLL のまま" python3 "$NEW" "$WORK/Q/MfcPlain" --type mfc --layers logic --tests none
 check "既定の層は、_AFXEXT なし" bash -c "! grep -q '_AFXEXT' '$WORK/Q/MfcPlain/LogicLayer/LogicLayer.vcxproj'"
 
+echo "== 12. MFC 標準 DLL (--layer-kind mfc-std-dll)"
+D="$WORK/Q/MfcStd"; mkdir -p "$D"
+rc_is 0 "mfc-dialog + 層を MFC 標準 DLL で作成" python3 "$NEW" "$D" --type mfc-dialog --layers logic,data --layer-kind mfc-std-dll --tests gtest --gtest vcpkg
+check "層が標準 DLL (_USRDLL、UseOfMfc、CWinApp 派生の theApp。_AFXEXT・dllmain.cpp なし)" bash -c "for l in LogicLayer DataLayer; do grep -q '_USRDLL' '$D/'\$l/\$l.vcxproj && grep -q 'UseOfMfc' '$D/'\$l/\$l.vcxproj && ! grep -q '_AFXEXT' '$D/'\$l/\$l.vcxproj && grep -q 'theApp' '$D/'\$l/\$l.cpp && [ ! -e '$D/'\$l/dllmain.cpp ] || exit 1; done"
+check "テスト exe は MFC なし" bash -c "for t in LogicLayerTest DataLayerTest; do ! grep -q 'UseOfMfc' '$D/'\$t/\$t.vcxproj || exit 1; done"
+check "CLAUDE.md: MFC 標準 DLL の説明 (AFX_MANAGE_STATE、pch.h)" bash -c "grep -q 'MFC 標準 DLL' '$D/CLAUDE.md' && grep -q 'AFX_MANAGE_STATE' '$D/CLAUDE.md' && grep -q 'pch.h' '$D/CLAUDE.md'"
+check "XML として読める (slnx / vcxproj)" xml_ok "$D"
+rc_is 0 "メインが MFC でなくても (console)、標準 DLL の層を作れる" python3 "$NEW" "$WORK/Q/StdConsole" --type console --layers logic --layer-kind mfc-std-dll --tests none
+check "console + 標準 DLL: 層に UseOfMfc と theApp" bash -c "grep -q 'UseOfMfc' '$WORK/Q/StdConsole/LogicLayer/LogicLayer.vcxproj' && grep -q 'theApp' '$WORK/Q/StdConsole/LogicLayer/LogicLayer.cpp'"
+
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
 exit "$fail"

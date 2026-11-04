@@ -42,7 +42,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
     - `--layers`: `none` / `logic` / `data` / `logic,data`。WPF は、`viewmodel` も組み合わせられる (例: `data,logic,viewmodel`)。名前の指定は `logic:OrderLogic,data:OrderData` の形。**推奨は `data,logic`** (WPF も同じ)。`viewmodel` は、ViewModel をテストしたいときに足す。WinForms と `csharp-dll` は、`data` / `logic` だけ。
     - `--tests`: `none` / `gtest` (C++) / `mstest` (.NET。層のライブラリごとに `<名前>.Tests`)。
     - `--ui-tests`: `none` / `flaui` (`<アプリ名>.UITests`。WPF / WinForms / MFC で、省略すると質問する。ビルド → テストの流れには含めない)。
-    - `--layer-kind`: `dll` / `lib` / `mfc-ext-dll` (C++ の層の種類。`mfc-ext-dll` = MFC 拡張 DLL。メインが MFC のときだけ)。`--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。`--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。`--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
+    - `--layer-kind`: `dll` / `lib` / `mfc-ext-dll` / `mfc-std-dll` (C++ の層の種類。`mfc-ext-dll` = MFC 拡張 DLL (メインが MFC のときだけ)、`mfc-std-dll` = MFC 標準 DLL (共有 MFC))。`--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。`--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。`--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
   - すでにソリューションがあるときは、テストの後付け (`--tests gtest` / `--tests mstest`) と、UI テストの後付け (`--ui-tests flaui`) だけができる。
   - スクリプト: `new_solution.py`、`gtest_once.sh <project_dir> [tag] [timeout_sec=180]` (GoogleTest のソース取得)。
 - **`/new-solutions [create | sync-spec | resolve]`**: 作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) の下に、同じ題材の、種類違いの複数のソリューション (WPF / WinForms / MFC など) を、候補として、まとめて作り、比べる。1 つだけ作るときは、`/new-solution`。
@@ -57,7 +57,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 ### 2-4. テストを先に書く (TDD)
 
 - **`cpp-test-first`** (自動。「先にテストを書いて」「TDD で」など): Windows デスクトップの C++ (MFC・Win32・DLL) で、GoogleTest のテストを先に書き、スタブで Red を確認する。Red のあと、`test_guard.py` で、テストの改変を検出する。
-  - スクリプト: `add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]` (層と、そのテストを足す)。
+  - スクリプト: `add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]` (層と、そのテストを足す)。
 - **`csharp-test-first`** (自動): WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は Presenter と `IView` の Fake でテストする。
   - ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
   - 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
