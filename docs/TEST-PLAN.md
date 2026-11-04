@@ -872,7 +872,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| AP1 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers logic,data --tests gtest` で作る。そこで `python3 ~/.claude/skills/add-project/scripts/solution_state.py "$PWD"` を実行する | `KIND: cpp`、層とテストの対応、`SUGGEST_REF: <メイン> -> LogicLayer`、`ADDABLE` に layer / ui-host / ui-tests。`MISMATCH` なし | 未実施 |
+| AP1 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers logic,data --tests gtest` で作る。そこで `python3 ~/.claude/skills/add-project/scripts/solution_state.py "$PWD"` を実行する | `KIND: cpp`、層とテストの対応、`SUGGEST_REF: <メイン> -> LogicLayer`、`ADDABLE` に layer / ui-host / ui-tests。`MISMATCH` なし | ✔ (2026-11-04、`CSharpTF/mfcdlg` = `/new-solution --type mfc-dialog --layers logic,data --tests gtest` の生成物。`solution_state.py` の出力: `KIND: cpp`、`MAIN: mfcdlg (MFC ダイアログ)`、`DataLayer` / `LogicLayer` が、それぞれのテストと対応、`SUGGEST_REF: mfcdlg -> LogicLayer`、`ADDABLE` に layer / ui-host / ui-tests、`MISMATCH` なし、`REF_ISSUES` なし) |
 | AP2 | 同じフォルダで、`/add-project layer` (名前 `ReportLayer`、`--uses DataLayer`、テストあり) | 質問 → 案 (dry-run) → 承認で止まる → 作成 → `CLAUDE.md` に追加 → ビルド `SUCCESS`、テスト `PASSED` (追加分 1 件を含む)。報告に、足りない参照 (`SUGGEST_REF`) | 未実施 |
 | AP3 | 同じフォルダで、`/add-project tests` (テストのない層を、先に `--tests none` で足しておく) | `tests-for:<名前>` が選べる。後付けのあと、`PASSED` | 未実施 |
 | AP4 | 新しいフォルダに、`/new-solution --type wpf --layers data,logic --tests mstest` で作り、`/add-project layer` (名前 `ViewModels`、種類 `viewmodel`) | 作成 → `CLAUDE.md` の `- 層:` に `viewmodel` が足される → `wpf-check` の指摘 0 件 → `PASSED` | 未実施 |
@@ -885,7 +885,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| AR1 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers logic,data --tests gtest` で作る。`python3 ~/.claude/skills/add-project/scripts/add_reference.py "$PWD" --from <メイン> --to LogicLayer` を実行し、`build_once.sh` を実行する | ビルド `SUCCESS`。Visual Studio で `.slnx` を開くと、メインの「参照」に `LogicLayer` が出る。**メインのコードで、`LogicLayer` の公開関数を 1 つ呼ぶ (`#include` もたどれる) と、リンクできる** | 未実施 |
+| AR1 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers logic,data --tests gtest` で作る。`python3 ~/.claude/skills/add-project/scripts/add_reference.py "$PWD" --from <メイン> --to LogicLayer` を実行し、`build_once.sh` を実行する | ビルド `SUCCESS`。Visual Studio で `.slnx` を開くと、メインの「参照」に `LogicLayer` が出る。**メインのコードで、`LogicLayer` の公開関数を 1 つ呼ぶ (`#include` もたどれる) と、リンクできる** | ✔ (2026-11-04、ウォッチャー 2.51.2。`add_reference.py "$PWD" --from mfcdlg --to LogicLayer`: `ProjectReference` (GUID が `LogicLayer` と一致)、全構成のインクルードパス (`LogicLayer;DataLayer`)、BOM と CRLF を保つ。`build_once.sh` = `SUCCESS`。**確認用に、メインの `OnInitDialog` から `mfcdlg::LogicLayerModuleName()` を呼ぶと、`SUCCESS` (`LNK2019` なし。`SampleDlg.cpp` が、新しいインクルードパスでコンパイルされ、`mfcdlg.exe` がリンクされた)**。確認用のコードは、消した (`SampleDlg.cpp` は、元の 55 行)。VS の「参照」ノードの目視は、未実施) |
 | AR2 | AR1 のあと、メインを実行する (F5 または、`x64\Debug` の exe) | `LogicLayer.dll` が、見つかって、起動する (出力先が同じなので、DLL が、隣にある) | 未実施 |
 | AR3 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers none --tests none` で作り、`/add-project layer` で `ExtLayer` (種類 `mfc-ext-dll`、メインから参照) を足す | 案に、メイン → `ExtLayer` の参照が含まれる。承認のあと、ビルド `SUCCESS`、`mfc-check` が error 0 (DLL008 なし) | 未実施 |
 | AR4 | 新しいフォルダに、`/new-solution --type wpf --layers data,logic --tests mstest` で作り、`/add-project layer` で `ReportLib` (メインから参照) を足す | `.csproj` に `ProjectReference` が足され、`build_test_once.sh` が `PASSED`。`wpf-check` の指摘 0 件 | 未実施 |
