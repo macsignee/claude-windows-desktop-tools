@@ -261,10 +261,9 @@ mkwork; mani "$GOOD"; run create "$W" --dry-run >/dev/null; run resolve "$W"
 ok "resolve: 作る前 (dry-run のあと) は、候補がない → rc=3" "$(eq $rc 3)"
 
 # ---------------------------------------------------------------- Skill が、対象の決め方 (resolve) に、触れている
-for sk in auto-build build-test-loop add-package cpp-test-first csharp-test-first ui-test-first add-feature; do
+for sk in auto-build build-test-loop add-package cpp-test-first csharp-test-first ui-test-first; do
     ok "Skill $sk: 作業フォルダでの対象の決め方 (resolve)" "$(has "$(cat "$ROOT/skills/$sk/SKILL.md")" 'new_solutions.py resolve "$PWD"')"
 done
-ok "Skill add-feature: new_solution.py に \$PWD を渡さない (\$SLN)" "$(hasnt "$(cat "$ROOT/skills/add-feature/SKILL.md")" 'new_solution.py "$PWD"')"
 NSK="$(cat "$ROOT/skills/new-solution/SKILL.md")"; NSS="$(cat "$ROOT/skills/new-solutions/SKILL.md")"
 ok "Skill new-solution: 既定は 1 つのソリューション (質問なしで A)。作業フォルダの質問は、しない" "$([ "$(has "$NSK" "どちらのモードか")" = 0 ] && [ "$(has "$NSK" "## C. 作業フォルダ")" = 0 ] && [ "$(has "$NSK" "/new-solutions")" = 1 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: 作業フォルダ (disable-model-invocation、.slnx を作らない)" "$([ "$(has "$NSS" "name: new-solutions")" = 1 ] && [ "$(has "$NSS" "disable-model-invocation: true")" = 1 ] && [ "$(has "$NSS" ".slnx\` を作らない")" = 1 ] && echo 1 || echo 0)"
@@ -280,7 +279,6 @@ ok "DLL の候補 (dll / csharp-dll / lib) を作れる: rc=0" "$(eq $rc 0)"
 ok "create: run_watcher.cmd の場所を、出力に書く (配置先のパスは、固定で書かない)" "$([ "$(has "$out" "ホスト側ツール")" = 1 ] && [ "$(has "$out" "cpp-watcher")" = 0 ] && [ "$(has "$out" "claude-watcher")" = 0 ] && echo 1 || echo 0)"
 ok "Skill new-solutions: 質問は、候補ごとにまとめる。選択肢は exe だけにしない、「その他」を出さない" "$([ "$(has "$NSS" "候補ごとに、まとめて聞く")" = 1 ] && [ "$(has "$NSS" "「その他」の選択肢は、出さない")" = 1 ] && echo 1 || echo 0)"
 ok "DLL: LibCpp.slnx / LibCs.slnx / LibSt.slnx" "$([ "$(isf "$W/LibCpp/LibCpp.slnx")" = 1 ] && [ "$(isf "$W/LibCs/LibCs.slnx")" = 1 ] && [ "$(isf "$W/LibSt/LibSt.slnx")" = 1 ] && echo 1 || echo 0)"
-ok "Skill update-from-ideas: 作業フォルダでは、構成案を出さない" "$(has "$(cat "$ROOT/skills/update-from-ideas/SKILL.md")" "構成案は、出さない")"
 
 # ---------------------------------------------------------------- 補助
 ok "Windows のパスへの変換 (/mnt/c/... → c:\\...)" "$(python3 -I - "$ROOT/skills/new-solution/scripts" <<'PY'

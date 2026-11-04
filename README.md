@@ -4,7 +4,7 @@ Claude Code (WSL) が、Windows 側の Visual Studio で、**C++ (GoogleTest) �
 
 - C++ のみ、.NET のみ、混在のソリューションのどれでも、同じ Skill と同じウォッチャーで使う (ソリューションの中身から、自動で判定する。[設計メモ 4.24](docs/DESIGN.md))。
 - テストを先に書いて Red を確認し (`cpp-test-first` / `csharp-test-first` / `ui-test-first`)、実装して Green にする (`build-test-loop`) という、TDD の流れにも使える。
-- ソリューションの作成 (`/new-solution`)、仕様の整理 (`/brainstorm` → `/update-from-ideas`)、機能の追加 (`/add-feature`) も、同じ Skill 群で行う。
+- ソリューションの作成 (`/new-solution`) も、同じ Skill 群で行う。仕様の整理 (`/brainstorm` → `/update-from-ideas`) と機能の追加 (`/add-feature`) は、別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) に分けた (→ 「2-3」)。
 - Claude Code のサンドボックスからは、Windows 側の MSBuild やテスト exe を、直接実行できない。そこで、Windows 側にウォッチャーを常駐させ、Claude は、フラグファイルを置いて、結果ファイルを読むだけにしている。
 
 ```
@@ -14,7 +14,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ## 1. フォルダの構成
 
-- [`skills/`](skills/): Claude Code の Skill (15 個。→ 「2. Skill」)。配布先: `~/.claude/skills/` (WSL)。
+- [`skills/`](skills/): Claude Code の Skill (12 個。→ 「2. Skill」)。配布先: `~/.claude/skills/` (WSL)。
 - [`rules/`](rules/): ユーザー共通のコーディング規約 (4 つ。→ 「3. 規約 (rules)」)。配布先: `~/.claude/rules/` (WSL)。
 - [`templates/`](templates/): 規約が参照する、設定ファイルのひな形 (→ 「4. ひな形 (templates)」)。配布先: `~/.claude/templates/` (WSL)。
 - [`scripts/`](scripts/): 規約が参照する道具 (→ 「5. 道具 (scripts)」)。配布先: `~/.claude/scripts/` (WSL)。
@@ -29,7 +29,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-1. 起動のしかた
 
-- **スラッシュコマンドだけで起動する Skill** (依頼文では、自動では、起動しない。`disable-model-invocation: true`): `/new-solution`、`/new-solutions`、`/brainstorm`、`/update-from-ideas`、`/add-feature`、`/ui-test-first`。
+- **スラッシュコマンドだけで起動する Skill** (依頼文では、自動では、起動しない。`disable-model-invocation: true`): `/new-solution`、`/new-solutions`、`/ui-test-first`。
 - **依頼文で、自動で選ばれる Skill** (引数なし。description に合う依頼で起動する): `auto-build`、`build-test-loop`、`cpp-test-first`、`csharp-test-first`、`mfc-check`、`wpf-check`、`winforms-check`、`add-package`、`ui-design-review` (`/ui-design-review [画面名 / ファイル / 規則 ID]` で、引数つきの起動も可)。
 - Skill の一覧は、Claude Code の起動時に読み込まれる。**配布したあとは、セッションを、新しく起動する。**
 - 各 Skill の下の `scripts/` は、Skill が内部で呼ぶスクリプト。`references/` は、必要なときだけ読む詳細 (読み込みを小さくするため)。
@@ -50,10 +50,9 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-3. 仕様から機能まで
 
-- **`/brainstorm [作りたいものの一言]`**: 壁打ちで、考えを広げ、整理して、`docs/ideas/<機能名>.md` に残す。コードとテストは、書かない。
-- **`/update-from-ideas [メモや仕様書のパス] [アイデア (省略可)]`**: メモや思いつきを、取り込む・保留・別機能・却下に仕分けて、案を示し、承認を得てから、正式な仕様書 `docs/specs/<機能名>.md` に書く。コードとテストは、書かない。
-- **`/add-feature [仕様書のパス]`**: 確定した仕様書から、計画 → 承認 → テスト先行 (Red) → 実装 (Green) → 検証、まで、承認のゲートを挟んで進める。対象: C++、WPF、WinForms、C# のクラスライブラリ。
-- 流れ: `/brainstorm` → `/update-from-ideas` → `/add-feature`。`/new-solution --spec <仕様書>` で、器を先に作ってもよい。
+- **別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) に分けた** (v2.44.0): `/brainstorm` (壁打ち → `docs/ideas/`)、`/update-from-ideas` (仕様書 `docs/specs/` の作成・更新)、`/add-feature` (仕様書から、計画 → 承認 → Red → Green → 検証)。**この 3 つは、このリポジトリの Skill (`cpp-test-first`、`csharp-test-first`、`build-test-loop` など) と scripts を、前提にする。**
+- **このリポジトリに残る、仕様書とのつなぎ:** `/new-solution --spec <仕様書>` と `new_solutions.py` が、仕様書 (`docs/specs/*.md`。「## 構成案」「具体例」「境界値と異常系」) を読んで、器と、テストケースの種を作る。**この形式は、このリポジトリが読む側。** `/new-solution` が `CLAUDE.md` に書く 3 行が、`claude-spec-workflow` の Skill の入口になる。
+- 流れ: `/brainstorm` → `/update-from-ideas` → `/add-feature` (`claude-spec-workflow`)。`/new-solution --spec <仕様書>` で、器を先に作ってもよい。
 
 ### 2-4. テストを先に書く (TDD)
 

@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.44.0] 2026-11-04 (Skill の削除: `/brainstorm`・`/update-from-ideas`・`/add-feature` を、別リポジトリ `claude-spec-workflow` へ移した。ウォッチャーと契約の変更なし)
+
+- **3 つの Skill を、`skills/` から除き、別リポジトリ `claude-spec-workflow` (v1.0.0。ローカル: `~/src/claude-spec-workflow`) へ移した (ユーザーの決定。ビルドツールとは、意味が合わないため)。** 履歴は持ち越さない (移す前の版は、このリポジトリの git の履歴にある)。Skill は 15 個から 12 個になった (スラッシュコマンドだけで起動する Skill は、6 個から 3 個: `/new-solution`・`/new-solutions`・`/ui-test-first`)。
+- **このリポジトリに残したもの:** (1) `/new-solution --spec` / `spec_import.py` / `new_solutions.py` が、仕様書 (`docs/specs/*.md`) を読む処理 (仕様書の形式の、読む側)。(2) `/new-solution` が `CLAUDE.md` に書く 3 行 (`claude-spec-workflow` の Skill の入口)。(3) `cpp-test-first` / `csharp-test-first` の、`/add-feature` から呼ばれたときの記述。**新しいリポジトリの `/add-feature` は、このリポジトリの Skill と scripts を、前提にする** (逆向きの依存はない)。
+- **配布:** `install.sh` は、もう 3 つを配らない。**配布先 (`~/.claude/skills/`) に、すでにある 3 つは、そのまま使える** (新しいリポジトリの `install/install.sh` が、同じ名前で配る。内容は、v2.43.0 と同じ。`/add-feature` の 1 行だけ、リポジトリ名を足した)。
+- **`/add-feature` は、必須ではない (ユーザーの指示)。** `claude-spec-workflow` の `/brainstorm`・`/update-from-ideas` は、`/add-feature` なしで完結し、実装は、通常の依頼 (`cpp-test-first` / `csharp-test-first`) でもよい。`/new-solution` が `CLAUDE.md` に書く 3 行の 3 つ目 (`/add-feature`) にも、「任意」と書いた (`new_solution.py` の 4 か所)。
+- README、`new-solution` の `SKILL.md` (3 か所。別リポジトリであることを明記) を直した。テストから、3 つの Skill の文面の確認を除いた (`loop_hardening_test.sh`、`ui_test_first_skill_test.sh`、`ui_guideline_check_test.sh`、`new_solution_winforms_test.sh`、`new_solutions_test.sh`。新しいリポジトリの `tests/skills_test.sh` に移した)。
+
 ## [2.43.0] 2026-11-04 (**ホスト側ツールの再配置が必要: `host-tools/lib\` が増えた。** ウォッチャーの動作と契約の変更なし。`watch_and_build.ps1` の整理)
 
 - **`host-tools/watch_and_build.ps1` (1748 行) を、機能ごとの 8 ファイル (`host-tools/lib/*.ps1`) に分けた (ユーザーの決定。動作は変えない。関数の本文は、1 行も変えていない)。** 本体は 558 行 (`param`・パス解決・ソリューションの判定・二重起動の防止・クイック編集の無効化・監視ループ) になった。`lib\` は、本体が、`. $libPath` (ドットソース) で、同じスコープに読み込む。`$script:` の変数は、そのまま共有される。

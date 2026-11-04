@@ -112,7 +112,6 @@ ok "csharp-test-first: an empty folder (no solution) still starts with this skil
 CREF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/csharp-test-first/references/setup.md"
 ok "csharp-test-first: setup moved to references/setup.md (add_project.py, --kind viewmodel, the baseline step) and the SKILL.md keeps only a short entry with the safety rules" "$([ -f "$CREF" ] && grep -q 'add_project.py' "$CREF" && grep -q -- '--kind viewmodel' "$CREF" && grep -q 'ベースライン' "$CREF" && grep -q '^## セットアップ (層やテストが、足りないとき)' "$CTF" && grep -q 'references/setup.md' "$CTF" && grep -q '自分で `.csproj` や `.sln` / `.slnx` を手書きしない' "$CTF" && ! grep -q 'add_project.py "$SLN_DIR" DataLayer' "$CTF" && echo 1 || echo 0)"
 ok "csharp-test-first: SKILL.md stays small (<= 32000 bytes; was 33111 before the split, 30606 at v2.37.0, 31395 at v2.39.0)" "$([ "$(wc -c < "$CTF" | tr -d ' ')" -le 32000 ] && echo 1 || echo 0)"
-ok "add-feature points to csharp-test-first references/setup.md (not the removed section)" "$(grep -q 'csharp-test-first` の `references/setup.md`' "$(dirname "$CTF")/../add-feature/SKILL.md" && echo 1 || echo 0)"
 CSF_T="${TMPDIR:-/tmp}/csf_$$"; bash "$(dirname "$CTF")/../../install/install.sh" --skills-only --skills-dir "$CSF_T" >/dev/null 2>&1
 ok "install.sh --skills-only copies csharp-test-first/references/setup.md (identical to the repo)" "$([ -f "$CSF_T/csharp-test-first/references/setup.md" ] && cmp -s "$CSF_T/csharp-test-first/references/setup.md" "$CREF" && echo 1 || echo 0)"
 rm -rf "$CSF_T" 2>/dev/null

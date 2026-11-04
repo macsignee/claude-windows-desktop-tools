@@ -135,13 +135,12 @@ for f in "$BUILD" "$BTEST" "$ROOT/skills/add-package/scripts/package_once.sh" "$
 done
 
 # ---- 文書 (Skill) の整合: 止めどき・TIMEOUT・禁止リスト・Green の条件・UI のループ
-BTL="$ROOT/skills/build-test-loop/SKILL.md"; AB="$ROOT/skills/auto-build/SKILL.md"; WTF="$ROOT/skills/csharp-test-first/SKILL.md"; CTF="$ROOT/skills/cpp-test-first/SKILL.md"; UTF="$ROOT/skills/ui-test-first/SKILL.md"; AF="$ROOT/skills/add-feature/SKILL.md"
+BTL="$ROOT/skills/build-test-loop/SKILL.md"; AB="$ROOT/skills/auto-build/SKILL.md"; WTF="$ROOT/skills/csharp-test-first/SKILL.md"; CTF="$ROOT/skills/cpp-test-first/SKILL.md"; UTF="$ROOT/skills/ui-test-first/SKILL.md"
 for f in "$AB" "$BTL"; do
     ok "$(basename "$(dirname "$f")"): TIMEOUT (rc 5) means stop and report, no retry (the old 'retry once' is gone); BAD_ARGS row exists" "$(grep -q '再試行しない' "$f" && ! grep -q '1回だけ再試行可' "$f" && grep -q '`BAD_ARGS`' "$f" && grep -q '`TIMEOUT` | 5 |' "$f" && echo 1 || echo 0)"
 done
 ok "build-test-loop: one 'stop rules' section (count = total runs, 5 max; TEST_TIMEOUT twice -> stop; hard-coding / test-only branches / removing tests from the project / editing helpers are forbidden; test-file edits only mechanical)" "$(grep -q '^## 止めどき' "$BTL" && grep -q '合計' "$BTL" && grep -q 'ハードコード' "$BTL" && grep -q '#ifdef' "$BTL" && grep -q 'から外す' "$BTL" && grep -q '機械的な追従' "$BTL" && grep -q '2 回続いたら' "$BTL" && echo 1 || echo 0)"
 ok "auto-build: points to the stop rules; FAILED is explained as a build failure; test-file edits need confirmation except mechanical ones" "$(grep -q '止めどき' "$AB" && grep -q 'ビルド失敗' "$AB" && grep -q '機械的な追従' "$AB" && echo 1 || echo 0)"
-ok "add-feature: points to the stop rules (per task 5 runs, 15 in total)" "$(grep -q '止めどき' "$AF" && grep -q '15 回' "$AF" && echo 1 || echo 0)"
 for f in "$WTF" "$CTF"; do
     ok "$(basename "$(dirname "$f")"): baseline run before Red; new tests must appear in the results (count + grep) before Green is complete; no stub when fixing a bug in existing code" "$(grep -q '4.0 ベースライン' "$f" && grep -q 'Green の完了条件' "$f" && grep -q 'test-results' "$f" && grep -q 'スタブを置かない' "$f" && grep -q 'test_summary.json' "$f" && echo 1 || echo 0)"
 done
