@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.49.0] 2026-11-04 (機能追加: 画面を持つ DLL の、画面ホストと UI テスト (`add_ui_host.py`)。既存の動作・契約の変更なし。Skill の再配置が必要)
+
+- **`cpp-test-first/scripts/add_ui_host.py` を追加:** 既存の C++ のソリューションに、**画面を持つ MFC の DLL (UI DLL)** と、**その画面を開くだけの exe (画面ホスト)** と、UI テスト (FlaUI) を足す。DLL は単体で起動できないので、UI テストは、ホストの exe を起動する (呼び出す exe がない構成や、画面を DLL が提供する構成のため)。
+  - **UI DLL:** 標準 DLL (既定。`--kind mfc-std-dll`) か拡張 DLL (`mfc-ext-dll`)。サンプルのダイアログ `GreetingDialog` (名前 → 挨拶 → クリア)、`.rc`、`Resource.h` (ID は 3000 台)。標準 DLL の公開関数 `ShowGreetingDialog(HWND)` は、先頭で `AFX_MANAGE_STATE`。拡張 DLL は `AFX_EXT_CLASS`。**DLL に `.rc` を作るのは、初めて** (これまで、DLL の `.rc` は、作らない方針だった。画面を持つ DLL だけ、作る)。
+  - **画面ホスト:** ダイアログが、そのまま、メインウィンドウになる。**標準 DLL のホストは、MFC なしの Win32 exe** (標準 DLL が、どの exe からも使えることの確認)。**拡張 DLL のホストは、MFC の exe (`UseOfMfc=Dynamic`)**。
+  - **ViewModel 相当 (ロジック層の `Greeting`):** 画面に依存しない `MakeGreeting` を、ロジック層に足し、ダイアログが呼ぶ。ロジック層のテストに、単体テスト (`TestGreeting.cpp`) も足す。ロジック層は、名前に `Logic` を含む DLL を探す (`--logic` で指定、`none` で足さない)。ロジック層が MFC 標準 DLL のときは、`MakeGreeting` の先頭に `AFX_MANAGE_STATE` を入れる。ロジック層がなければ、ダイアログの中に書く (NOTE)。
+  - **UI テスト:** `add_ui_tests.py --app <ホスト>` で `<ホスト>.UITests` を作り、`GreetingDialogUiTests.cs` (開いたとき・名前を入れたとき・クリアしたとき) を足す。部品は、コントロール ID の数値 (`"3002"` など) で探す。`CLAUDE.md` にも、節を足す。
+- **`mfc-check`:** **名前に `Ui` / `View` / `Dialog` の語を含む DLL (または `--ui <名前>`) を、「画面を持つ層」として扱う。** ライブラリの GUI の使用 (LAY001 / LAY002) を指摘しない。層の向き (LAY003) は、メイン → 画面を持つ DLL → ロジック → データ (ロジック・データから画面、画面からメインへの参照は、error)。
+- **既存の動作は、変えない:** `/new-solution` の層 (ロジック・データ)、`add_layer.py` の出力は、変更なし。
+- テスト: `add_ui_host_test.sh` (35 件。標準 DLL・拡張 DLL・ロジックなし・`--logic none`・ロジックが標準 DLL・名前の NOTE・不正な引数・2 回目の rc=3。生成した一式が、`mfc-check` で、error 0 / warning 0)、`mfc_check_test.sh` (+5 件: 画面を持つ層)。生成側と検査を壊すと、テストが失敗することも確認した。DESIGN 4.65、TEST-PLAN 2-29。
+- **実機で確認 (2026-11-04、TEST-PLAN 2-29。`UiHostCheck` (標準 DLL)・`UiHostExt` (拡張 DLL)):** 生成 ✔、ビルド `SUCCESS` ✔、単体テスト `PASSED` (4 件。`GreetingTest` を含む) ✔、**UI テスト `PASSED` (3 件。標準 DLL・拡張 DLL の両方)** ✔。ダイアログが DLL のリソースから開き、MFC の静的テキストの UIA の `Name` を読めた。**未確認 (任意):** UH4 (目視)。
+
 ## [2.48.0] 2026-11-04 (機能追加: `mfc-check` に、MFC の DLL の設定の検査 (DLL001〜DLL008)。既存の検査の出力・終了コードは変えない。Skill の再配置が必要)
 
 - **`mfc-check` が、MFC の拡張 DLL・標準 DLL の、「コンパイルは通るが、実行時に壊れる」設定の食い違いを検出する** (v2.45.0 / v2.46.0 で、見送っていた件)。`.vcxproj` の `UseOfMfc` と `PreprocessorDefinitions` (構成ごと) と、ソースから判定する。

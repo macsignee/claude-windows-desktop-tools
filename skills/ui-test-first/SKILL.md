@@ -15,6 +15,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 ## 前提
 - カレントが、ソリューションフォルダ (`.sln` / `.slnx` があるフォルダ)。以降 `$SLN_DIR`。**なければ、`/new-solution` を案内して止まる。**
 - **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **画面が DLL にあり、呼び出す exe がない構成のときは、先に、画面ホストを足す** (`python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$SLN_DIR"`。UI DLL・画面ホストの exe・UI テストが、一緒にできる。`cpp-test-first` の `DLL-LAYOUT.md`)。
 - **UI テストのプロジェクト (`<アプリ>.UITests`) があること** (名前が `UITests` / `UiTests` で終わる、または FlaUI を参照。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある)。**なければ、作る:** `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN_DIR"` (ユーザーに確認してから。WPF / WinForms / MFC)。
 - **`CLAUDE.md` の `- メイン:` で、フレームワークを判定する** (WinForms / WPF / MFC)。**`<アプリ>.UITests/uitest.settings` の `desktop=` を読む。** `visible` (WPF の既定) なら、**実行の前に、ユーザーに伝える:** 「UI テストを、あなたのデスクトップで実行します。実行中 (数分) は、マウスとキーボードに触らないでください」。`separate` なら、不要。
 - ユーザーが、`run_watcher.cmd` を起動済みであること (なければ `WATCHER_NOT_RUNNING`。起動を依頼する)。ウォッチャーが古いと、`--filter` / `--ui-timeout` が無視される (`~/src/copy-host-tools.sh` で再配置して、再起動)。
