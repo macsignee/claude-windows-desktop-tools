@@ -854,3 +854,13 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | UH3 | `uitest_once.sh "$PWD" --filter "FullyQualifiedName~GreetingDialogUiTests" --separate --ui-timeout 1200` | `PASSED` (3 件)。**ホストの exe が、ダイアログを開く。MFC の静的テキスト (ID 3003) を、`Name` で読める** | ✔ (2026-11-04) `PASSED`、`tests: 3 passed (UiLayerHost.UITests 3)`。`Name` で読めた (推測が当たった) |
 | UH4 | `uitest_once.sh "$PWD" --filter "FullyQualifiedName~Preview" --preview` (または、`UiLayerHost.exe` を直接起動) | ダイアログが開き、名前を入れると、挨拶が出る。クリアで、空になる | 未実施 (任意。UH3 で、同じ操作が、自動で通った) |
 | UH5 | 拡張 DLL: 別の新しいフォルダで、`new_solution.py ... --type mfc-dialog --layers logic,data --tests gtest --gtest vcpkg` のあと、`add_ui_host.py "$PWD" --name DialogLayer --kind mfc-ext-dll`。UH2・UH3 と同じ | ビルド `SUCCESS`。UI テスト `PASSED`。**拡張 DLL のダイアログが、ホストの exe から、DLL のリソースで開く** | ✔ (2026-11-04、`UiHostExt`) `package_once.sh` = `OK`、`build_test_once.sh` = `PASSED` (`tests: 4 passed`)、`uitest_once.sh` = `PASSED` (`tests: 3 passed (DialogLayerHost.UITests 3)`)。ホストはウォッチャー 2.49.0 で実行 |
+
+### 2-30. テスト exe の TargetPath での探し直し (v2.50.0。`docs/DESIGN.md` 4.66)
+
+**v2.50.0 で追加。静的テスト (`host_tools_static_test.sh`、`fix_policy_test.sh`) は通っている。PowerShell は、Linux で実行できないので、実機で確認する。** 先に、`install/install.sh` で、Skill とホスト側を配り、ウォッチャーを再起動する (バナーが 2.50.0)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| OD1 | 既存のソリューション (例: `UiHostCheck`) で、`build_test_once.sh` を実行する | 従来どおり `PASSED`。**既定の出力先に見つかるので、`TargetPath` の探し直しは、動かない** (件数・結果が、v2.49.0 と同じ) | 未実施 |
+| OD2 | `LogicLayerTest/LogicLayerTest.vcxproj` の `OutDir` を、`$(SolutionDir)out\bin\$(Configuration)\` に変えて、`build_test_once.sh` を実行する (確認のあと、元に戻す) | `PASSED`。**既定の出力先に exe がなくても、`TargetPath` で見つかり、`LogicLayerTest` のテストが、実行される** (件数が、`LogicLayerTest` の分も含まれる)。DLL が、同じ出力先に出ない場合は、実行時に失敗するので、`DataLayer` / `LogicLayer` の `OutDir` も、同じ場所にそろえる | 未実施 |
+

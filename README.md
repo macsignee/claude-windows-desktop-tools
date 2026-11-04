@@ -75,6 +75,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-6. 静的検査 (Windows 不要。読み取りだけ)
 
+- **`build-test-loop/references/fix-policy.md`**: 自動修正の方針 (修正の前の、未コミットの変更の確認、直してよいものと止めるもの、警告の方針 `ignore` / `report` / `fix`、完了報告の項目)。`auto-build` と `build-test-loop` が、参照する。
 - **`add_ui_host.py`** (`cpp-test-first/scripts/`): 画面を持つ MFC の DLL (標準 DLL・拡張 DLL) と、画面を開くだけの exe (画面ホスト)、ロジック層の `Greeting`、UI テストを、既存のソリューションに足す。呼び出す exe がない構成で、DLL の画面を UI テストで確かめる。
 - **`mfc-check`** (自動): MFC の、リソース ID の重複・未定義、メッセージマップとハンドラの不整合、ダイアログと DDX の不整合、層の依存の違反、MFC の DLL (拡張 DLL・標準 DLL) の設定の食い違い。
 - **`wpf-check`** (自動): WPF の、バインディングのパスの誤り、`StaticResource` のキー、`InitializeComponent()` の呼び忘れ、`StartupUri` などの誤り、層の依存の違反、規約のうち機械で判定できる項目。

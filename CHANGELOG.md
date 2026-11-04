@@ -2,6 +2,20 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.50.0] 2026-11-04 (機能追加: テスト exe を TargetPath で探す (ホスト側)、修正の方針 (`fix-policy.md`)。他部署の引き継ぎ資料 (`CLAUDE_HANDOFF.md`) の検討による。ホスト側と Skill 側。ホスト側は実機で未確認)
+
+- **ホスト側 (`host-tools/lib/tests.ps1`): テスト exe を、MSBuild の `TargetPath` で、探し直す。** 既定の出力先 (`<ソリューション>\<プラットフォーム>\<構成>\`) に、`*Test.exe` が**見つからなかったときだけ**、名前が `Test` / `Tests` で終わる `.vcxproj` ごとに、`MSBuild -getProperty:TargetPath` で、実際の出力先を取る (`OutDir` を変えた既存のプロジェクトのため)。MSBuild は、vswhere で探す (`Get-MSBuildExe`)。`-getProperty` が使えない古い MSBuild や、失敗したときは、空を返す (従来どおり、「見つからない」)。**既定の出力先に見つかったときの動作は、変えない。**
+- **`skills/build-test-loop/references/fix-policy.md` を追加 (`auto-build` / `build-test-loop` 共通):**
+  1. **修正の前の確認:** 最初の修正の前に、1 回、`git status --short` と `git diff --stat` (読み取りだけ)。自分が編集していないファイルの未コミットの変更は、ユーザーの変更なので触らない。**修正の対象と重なるなら、修正せずに停止して報告する** (質問はしない)。
+  2. **ビルドエラー:** 直してよいものと、停止して報告するもの (ツールの不足、パッケージの不足、署名・権限、プロジェクトファイルの大幅な変更、ABI・公開 API への影響、要件が曖昧、同じエラーが 2 回、未コミットの変更との競合)。
+  3. **警告の方針:** `ignore` / `report` (既定) / `fix` (依頼で指定)。`fix` でも直してよいのは、安全なものだけ (未使用のローカル変数、明白な型変換、代替が明白な非推奨 API)。ABI・外部ライブラリ・生成コード・意図が不明なものは報告のみ。抑制で通すのは禁止 (従来のルール 8)。
+  4. **テスト失敗:** 直してよいものと、停止して報告するもの (仕様が不明、フォーカス・DPI・ロケール・タイムゾーン・OS の状態に依存、フレーク、外部依存、非同期の競合、クラッシュ、修正後も 2 回続けて失敗)。削除・無効化・アサーションを弱めるのは、従来どおり禁止 (`test_guard.py`)。
+  5. **完了報告の項目:** 環境・実行・修正・警告・ログ・停止したとき。成功だけなら 1〜2 行のまま。
+- `auto-build` の SKILL.md (ループのルール 10、報告) と、`build-test-loop` の SKILL.md (止めどき 6) から、`fix-policy.md` を参照する。
+- **検討して、採用しなかったもの (資料 `CLAUDE_HANDOFF.md`):** WSL から `cmd.exe` を直接呼ぶ方式 (サンドボックスが実行できない。ウォッチャー方式のまま)、Python の排除 (このリポジトリの生成・検査は Python)、`devenv.com`、Preview 版の VS (`VC_INCLUDE_PRERELEASE`。必要になったら)、環境変数による設定、ソリューションの順位付け、ZIP。**すでに満たしていたもの:** vswhere による VS の検出、リビルド・クリーン、`build.log` / `errors.log` / `warnings.log`、修正の上限 (5 回)、テストの改変の禁止 (`test_guard.py`)。
+- テスト: `host_tools_static_test.sh` (+3 件: フォールバックの位置・内容、`Get-MSBuildExe`)、`fix_policy_test.sh` (12 件)。壊すと失敗することも確認した。DESIGN 4.66、TEST-PLAN 2-30。
+- **実機で未確認 (TEST-PLAN 2-30 の OD1・OD2):** `-getProperty:TargetPath` が、実機の MSBuild (VS 18) で、期待どおりの値を返すこと。**Linux では、PowerShell を実行できない (静的テストのみ)。**
+
 ## [2.49.0] 2026-11-04 (機能追加: 画面を持つ DLL の、画面ホストと UI テスト (`add_ui_host.py`)。既存の動作・契約の変更なし。Skill の再配置が必要)
 
 - **`cpp-test-first/scripts/add_ui_host.py` を追加:** 既存の C++ のソリューションに、**画面を持つ MFC の DLL (UI DLL)** と、**その画面を開くだけの exe (画面ホスト)** と、UI テスト (FlaUI) を足す。DLL は単体で起動できないので、UI テストは、ホストの exe を起動する (呼び出す exe がない構成や、画面を DLL が提供する構成のため)。
