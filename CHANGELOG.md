@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.52.0] 2026-11-04 (機能追加: プロジェクトを足す入口 `/add-project`、ソリューションの現状を読む `solution_state.py`)
+
+- **`skills/add-project/SKILL.md` (新規。スラッシュコマンドだけで起動):** すでにあるソリューション (C++ / .NET) に、プロジェクトを足していく流れ。**現状を読む → 何を足すか質問 → 案 (`--dry-run`) を示して承認 (必ず止まる) → 既存のスクリプトで作る → 足りない参照の案内 → `CLAUDE.md` を合わせる → ビルド・テスト・静的検査で確かめる → 報告。** 足せるもの: 層 (C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL、.NET は lib / data / logic / viewmodel) とそのテスト、画面を持つ DLL + 画面ホスト (C++)、テストの後付け、UI テストの後付け。作るのは、既存の `add_layer.py` / `add_project.py` / `add_ui_host.py` / `new_solution.py` (プロジェクトファイルの手書きはしない)。
+- **`skills/add-project/scripts/solution_state.py` (新規。読み取りだけ):** 種類 (cpp / dotnet / mixed)、メイン、各プロジェクトの種類・役割・テスト・参照、`CLAUDE.md` との食い違い (`MISMATCH`)、層の参照の向きの違反 (`REF_ISSUES`)、参照されていない層と、参照するのが自然な使う側 (`SUGGEST_REF`)、足せるもの (`ADDABLE`、dry-run の例つき) を出す。`ViewModels` を、画面の層と取り違えない。
+- **`CLAUDE.md` の更新:** `- 層:`、層の表、`- テスト:` の 3 か所だけ (書いてある層は、消さない)。`add_layer.py` / `add_project.py` が更新しなかった部分。
+- **参照 (使う側 → 新しい層):** この版は、**案内だけ** (報告に `SUGGEST_REF`)。生成は、v2.53.0 (`add_reference.py`) の予定。
+- `cpp-test-first` の `DLL-LAYOUT.md`、`csharp-test-first` の `PROJECT-LAYOUT.md`、`new-solution` の SKILL.md から、`/add-project` を案内。
+- テスト: `tests/add_project_skill_test.sh` (32 件)。生成したソリューション 10 種 (MFC ダイアログ、テストなし、MFC 拡張・標準 DLL、画面ホスト、向きの違反、CLAUDE.md の食い違い、WPF、WinForms、C# クラスライブラリ、エラーの終了コード) で、出力を検証。変異テスト (`ViewModels` の役割の判定順を入れ替える) で、失敗することを確認。
+- 契約 (ミューテックス名・フラグ・結果ファイル・終了コード) の変更なし。ホスト側の変更なし (Skill だけの配布でよい)。
+
 ## [2.51.2] 2026-11-04 (修正: `TargetPath` の問い合わせに `SolutionDir` を渡す)
 
 - **不具合 (実機の確認 OD2b で発見):** v2.51.1 でも、`OutDir` を変えたテスト (`LogicLayerTest`) は、見つからなかった (`1 passed (DataLayerTest 1)`)。`out\bin\Debug\LogicLayerTest.exe` は、できていた。**原因 (実機の MSBuild の出力で確認):** `.vcxproj` を単体で MSBuild に渡すと、`SolutionDir` が空になり、`OutDir` が `$(SolutionDir)out\bin\...` のプロジェクトの `TargetPath` が、プロジェクトの下の別の場所 (`LogicLayerTest\out\bin\Debug\LogicLayerTest.exe`) を指す。`-p:SolutionDir=<ソリューション>\` を渡すと、exe がある `UiHostCheck\out\bin\Debug\LogicLayerTest.exe` になる。

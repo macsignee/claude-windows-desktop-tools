@@ -85,7 +85,7 @@ disable-model-invocation: true
 | ない (`solutions.md` もない) | **A. 新規作成** (この `/new-solution` は、**1 つのソリューション**を作る。種類違いの複数の候補を比べたいときは、`/new-solutions`) |
 | ない + `solutions.md` がある | 作業フォルダ。「ここは、複数の候補の作業フォルダです。作成は `/new-solutions` で行います」と伝えて、止まる (**`.slnx` を作らない**) |
 | 1 つある + `--tests gtest` (C++) / `--tests mstest` (.NET) | **B. テストの後付け** |
-| 1 つある + それ以外 | 「すでにソリューションがあります。できるのは、テストの後付け (`--tests gtest` (C++) / `--tests mstest` (.NET)) だけです」と伝えて、止まる |
+| 1 つある + それ以外 | 「すでにソリューションがあります。できるのは、テストの後付け (`--tests gtest` (C++) / `--tests mstest` (.NET)) だけです。層やプロジェクトを足すときは `/add-project` です」と伝えて、止まる |
 | 複数ある | 止まって、ユーザーに確認する |
 
 ## A. 新規作成

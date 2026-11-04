@@ -67,7 +67,7 @@ MFC を使わない、純粋な計算・ロジックだけの DLL を作る場�
 
 ## 新しい DLL とテスト exe を、組で作るとき (了承を得た場合)
 
-**同梱の `scripts/add_layer.py` で作る** (手書きしない)。上の規約は、このスクリプトが生成する内容そのもの。
+**同梱の `scripts/add_layer.py` で作る** (手書きしない)。上の規約は、このスクリプトが生成する内容そのもの。**現状の読み取り、承認、`CLAUDE.md` の更新、ビルドとテストでの確認まで、通しで進めるときは、`/add-project`** (`add_layer.py` を呼ぶ入口)。
 
 ```bash
 python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" DataLayer
