@@ -878,3 +878,15 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | AP4 | 新しいフォルダに、`/new-solution --type wpf --layers data,logic --tests mstest` で作り、`/add-project layer` (名前 `ViewModels`、種類 `viewmodel`) | 作成 → `CLAUDE.md` の `- 層:` に `viewmodel` が足される → `wpf-check` の指摘 0 件 → `PASSED` | 未実施 |
 | AP5 | 上流の層が、下の層を参照する依頼 (例: `DataLayer` を `--uses LogicLayer` で足す) | 手順 2 で、向きの違反と指摘して、止まる (作らない) | 未実施 |
 | AP6 | `CLAUDE.md` の `- テスト:` を、わざと `なし` に書き換えて、`/add-project` を起動する | 手順 1 で、`MISMATCH` を、先に伝える | 未実施 |
+
+### 2-32. 使う側からの参照の追加 `add_reference.py` (v2.53.0。`docs/DESIGN.md` 4.71)
+
+**v2.53.0 で追加。静的テスト (`tests/add_reference_test.sh`、32 件) は通っている (生成したソリューションで、XML・BOM・CRLF、GUID、全構成のインクルードパス、変わるファイルが 1 つだけ、冪等、向き・循環・UI テスト・MFC の設定を断ること、`mfc-check` の error 0 を検証)。コンパイル・リンク・実行は、Linux でできないので、実機で確認する。** 先に、`install/install.sh --skills-only` で Skill を配る (ホスト側の変更はない)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| AR1 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers logic,data --tests gtest` で作る。`python3 ~/.claude/skills/add-project/scripts/add_reference.py "$PWD" --from <メイン> --to LogicLayer` を実行し、`build_once.sh` を実行する | ビルド `SUCCESS`。Visual Studio で `.slnx` を開くと、メインの「参照」に `LogicLayer` が出る。**メインのコードで、`LogicLayer` の公開関数を 1 つ呼ぶ (`#include` もたどれる) と、リンクできる** | 未実施 |
+| AR2 | AR1 のあと、メインを実行する (F5 または、`x64\Debug` の exe) | `LogicLayer.dll` が、見つかって、起動する (出力先が同じなので、DLL が、隣にある) | 未実施 |
+| AR3 | 新しいフォルダに、`/new-solution --type mfc-dialog --layers none --tests none` で作り、`/add-project layer` で `ExtLayer` (種類 `mfc-ext-dll`、メインから参照) を足す | 案に、メイン → `ExtLayer` の参照が含まれる。承認のあと、ビルド `SUCCESS`、`mfc-check` が error 0 (DLL008 なし) | 未実施 |
+| AR4 | 新しいフォルダに、`/new-solution --type wpf --layers data,logic --tests mstest` で作り、`/add-project layer` で `ReportLib` (メインから参照) を足す | `.csproj` に `ProjectReference` が足され、`build_test_once.sh` が `PASSED`。`wpf-check` の指摘 0 件 | 未実施 |
+| AR5 | AR1 のソリューションで、`/add-project layer` で、ロジック層が、新しいメイン側の層を参照する依頼 (向きの違反) をする | 手順 3 の案の段階で、向きの違反と指摘して、止まる (作らない・書き換えない) | 未実施 |
