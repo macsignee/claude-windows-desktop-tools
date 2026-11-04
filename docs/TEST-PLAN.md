@@ -823,5 +823,5 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CS1 | `--type win32 --layers none --tests none` で作ったフォルダで、Claude Code を起動し、「`main.cpp` に、ウィンドウのタイトルを変える処理を足して」と頼む | `cpp-common.md` が読み込まれ、`mfc-cpp.md` は読み込まれない (`~/.claude/projects/*/*.jsonl` で、読み込みを確かめる)。`CLAUDE.md` に「MFC を使わない (Win32 API と C++)」 | 未実施 |
-| CS2 | `--type mfc-dialog` で作ったフォルダで、「ダイアログに、ボタンを 1 つ足して」と頼む | `*Dlg` 系の編集で、`mfc-cpp.md` も読み込まれる。`CLAUDE.md` の「`mfc-cpp.md` も読んでから書く」に従う | 未実施 |
+| CS1 | `--type win32 --layers none --tests none` で作ったフォルダで、Claude Code を起動し、「`main.cpp` に、ウィンドウのタイトルを変える処理を足して」と頼む | `cpp-common.md` が読み込まれ、`mfc-cpp.md` は読み込まれない (`~/.claude/projects/*/*.jsonl` で、読み込みを確かめる)。`CLAUDE.md` に「MFC を使わない (Win32 API と C++)」 | ✔ (2026-11-04、`Cs1Win32`) セッションの記録の `nested_memory` は `cpp-common.md` の 1 件だけ (`mfc-cpp.md` はない)。`::SetWindowTextW`・大文字の `constexpr` で、規約が効いた。ビルド `SUCCESS`。注: `grep mfc-cpp.md` は、`CLAUDE.md` と `cpp-common.md` の本文に当たるので、確認には使えない (`nested_memory` のパスで見る) |
+| CS2 | `--type mfc-dialog` で作ったフォルダで、「ダイアログに、ボタンを 1 つ足して」と頼む | `*Dlg` 系の編集で、`mfc-cpp.md` も読み込まれる。`CLAUDE.md` の「`mfc-cpp.md` も読んでから書く」に従う | ✔ (2026-11-04、`Cs2Mfc`) `nested_memory` は `cpp-common.md` と `mfc-cpp.md` の 2 件 (`SampleDlg` の読み込みの直後)。ボタンの追加 (`.rc`・`Resource.h`・メッセージマップ) が、ビルド `SUCCESS` |

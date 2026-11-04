@@ -1104,5 +1104,5 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **決定 (ユーザー、2026-11-04):** 分割する。命名の方針 (`<言語>-common.md` = 言語の共通、`<技術>-<言語>.md` = 技術ごと) に従い、`cpp-common.md` と `mfc-cpp.md`。
 - **`paths` の限界と対応:** `paths` は、ファイルの名前だけで判定し、プロジェクトの種類を判定できない。MFC のプロジェクトだけで読み込む、確実な `paths` は、書けない。→ `mfc-cpp.md` の `paths` は、MFC のウィザードが作る名前に絞る (Win32 のプロジェクトでは、まず当たらない)。**層の `.cpp` など、当たらない MFC のファイルは、生成する `CLAUDE.md` が、読むよう指示する** (MFC のメインと、`mfc-ext-dll` / `mfc-std-dll` の層のとき)。確実性は、`paths` ではなく、`CLAUDE.md` に置く。
 - **移し方:** 規則の文言は、変えない。MFC の名前が出る例 (`CArchive`、`CRect`、`CDC`、`CGdiObject`) だけ、共通では、MFC なしの例 (`Render`、`SIZE`、`HDC`、`HWND`) にした。「Win32 API は `::` を付ける」は、共通のまま (MFC の同名メンバーとの衝突は、`mfc-cpp.md`)。COM は ATL (MFC 不要) なので、共通。
-- **確認できていないこと (実機。TEST-PLAN 2-27):** (a) Win32 のプロジェクトで `.cpp` を触ったとき、`cpp-common.md` だけが読み込まれる。(b) MFC のプロジェクトで、`CLAUDE.md` の指示により、`mfc-cpp.md` が読まれる。
+- **実機で確認 (2026-11-04。TEST-PLAN 2-27):** (a) Win32 のプロジェクトで `.cpp` を触ると、`cpp-common.md` だけが読み込まれた (`nested_memory`)。(b) MFC のダイアログのプロジェクトで、`SampleDlg` の編集のときに、`mfc-cpp.md` も読み込まれた。**未確認:** `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイル名の MFC のファイル (層の `.cpp` など) で、`CLAUDE.md` の指示により、`mfc-cpp.md` が読まれること。
 - **見送り:** 配布先に残る旧い `mfc-cpp.md` (全文の版) は、`install.sh --rules-only` が、新しい版で上書きする (番号付きのバックアップを残す)。二重の読み込みは、起きない (名前が同じ)。
