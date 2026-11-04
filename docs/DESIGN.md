@@ -1097,3 +1097,12 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **実機で確認 (2026-11-04。TEST-PLAN 2-26):** (a) 生成した一式が、ビルドできた (`SUCCESS`)。(b) MFC なしのコンソールのテスト exe が、標準 DLL (共有 MFC) をロードし、`AFX_MANAGE_STATE` つきの関数を呼べた (2 件 `PASSED`)。(c) 設定は、実物 (`MFCLibrary2`) と一致 (静的比較)。**未確認 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` を外した場合の挙動。
 - **観察 (生成とは無関係):** MSBuild の vcpkg 連携が VS 2022 の `vcpkg.exe` を使い、コンパイラは VS 18 (MX2 と同じ。ビルドは通る)。
 - **見送り:** 静的リンク (`UseOfMfc=Static`)、設定の食い違いの検出 (`mfc-check`。拡張 DLL の分と、まとめて)、`AFX_MANAGE_STATE` の入れ忘れの検出、メインの exe からの参照の自動生成。
+
+### 4.63 C++ の規約の分割 (v2.47.0)
+
+- **問題:** `mfc-cpp.md` は、全部の C++ のファイルで読み込まれる (`paths`)。`/new-solution --type win32` のように、MFC を使わないプロジェクトにも、MFC の規則 (`m_hWnd` の直接アクセス、`CArray` の優先など) が入る。名前も、内容 (約半分は MFC と無関係) と合わない。v2.41.0 で、「MFC 以外の C++ プロジェクトが来たら分ける」と見送っていた。
+- **決定 (ユーザー、2026-11-04):** 分割する。命名の方針 (`<言語>-common.md` = 言語の共通、`<技術>-<言語>.md` = 技術ごと) に従い、`cpp-common.md` と `mfc-cpp.md`。
+- **`paths` の限界と対応:** `paths` は、ファイルの名前だけで判定し、プロジェクトの種類を判定できない。MFC のプロジェクトだけで読み込む、確実な `paths` は、書けない。→ `mfc-cpp.md` の `paths` は、MFC のウィザードが作る名前に絞る (Win32 のプロジェクトでは、まず当たらない)。**層の `.cpp` など、当たらない MFC のファイルは、生成する `CLAUDE.md` が、読むよう指示する** (MFC のメインと、`mfc-ext-dll` / `mfc-std-dll` の層のとき)。確実性は、`paths` ではなく、`CLAUDE.md` に置く。
+- **移し方:** 規則の文言は、変えない。MFC の名前が出る例 (`CArchive`、`CRect`、`CDC`、`CGdiObject`) だけ、共通では、MFC なしの例 (`Render`、`SIZE`、`HDC`、`HWND`) にした。「Win32 API は `::` を付ける」は、共通のまま (MFC の同名メンバーとの衝突は、`mfc-cpp.md`)。COM は ATL (MFC 不要) なので、共通。
+- **確認できていないこと (実機。TEST-PLAN 2-27):** (a) Win32 のプロジェクトで `.cpp` を触ったとき、`cpp-common.md` だけが読み込まれる。(b) MFC のプロジェクトで、`CLAUDE.md` の指示により、`mfc-cpp.md` が読まれる。
+- **見送り:** 配布先に残る旧い `mfc-cpp.md` (全文の版) は、`install.sh --rules-only` が、新しい版で上書きする (番号付きのバックアップを残す)。二重の読み込みは、起きない (名前が同じ)。

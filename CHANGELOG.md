@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.47.0] 2026-11-04 (規約の分割: C++ の共通と MFC 固有。生成物の `CLAUDE.md` が変わる。`install.sh --rules-only` と Skill の再配置が必要)
+
+- **`rules/mfc-cpp.md` (163 行) を、`rules/cpp-common.md` (C++ の共通) と、`rules/mfc-cpp.md` (MFC 固有) に分けた** (v2.41.0 で「最初の MFC 以外の C++ プロジェクトが来たら」と見送っていた件。`--type win32` / `console` / `dll` / `lib` が、MFC の規約を読み込んでいた)。
+  - **`cpp-common.md`:** 言語・ビルド、ファイルの形式、書式、コメント、命名、`override`、`::` を付ける Win32 API の呼び出し、ポインタ、COM (`CComPtr`)、`std::ranges`、テンプレート、関数の大きさ、既存コードの扱い。`paths` は、従来どおり、全部の C++ のファイル。MFC の名前が出る例は、MFC なしの例に直した。
+  - **`mfc-cpp.md`:** MFC の動的リンクと `CString`、MFC のクラスの内側での `::` (同名メンバーとの衝突)、MFC が寿命を決めるオブジェクトの扱い、MFC のメンバーへのアクセス (`GetSafeHwnd` など)、MFC のコレクション (`CArchive`、イテレータの推奨)。**`paths` は、MFC のウィザードが作る名前 (`*Dlg` `*View` `*Doc` `MainFrm` `*Frame`) だけに絞った。** 規則の中身は、変えていない (移動と、MFC の名前の例の置き換えのみ)。
+- **`/new-solution` が書く `CLAUDE.md` の「規約」の節:** `cpp-common.md` を指す。MFC のメインと、MFC の層 (`mfc-ext-dll` / `mfc-std-dll`) では、「`mfc-cpp.md` も読んでから書く」と指示する (`paths` が、ウィザードのファイル名だけなので、層の `.cpp` では自動で読み込まれないため)。それ以外 (`win32` / `console` / `dll` / `lib`) は、「MFC を使わない」「`mfc-cpp.md` は適用しない」と書く (`win32` は「Win32 API と C++」と明記)。
+- **生成されるコードは、変えていない** (`--type win32` は、これまでも MFC なし。`UseOfMfc`・`afx` がないことを、テストで固定した)。
+- **注意 (動作の変化):** 既存のプロジェクトの `CLAUDE.md` は、変わらない。MFC のプロジェクトで、ウィザード以外のファイル名の `.cpp` を、MFC の規約なしで編集する場合は、`CLAUDE.md` に、「`~/.claude/rules/mfc-cpp.md` も読む」の 1 行を足すとよい。
+- テスト: `rules_split_test.sh` (共通と MFC 固有の分離、`paths`、MFC 固有の規則が共通に混ざらないこと、配布)、`new_solution_test.sh` (+6 件: win32 の MFC なし、`CLAUDE.md` の案内 4 種類)、`convert_utf8_bom_test.sh` (参照先を `cpp-common.md` に)。DESIGN 4.63、TEST-PLAN 2-27。
+
 ## [2.46.0] 2026-11-04 (機能追加: MFC 標準 DLL の生成。既定の動作・契約の変更なし。Skill の再配置が必要)
 
 - **`add_layer.py --kind mfc-std-dll` と `new_solution.py --layer-kind mfc-std-dll` (仕様書の「層の種類: mfc-std-dll」も) で、MFC 標準 DLL (Regular DLL。共有 MFC) を生成できるようにした (ユーザーの決定。名前は `mfc-std-dll`、リンク方式は共有 MFC のみ)。**
