@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.45.0] 2026-11-04 (機能追加: MFC 拡張 DLL の生成。既定の動作・契約の変更なし。Skill の再配置が必要)
+
+- **`add_layer.py --kind mfc-ext-dll` と `new_solution.py --layer-kind mfc-ext-dll` (仕様書の「層の種類: mfc-ext-dll」も) で、MFC 拡張 DLL を生成できるようにした (ユーザーの決定。名前は `mfc-ext-dll`)。** これまでは、常に MFC を使わない通常の DLL (`_USRDLL`) で、拡張 DLL にするには、`.vcxproj` と定型コードを、毎回、手で直していた。
+  - **実物 (`MFCLibrary1`。Visual Studio の「MFC DLL」ウィザードの拡張 DLL) を読んで、設定を合わせた:** `UseOfMfc=Dynamic`、`_AFXEXT` (`_USRDLL` なし)、`pch.h` (Use) / `pch.cpp` (Create) / `dllmain.cpp` (NotUsing)、`dllmain.cpp` の定型コード (`AFX_EXTENSION_MODULE` / `AfxInitExtensionModule` / `CDynLinkLibrary` / `AfxTermExtensionModule`)、`framework.h` / `targetver.h`。全ファイル BOM 付き UTF-8 + CRLF。
+  - **テスト exe も `UseOfMfc=Dynamic`** (同じ共有 MFC ランタイム。`_AFXEXT` は付けず、DPI のマニフェストも付けない)。`--tests-only` で後から足すときは、既存の DLL の `_AFXEXT` を見て同じにする。
+  - **メインが MFC (`mfc` / `mfc-mdi` / `mfc-dialog`) のときだけ指定できる** (それ以外は、何も書かずに、エラー)。`CLAUDE.md` の「層と依存の向き」に、拡張 DLL の注意 (`AFX_EXT_CLASS`、`pch.h`) を書く。
+  - **ウィザードとの違い (意図的):** `.def`、`.rc` / `.rc2`、`Resource.h`、x86 の構成は作らない。`framework.h` は最小限 (OLE・DB・DAO なし)。
+  - 既定 (`--kind dll` / `--layer-kind` なし) の出力は、変えていない (テストで確認)。
+- `DLL-LAYOUT.md` (「`add_layer.py` に拡張 DLL を生成するオプションがない」の記述を、生成の説明に置き換え)、`new-solution/SKILL.md`、README を更新。
+- テスト: `add_layer_test.sh` (+13 件: 設定の各項目、BOM + CRLF、`--tests-only`、既定の不変)、`new_solution_test.sh` (+8 件: 層・テスト・`CLAUDE.md`、MFC 以外の拒否)。生成側を壊すと、テストが失敗することも確認した。
+- **実機で確認済み (2026-11-04。TEST-PLAN 2-25 の MX1〜MX3 ✔、MX4 は静的比較 ✔):** `mfc-dialog` + 層 2 つ (拡張 DLL) + テストを生成 → `build_once.sh` = `SUCCESS` → `build_test_once.sh` = `PASSED` (2 件)。`UseOfMfc=Dynamic` のコンソールのテスト exe が、拡張 DLL を読み込めた。生成した `.vcxproj` の設定は、実物 `MFCLibrary1` と一致 (違いは、意図的な `LOGICLAYER_EXPORTS` のみ)。未実施 (任意): Visual Studio のプロパティページでの見比べ、`AFX_EXT_CLASS` クラスの利用。
+
 ## [2.44.0] 2026-11-04 (Skill の削除: `/brainstorm`・`/update-from-ideas`・`/add-feature` を、別リポジトリ `claude-spec-workflow` へ移した。ウォッチャーと契約の変更なし)
 
 - **3 つの Skill を、`skills/` から除き、別リポジトリ `claude-spec-workflow` (v1.0.0。ローカル: `~/src/claude-spec-workflow`) へ移した (ユーザーの決定。ビルドツールとは、意味が合わないため)。** 履歴は持ち越さない (移す前の版は、このリポジトリの git の履歴にある)。Skill は 15 個から 12 個になった (スラッシュコマンドだけで起動する Skill は、6 個から 3 個: `/new-solution`・`/new-solutions`・`/ui-test-first`)。

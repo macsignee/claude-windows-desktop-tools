@@ -195,6 +195,27 @@ grep -q 'GTEST_MODE: vcpkg' "$WORK/out_legacy.txt" && grep -q '旧 NuGet 方式'
 check "旧方式の packages\\ は、そのまま (消さない・触らない)" bash -c "[ -f '$S6/packages/$ID.$VER/build/native/$ID.targets' ]"
 check "新しいテストは、packages.config を持たない" bash -c "[ ! -e '$S6/CoreLibTest/packages.config' ] && [ -f '$S6/CoreLibTest/main.cpp' ]"
 
+echo "== MFC 拡張 DLL (--kind mfc-ext-dll)"
+S7="$WORK/sln7"; make_sln "$S7"
+python3 "$SCRIPT" "$S7" ExtLogic --kind mfc-ext-dll --gtest vcpkg >"$WORK/out_ext.txt" 2>&1; rc=$?
+check "mfc-ext-dll: 作成できる (rc=0)" test "$rc" -eq 0
+EV="$S7/ExtLogic/ExtLogic.vcxproj"; ET="$S7/ExtLogicTest/ExtLogicTest.vcxproj"
+check "拡張 DLL: UseOfMfc=Dynamic (Debug / Release の 2 か所)、DynamicLibrary" bash -c "[ \"\$(grep -c '<UseOfMfc>Dynamic</UseOfMfc>' '$EV')\" = 2 ] && grep -q '<ConfigurationType>DynamicLibrary</ConfigurationType>' '$EV'"
+check "拡張 DLL: _AFXEXT を定義し、_USRDLL は付けない (LNK2005 の原因)" bash -c "[ \"\$(grep -c '_AFXEXT' '$EV')\" = 2 ] && ! grep -q '_USRDLL' '$EV' && grep -q 'EXTLOGIC_EXPORTS' '$EV'"
+check "拡張 DLL: pch.h を使い (Use)、pch.cpp は Create、dllmain.cpp は NotUsing" bash -c "[ \"\$(grep -c '<PrecompiledHeader>Use</PrecompiledHeader>' '$EV')\" = 2 ] && grep -q '<PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>' '$EV' && tr -d '\r' < '$EV' | grep -A1 'ClCompile Include=\"pch.cpp\"' | grep -q Create && tr -d '\r' < '$EV' | grep -A1 'ClCompile Include=\"dllmain.cpp\"' | grep -q NotUsing"
+check "拡張 DLL: dllmain.cpp に定型コード (AFX_EXTENSION_MODULE / AfxInitExtensionModule / CDynLinkLibrary / AfxTermExtensionModule)" bash -c "for k in AFX_EXTENSION_MODULE AfxInitExtensionModule CDynLinkLibrary AfxTermExtensionModule afxdllx.h; do grep -q \$k '$S7/ExtLogic/dllmain.cpp' || exit 1; done"
+check "拡張 DLL: ModuleInfo.cpp は、先頭で pch.h を include (プリコンパイル済みヘッダーを使うため)" bash -c "tr -d '\r' < '$S7/ExtLogic/ExtLogicModuleInfo.cpp' | sed '1s/^\xef\xbb\xbf//' | head -1 | grep -q '#include \"pch.h\"'"
+check "拡張 DLL: Api.h に、CObject 派生には AFX_EXT_CLASS を付ける注意" grep -q 'AFX_EXT_CLASS' "$S7/ExtLogic/ExtLogicApi.h"
+check "拡張 DLL: 全ファイルが BOM + CRLF (BOM なし・LF だと、MFC のヘッダーで原因の分かりにくいエラー)" bash -c "for f in '$S7'/ExtLogic/*.cpp '$S7'/ExtLogic/*.h; do [ \"\$(head -c3 \$f | xxd -p)\" = efbbbf ] && [ \"\$(grep -vc \$'\\r\$' \$f)\" = 0 ] || exit 1; done"
+check "テスト exe: UseOfMfc=Dynamic (同じ共有 MFC ランタイム)、_AFXEXT は付けない、DLL をプロジェクト参照" bash -c "[ \"\$(grep -c '<UseOfMfc>Dynamic</UseOfMfc>' '$ET')\" = 2 ] && ! grep -q '_AFXEXT' '$ET' && grep -q 'ProjectReference Include=\"..\\\\ExtLogic\\\\ExtLogic.vcxproj\"' '$ET'"
+check "テスト exe: マニフェストの DPI は、付けない (UI のアプリではない)" bash -c "! grep -q 'EnableDpiAwareness' '$ET'"
+check "ソリューションに、ExtLogic と ExtLogicTest が登録された" bash -c "grep -q 'ExtLogic.vcxproj' '$S7'/*.sln && grep -q 'ExtLogicTest.vcxproj' '$S7'/*.sln"
+check "通常の DLL (--kind dll) は、変わらない: UseOfMfc なし、_USRDLL あり、PCH なし" bash -c "python3 '$SCRIPT' '$S7' PlainDll --gtest vcpkg >/dev/null 2>&1 && ! grep -q UseOfMfc '$S7/PlainDll/PlainDll.vcxproj' && grep -q '_USRDLL' '$S7/PlainDll/PlainDll.vcxproj' && ! grep -q '<PrecompiledHeader>Use' '$S7/PlainDll/PlainDll.vcxproj' && ! grep -q UseOfMfc '$S7/PlainDllTest/PlainDllTest.vcxproj'"
+# テストの後付け (--tests-only): 拡張 DLL を検出して、テスト exe も UseOfMfc=Dynamic にする
+S8="$WORK/sln8"; make_sln "$S8"; python3 "$SCRIPT" "$S8" ExtData --kind mfc-ext-dll --tests none --gtest vcpkg >/dev/null 2>&1
+python3 "$SCRIPT" "$S8" ExtData --tests-only --gtest vcpkg >/dev/null 2>&1
+check "--tests-only: 拡張 DLL を検出して、テスト exe も UseOfMfc=Dynamic にする" bash -c "[ \"\$(grep -c '<UseOfMfc>Dynamic</UseOfMfc>' '$S8/ExtDataTest/ExtDataTest.vcxproj')\" = 2 ]"
+
 echo
 if [ "$fail" -eq 0 ]; then echo "すべて OK"; else echo "失敗あり"; fi
 exit "$fail"

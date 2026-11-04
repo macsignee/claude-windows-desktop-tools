@@ -79,14 +79,14 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" CoreLib --k
 
 - **`--tests none|gtest`** (既定 `gtest`): 層とテストは、独立した軸。`none` は、DLL だけ (テスト・GoogleTest は、作らない)。
 - **`--tests-only`**: すでにある DLL (または静的ライブラリ) `<Name>` に、`<Name>Test` だけを足す。名前空間と参照は、既存のファイルから読む。
-- **`--kind dll|lib`** (既定 `dll`): `lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
+- **`--kind dll|lib|mfc-ext-dll`** (既定 `dll`): `mfc-ext-dll` は MFC 拡張 DLL (下の「MFC 拡張 DLL を作るとき」)。`lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
 - **GoogleTest:** テストを作るとき、vcpkg 方式なら、`vcpkg.json` に gtest を入れ、`.gitignore` に `vcpkg_installed/` を足す (ネットワークは使わない。出力: `GTEST_VCPKG`)。旧 NuGet 方式は、v2.31.0 で廃止 (`packages\` に旧方式のテストがあるソリューションでも、新しいテストは vcpkg。出力に `NOTE`)。
 - **メインの exe を、保護する:** テストを作るとき、exe で、名前が `Test` / `Tests` で終わるメインのプロジェクト (GoogleTest を使わないもの) に、`<TargetName>$(ProjectName)_Main</TargetName>` を足す。ウォッチャーが、`*Test.exe` を、テストとして実行するため。
 - **`--gtest auto|vcpkg|source|nuget`** (既定 `auto`): GoogleTest の入れ方。`vcpkg`: 上の 4.。`source`: `ThirdParty/googletest` のソースを、ソリューション内の静的ライブラリ `gtest` としてビルドする
   (vcpkg が使えないとき。ソースは、ウォッチャー経由で取得する: `/new-solution` の `gtest_once.sh`)。`nuget`: 旧方式 (NuGet のパッケージを、コピーして使う)。
   `auto`: すでに `gtest` プロジェクトがあれば `source`、`packages\` に NuGet の GoogleTest があれば `nuget`、それ以外は `vcpkg`。
   層を足すときは、**すでにあるソリューションと同じ方式**になる (`gtest` プロジェクト・`packages\` の有無で、判定される)。
-- 最初のソリューション作成と、この組み合わせの指定は、`/new-solution` (`new_solution.py`) が行う。層の名前・種類 (`--layers logic:OrderLogic` / `--layer-kind lib`) も、そちらで指定できる。
+- 最初のソリューション作成と、この組み合わせの指定は、`/new-solution` (`new_solution.py`) が行う。層の名前・種類 (`--layers logic:OrderLogic` / `--layer-kind lib` / `--layer-kind mfc-ext-dll`) も、そちらで指定できる。
 
 - DLL (`<Name>`) と、テスト exe (`<Name>Test`) を作り、`.sln` / `.slnx` に追加する。`--dry-run` で、内容だけを見られる。
 - `.vcxproj.filters` も、あわせて生成する。`.h` は「ヘッダー ファイル」、`.cpp` は「ソース ファイル」、`.rc` は「リソース ファイル」フィルターに入れる (フィルター名・GUID は、日本語版 Visual Studio のウィザードが生成するものと同じ)。
@@ -94,8 +94,13 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" CoreLib --k
 - `--uses <別のプロジェクト>`: そのフォルダを、インクルードパスに足す (ヘッダだけを使う。リンクしない)。ロジック DLL がデータ層のインターフェースを使う場合に付ける。
 - 対応は、x64 の Debug / Release だけ。ソリューションに、x86 などの構成があっても、新しいプロジェクトは、そこには対応付けない。
 - `.vcxproj` を作り直したいときは、フォルダと、ソリューションへの登録を、ユーザーに確認して消してから、やり直す (スクリプトは、既存を上書きしない)。
-- **`add_layer.py` には、MFC 拡張 DLL を生成するオプションがない。** 生成されるのは、常に、MFC を使わない、通常の DLL / コンソール exe のテンプレート。
-  上の「MFC 拡張 DLL のプロジェクト設定」が必要な場合は、**生成したあとで、`.vcxproj` を手動編集する** (`UseOfMfc`、プリプロセッサ定義、拡張 DLL の定型コードを追加)。この追加編集は、毎回、ユーザーに内容を示してから行う。
+- **MFC 拡張 DLL を作るとき: `--kind mfc-ext-dll`** (`new_solution.py` では `--layer-kind mfc-ext-dll`。**メインが MFC のときだけ**。MFC のランタイムを持たない exe は、拡張 DLL を使えない)。Visual Studio の「MFC DLL」ウィザード (拡張 DLL) の出力に合わせて、次を作る。
+  - DLL: `UseOfMfc=Dynamic`、`_AFXEXT` (`_USRDLL` は付けない)、`<Name>_EXPORTS`、プリコンパイル済みヘッダー (`pch.h` を Use、`pch.cpp` を Create、`dllmain.cpp` は NotUsing)、`framework.h` (`afxwin.h` / `afxext.h`)、`targetver.h`、`dllmain.cpp` (`AFX_EXTENSION_MODULE` / `AfxInitExtensionModule` / `CDynLinkLibrary` / `AfxTermExtensionModule` の定型コード)、ビルド確認用の `<Name>ModuleInfo.h/.cpp` (`.cpp` は先頭で `pch.h`)。
+  - テスト exe: `UseOfMfc=Dynamic` (同じ共有 MFC ランタイム)。`_AFXEXT` は付けない。`--tests-only` で後からテストを足すときも、既存の DLL の `_AFXEXT` を見て、同じにする。
+  - **ウィザードとの違い:** `.def` ファイル、`.rc` / `.rc2`、`Resource.h` は作らない (`__declspec` / `AFX_EXT_CLASS` で公開するので `.def` は不要。リソースを持つ DLL になったら、手で足す)。`framework.h` は、OLE・DB・DAO などを含まない最小限 (必要になったら足す)。`x86` の構成は作らない (x64 のみ)。
+  - **公開の付け方:** `CObject` 派生クラスには `AFX_EXT_CLASS`、それ以外 (関数・値のクラス) には `<Name>_API`。新しい `.cpp` は、先頭で `#include "pch.h"` する (忘れると、`C1010` になる)。
+  - **実機で未確認 (TEST-PLAN 2-25):** 生成した一式が、Visual Studio / MSBuild でビルドでき、テスト exe が実行できること。
+- **通常の DLL (既定) で、MFC の型が必要になったとき:** 後から拡張 DLL に変える手順は、上の「MFC 拡張 DLL のプロジェクト設定」に従って、`.vcxproj` を手で直す。この追加編集は、毎回、ユーザーに内容を示してから行う。
 
 **作ったあと:**
 1. `GTEST_VCPKG: no-baseline` なら、ウォッチャー経由で、`package_once.sh "vcpkg baseline" "vcpkg install"` を実行する (初回のみ)。

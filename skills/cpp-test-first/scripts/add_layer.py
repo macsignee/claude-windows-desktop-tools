@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """add_layer.py - ソリューションに、「DLL プロジェクト」と、(必要なら) 「対応するテスト exe (GoogleTest)」を追加する。
 
-Usage: python3 add_layer.py <SLN_DIR> <Name> [--kind dll|lib] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]
+Usage: python3 add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]
                             [--toolset v145] [--dry-run]
 
   SLN_DIR      .sln または .slnx があるフォルダ (Claude Code を起動したフォルダ)
   Name         DLL のプロジェクト名 (例: DataLayer)。テストは <Name>Test になる
   --tests      gtest (既定): DLL + テスト exe を作る。none: DLL だけを作る (テスト・GoogleTest は作らない)
-  --kind       dll (既定) / lib: DLL を作るか、静的ライブラリ (公開マクロなし。テスト exe や UI に、リンクで取り込まれる) を作るか
+  --kind       dll (既定) / lib / mfc-ext-dll: DLL を作るか、静的ライブラリ (公開マクロなし。テスト exe や UI に、リンクで取り込まれる) を作るか、
+               MFC 拡張 DLL (UseOfMfc=Dynamic、_AFXEXT、pch.h、dllmain.cpp の定型コード。MFC の型・シリアライズを持ち込む層のとき。メインが MFC のとき)か
   --tests-only すでにある DLL / 静的ライブラリ <Name> に、テスト exe だけを足す (DLL の名前空間・参照は、既存のファイルから読む)
   --gtest      auto (既定) / vcpkg / source: GoogleTest の入れ方 (旧 NuGet 方式 (nuget) は、v2.31.0 で廃止)。
                auto: 既存の gtest プロジェクト → source / それ以外 → vcpkg。
@@ -126,8 +127,10 @@ def to_crlf(text):
     return text.replace('\r\n', '\n').replace('\n', '\r\n')
 
 
-def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, tail='', mfc=False, third_party=False, vcpkg=False):
-    mfcx = '\n    <UseOfMfc>Dynamic</UseOfMfc>' if mfc else ''
+def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, tail='', mfc=False, third_party=False, vcpkg=False, pch=False, mfc_only=False):
+    # mfc: MFC のプロジェクト (UseOfMfc=Dynamic。Application なら DPI のマニフェストも)。mfc_only: UseOfMfc=Dynamic だけ (MFC 拡張 DLL を参照するテスト exe)。
+    # pch: プリコンパイル済みヘッダー (pch.h) を使う (pch.cpp が Create、dllmain.cpp が NotUsing。MFC 拡張 DLL)。
+    mfcx = '\n    <UseOfMfc>Dynamic</UseOfMfc>' if (mfc or mfc_only) else ''
     sub = f'\n      <SubSystem>{subsystem}</SubSystem>'
     inc = ''
     if incs:
@@ -148,6 +151,8 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
   </ImportGroup>
 '''
 
+    pch_file = '\n      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>' if pch else ''
+
     def defs_group(c, debug):
         d = ('_DEBUG;' if debug else 'NDEBUG;') + defs
         opt = '' if debug else '\n      <FunctionLevelLinking>true</FunctionLevelLinking>\n      <IntrinsicFunctions>true</IntrinsicFunctions>'
@@ -165,7 +170,7 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
       <SDLCheck>{'false' if third_party else 'true'}</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>{'Use' if pch else 'NotUsing'}</PrecompiledHeader>{pch_file}
       <PreprocessorDefinitions>{d}%(PreprocessorDefinitions)</PreprocessorDefinitions>{opt}{inc}
     </ClCompile>
 {link_xml}{manifest_xml}  </ItemDefinitionGroup>
@@ -212,7 +217,11 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
     cl = [i for i in items if i.endswith(('.cpp', '.cc', '.cxx', '.c'))]
     rc = [i for i in items if i.endswith('.rc')]
     out += '  <ItemGroup>\n' + ''.join(f'    <ClInclude Include="{h}" />\n' for h in hd) + '  </ItemGroup>\n'
-    out += '  <ItemGroup>\n' + ''.join(f'    <ClCompile Include="{c}" />\n' for c in cl) + '  </ItemGroup>\n'
+    def cl_item(c):
+        if pch and c in ('pch.cpp', 'dllmain.cpp'):
+            return f'    <ClCompile Include="{c}">\n      <PrecompiledHeader>{"Create" if c == "pch.cpp" else "NotUsing"}</PrecompiledHeader>\n    </ClCompile>\n'
+        return f'    <ClCompile Include="{c}" />\n'
+    out += '  <ItemGroup>\n' + ''.join(cl_item(c) for c in cl) + '  </ItemGroup>\n'
     if rc:
         out += '  <ItemGroup>\n' + ''.join(f'    <ResourceCompile Include="{r}" />\n' for r in rc) + '  </ItemGroup>\n'
     if refs:
@@ -353,6 +362,8 @@ def dll_files(name, ns, uses, toolset, dg, kind='dll'):
     """DLL (kind='dll') か、静的ライブラリ (kind='lib') の、プロジェクト一式。"""
     if kind == 'lib':
         return lib_files(name, ns, uses, toolset, dg)
+    if kind == 'mfc-ext-dll':
+        return mfc_ext_files(name, ns, uses, toolset, dg)
     up = name.upper()
     use_inc = [f'$(ProjectDir)..\\{u}' for u in uses]
     api = f'{name}Api.h'
@@ -401,6 +412,153 @@ namespace {ns}
     return files
 
 
+MFC_EXT_FRAMEWORK_H = '''#pragma once
+
+#ifndef VC_EXTRALEAN
+#define VC_EXTRALEAN            // Windows ヘッダーから使用されていない部分を除外します。
+#endif
+
+#include "targetver.h"
+
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // 一部の CString コンストラクターは明示的です。
+
+#include <afxwin.h>         // MFC のコアおよび標準コンポーネント
+#include <afxext.h>         // MFC の拡張部分
+'''
+
+MFC_EXT_TARGETVER_H = '''#pragma once
+
+// SDKDDKVer.h をインクルードすると、利用できる最も上位の Windows プラットフォームが定義されます。
+// 以前の Windows プラットフォーム用にビルドする場合は、WinSDKVer.h をインクルードし、
+// SDKDDKVer.h をインクルードする前に、サポート対象とするプラットフォームを示すように _WIN32_WINNT マクロを設定します。
+
+#include <SDKDDKVer.h>
+'''
+
+
+def mfc_ext_files(name, ns, uses, toolset, dg):
+    """MFC 拡張 DLL のプロジェクト一式 (Visual Studio の「MFC DLL」ウィザード (拡張 DLL) の出力に合わせる。
+    UseOfMfc=Dynamic、_AFXEXT (_USRDLL は付けない)、pch.h (pch.cpp が Create、dllmain.cpp が NotUsing)、dllmain.cpp の定型コード)。"""
+    up = name.upper()
+    use_inc = [f'$(ProjectDir)..\\{u}' for u in uses]
+    api = f'{name}Api.h'
+    info_h = f'{name}ModuleInfo.h'
+    info_cpp = f'{name}ModuleInfo.cpp'
+    func = f'{name}ModuleName'
+    items = [api, info_h, 'pch.h', 'framework.h', 'targetver.h', info_cpp, 'pch.cpp', 'dllmain.cpp']
+
+    files = {}
+    files[f'{name}/{name}.vcxproj'] = vcxproj(
+        name, dg, 'DynamicLibrary', toolset, items, [], use_inc,
+        f'{up}_EXPORTS;_WINDOWS;_AFXEXT;', 'Windows', mfc=True, pch=True)
+    files[f'{name}/{name}.vcxproj.filters'] = vcxproj_filters(items)
+    files[f'{name}/{api}'] = f'''#pragma once
+
+// DLL の公開 (エクスポート) マクロ。{name} 自身をビルドするときだけ {up}_EXPORTS が定義される。
+// テスト exe や UI から使う関数・値のクラスには、{up}_API を付ける (例: class {up}_API Foo)。
+// **CObject 派生クラス (シリアライズ対象など) には、{up}_API ではなく、MFC の AFX_EXT_CLASS を付ける**
+// (例: class AFX_EXT_CLASS Foo : public CObject。{name} の中では _AFXEXT により、エクスポートになる)。
+// 付け忘れると、利用側でリンクエラー (LNK2019) になる。
+#ifdef {up}_EXPORTS
+#define {up}_API __declspec(dllexport)
+#else
+#define {up}_API __declspec(dllimport)
+#endif
+
+// 公開クラスが std:: のメンバを持つことの警告。同じコンパイラ・同じ CRT で、まとめてビルドする前提で、抑止する。
+#pragma warning(disable : 4251)
+'''
+    files[f'{name}/{info_h}'] = f'''#pragma once
+#include "{api}"
+
+namespace {ns}
+{{
+    // ビルドの確認用 (DLL の公開・リンク・実行時の読み込みを確かめる)。本物の機能を入れたら、削除してよい。
+    {up}_API const char* {func}();
+}}
+'''
+    files[f'{name}/{info_cpp}'] = f'''#include "pch.h"
+#include "{info_h}"
+
+namespace {ns}
+{{
+    const char* {func}()
+    {{
+        return "{name}";
+    }}
+}}
+'''
+    files[f'{name}/pch.h'] = f'''// pch.h: プリコンパイル済みヘッダー ファイルです。
+// ここに一覧表示されているファイルは、ビルド間でいずれかが更新されると、すべてが再コンパイルされます。
+// 頻繁に更新するファイルをここに追加しないでください。追加すると、パフォーマンス上の利点がなくなります。
+// **このプロジェクトの .cpp は、先頭で #include "pch.h" する (dllmain.cpp と pch.cpp を除き、プリコンパイル済みヘッダーを使うため)。**
+
+#ifndef PCH_H
+#define PCH_H
+
+// プリコンパイルするヘッダーをここに追加します
+#include "framework.h"
+
+#endif //PCH_H
+'''
+    files[f'{name}/pch.cpp'] = '''// pch.cpp: プリコンパイル済みヘッダーに対応するソース ファイル
+
+#include "pch.h"
+
+// プリコンパイル済みヘッダーを使用している場合、コンパイルを成功させるにはこのソース ファイルが必要です。
+'''
+    files[f'{name}/framework.h'] = MFC_EXT_FRAMEWORK_H
+    files[f'{name}/targetver.h'] = MFC_EXT_TARGETVER_H
+    files[f'{name}/dllmain.cpp'] = f'''// dllmain.cpp : MFC 拡張 DLL の初期化ルーチンを定義します。
+//
+
+#include "pch.h"
+#include "framework.h"
+#include <afxwin.h>
+#include <afxdllx.h>
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+static AFX_EXTENSION_MODULE {name}DLL = {{ false, nullptr }};
+
+extern "C" int APIENTRY
+DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved)
+{{
+    UNREFERENCED_PARAMETER(lpReserved);
+
+    if (dwReason == DLL_PROCESS_ATTACH)
+    {{
+        TRACE0("{name}.DLL を初期化しています。\\n");
+
+        // 拡張 DLL を 1 回だけ初期化します。
+        if (!AfxInitExtensionModule({name}DLL, hInstance))
+            return 0;
+
+        // この DLL をリソース チェーンへ挿入します。
+        // メモ : この拡張 DLL が、MFC アプリケーションではなく、ActiveX コントロールなどの
+        //  MFC 標準 DLL によって、暗黙的にリンクされる場合は、次の行を DllMain から削除し、
+        //  この拡張 DLL からエクスポートする別の関数の中に配置してください。
+        //  その標準 DLL は、その関数を明示的に呼び出して、この拡張 DLL を初期化します。
+        //  そうしないと、CDynLinkLibrary オブジェクトが標準 DLL のリソース チェーンへ
+        //  アタッチされず、重大な問題になります。
+
+        new CDynLinkLibrary({name}DLL);
+    }}
+    else if (dwReason == DLL_PROCESS_DETACH)
+    {{
+        TRACE0("{name}.DLL を終了しています。\\n");
+
+        // デストラクターが呼び出される前にライブラリを終了します
+        AfxTermExtensionModule({name}DLL);
+    }}
+    return 1;   // OK
+}}
+'''
+    return files
+
+
 def lib_files(name, ns, uses, toolset, dg):
     """静的ライブラリ。公開マクロは、不要 (リンク時に、テスト exe や UI に、取り込まれる)。"""
     use_inc = [f'$(ProjectDir)..\\{u}' for u in uses]
@@ -433,7 +591,8 @@ namespace {ns}
     return files
 
 
-def test_files(name, ns, uses, toolset, dg, tg, baseline_link=True, gtest_mode='vcpkg', gtest_guid=None):
+def test_files(name, ns, uses, toolset, dg, tg, baseline_link=True, gtest_mode='vcpkg', gtest_guid=None, mfc_ext=False):
+    # mfc_ext: テスト対象が MFC 拡張 DLL のとき、テスト exe も、同じ共有 MFC ランタイム (UseOfMfc=Dynamic) にリンクする
     test = name + 'Test'
     use_inc = [f'$(ProjectDir)..\\{u}' for u in uses]
     info_h = f'{name}ModuleInfo.h'
@@ -445,13 +604,13 @@ def test_files(name, ns, uses, toolset, dg, tg, baseline_link=True, gtest_mode='
         # vcpkg の GoogleTest (マニフェスト: ソリューション直下の vcpkg.json)。gtest_main は自動でリンクされないので、main.cpp を置く
         files[f'{test}/{test}.vcxproj'] = vcxproj(
             test, tg, 'Application', toolset, [test_cpp, 'main.cpp'], [(name, dg)],
-            [f'$(ProjectDir)..\\{name}'] + use_inc, '_CONSOLE;', 'Console', vcpkg=True)
+            [f'$(ProjectDir)..\\{name}'] + use_inc, '_CONSOLE;', 'Console', vcpkg=True, mfc_only=mfc_ext)
         files[f'{test}/main.cpp'] = VCPKG_MAIN_CPP
     elif gtest_mode == 'source':
         # ソースから、ソリューション内でビルドした静的ライブラリ (gtest) を、プロジェクト参照でリンクする (NuGet 不要)
         files[f'{test}/{test}.vcxproj'] = vcxproj(
             test, tg, 'Application', toolset, [test_cpp], [(name, dg), ('gtest', gtest_guid)],
-            [f'$(ProjectDir)..\\{name}'] + use_inc + [GTEST_SRC_INCLUDE], '_CONSOLE;', 'Console')
+            [f'$(ProjectDir)..\\{name}'] + use_inc + [GTEST_SRC_INCLUDE], '_CONSOLE;', 'Console', mfc_only=mfc_ext)
     if baseline_link:
         files[f'{test}/{test_cpp}'] = f'''#include <gtest/gtest.h>
 #include "{info_h}"
@@ -481,7 +640,7 @@ def build_files(name, ns, uses, toolset, tests=True, kind='dll', gtest_mode='vcp
     files = dll_files(name, ns, uses, toolset, dg, kind)
     projects = [(name, dg)]
     if tests:
-        files.update(test_files(name, ns, uses, toolset, dg, tg, gtest_mode=gtest_mode, gtest_guid=gtest_guid))
+        files.update(test_files(name, ns, uses, toolset, dg, tg, gtest_mode=gtest_mode, gtest_guid=gtest_guid, mfc_ext=(kind == 'mfc-ext-dll')))
         projects.append((name + 'Test', tg))
     return files, projects
 
@@ -624,7 +783,8 @@ def read_dll_info(sln_dir, name):
         mn = re.search(r'namespace\s+(\w+)', ht)
         if mn and f'{name}ModuleName' in ht:
             ns, has_info = mn.group(1), True
-    return {'guid': m.group(1).upper(), 'uses': uses, 'ns': ns, 'has_info': has_info}
+    return {'guid': m.group(1).upper(), 'uses': uses, 'ns': ns, 'has_info': has_info,
+            'mfc_ext': '_AFXEXT' in text}   # MFC 拡張 DLL (テスト exe も UseOfMfc=Dynamic にする)
 
 
 def gstat_for(sln_dir, gmode):
@@ -692,7 +852,7 @@ def main():
     ap.add_argument('name')
     ap.add_argument('--tests', choices=['none', 'gtest'], default='gtest')
     ap.add_argument('--tests-only', action='store_true')
-    ap.add_argument('--kind', choices=['dll', 'lib'], default='dll')
+    ap.add_argument('--kind', choices=['dll', 'lib', 'mfc-ext-dll'], default='dll')
     ap.add_argument('--namespace')
     ap.add_argument('--uses', nargs='*', default=None)
     ap.add_argument('--toolset')
@@ -732,7 +892,7 @@ def main():
         gmode, gstat = decide_gtest_mode(sln_dir, a.gtest)
         gfiles, gprojects, gguid = plan_gtest(sln_dir, gmode, toolset)
         files = test_files(a.name, ns, uses, toolset, info['guid'], tg, baseline_link=info['has_info'],
-                           gtest_mode=gmode, gtest_guid=gguid)
+                           gtest_mode=gmode, gtest_guid=gguid, mfc_ext=info['mfc_ext'])
         files.update(gfiles)
         projects = [(test, tg)] + gprojects
         if not info['has_info']:
