@@ -191,6 +191,7 @@ class Project:
         self.name, self.dir, self.root = name, path, root
         self.kind = None            # Application / DynamicLibrary / StaticLibrary / None
         self.mfc = set()
+        self.cfg = {}               # 構成 ("Debug|x64") -> {"mfc": UseOfMfc, "defs": PreprocessorDefinitions の集合}
         self.refs = []
         self.files = []             # (相対パス, 生のテキスト)
         self.findings = []
@@ -212,6 +213,14 @@ def collect_files(d):
     return out
 
 
+CFG_KEY = re.compile(r"==\s*'([^']+)'")
+
+
+def cfg_of(p, el):
+    m = CFG_KEY.search(el.get("Condition", ""))
+    return p.cfg.setdefault(m.group(1) if m else "", {"mfc": None, "defs": set()})
+
+
 def load_project(vcx, root):
     p = Project(os.path.splitext(os.path.basename(vcx))[0], os.path.dirname(vcx), root)
     try:
@@ -221,6 +230,14 @@ def load_project(vcx, root):
                 p.kind = el.text.strip()
             elif tag == "UseOfMfc" and el.text:
                 p.mfc.add(el.text.strip())
+            elif tag == "PropertyGroup" and el.get("Label") == "Configuration":
+                for ch in el:
+                    if ch.tag.split("}")[-1] == "UseOfMfc" and ch.text:
+                        cfg_of(p, el)["mfc"] = ch.text.strip()
+            elif tag == "ItemDefinitionGroup":
+                for ch in el.iter():
+                    if ch.tag.split("}")[-1] == "PreprocessorDefinitions" and ch.text:
+                        cfg_of(p, el)["defs"] |= {d.strip() for d in ch.text.split(";") if d.strip() and not d.startswith("%")}
             elif tag == "ProjectReference":
                 inc = el.get("Include", "")
                 p.refs.append(os.path.splitext(os.path.basename(inc.replace("\\", "/")))[0])
@@ -897,10 +914,86 @@ def check_layering(projects, logic_names, data_names):
                     break
                 hdr_src = strip_code(raw, blank_strings=False)
                 for m in GUI_HEADERS.finditer(hdr_src):
-                    sev = "info" if os.path.basename(path).lower() in PCH_NAMES else "warning"
+                    sev = "info" if os.path.basename(path).lower() in PCH_NAMES or mfc_dll_kind(pr) else "warning"
                     pr.add("LAY002", sev, f"ライブラリ {pr.name} で GUI のヘッダーを include: {m.group(0).split()[-1]}",
                            pr.rel(path), lineno(hdr_src, m.start()))
                     break
+
+
+# ------------------------------------------------------------------ MFC の DLL の設定 (DLL001〜DLL008)
+def mfc_values(pr):
+    return [c["mfc"] or "false" for c in pr.cfg.values()] or ["false"]
+
+
+def has_def(pr, name):
+    return any(name in c["defs"] for c in pr.cfg.values())
+
+
+def mfc_dll_kind(pr):
+    """'ext' (MFC 拡張 DLL: _AFXEXT) / 'std' (MFC 標準 DLL: _USRDLL + MFC) / None。DLL でないとき、MFC を使わないときは None"""
+    if pr.kind != "DynamicLibrary" or not any(v in ("Dynamic", "Static") for v in mfc_values(pr)):
+        return None
+    if has_def(pr, "_AFXEXT"):
+        return "ext"
+    return "std" if has_def(pr, "_USRDLL") else None
+
+
+def project_codes(pr):
+    return [(path, strip_code(raw)) for path, raw in pr.files if path.lower().endswith(CODE_EXT)]
+
+
+def check_export_manage_state(pr, codes):
+    """DLL007: 標準 DLL (共有 MFC) の、公開の関数が、先頭で AFX_MANAGE_STATE を呼んでいるか。"""
+    macros = {m.group(1) for _, c in codes for m in re.finditer(r"#\s*define\s+(\w+)\s+__declspec\s*\(\s*dllexport\s*\)", c)}
+    heads = "|".join(sorted(macros) + [r"__declspec\s*\(\s*dllexport\s*\)"])
+    decl = re.compile(r"\b(?:%s)(?!\s*(?:class|struct)\b)\s+([^;{}()=]*?)\b([A-Za-z_]\w*)\s*\(" % heads)
+    names = {m.group(2) for _, c in codes for m in decl.finditer(c) if not re.search(r"\b(?:class|struct|enum)\b", m.group(1))}
+    for name in sorted(names):
+        d = re.compile(r"\b%s\s*\([^;{}]*?\)\s*(?:const\s*)?(?:noexcept\s*)?\{" % re.escape(name))
+        for path, c in codes:
+            if not path.lower().endswith((".cpp", ".cc", ".cxx")):
+                continue
+            for m in d.finditer(c):
+                body = c[m.end():match_brace(c, m.end() - 1)]
+                if not re.match(r"\s*AFX_MANAGE_STATE\b", body):
+                    pr.add("DLL007", "warning", f"標準 DLL (共有 MFC) の公開関数 {name} が、先頭で AFX_MANAGE_STATE を呼んでいない",
+                           pr.rel(path), lineno(c, m.start()))
+
+
+def check_mfc_dlls(projects):
+    by_name = {pr.name: pr for pr in projects}
+    for pr in projects:
+        if re.search(r"Tests?$", pr.name):
+            continue
+        if pr.kind == "DynamicLibrary":
+            ext, usr = has_def(pr, "_AFXEXT"), has_def(pr, "_USRDLL")
+            file = pr.name + ".vcxproj"
+            if any("_AFXEXT" in c["defs"] and "_USRDLL" in c["defs"] for c in pr.cfg.values()):
+                pr.add("DLL001", "error", f"{pr.name}: _USRDLL と _AFXEXT が、同じ構成で、両方定義されている (標準 DLL と拡張 DLL の、どちらか 1 つにする)", file)
+            if ext and any(v != "Dynamic" for v in mfc_values(pr)):
+                pr.add("DLL002", "error", f"{pr.name}: MFC 拡張 DLL (_AFXEXT) だが、UseOfMfc が Dynamic でない (拡張 DLL は、共有 MFC が必須)", file)
+            if not ext and not usr and any(v in ("Dynamic", "Static") for v in mfc_values(pr)):
+                pr.add("DLL003", "warning", f"{pr.name}: UseOfMfc が有効だが、_USRDLL (標準 DLL) も _AFXEXT (拡張 DLL) も定義されていない", file)
+            codes = project_codes(pr)
+            joined = "\n".join(c for _, c in codes)
+            if ext and not usr:
+                if "AfxInitExtensionModule" not in joined:
+                    pr.add("DLL005", "error", f"{pr.name}: MFC 拡張 DLL に、DllMain の AfxInitExtensionModule がない (リソースや CObject の動的生成が、実行時に壊れる)", file)
+                if "CDynLinkLibrary" not in joined:
+                    pr.add("DLL006", "warning", f"{pr.name}: MFC 拡張 DLL に、new CDynLinkLibrary がない (リソース チェーンに入らない)", file)
+                if "AfxTermExtensionModule" not in joined:
+                    pr.add("DLL006", "warning", f"{pr.name}: MFC 拡張 DLL に、AfxTermExtensionModule がない (DLL_PROCESS_DETACH の後始末)", file)
+            if mfc_dll_kind(pr) == "std":
+                if not re.search(r"\bclass\s+\w+\s*:\s*public\s+CWinApp\b", joined) and not re.search(r"\bCWinApp\b[^;{]*\{", joined):
+                    pr.add("DLL004", "warning", f"{pr.name}: MFC 標準 DLL に、CWinApp 派生のクラス (と、グローバルの theApp) がない (MFC の初期化が行われない)", file)
+                if "Dynamic" in mfc_values(pr):
+                    check_export_manage_state(pr, codes)
+        if pr.kind in ("Application", "DynamicLibrary"):
+            for ref in pr.refs:
+                q = by_name.get(ref)
+                if q is not None and q.kind == "DynamicLibrary" and has_def(q, "_AFXEXT") and any(v != "Dynamic" for v in mfc_values(pr)):
+                    pr.add("DLL008", "error", f"{pr.name}: MFC 拡張 DLL {q.name} を参照しているが、UseOfMfc が Dynamic でない (MFC のランタイムが 2 つになり、実行時に壊れる)",
+                           pr.name + ".vcxproj")
 
 
 # ------------------------------------------------------------------ 実行
@@ -934,6 +1027,7 @@ def run(root, logic_names, data_names):
             if pr.checked:
                 check_ui_ids(pr, {f: parse_rc(t) for f, t in pr.files if f.lower().endswith(".rc")})
     check_layering(projects, set(logic_names), set(data_names))
+    check_mfc_dlls(projects)
     return projects
 
 

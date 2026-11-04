@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.48.0] 2026-11-04 (機能追加: `mfc-check` に、MFC の DLL の設定の検査 (DLL001〜DLL008)。既存の検査の出力・終了コードは変えない。Skill の再配置が必要)
+
+- **`mfc-check` が、MFC の拡張 DLL・標準 DLL の、「コンパイルは通るが、実行時に壊れる」設定の食い違いを検出する** (v2.45.0 / v2.46.0 で、見送っていた件)。`.vcxproj` の `UseOfMfc` と `PreprocessorDefinitions` (構成ごと) と、ソースから判定する。
+  - **error:** DLL001 (`_USRDLL` と `_AFXEXT` の併用)、DLL002 (拡張 DLL で `UseOfMfc` が `Dynamic` でない)、DLL005 (拡張 DLL に `AfxInitExtensionModule` がない)、DLL008 (拡張 DLL を参照する exe / DLL の `UseOfMfc` が `Dynamic` でない。MFC なしの exe も)。
+  - **warning:** DLL003 (`UseOfMfc` が有効だが `_USRDLL` も `_AFXEXT` もない)、DLL004 (標準 DLL に `CWinApp` 派生・`theApp` がない)、DLL006 (拡張 DLL に `CDynLinkLibrary` / `AfxTermExtensionModule` がない)、DLL007 (**標準 DLL (共有 MFC) の公開関数が、先頭で `AFX_MANAGE_STATE` を呼んでいない**)。
+- **既存の誤検出の修正:** MFC の DLL (拡張 DLL・標準 DLL) の層で、`afxwin.h` の include が、LAY002 の warning になっていた (拡張 DLL の `dllmain.cpp`。意図した include)。MFC の DLL では、info にした。
+- **誤検出がないことの確認:** 生成した拡張 DLL・標準 DLL (`--layer-kind mfc-ext-dll` / `mfc-std-dll`) と、実物のウィザードの DLL (`MFCLibrary1`・`MFCLibrary2`) が、error 0 / warning 0。
+- テスト: `mfc_check_test.sh` (+16 件: 正常な拡張 DLL・標準 DLL (共有/静的)・MFC なしの DLL が、指摘なし。各コードの検出。検査を壊すと、テストが失敗することも確認した)。`SKILL.md` に、表と限界を追記。DESIGN 4.64、TEST-PLAN 2-28。
+- **限界:** プロパティシート (`.props`) で定義した `_AFXEXT` などは、読まない。DLL007 は、自由関数だけ (クラスのメンバー関数、`.def` でのエクスポートは、対象外)。
+
 ## [2.47.0] 2026-11-04 (規約の分割: C++ の共通と MFC 固有。生成物の `CLAUDE.md` が変わる。`install.sh --rules-only` と Skill の再配置が必要)
 
 - **`rules/mfc-cpp.md` (163 行) を、`rules/cpp-common.md` (C++ の共通) と、`rules/mfc-cpp.md` (MFC 固有) に分けた** (v2.41.0 で「最初の MFC 以外の C++ プロジェクトが来たら」と見送っていた件。`--type win32` / `console` / `dll` / `lib` が、MFC の規約を読み込んでいた)。

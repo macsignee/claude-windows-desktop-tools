@@ -1106,3 +1106,12 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **移し方:** 規則の文言は、変えない。MFC の名前が出る例 (`CArchive`、`CRect`、`CDC`、`CGdiObject`) だけ、共通では、MFC なしの例 (`Render`、`SIZE`、`HDC`、`HWND`) にした。「Win32 API は `::` を付ける」は、共通のまま (MFC の同名メンバーとの衝突は、`mfc-cpp.md`)。COM は ATL (MFC 不要) なので、共通。
 - **実機で確認 (2026-11-04。TEST-PLAN 2-27):** (a) Win32 のプロジェクトで `.cpp` を触ると、`cpp-common.md` だけが読み込まれた (`nested_memory`)。(b) MFC のダイアログのプロジェクトで、`SampleDlg` の編集のときに、`mfc-cpp.md` も読み込まれた。**未確認:** `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイル名の MFC のファイル (層の `.cpp` など) で、`CLAUDE.md` の指示により、`mfc-cpp.md` が読まれること。
 - **見送り:** 配布先に残る旧い `mfc-cpp.md` (全文の版) は、`install.sh --rules-only` が、新しい版で上書きする (番号付きのバックアップを残す)。二重の読み込みは、起きない (名前が同じ)。
+
+### 4.64 `mfc-check` の MFC の DLL の検査 (v2.48.0)
+
+- **問題:** MFC の拡張 DLL・標準 DLL は、設定 (`UseOfMfc`、`_USRDLL` / `_AFXEXT`) と、お決まりのコード (`DllMain`、`theApp`、`AFX_MANAGE_STATE`) の組み合わせで動く。食い違っても、コンパイルは通り、実行時に、リソースが見つからない・状態が混ざる、という形で壊れる。v2.45.0 / v2.46.0 で、「設定の食い違いの検出」を見送っていた。
+- **決定 (ユーザー、2026-11-04):** `mfc-check` に足す (残作業の 1 番のみ)。メイン exe から層 DLL への参照の自動生成と、標準 DLL の静的リンクは、別。
+- **検査の選び方:** 「実行時にしか分からない」ものを選んだ。コンパイルやリンクで分かるもの (`UseOfMfc=false` で `afxwin.h` を使う) は、入れない。**拡張 DLL を参照する側の `UseOfMfc` (DLL008)** は、MX3 の確認で、テスト exe に `UseOfMfc=Dynamic` が要ると分かったものを、検査にした。
+- **判定の材料:** `.vcxproj` の、構成ごとの `UseOfMfc` と `PreprocessorDefinitions` (`Project.cfg`)、ソースの文字列。`.props` は読まない (限界)。DLL007 は、公開のマクロ (`#define X_API __declspec(dllexport)`) を、ヘッダーから見つけ、その名前の関数の定義の、先頭の文が、`AFX_MANAGE_STATE` かを見る。静的 MFC は、不要なので出さない。自由関数だけ。
+- **既存の検査の修正:** LAY002 (ライブラリの GUI ヘッダー) は、MFC の DLL の層では、意図した include なので、info にした (拡張 DLL の `dllmain.cpp` が、生成した直後に warning になっていた)。LAY001 (GUI のクラス) は、そのまま。
+- **確認 (2026-11-04):** 生成した拡張 DLL・標準 DLL、実物の `MFCLibrary1`・`MFCLibrary2` で、error 0 / warning 0。各コードの検出は、疑似のプロジェクトのテストと、検査を壊す変異で確認した。**実機 (ビルドした DLL を壊して、検査と実行を見比べる) は、未確認 (TEST-PLAN 2-28)。**
