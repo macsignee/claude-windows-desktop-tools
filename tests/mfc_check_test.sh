@@ -354,6 +354,24 @@ w("dll-ok/StdStaticOk/Func.cpp", '#include "Api.h"\nint Foo()\n{\n    return 1;\
 w("dll-ok/Plain/Plain.vcxproj", vcx("DynamicLibrary", defs("_USRDLL"), "false"))
 w("dll-ok/Plain/Plain.cpp", "int Plain() { return 1; }\n")
 
+# ---------------- 画面を持つ層 (UI DLL): 名前に Ui / View / Dialog の語を含む DLL ----------------
+UI_CODE = '#include <afxwin.h>\nclass GreetingDialog : public CDialog\n{\n};\nvoid f() { AfxMessageBox(L"x"); CWnd* w = nullptr; }\n'
+w("ui-ok/App/App.vcxproj", vcx("Application", refs("UiLayer", "LogicLayer")))
+w("ui-ok/App/main.cpp", "int main() { return 0; }\n")
+w("ui-ok/UiLayer/UiLayer.vcxproj", vcx("DynamicLibrary", refs("LogicLayer") + defs("_USRDLL")))
+w("ui-ok/UiLayer/Dlg.cpp", UI_CODE)
+w("ui-ok/UiLayer/App.cpp", STD_APP)
+w("ui-ok/LogicLayer/LogicLayer.vcxproj", vcx("DynamicLibrary", defs("_USRDLL")))
+w("ui-ok/LogicLayer/Logic.cpp", "int g() { return 1; }\n" + STD_APP)
+w("ui-bad/LogicLayer/LogicLayer.vcxproj", vcx("DynamicLibrary", refs("UiLayer") + defs("_USRDLL")))
+w("ui-bad/LogicLayer/Logic.cpp", "int g() { return 1; }\n" + STD_APP)
+w("ui-bad/UiLayer/UiLayer.vcxproj", vcx("DynamicLibrary", refs("App") + defs("_USRDLL")))
+w("ui-bad/UiLayer/Dlg.cpp", UI_CODE + STD_APP)
+w("ui-bad/App/App.vcxproj", vcx("Application"))
+w("ui-bad/App/main.cpp", "int main() { return 0; }\n")
+w("ui-name/PanelLayer/PanelLayer.vcxproj", vcx("DynamicLibrary", defs("_USRDLL")))
+w("ui-name/PanelLayer/Dlg.cpp", UI_CODE + STD_APP)
+
 w("dll-bad/Both/Both.vcxproj", vcx("DynamicLibrary", defs("_USRDLL;_AFXEXT")))
 w("dll-bad/Both/dllmain.cpp", EXT_MAIN)
 w("dll-bad/ExtStatic/ExtStatic.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT"), "Static"))
@@ -487,6 +505,17 @@ ok "dll-bad: DLL007 AFX_MANAGE_STATE が先頭でない公開関数 (Bar)" "$(ha
 ok "dll-bad: DLL008 静的 MFC のメインが拡張 DLL を参照" "$(has "$out" 'MainStatic: MFC 拡張 DLL ExtOk を参照しているが')"
 ok "dll-bad: DLL008 MFC なしのメインが拡張 DLL を参照" "$(has "$out" 'MainNoMfc: MFC 拡張 DLL ExtOk を参照しているが')"
 ok "dll-bad: 正常なプロジェクト (ExtOk) には、指摘が出ない" "$([ "$(grep -c 'ExtOk: ' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+
+# ---- 画面を持つ層 (UI DLL) ----
+out="$(python3 -I "$S" "$T/ui-ok" --all --max-lines 100)"; rc=$?
+ok "ui-ok: 画面を持つ DLL (UiLayer) は、GUI のクラスを使っても、LAY001 / LAY002 が出ない (rc=0)" "$([ $rc = 0 ] && [ "$(has "$out" 'ライブラリ UiLayer')" = 0 ] && echo 1 || echo 0)"
+out="$(python3 -I "$S" "$T/ui-bad" --all --max-lines 100)"; rc=$?
+ok "ui-bad: ロジック層が、画面を持つ層を参照すると、LAY003" "$([ $rc = 1 ] && [ "$(has "$out" 'LogicLayer (logic) が UiLayer (ui) を参照している')" = 1 ] && echo 1 || echo 0)"
+ok "ui-bad: 画面を持つ層が、メインを参照すると、LAY003" "$(has "$out" 'UiLayer (ui) が App (main) を参照している')"
+out="$(python3 -I "$S" "$T/ui-name" --all)"; rc=$?
+ok "ui-name: 名前に Ui / View / Dialog の語がない DLL は、GUI の使用を、LAY001 で指摘する" "$([ $rc = 1 ] && [ "$(has "$out" 'LAY001')" = 1 ] && echo 1 || echo 0)"
+out="$(python3 -I "$S" "$T/ui-name" --all --ui PanelLayer)"; rc=$?
+ok "ui-name: --ui PanelLayer で、画面を持つ層になり、LAY001 が出ない" "$([ $rc = 0 ] && [ "$(has "$out" 'LAY001')" = 0 ] && echo 1 || echo 0)"
 
 # ---- 例外系 ----
 out="$(python3 -I "$S" "$T/empty")"; rc=$?

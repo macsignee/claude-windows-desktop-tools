@@ -1115,3 +1115,15 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **判定の材料:** `.vcxproj` の、構成ごとの `UseOfMfc` と `PreprocessorDefinitions` (`Project.cfg`)、ソースの文字列。`.props` は読まない (限界)。DLL007 は、公開のマクロ (`#define X_API __declspec(dllexport)`) を、ヘッダーから見つけ、その名前の関数の定義の、先頭の文が、`AFX_MANAGE_STATE` かを見る。静的 MFC は、不要なので出さない。自由関数だけ。
 - **既存の検査の修正:** LAY002 (ライブラリの GUI ヘッダー) は、MFC の DLL の層では、意図した include なので、info にした (拡張 DLL の `dllmain.cpp` が、生成した直後に warning になっていた)。LAY001 (GUI のクラス) は、そのまま。
 - **確認 (2026-11-04):** 生成した拡張 DLL・標準 DLL、実物の `MFCLibrary1`・`MFCLibrary2` で、error 0 / warning 0。各コードの検出は、疑似のプロジェクトのテストと、検査を壊す変異で確認した。**実機 (ビルドした DLL を壊して、検査と実行を見比べる) は、未確認 (TEST-PLAN 2-28)。**
+
+### 4.65 画面を持つ DLL の、画面ホストと UI テスト (v2.49.0)
+
+- **問題:** MFC などでは、UI 部品を DLL が提供し、exe が呼び出して表示することがある。DLL だけのソリューションには、呼び出す exe がなく、FlaUI (UI テスト) は、プロセスを起動して操作するので、対象がない。画面を持つ DLL は、`mfc-check` の LAY001 (ライブラリの GUI) も、誤検出になる。
+- **決定 (ユーザー、2026-11-04):** (1) **後付けのスクリプト** (`add_ui_host.py`)。`/new-solution` の層は、増やさない。(2) サンプルの画面を生成する (`.rc` / `Resource.h` も)。(3) **ViewModel 相当は、ロジック層に足す** (画面に依存しない規則を、単体テストで確かめる)。(4) **ホストは、DLL の種類で分ける** (標準 DLL = MFC なしの Win32 exe、拡張 DLL = MFC の exe)。
+- **ホストの形:** ホストは、画面を開くだけで、ダイアログが、そのまま、メインウィンドウになる (MFC のダイアログベースと同じ形。`add_ui_tests.py` と `UiDialogs` が、そのまま使える)。UI テストの対象は、`add_ui_tests.py --app <ホスト>` で指定する。
+- **標準 DLL と拡張 DLL の差:** 標準 DLL は、公開関数 (`ShowGreetingDialog`) で画面を開く (先頭で `AFX_MANAGE_STATE`。リソースは DLL のものが使われる)。拡張 DLL は、`AFX_EXT_CLASS` のクラスを、ホストが直接使う (リソースは、リソースの検索の列に入るため、ID を、exe と重ならない範囲 (3000 台) にする)。
+- **`.rc` の方針の変更:** v2.45.0 / v2.46.0 では、DLL の `.rc` / `Resource.h` を、作らなかった (ウィザードの DLL にも、画面はないため)。画面を持つ DLL では、画面のために、作る。他の DLL (`--layer-kind`) は、変えない。
+- **`mfc-check` の層:** 「画面を持つ層」を足した (名前に `Ui` / `View` / `Dialog` の語を含む DLL、または `--ui`)。LAY001 / LAY002 の対象外。LAY003 は、メイン → 画面 → ロジック → データ。名前で判定するのは、ロジック・データと同じ方式 (既存の決定に合わせる)。
+- **既存のファイルの編集:** ロジック層とその単体テストの `.vcxproj` / `.vcxproj.filters` に、項目を足す (文字列の挿入。`ItemGroup` の末尾か、`Microsoft.Cpp.targets` の前の新しい `ItemGroup`)。filters は、そのフィルターが定義されているときだけ。
+- **見送り:** `/new-solution` の層 (`--layers ... ui`) への組み込み (今回は、後付けのみ)。WPF / WinForms (クラスライブラリの View は、これまでの経路で、足りる)。画面ホストが、複数のダイアログを選んで開く形 (いまは、サンプルの 1 つ)。DLL に、画面と、ViewModel 相当 (MFC に依存する) の両方を持たせる形。
+- **実機で確認 (2026-11-04。TEST-PLAN 2-29):** 標準 DLL (`UiHostCheck`) と拡張 DLL (`UiHostExt`) の、どちらも、ビルド・単体テスト・UI テスト (3 件) が通った。DLL のリソースから、ダイアログが開く。MFC の静的テキスト (ID 3003) の UIA の `Name` で、表示の文を読める (推測が当たった)。拡張 DLL でも、ホスト (MFC の exe) から、DLL のリソースが見つかる。**未確認 (任意):** 目視 (UH4)。

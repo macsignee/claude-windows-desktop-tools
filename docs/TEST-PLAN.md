@@ -836,3 +836,21 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 | DC2 | `MfcStdCheck` の `LogicLayer` の公開関数から `AFX_MANAGE_STATE` の行を消し、`mfc_check.py` を実行する | DLL007 の warning が 1 件 | 未実施 |
 | DC3 | `MfcExtCheck` の `LogicLayer.vcxproj` で、`_USRDLL` を足す (標準 DLL との併用にする) | DLL001 の error。(元に戻す) | 未実施 |
 | DC4 | `MfcExtCheck` のメイン (`MfcExtCheck.vcxproj`) の `UseOfMfc` を `false` にし、`mfc_check.py` を実行する | DLL008 の error (ビルドが通れば、実行時の挙動も見る)。(元に戻す) | 未実施 |
+
+### 2-29. 画面を持つ DLL の、画面ホストと UI テスト (v2.49.0。`docs/DESIGN.md` 4.65)
+
+**v2.49.0 で追加。静的テスト (`add_ui_host_test.sh`、`mfc_check_test.sh`) は通っている。コンパイルと実行は、実機で確認する。** 先に、`install/install.sh --skills-only` で Skill を配る。作業フォルダは、新しいパス (例: `C:\Workspace\macsignee\source\repos\UiHostCheck`)。WSL からの手順は、次のとおり。
+
+```bash
+mkdir -p /mnt/c/Workspace/macsignee/source/repos/UiHostCheck && cd /mnt/c/Workspace/macsignee/source/repos/UiHostCheck
+python3 ~/.claude/skills/new-solution/scripts/new_solution.py "$PWD" --type console --layers logic,data --tests gtest --gtest vcpkg
+python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
+```
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| UH1 | 上の 3 つを実行する (標準 DLL) | rc=0。`UiLayer`・`UiLayerHost`・`UiLayerHost.UITests` ができる | ✔ (2026-11-04、`UiHostCheck`) 生成成功。ロジック層とそのテストにも `Greeting` が足された |
+| UH2 | `package_once.sh "$PWD" --timeout 1800 "vcpkg baseline" "vcpkg install"` → `build_test_once.sh "$PWD"` | ビルド `SUCCESS`。単体テスト `PASSED` (`GreetingTest` の 2 件を含む) | ✔ (2026-11-04) `package_once.sh` = `OK`、`build_test_once.sh` = `PASSED`、`tests: 4 passed (DataLayerTest 1, LogicLayerTest 3)` |
+| UH3 | `uitest_once.sh "$PWD" --filter "FullyQualifiedName~GreetingDialogUiTests" --separate --ui-timeout 1200` | `PASSED` (3 件)。**ホストの exe が、ダイアログを開く。MFC の静的テキスト (ID 3003) を、`Name` で読める** | ✔ (2026-11-04) `PASSED`、`tests: 3 passed (UiLayerHost.UITests 3)`。`Name` で読めた (推測が当たった) |
+| UH4 | `uitest_once.sh "$PWD" --filter "FullyQualifiedName~Preview" --preview` (または、`UiLayerHost.exe` を直接起動) | ダイアログが開き、名前を入れると、挨拶が出る。クリアで、空になる | 未実施 (任意。UH3 で、同じ操作が、自動で通った) |
+| UH5 | 拡張 DLL: 別の新しいフォルダで、`new_solution.py ... --type mfc-dialog --layers logic,data --tests gtest --gtest vcpkg` のあと、`add_ui_host.py "$PWD" --name DialogLayer --kind mfc-ext-dll`。UH2・UH3 と同じ | ビルド `SUCCESS`。UI テスト `PASSED`。**拡張 DLL のダイアログが、ホストの exe から、DLL のリソースで開く** | ✔ (2026-11-04、`UiHostExt`) `package_once.sh` = `OK`、`build_test_once.sh` = `PASSED` (`tests: 4 passed`)、`uitest_once.sh` = `PASSED` (`tests: 3 passed (DialogLayerHost.UITests 3)`)。ホストはウォッチャー 2.49.0 で実行 |

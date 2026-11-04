@@ -875,7 +875,14 @@ def check_ui_ids(p, rcinfo):
                     seen[cid] = c["line"]
 
 
-def check_layering(projects, logic_names, data_names):
+UI_WORDS = ("ui", "view", "views", "dialog", "dialogs")   # 名前に、この語を含む DLL は、画面を持つ層 (UI DLL) として扱う
+
+
+def is_ui_name(name):
+    return any(t.lower() in UI_WORDS for t in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+", name))
+
+
+def check_layering(projects, logic_names, data_names, ui_names=()):
     by_name = {pr.name: pr for pr in projects}
 
     def layer(pr):
@@ -884,6 +891,8 @@ def check_layering(projects, logic_names, data_names):
             return "test"
         if pr.kind == "Application":
             return "main"
+        if pr.kind in ("DynamicLibrary", "StaticLibrary") and (n in ui_names or (n not in logic_names and n not in data_names and is_ui_name(n))):
+            return "ui"
         if n in logic_names or (n not in data_names and re.search(r"logic", n, re.I)):
             return "logic"
         if n in data_names or re.search(r"data", n, re.I):
@@ -898,12 +907,12 @@ def check_layering(projects, logic_names, data_names):
             if q is None:
                 continue
             Q = layer(q)
-            bad = (L == "data" and Q in ("logic", "main")) or (L == "logic" and Q == "main") \
-                or (L in ("lib", "logic", "data") and Q == "main")
+            bad = (L == "data" and Q in ("logic", "main", "ui")) or (L == "logic" and Q in ("main", "ui")) \
+                or (L in ("lib", "logic", "data", "ui") and Q == "main")
             if bad:
                 pr.add("LAY003", "error", f"{pr.name} ({L}) が {q.name} ({Q}) を参照している (UI → ロジック → データの向きに反する)",
                        pr.name + ".vcxproj")
-        if pr.kind in ("DynamicLibrary", "StaticLibrary"):
+        if pr.kind in ("DynamicLibrary", "StaticLibrary") and L != "ui":    # 画面を持つ層 (UI DLL) は、GUI を使ってよい
             for path, raw in pr.files:
                 if not path.lower().endswith(CODE_EXT):
                     continue
@@ -997,7 +1006,7 @@ def check_mfc_dlls(projects):
 
 
 # ------------------------------------------------------------------ 実行
-def run(root, logic_names, data_names):
+def run(root, logic_names, data_names, ui_names=()):
     root = os.path.abspath(root)
     vcxs = sorted(p for p in collect_files(root) if p.lower().endswith(".vcxproj"))
     projects = [load_project(v, root) for v in vcxs] or [Project(os.path.basename(root), root, root)]
@@ -1026,7 +1035,7 @@ def run(root, logic_names, data_names):
         for pr in projects:
             if pr.checked:
                 check_ui_ids(pr, {f: parse_rc(t) for f, t in pr.files if f.lower().endswith(".rc")})
-    check_layering(projects, set(logic_names), set(data_names))
+    check_layering(projects, set(logic_names), set(data_names), set(ui_names))
     check_mfc_dlls(projects)
     return projects
 
@@ -1056,11 +1065,12 @@ def main():
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--logic", action="append", default=[])
     ap.add_argument("--data", action="append", default=[])
+    ap.add_argument("--ui", action="append", default=[])
     a = ap.parse_args()
     if not os.path.isdir(a.dir):
         print(f"BAD_ARGS: not a directory: {a.dir}")
         return 2
-    projects = run(a.dir, a.logic, a.data)
+    projects = run(a.dir, a.logic, a.data, a.ui)
     if not any(pr.checked or pr.kind in ("DynamicLibrary", "StaticLibrary") for pr in projects):
         print("mfc-check: nothing to check (no .rc / message map / library project found)")
         return 3

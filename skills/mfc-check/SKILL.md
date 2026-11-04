@@ -18,7 +18,7 @@ python3 -I <このSkillのフォルダ>/scripts/mfc_check.py "$PROJ"
 - `$PROJ`: ソリューションまたはプロジェクトのフォルダ。以下の `.vcxproj` を、プロジェクトとして検査する。
 - 読み取りだけ。ファイルは、変えない。`.rc` は UTF-16 / UTF-8 (BOM) / CP932 のどれでも読める。
 - 既定は、error と warning だけを出す。`--all` で、info (参考) も出す。`--json <ファイル>` で、全件を JSON に書く。
-- 層の判定 (ロジック / データ) は、プロジェクト名の `Logic` / `Data` で決める。名前が違うときは、`--logic <名前>` / `--data <名前>` で指定する。
+- 層の判定 (ロジック / データ / 画面) は、プロジェクト名の `Logic` / `Data` / `Ui` `View` `Dialog` で決める。名前が違うときは、`--logic <名前>` / `--data <名前>` / `--ui <名前>` で指定する。
 
 | 終了コード | 意味 | 次の行動 |
 |---|---|---|
@@ -72,9 +72,9 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | DLG008 | info | 同じダイアログに、同じニーモニック (`&X`) が重複 | 動作に影響しない (キー操作が、混乱する)。 |
 | DLG010 | warning | 同じメンバーを、別の ID に対して、複数の `DDX_Control` に渡している | メンバーを、ID ごとに分ける (コピー&ペーストの誤りに多い)。**2 回目以降は、実行時に何も起きず、警告も出ない** (MFC は、接続済みのメンバーを探さない)。`if` / `else` の分岐ごとに渡す書き方は、指摘しない。 |
 | DLG009 | info | `AFX_DIALOG_LAYOUT` が、存在しないダイアログのもの | VS が残した不要な定義。消してよい (`.rc` を編集する注意に従う)。 |
-| LAY001 | error | ライブラリ (DLL / lib) で、GUI のクラス (`CWnd` `CDialog` `AfxMessageBox` など) を使っている | UI の処理を、メイン側に移す。ロジックは、GUI に依存させない (`CLAUDE.md` の層の規則)。 |
+| LAY001 | error | ライブラリ (DLL / lib) で、GUI のクラス (`CWnd` `CDialog` `AfxMessageBox` など) を使っている (**画面を持つ層 (名前に `Ui` / `View` / `Dialog` を含む DLL、または `--ui`) は、対象外**) | UI の処理を、メイン側か、画面を持つ DLL に移す。ロジックは、GUI に依存させない (`CLAUDE.md` の層の規則)。 |
 | LAY002 | warning | ライブラリで、GUI のヘッダー (`afxwin.h` など) を include している (`pch.h` / `framework.h` は info。**MFC の DLL (拡張 DLL・標準 DLL) の層は、すべて info**) | 必要か確認する。MFC の DLL なら、意図した include なので、そのままでよい。 |
-| LAY003 | error | プロジェクト参照の向きが、層 (UI → ロジック → データ) に反する | 参照を逆にするか、共通部分を下の層に移す。 |
+| LAY003 | error | プロジェクト参照の向きが、層 (メイン → 画面を持つ DLL → ロジック → データ) に反する | 参照を逆にするか、共通部分を下の層に移す。 |
 | DLL001 | error | `_USRDLL` と `_AFXEXT` が、同じ構成で、両方定義されている | 標準 DLL (`_USRDLL`) か、拡張 DLL (`_AFXEXT`) の、どちらか 1 つにする。 |
 | DLL002 | error | 拡張 DLL (`_AFXEXT`) だが、`UseOfMfc` が `Dynamic` でない | 拡張 DLL は、共有 MFC が必須。`UseOfMfc` を `Dynamic` にする。 |
 | DLL003 | warning | `UseOfMfc` が有効だが、`_USRDLL` も `_AFXEXT` も定義されていない | 標準 DLL なら `_USRDLL`、拡張 DLL なら `_AFXEXT` を足す (`cpp-test-first` の `DLL-LAYOUT.md`)。 |
