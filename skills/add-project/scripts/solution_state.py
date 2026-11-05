@@ -153,7 +153,21 @@ def main_of(projects, settings):
     return None, None
 
 
-def assign_roles(projects, main_name):
+EXPLICIT_ROLES = ('data', 'logic', 'viewmodel', 'ui')
+
+
+def explicit_roles(settings):
+    """CLAUDE.md の「- 層:」の行の、「役割:名前」(例 logic:ExtLayer) -> {名前: 役割}。名前に役割の語がない層の、役割を決める。"""
+    out = {}
+    for item in re.split(r'[,、]', (settings or {}).get('layers') or ''):
+        m = re.match(r'\s*(data|logic|viewmodel|ui)\s*:\s*([\w.]+)', item)
+        if m:
+            out[m.group(2)] = m.group(1)
+    return out
+
+
+def assign_roles(projects, main_name, settings=None):
+    explicit = explicit_roles(settings)
     for n, p in projects.items():
         if p['kind'] == 'test':
             p['role'] = 'test'
@@ -162,7 +176,7 @@ def assign_roles(projects, main_name):
         elif n == main_name or p['kind'] in ('exe', 'console-exe', 'wpf-app', 'winforms-app', 'console-app'):
             p['role'] = 'main'
         else:
-            p['role'] = role_of_name(n)
+            p['role'] = explicit.get(n) or role_of_name(n)
 
 
 def tests_of(projects):
@@ -305,7 +319,7 @@ def main():
     projects = scan(sln_dir)
     settings = claude_settings(sln_dir)
     main_name, main_label = main_of(projects, settings)
-    assign_roles(projects, main_name)
+    assign_roles(projects, main_name, settings)
     has_cpp = any(p['lang'] == 'cpp' for p in projects.values())
     has_cs = any(p['lang'] == 'cs' and p['kind'] != 'uitest' for p in projects.values())
     kind = 'mixed' if has_cpp and has_cs else ('cpp' if has_cpp else 'dotnet')

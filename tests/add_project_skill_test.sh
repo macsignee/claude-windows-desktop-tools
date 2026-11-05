@@ -143,5 +143,27 @@ ok "SKILL.md: C++ の役割の選択肢 (データ / ロジック / 画面 (UI) 
 ok "SKILL.md: 「やめる」と「進める」を混ぜない" "$(grep -q '「やめる」と「進める」を混ぜない' "$SK" && echo 1 || echo 0)"
 ok "SKILL.md: 手順 3 の「変わるのは…だけ」に ui-host の例外 (Greeting.h/.cpp と TestGreeting.cpp) を書く" "$(grep -q 'ui-host` は、指定したロジック層に `Greeting.h`' "$SK" && grep -q 'TestGreeting.cpp' "$SK" && echo 1 || echo 0)"
 
+# ---- 「- 層:」の「役割:名前」で、名前に役割の語がない層の役割を決める (v2.54.0。AR3 の発見)
+D="$T/Role"; mkdir -p "$D"
+python3 "$NEW" "$D" --type mfc-dialog --layers data --tests none >/dev/null 2>&1
+python3 "$AL" "$D" ExtLayer --kind mfc-ext-dll --tests none >/dev/null 2>&1
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "role: 名前に役割の語がない ExtLayer は、「- 層:」に書かれていないと other" "$(has "$out" 'PROJECT: ExtLayer | mfc-ext-dll | other |')"
+msg_other="$(python3 "$AR" "$D" --from DataLayer --to ExtLayer --dry-run 2>&1)"
+sed -i 's/^- 層: .*/- 層: data,logic:ExtLayer/' "$D/CLAUDE.md"
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "role: 「- 層: data,logic:ExtLayer」と書くと、ExtLayer は logic、DataLayer は data" "$([ "$(has "$out" 'PROJECT: ExtLayer | mfc-ext-dll | logic |')" = 1 ] && [ "$(has "$out" 'PROJECT: DataLayer | dll | data |')" = 1 ] && echo 1 || echo 0)"
+msg_logic="$(python3 "$AR" "$D" --from DataLayer --to ExtLayer --dry-run 2>&1)"
+ok "role: add_reference.py の向きの検査も、明示した役割に従う (other のときは向きの違反が出ず、logic にすると、データ → ロジックの違反)" "$([ "$(has "$msg_other" '層の向きの違反')" = 0 ] && [ "$(has "$msg_logic" '層の向きの違反: DataLayer (data) は、上の層 ExtLayer (logic)')" = 1 ] && echo 1 || echo 0)"
+MCK="$ROOT/skills/mfc-check/scripts/mfc_check.py"
+mck="$(python3 -I - "$MCK" "$D" <<'PYEOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("mck", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m.claude_layer_roles(sys.argv[2]))
+PYEOF
+)"
+ok "role: mfc_check.py も、「- 層:」の「役割:名前」を読む (logic = ExtLayer)" "$([ "$mck" = "(['ExtLayer'], [], [])" ] && echo 1 || echo 0)"
+ok "SKILL.md: 名前に役割の語がない層も、選んだ役割で、「- 層:」に logic:名前 の形で書く。「なし」は置き換える" "$(grep -q '名前に役割の語' "$SK" && grep -q '`logic:ExtLayer` の形で書く' "$SK" && grep -q '`なし` を、足す層に置き換える' "$SK" && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

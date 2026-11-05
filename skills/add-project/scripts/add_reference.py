@@ -197,8 +197,9 @@ def main():
     if len(slns) > 1:
         die(f'ソリューションが複数ある ({", ".join(slns)})。どれを使うか、ユーザーに確認すること')
     projects = ss.scan(sln_dir)
-    main_name, _ = ss.main_of(projects, ss.claude_settings(sln_dir))
-    ss.assign_roles(projects, main_name)
+    settings = ss.claude_settings(sln_dir)
+    main_name, _ = ss.main_of(projects, settings)
+    ss.assign_roles(projects, main_name, settings)
     check(projects, a.frm, a.to, sln_dir, a.include_only)
 
     src = project_file(sln_dir, a.frm, projects[a.frm])

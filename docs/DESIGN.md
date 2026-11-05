@@ -1201,3 +1201,10 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **影響:** `ViewModel` を含む名前の C++ の層は、`mfc-check` では画面の層とされ、LAY001 (ライブラリへの GUI の混入) の検査から外れた。GUI の依存が紛れ込んでも、気づけない。
 - **判断:** `mfc_check.py` の `is_ui_name` と、`add_ui_host.py` の名前の NOTE の判定に、「名前に `viewmodel` を含むなら、画面の層でない」を足す。`solution_state.py` と同じ規則にそろえる。C++ で `ViewModel` を含む名前を断る案は、すでにある層に効かないので、採らない。
 - **限界:** 名前だけで判定する。名前に `ViewModel` を含むが、実際に画面を持つ層は、`--ui <名前>` で指定する (`mfc-check`)。
+
+### 4.74 `- 層:` の「役割:名前」で、層の役割を決める (v2.54.0。4.70・4.71 の補足)
+
+- **きっかけ:** 実機の確認 AR3 (2026-11-05)。層のないソリューションに、ロジックとして `ExtLayer` (MFC 拡張 DLL) を足したところ、`CLAUDE.md` の `- 層:` は `なし` のままで、`solution_state.py` は役割を `other` と判定した。役割を名前の語 (`Logic` / `Data` / `ViewModel` / `Ui` `View`) からしか判定せず、SKILL の手順 6 は「役割が『その他』の層は、`- 層:` に書かない」としていたため、ユーザーが選んだ役割が、どこにも残らなかった。
+- **影響:** `/add-feature` などが `- 層: なし` を読み、層がないと判断する。`add_reference.py` の向きの検査と、`mfc-check` の層の検査 (LAY001) が、効かない。
+- **判断:** (1) `CLAUDE.md` の `- 層:` の `data` / `logic` / `viewmodel` / `ui` の `役割:名前` (`new_solution.py` が、すでに使う形) を、名前の判定より優先する (`solution_state.py` の `explicit_roles`)。`add_reference.py` は、同じ関数を通す。`mfc_check.py` は、`CLAUDE.md` の同じ行を読み、`--logic` / `--data` / `--ui` と同じ働きにする (`claude_layer_roles`)。(2) SKILL の手順 6: 名前に役割の語がない層も、選ばれた役割で `logic:ExtLayer` の形で書く。行が `なし` なら、置き換える。「その他」だけ、書かない。
+- **限界:** 明示できる役割は、`data` / `logic` / `viewmodel` / `ui` だけ (`mfc-check` は `viewmodel` を使わない)。すでにある、名前に語のない層の行は、自動では直らない (`/add-project` を使うか、手で書く)。

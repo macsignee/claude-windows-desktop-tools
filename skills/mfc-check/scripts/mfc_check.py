@@ -1008,8 +1008,26 @@ def check_mfc_dlls(projects):
 
 
 # ------------------------------------------------------------------ 実行
+def claude_layer_roles(root):
+    """root/CLAUDE.md の「- 層:」の行の「役割:名前」(例 logic:ExtLayer) -> (ロジック, データ, 画面) の名前の一覧。
+    名前に Logic / Data / Ui の語がない層の、役割を決める (--logic / --data / --ui と、同じ働き)。"""
+    logic, data, ui = [], [], []
+    try:
+        text = open(os.path.join(root, "CLAUDE.md"), encoding="utf-8-sig").read()
+    except OSError:
+        return logic, data, ui
+    m = re.search(r"^- 層:\s*(.+)$", text, re.M)
+    for item in re.split(r"[,、]", m.group(1) if m else ""):
+        em = re.match(r"\s*(data|logic|ui)\s*:\s*([\w.]+)", item)
+        if em:
+            {"logic": logic, "data": data, "ui": ui}[em.group(1)].append(em.group(2))
+    return logic, data, ui
+
+
 def run(root, logic_names, data_names, ui_names=()):
     root = os.path.abspath(root)
+    cl, cd, cu = claude_layer_roles(root)
+    logic_names, data_names, ui_names = [*logic_names, *cl], [*data_names, *cd], [*ui_names, *cu]
     vcxs = sorted(p for p in collect_files(root) if p.lower().endswith(".vcxproj"))
     projects = [load_project(v, root) for v in vcxs] or [Project(os.path.basename(root), root, root)]
     nested = {pr.dir for pr in projects}
