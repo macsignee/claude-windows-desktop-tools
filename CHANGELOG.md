@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.53.4] 2026-11-05 (修正: `ViewModel` を含む名前を、画面を持つ層としない。実機の確認 AR5 で発見)
+
+- **不具合:** `mfc_check.py` と `add_ui_host.py` は、名前に `View` を含む層 (例: `ReportViewModel`) を、画面を持つ層 (UI DLL) とした。`solution_state.py` は `viewmodel` を先に判定して ViewModel の役割とする。そのため、`ViewModel` を含む名前の C++ の層は、`mfc-check` の LAY001 (ライブラリへの GUI の混入) の検査から外れていた。
+- **修正:** `mfc_check.py` の `is_ui_name` と、`add_ui_host.py` の名前の NOTE の判定で、名前に `viewmodel` を含むものは、画面の層としない (`solution_state.py` と同じ規則)。
+- テスト: `tests/mfc_check_test.sh` に 1 件 (97 件)、`tests/add_ui_host_test.sh` に 1 件 (36 件)。修正を外すと失敗することを確認 (変異テスト)。
+- 契約の変更なし。ホスト側の変更なし (Skill のスクリプトだけの配布でよい)。DESIGN 4.73。
+
 ## [2.53.3] 2026-11-05 (`/add-project` の SKILL: 質問と `ui-host` の書き方。実機の確認 AP5・AR5 ✔)
 
 - 実機の確認 AP5 (データ層が `--uses LogicLayer`)・AR5 (ロジック層への逆向きの参照) は ✔。向きの違反を案の前に指摘して止まり、何も書かない。`add_reference.py` も `rc=2` で断る。

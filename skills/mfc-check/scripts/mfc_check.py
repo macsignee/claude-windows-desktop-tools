@@ -879,6 +879,8 @@ UI_WORDS = ("ui", "view", "views", "dialog", "dialogs")   # 名前に、この�
 
 
 def is_ui_name(name):
+    if "viewmodel" in name.lower():   # ViewModel は 'View' を含むが、画面の層ではない (solution_state.py と同じ規則)
+        return False
     return any(t.lower() in UI_WORDS for t in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+", name))
 
 

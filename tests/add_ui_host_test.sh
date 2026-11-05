@@ -95,6 +95,12 @@ ok "名前に Ui / View / Dialog がない: mfc-check は LAY001 (error) を出�
 out="$(python3 -I "$MCK" "$D" --all --ui PanelLayer 2>&1)"; rc=$?
 ok "--ui PanelLayer を渡すと、LAY001 は出ない" "$([ $rc = 0 ] && [ "$(has "$out" 'LAY001')" = 0 ] && echo 1 || echo 0)"
 
+# ---- ViewModel を含む名前は、画面を持つ層の名前としない (v2.53.4)
+D="$T/VmChk"; mkdir -p "$D"
+python3 "$NEW" "$D" --type console --layers none --tests none >/dev/null 2>&1
+out="$(python3 "$AUH" "$D" --name ReportViewModel --no-ui-tests --dry-run 2>&1)"
+ok "名前に ViewModel を含む: 画面を持つ層の名前としない (NOTE が出る)" "$(has "$out" 'Ui / View / Dialog の語がない')"
+
 # ---- 不正な引数
 out="$(python3 "$AUH" "$T/PanelChk" --name 'Bad-Name' 2>&1)"; rc=$?
 ok "不正な名前: rc=2" "$([ $rc = 2 ] && echo 1 || echo 0)"
