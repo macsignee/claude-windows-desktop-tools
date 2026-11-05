@@ -14,7 +14,7 @@ Usage: python3 solution_state.py <SLN_DIR>
   PROJECT        名前 | 種類 | 役割 | テスト | プロジェクト参照 | include だけの参照 (C++)
                  種類: exe / console-exe / dll / lib / mfc-ext-dll / mfc-std-dll / wpf-app / winforms-app / console-app / classlib / test / uitest
                  役割: main / data / logic / viewmodel / ui / test / uitest / other
-  MISMATCH       CLAUDE.md と、実際の構成の食い違い
+  MISMATCH       CLAUDE.md と、実際の構成の食い違い (層の記録、テストの有無、「追加した層」の行のテストの有無)
   REF_ISSUES     層の参照の向きの違反 (下の層が、上の層を参照している。メイン → 画面 → ViewModel → ロジック → データ)
   SUGGEST_REF    どこからも参照されていない層と、参照するのが自然なプロジェクト (使う側 -> 層)
   ADDABLE        足せるもの | 説明 | dry-run の例 (そのまま、実行できる形ではない。< > を埋める)
@@ -209,6 +209,16 @@ def mismatches(projects, settings, main_name):
         out.append('テストプロジェクトがないのに、CLAUDE.md の「- テスト:」が「あり」')
     if settings['layers'] is None:
         out.append('CLAUDE.md に「- 層:」の行がない')
+    # 「- 追加した層: <名前> ...」の行 (層の表がないとき、/add-project が足す) の、テストの有無
+    tests = tests_of(projects)
+    for m in re.finditer(r'^- 追加した層:\s*([\w.]+)[^\n]*$', text, re.M):
+        name, line = m.group(1), m.group(0)
+        if name not in projects:
+            continue
+        if 'テストなし' in line and name in tests:
+            out.append(f'CLAUDE.md の「追加した層: {name}」が「テストなし」だが、テスト {tests[name]} がある (後付けしたとき、この行を直す)')
+        if 'テストあり' in line and name not in tests:
+            out.append(f'CLAUDE.md の「追加した層: {name}」が「テストあり」だが、テストプロジェクトがない')
     return out
 
 

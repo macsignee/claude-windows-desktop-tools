@@ -101,6 +101,26 @@ python3 "$SS" "$M" >/dev/null 2>&1; rc3=$?
 ok "exit codes: ソリューションなし=2、フォルダなし=2、ソリューションが複数=3" "$([ $rc1 = 2 ] && [ $rc2 = 2 ] && [ $rc3 = 3 ] && echo 1 || echo 0)"
 ok "solution_state.py: Python 3 の標準ライブラリだけ (外部のパッケージなし)" "$(! grep -qE '^(import|from) (yaml|requests|lxml|numpy)' "$SS" && echo 1 || echo 0)"
 
+# ---- 「追加した層」の行の、テストの有無の食い違い (v2.53.1。AP3 の発見)
+D="$T/Note"; mkdir -p "$D"
+python3 "$NEW" "$D" --type console --layers logic --tests gtest --gtest vcpkg >/dev/null 2>&1
+python3 "$AL" "$D" NoteData --tests none >/dev/null 2>&1
+printf -- '- 追加した層: NoteData (dll)。データ役割。テストなし。\n' >> "$D/CLAUDE.md"
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "note: テストのない層の「追加した層: ... テストなし」は、食い違いではない" "$([ "$(has "$out" 'MISMATCH: CLAUDE.md の「追加した層')" = 0 ] && echo 1 || echo 0)"
+python3 "$AL" "$D" NoteData --tests-only >/dev/null 2>&1
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "note: テストを後付けしたのに「追加した層: ... テストなし」のまま → MISMATCH (AP3 の発見)" "$([ "$(has "$out" 'MISMATCH: CLAUDE.md の「追加した層: NoteData」が「テストなし」だが、テスト NoteDataTest がある')" = 1 ] && echo 1 || echo 0)"
+sed -i 's/テストなし。/テストあり (NoteDataTest)。/' "$D/CLAUDE.md"
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "note: 「テストあり (NoteDataTest)」に直すと、MISMATCH が消える" "$([ "$(has "$out" 'MISMATCH')" = 0 ] && echo 1 || echo 0)"
+D="$T/Note2"; mkdir -p "$D"
+python3 "$NEW" "$D" --type console --layers logic --tests gtest --gtest vcpkg >/dev/null 2>&1
+printf -- '- 追加した層: NoSuchLayer (dll)。テストあり。\n- 追加した層: LogicLayer (dll)。ロジック役割。テストあり。\n' >> "$D/CLAUDE.md"
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "note: 存在しない層の行は、無視する。テストのある層の「テストあり」は、食い違いではない" "$([ "$(has "$out" 'MISMATCH: CLAUDE.md の「追加した層')" = 0 ] && echo 1 || echo 0)"
+ok "SKILL.md: テストを後付けしたとき、層の行の「テストなし」を「テストあり (<名前>Test)」に直す。層を足すとき、テストの有無を書く" "$(grep -q 'テストなし」を、`テストあり (<名前>Test)` に直す' "$SK" && grep -q 'テストの有無を、必ず書く' "$SK" && echo 1 || echo 0)"
+
 # ---- 参照の生成 (v2.53.0)
 AR="$ROOT/skills/add-project/scripts/add_reference.py"
 ok "SKILL.md: 参照は、承認された分だけ add_reference.py で足す (手順 3 で案を示す、--dry-run、--include-only、断られたら回避しない)" "$(r=1; for k in 'add_reference.py' '参照の案 (使う側 → 新しい層)' '承認された参照だけ' '--include-only' '勝手に回避しない' 'MFC 拡張 DLL を、`UseOfMfc` のない使う側から参照する'; do grep -qF -- "$k" "$SK" || r=0; done; [ -f "$AR" ] || r=0; echo $r)"
@@ -112,7 +132,7 @@ ok "SKILL.md: name: add-project、スラッシュだけで起動 (disable-model-
 ok "SKILL.md: 現状を読む → 質問 → 案 (dry-run) → 承認で必ず止まる → 作る → 参照 → CLAUDE.md → 確かめる → 報告" "$(r=1; for k in '### 1. 現状を読む' '### 2. 何を足すかを決める' '### 3. 案を示して、承認を得る' '**承認が出るまで、何も作らない。**' '### 4. 作る' '### 5. 参照' '### 6. CLAUDE.md' '### 7. 確かめる' '### 8. 報告して、終わる'; do grep -qF -- "$k" "$SK" || r=0; done; echo $r)"
 ok "SKILL.md: 既存のスクリプトを使う (add_layer.py / add_project.py / add_ui_host.py / new_solution.py)、手書きしない" "$(r=1; for k in add_layer.py add_project.py add_ui_host.py new_solution.py 'を、自分で手書きしない'; do grep -qF -- "$k" "$SK" || r=0; done; echo $r)"
 ok "SKILL.md: 参照の向きを守る (下の層から上の層へは、参照しない)、既存のプロジェクトを無断で書き換えない" "$(grep -q '下の層は、上の層を参照しない' "$SK" && grep -q 'それ以外の既存のプロジェクトは、書き換えない' "$SK" && echo 1 || echo 0)"
-ok "SKILL.md: CLAUDE.md は 3 か所だけ書き換える (- 層: / 層の表 / - テスト:)、書いてある層は消さない" "$(grep -q '書き換えるのは、次の 3 か所だけ' "$SK" && grep -q '消さない・並べ替えない' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: CLAUDE.md は決まった場所だけ書き換える (- 層: / 層の表または「追加した層」の行 / - テスト:)、書いてある層は消さない" "$(grep -q '書き換えるのは、次の場所だけ' "$SK" && grep -q '消さない・並べ替えない' "$SK" && echo 1 || echo 0)"
 ok "SKILL.md: 参照されていない層 (SUGGEST_REF) と MISMATCH / REF_ISSUES を、手順の中で使う。commit / push はユーザーの指示があるときだけ" "$(grep -q 'SUGGEST_REF' "$SK" && grep -q 'MISMATCH' "$SK" && grep -q 'REF_ISSUES' "$SK" && grep -q '`git commit` / `git push` は、ユーザーの指示があるときだけ' "$SK" && echo 1 || echo 0)"
 ok "既存の文書から /add-project を案内 (DLL-LAYOUT.md / PROJECT-LAYOUT.md / new-solution の SKILL.md)" "$(grep -q '/add-project' "$ROOT/skills/cpp-test-first/DLL-LAYOUT.md" && grep -q '/add-project' "$ROOT/skills/csharp-test-first/PROJECT-LAYOUT.md" && grep -q '/add-project' "$ROOT/skills/new-solution/SKILL.md" && echo 1 || echo 0)"
 ok "SKILL.md の呼ぶ solution_state.py と、ADDABLE の例が指すスクリプトが、実在する" "$([ -f "$SS" ] && [ -f "$AL" ] && [ -f "$AUH" ] && [ -f "$ROOT/skills/csharp-test-first/scripts/add_project.py" ] && [ -f "$NEW" ] && echo 1 || echo 0)"
