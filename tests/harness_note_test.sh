@@ -46,6 +46,21 @@ out="$(note)"
 ok "mismatch: NOTE with both versions" "$(grep -q "^NOTE: 版の不一致: Skill=$V / ウォッチャー=0.0.1" <<<"$out" && grep -q '^RESULT_INFO: kind=build input=y' <<<"$out" && echo 1 || echo 0)"
 ok "mismatch: the NOTE says what to do (install.sh, restart)" "$(grep -q 'install.sh' <<<"$out" && grep -q '再起動' <<<"$out" && echo 1 || echo 0)"
 
+# --- HOST_VERSION (v2.56.0): ホスト側が変わっていなければ、Skill だけが新しくても、警告しない
+HV="$(tr -d '\r\n' < "$ROOT/host-tools/HOST_VERSION")"
+ok "HOST_VERSION: a version number, and not newer than the repo VERSION" "$(grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' <<<"$HV" && [ "$(printf '%s\n%s\n' "$HV" "$V" | sort -V | tail -n 1)" = "$V" ] && echo 1 || echo 0)"
+ok "install: HOST_VERSION is placed in every skill; the repo itself has no skills/*/HOST_VERSION" "$(for d in "$ROOT"/skills/*/; do [ "$(cat "$T/skills/$(basename "$d")/HOST_VERSION" 2>/dev/null)" = "$HV" ] || echo bad; done | grep -q bad && echo 0 || { ls "$ROOT"/skills/*/HOST_VERSION >/dev/null 2>&1 && echo 0 || echo 1; })"
+rid "run=1-2-3\r\nwatcher=$HV\r\nkind=build\r\ninput=/x/y\r\nfinished=t\r\n"
+out="$(note)"
+ok "watcher = HOST_VERSION (older than Skill): no NOTE (only the Skill changed)" "$([ "$HV" != "$V" ] && ! grep -q '^NOTE' <<<"$out" && grep -q '^RESULT_INFO' <<<"$out" && echo 1 || echo 0)"
+rid "run=1-2-3\r\nwatcher=99.0.0\r\nkind=build\r\ninput=/x/y\r\nfinished=t\r\n"
+ok "watcher newer than HOST_VERSION and than the Skill: no NOTE" "$(! note | grep -q '^NOTE' && echo 1 || echo 0)"
+rid "run=1-2-3\r\nwatcher=0.0.1\r\nkind=build\r\ninput=/x/y\r\nfinished=t\r\n"
+ok "watcher older than HOST_VERSION: NOTE says the required version" "$(note | grep -q "^NOTE: 版の不一致: Skill=$V / ウォッチャー=0.0.1 (ホスト側は、$HV 以上が必要)" && echo 1 || echo 0)"
+mkdir -p "$T/nohv/scripts"; cp "$HN" "$T/nohv/scripts/harness_note.sh"; cp "$T/skills/build-test-loop/VERSION" "$T/nohv/VERSION"
+rid "run=1-2-3\r\nwatcher=$HV\r\nkind=build\r\ninput=/x/y\r\nfinished=t\r\n"
+ok "no HOST_VERSION in the Skill (old distribution): falls back to comparing with the Skill VERSION" "$([ "$HV" != "$V" ] && bash "$T/nohv/scripts/harness_note.sh" "$S" | grep -q "^NOTE: 版の不一致: Skill=$V / ウォッチャー=$HV" && echo 1 || echo 0)"
+
 rid "run=1-2-3\r\nwatcher=unknown\r\nkind=build\r\ninput=/x/y\r\nfinished=t\r\n"
 ok "watcher version unknown: NOTE" "$(note | grep -q '^NOTE: ウォッチャーの版が分からない' && echo 1 || echo 0)"
 
