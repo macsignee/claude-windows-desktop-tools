@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.54.0] 2026-11-05 (`- 層:` の「役割:名前」で、名前に役割の語がない層の役割を決める。実機の確認 AR3 で発見)
+
+- **不具合:** 層のないソリューションに、ロジックとして `ExtLayer` を足すと、`CLAUDE.md` の `- 層:` は `なし` のまま、`solution_state.py` の役割は `other` になった (名前の語からしか判定せず、手順 6 が「その他」の層を `- 層:` に書かないため、選んだ役割が残らなかった)。`add_reference.py` の向きの検査と `mfc-check` の層の検査が、効かなかった。
+- **修正:** `solution_state.py`: `- 層:` の `data|logic|viewmodel|ui` の `役割:名前` を、名前の判定より優先する (`explicit_roles`)。`add_reference.py` も、同じ関数を通す。`mfc_check.py`: `CLAUDE.md` の同じ行を読み、`--logic` / `--data` / `--ui` と同じ働きにする (`claude_layer_roles`)。`skills/add-project/SKILL.md` の手順 6: 名前に役割の語がない層も、選ばれた役割で `logic:ExtLayer` の形で書く。行が `なし` なら、置き換える。`skills/mfc-check/SKILL.md` に、自動で読むことを追記。
+- テスト: `tests/add_project_skill_test.sh` に 5 件 (49 件。名前に語のない層は `other`、明示すると `logic`、向きの検査が従う、`mfc_check.py` が読む、SKILL の記述)。修正を外すと 3 件が失敗することを確認 (変異テスト)。
+- 契約の変更なし (`CLAUDE.md` の `役割:名前` の形は、`new_solution.py` が、すでに使う)。ホスト側の変更なし (Skill の配布でよい)。DESIGN 4.74。
+
 ## [2.53.4] 2026-11-05 (修正: `ViewModel` を含む名前を、画面を持つ層としない。実機の確認 AR5 で発見)
 
 - **不具合:** `mfc_check.py` と `add_ui_host.py` は、名前に `View` を含む層 (例: `ReportViewModel`) を、画面を持つ層 (UI DLL) とした。`solution_state.py` は `viewmodel` を先に判定して ViewModel の役割とする。そのため、`ViewModel` を含む名前の C++ の層は、`mfc-check` の LAY001 (ライブラリへの GUI の混入) の検査から外れていた。
