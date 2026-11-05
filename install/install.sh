@@ -91,11 +91,22 @@ write_version() { # $1=書き込み先のファイル
     printf '%s\n' "$v" > "$1" || { echo "NG  版のファイルを書けない: $1"; fail=1; }
 }
 
+# ホスト側が、最後に変わった版 (host-tools/HOST_VERSION。host-tools を変えたとき、その版に上げる) を、各 Skill に置く (v2.56.0)。
+# Skill のスクリプトは、ウォッチャーの版が、これより古いときだけ、警告 (NOTE) を出す (Skill だけを配ったときの、毎回の NOTE を避ける)。
+write_host_version() { # $1=書き込み先のファイル
+    [ "$DRY" -eq 1 ] && return 0
+    local v
+    v="$(tr -d '\r\n' < "$REPO/host-tools/HOST_VERSION" 2>/dev/null)"
+    [ -n "$v" ] || { echo "!!  host-tools/HOST_VERSION が読めないため、置かない: $1"; return 0; }
+    printf '%s\n' "$v" > "$1" || { echo "NG  版のファイルを書けない: $1"; fail=1; }
+}
+
 if [ "$DO_SKILLS" -eq 1 ]; then
     echo "== Skill -> $SKILLS_DIR"
     for d in "$REPO"/skills/*/; do
         copy_tree "${d%/}" "$SKILLS_DIR/$(basename "$d")"
         write_version "$SKILLS_DIR/$(basename "$d")/VERSION"
+        write_host_version "$SKILLS_DIR/$(basename "$d")/HOST_VERSION"
     done
 fi
 
