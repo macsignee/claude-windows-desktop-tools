@@ -544,5 +544,13 @@ if [ -d "$REAL2/DoubleBufferSample" ]; then
     fi
 fi
 
+# ---- ViewModel を含む名前は、画面を持つ層にしない (v2.53.4。solution_state.py と同じ規則)
+ui_names="$(python3 -I - "$S" <<'PYEOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("mck", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(*[int(m.is_ui_name(n)) for n in ("ReportViewModel", "ViewModels", "ReportView", "UiLayer", "OrderDialog", "LogicLayer")])
+PYEOF
+)"
+ok "is_ui_name: ReportViewModel / ViewModels は画面の層でない。ReportView / UiLayer / OrderDialog は画面の層。LogicLayer は違う" "$([ "$ui_names" = "0 0 1 1 1 0" ] && echo 1 || echo 0)"
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

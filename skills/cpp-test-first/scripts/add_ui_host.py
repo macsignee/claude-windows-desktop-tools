@@ -459,7 +459,7 @@ def main():
     for n in (ui, host):
         if not ident.match(n):
             die(f'名前が不正 (英数字と _ のみ、先頭は英字か _): {n}')
-    if not any(t.lower() in UI_WORDS for t in re.findall(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+', ui)):
+    if 'viewmodel' in ui.lower() or not any(t.lower() in UI_WORDS for t in re.findall(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+', ui)):
         print(f'NOTE: {ui} の名前に Ui / View / Dialog の語がないので、mfc-check は、ライブラリの GUI (LAY001) を、指摘する。--ui {ui} で、画面を持つ層として、指定する')
     if re.search(r'Tests?$', ui) or re.search(r'Tests?$', host):
         die('名前が Test で終わるものは、使えない (ウォッチャーが、テストとして実行する)')
