@@ -225,7 +225,7 @@ def mismatches(projects, settings, main_name):
         out.append('CLAUDE.md に「- 層:」の行がない')
     # 「- 追加した層: <名前> ...」の行 (層の表がないとき、/add-project が足す) の、テストの有無
     tests = tests_of(projects)
-    for m in re.finditer(r'^- 追加した層:\s*([\w.]+)[^\n]*$', text, re.M):
+    for m in re.finditer(r'^- 追加した層:\s*`?([\w.]+)`?[^\n]*$', text, re.M):
         name, line = m.group(1), m.group(0)
         if name not in projects:
             continue
@@ -249,7 +249,7 @@ def ref_issues(projects):
 
 
 def suggest_refs(projects):
-    """どこからも参照されていない層 (data / logic / viewmodel / ui) と、参照するのが自然なプロジェクト。"""
+    """どこからも参照されていない層 (data / logic / viewmodel / ui / other) と、参照するのが自然なプロジェクト。"""
     referenced = set()
     for n, p in projects.items():
         if p['role'] in ('test', 'uitest'):
@@ -257,8 +257,13 @@ def suggest_refs(projects):
         referenced.update(p['refs'])
         referenced.update(p['uses'])
     out = []
+    main = next((m for m, q in projects.items() if q['role'] == 'main'), None)
     for n, p in projects.items():
-        if p['role'] not in ('data', 'logic', 'viewmodel', 'ui') or n in referenced:
+        if p['role'] not in ('data', 'logic', 'viewmodel', 'ui', 'other') or n in referenced:
+            continue
+        if p['role'] == 'other':               # 役割の語がない層: 順位がないので、使う側の既定は、メイン
+            if main:
+                out.append(f'{main} -> {n}')
             continue
         rank = RANK[p['role']]
         cands = [(RANK[q['role']], m) for m, q in projects.items()

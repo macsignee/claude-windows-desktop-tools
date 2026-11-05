@@ -101,7 +101,7 @@ python3 "$NEW" "$D" --type wpf --layers data,logic --tests mstest >/dev/null 2>&
 python3 "$AP" "$D" ReportLib --tests none >/dev/null 2>&1
 cp "$D/Wpf/Wpf.csproj" "$T/Wpf.csproj.before"; filesums "$D" > "$T/Wpf.sums.before"
 out="$(python3 "$SS" "$D" 2>&1)"
-ok "wpf: 追加した ReportLib は、どこからも参照されない → SUGGEST_REF (足す前)" "$([ "$(has "$out" 'SUGGEST_REF')" = 0 ] && echo 1 || echo 0)"
+ok "wpf: 追加した ReportLib (役割 other) は、どこからも参照されない → SUGGEST_REF (メイン -> ReportLib。v2.55.0 から。足す前)" "$(has "$out" 'SUGGEST_REF: Wpf -> ReportLib')"
 python3 "$AR" "$D" --from Wpf --to ReportLib >/dev/null 2>&1; rc=$?
 filesums "$D" > "$T/Wpf.sums.after"
 ok "wpf: rc=0、XML として正しい、BOM と CRLF を保つ、変わるのは使う側の .csproj 1 つだけ" "$([ $rc = 0 ] && [ "$(xml_ok "$D/Wpf/Wpf.csproj")" = 1 ] && [ "$(bom_crlf_same "$T/Wpf.csproj.before" "$D/Wpf/Wpf.csproj")" = 1 ] && [ "$(diff "$T/Wpf.sums.before" "$T/Wpf.sums.after" | grep -c '^>')" = 1 ] && echo 1 || echo 0)"

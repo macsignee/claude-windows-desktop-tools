@@ -165,5 +165,26 @@ PYEOF
 ok "role: mfc_check.py も、「- 層:」の「役割:名前」を読む (logic = ExtLayer)" "$([ "$mck" = "(['ExtLayer'], [], [])" ] && echo 1 || echo 0)"
 ok "SKILL.md: 名前に役割の語がない層も、選んだ役割で、「- 層:」に logic:名前 の形で書く。「なし」は置き換える" "$(grep -q '名前に役割の語' "$SK" && grep -q '`logic:ExtLayer` の形で書く' "$SK" && grep -q '`なし` を、足す層に置き換える' "$SK" && echo 1 || echo 0)"
 
+# ---- 「その他」の層の使う側の既定はメイン、名前を囲んだ行の検出、SKILL の書き方 (v2.55.0。AP4・AR4 の発見)
+D="$T/Other"; mkdir -p "$D"
+python3 "$NEW" "$D" --type mfc-dialog --layers none --tests none >/dev/null 2>&1
+python3 "$AL" "$D" ExtLayer --kind mfc-ext-dll --tests none >/dev/null 2>&1
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "other: 役割が other の層 (ExtLayer) も、参照されていなければ、SUGGEST_REF (メイン -> ExtLayer)" "$(has "$out" 'SUGGEST_REF: Other -> ExtLayer')"
+python3 "$AR" "$D" --from Other --to ExtLayer >/dev/null 2>&1
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "other: メインから参照すると、SUGGEST_REF が消える" "$([ "$(lines "$out" '^SUGGEST_REF')" = 0 ] && echo 1 || echo 0)"
+D="$T/Tick"; mkdir -p "$D"
+python3 "$NEW" "$D" --type console --layers logic --tests gtest --gtest vcpkg >/dev/null 2>&1
+python3 "$AL" "$D" NoteData --tests none >/dev/null 2>&1
+python3 "$AL" "$D" NoteData --tests-only >/dev/null 2>&1
+printf -- '- 追加した層: `NoteData` (dll)。データ役割。テストなし。\n' >> "$D/CLAUDE.md"
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "tick: 名前をバッククォートで囲んだ「追加した層」の行も、テストの食い違いを検出する" "$(has "$out" 'MISMATCH: CLAUDE.md の「追加した層: NoteData」が「テストなし」だが')"
+ok "SKILL.md: 層を足すときの質問の順 (名前 → 役割 → 種類 → --uses → テスト → 使う側)。名前を聞かずに既定の名前で案を出さない" "$(grep -q '名前 → 役割 → 種類 → 参照する層' "$SK" && grep -q '名前を聞かずに、既定の名前で案を出さない' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: 「その他」の層の使う側の既定はメイン (「いまはどこからも参照しない」は、ユーザーが選んだときだけ)" "$(grep -q '使う側の既定は、メイン' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: 切り出し (名前空間の衝突の検出、範囲外の変更として案に書く、削除の前に diff、同一でなければ削除せず止まる)" "$(r=1; for k in '切り出し: アプリの中に' '範囲外の変更として、別に書く' '削除の前に、アプリ側のファイルが' '同一でないファイル' '削除せず、止まって'; do grep -qF -- "$k" "$SK" || r=0; done; echo $r)"
+ok "SKILL.md: 「追加した層」の行の名前は、バッククォートで囲まない" "$(grep -qF '行の名前は、`` ` `` で囲まない' "$SK" && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
