@@ -45,6 +45,7 @@ python3 <このSkillのフォルダ>/scripts/solution_state.py "$SLN_DIR"
 | **画面を持つ DLL + 画面ホスト** (`ui-host`。C++ だけ) | 名前、種類 (標準 / 拡張)、ロジック層 (`--logic`)、UI テストの有無 | `cpp-test-first` の `add_ui_host.py` |
 | **UI テストの後付け** (`ui-tests:<アプリ>`) | どのアプリか | `new-solution` の `new_solution.py --ui-tests flaui` |
 
+- **選択肢が 1 つしかないときは、質問のツールを呼ばない** (質問のツールは、選択肢が 2 つ以上ないと失敗する。実機の確認 AP2・AP3b で、2 回起きた)。その 1 つで進める案を、手順 3 の案の中で、示して、承認を得る。
 - **層の名前は、既定のままでよい** (`LogicLayer` / `DataLayer` / `ViewModels`。変更は、作成後にもできる。`DLL-LAYOUT.md`)。作るのは、ユーザーが望んだときだけ。
 - **参照の向きを守る:** メイン → 画面 → ViewModel → ロジック → データ。**下の層は、上の層を参照しない。** `--uses` に、上の層を指定する依頼は、その場で指摘する。
 - **MFC 拡張 DLL (`mfc-ext-dll`) は、メインが MFC のときだけ。** MFC の DLL の選び方は、`cpp-test-first` の `DLL-LAYOUT.md`。
