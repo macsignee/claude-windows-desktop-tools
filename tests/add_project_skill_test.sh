@@ -137,5 +137,11 @@ ok "SKILL.md: 参照されていない層 (SUGGEST_REF) と MISMATCH / REF_ISSUE
 ok "既存の文書から /add-project を案内 (DLL-LAYOUT.md / PROJECT-LAYOUT.md / new-solution の SKILL.md)" "$(grep -q '/add-project' "$ROOT/skills/cpp-test-first/DLL-LAYOUT.md" && grep -q '/add-project' "$ROOT/skills/csharp-test-first/PROJECT-LAYOUT.md" && grep -q '/add-project' "$ROOT/skills/new-solution/SKILL.md" && echo 1 || echo 0)"
 ok "SKILL.md の呼ぶ solution_state.py と、ADDABLE の例が指すスクリプトが、実在する" "$([ -f "$SS" ] && [ -f "$AL" ] && [ -f "$AUH" ] && [ -f "$ROOT/skills/csharp-test-first/scripts/add_project.py" ] && [ -f "$NEW" ] && echo 1 || echo 0)"
 
+# ---- 質問と ui-host の書き方 (v2.53.3。AP5・AR5 の発見)
+ok "SKILL.md: 質問のツールは、選択肢が 2 つ以上のときだけ。自由入力はチャットの文章で聞く" "$(grep -q '質問のツールは、選択肢が 2 つ以上のときだけ使う' "$SK" && grep -q 'チャットの文章で聞く' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: C++ の役割の選択肢 (データ / ロジック / 画面 (UI) / その他)。画面 (UI) は ui-host へ" "$(grep -q '「データ」「ロジック」「画面 (UI)」「その他」' "$SK" && grep -q 'ui-host` の流れ' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: 「やめる」と「進める」を混ぜない" "$(grep -q '「やめる」と「進める」を混ぜない' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: 手順 3 の「変わるのは…だけ」に ui-host の例外 (Greeting.h/.cpp と TestGreeting.cpp) を書く" "$(grep -q 'ui-host` は、指定したロジック層に `Greeting.h`' "$SK" && grep -q 'TestGreeting.cpp' "$SK" && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
