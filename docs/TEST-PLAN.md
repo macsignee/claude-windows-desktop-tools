@@ -767,10 +767,10 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CR1 | `install/install.sh --rules-only` を実行する | 出力の「規約」に、`mfc-cpp.md` が、新しいファイルとして出る (旧名がないので、`same` ではなく、コピー)。旧名の警告は、v2.42.0 で削除した (出ない) | 未実施 (任意) |
+| CR1 | `install/install.sh --rules-only` を実行する | 出力の「規約」に、`mfc-cpp.md` が、新しいファイルとして出る (旧名がないので、`same` ではなく、コピー)。旧名の警告は、v2.42.0 で削除した (出ない) | ✔ (2026-11-06、実質済み。配布先の状態で確認 (`install.sh --rules-only` の出力の表示は、今回は、見ていない)。`~/.claude/rules/mfc-cpp.md` が、リポジトリの `rules/mfc-cpp.md` と `cmp` で一致。ほかの規約 (`cpp-common.md`、`csharp-common.md`、`wpf-csharp.md`、`winforms-csharp.md`) も、すべて一致。バックアップ (`mfc-cpp.md.~1~` = 2026-11-03 15:40、`.~2~` = 16:00) から、2026-11-03 に、配られて、上書きされたことが分かる) |
 | CR2 | (削除) 旧名 `cpp-mfc.md` の警告と、その確認 | v2.42.0 で、旧名の警告を削除したため、確認は、なし。旧名 `~/.claude/rules/cpp-mfc.md` は、ユーザーが、手で削除する | 削除済み (2026-11-03。実機で、削除を確認) |
-| CR3 | `install/install.sh --rules-only` の「ひな形」の出力 | `~/.claude/templates/cpp/` の 3 ファイルは、すでに同じ内容なので、`same` | 未実施 (任意) |
-| CR4 | `install/install.sh --rules-only` の「道具」の出力 | `~/.claude/scripts/convert_to_utf8_bom.py` が、更新される (修正のため、配布先の旧い版と、内容が違う。旧い版は、`convert_to_utf8_bom.py.~1~` として、バックアップされる)。配布のあとは、`python3 -I ~/.claude/scripts/convert_to_utf8_bom.py <BOM なしの UTF-8 のファイル>` が `NG` を出す | 未実施 (任意) |
+| CR3 | `install/install.sh --rules-only` の「ひな形」の出力 | `~/.claude/templates/cpp/` の 3 ファイルは、すでに同じ内容なので、`same` | ✔ (2026-11-06、実質済み。`.clang-format`・`.clang-tidy`・`.editorconfig` が、リポジトリの `templates/cpp/` と `cmp` で一致。**気づき (実害なし):** `~/.claude/templates/cpp/.claude/` という空のフォルダがある (サンドボックスが、書き込み禁止のパスの印として作る、既知の現象)) |
+| CR4 | `install/install.sh --rules-only` の「道具」の出力 | `~/.claude/scripts/convert_to_utf8_bom.py` が、更新される (修正のため、配布先の旧い版と、内容が違う。旧い版は、`convert_to_utf8_bom.py.~1~` として、バックアップされる)。配布のあとは、`python3 -I ~/.claude/scripts/convert_to_utf8_bom.py <BOM なしの UTF-8 のファイル>` が `NG` を出す | ✔ (2026-11-06、実質済み。`~/.claude/scripts/convert_to_utf8_bom.py` が、リポジトリと `cmp` で一致 (2026-11-03 配布)。旧い版が `.~1~` (2026-10-16) にある。**一時ファイルで実行:** `NG   <ファイル>: UTF-8 (BOM なし) に見える。Shift-JIS ではないので、変換しない (BOM を付けるだけなら、別の方法で)`、終了コード 1。ファイルは、変更されていない) |
 
 ### 2-23. リポジトリ名の変更と、ウォッチャーの配布先・ミューテックス名の変更 (v2.42.0。`docs/DESIGN.md` 4.58)
 

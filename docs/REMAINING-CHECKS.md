@@ -63,7 +63,7 @@
 | SD1〜SD4 | 2-26 | v2.46.0 (MFC 標準 DLL の生成): 作った一式が実機でビルドでき (SD2)、MFC なしのテスト exe から標準 DLL (共有 MFC) の関数を呼べ (SD3)、設定が実物 (`MFCLibrary2`) と一致する (SD4)。SD1〜SD3 ✔、SD4 は静的比較 ✔ (2026-11-04)。**未実施 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` の確認 |
 | MX1〜MX4 | 2-25 | v2.45.0 (MFC 拡張 DLL の生成): MX1〜MX3 ✔、MX4 は静的比較 ✔ (2026-11-04)。**未実施 (任意):** Visual Studio のプロパティページでの見比べ、`AFX_EXT_CLASS` クラスの利用 |
 | WS1〜WS4 | 2-24 | v2.43.0 (`watch_and_build.ps1` の `lib\` への分割): `lib\` の 8 ファイルが配られ、ウォッチャーが起動する (WS1)。build / test / gtest / package / UI テストが、分割の前と同じに動く (WS2〜WS4)。**完了 (✔ 2026-11-04。TEST-PLAN 2-24)** |
-| CR1〜CR4 | 2-22 | v2.41.0: `install.sh --rules-only` で、`mfc-cpp.md` がコピーされる (CR1)。旧名の警告は、v2.42.0 で削除 (CR2。旧名は、ユーザーが、手で削除済み)。`templates/cpp/` が `same` (CR3)。`convert_to_utf8_bom.py` が更新される (CR4) | 未実施 (任意) |
+| CR1〜CR4 | 2-22 | v2.41.0: すべて ✔ (2026-11-06。配布先の状態で確認: 規約・ひな形・道具が、リポジトリと一致。`convert_to_utf8_bom.py` は、BOM なしの UTF-8 に `NG`。`install.sh --rules-only` の出力の表示そのものは、見ていない) |
 | SK1〜SK3 | 2-17 | v2.36.0: `csharp-test-first` が、ソリューションがないとき止まる (SK1)。「飛ばさない 5 つ」が、守られる (SK2。2 回)。`$SLN_DIR` で、`.sln` を探しに行かない (SK3) | SK1 = ✗ (1 回目。空のフォルダで、スキルが呼ばれず、目隠しを環境の不具合と誤読して止まり、応答も英語)。**v2.39.0 で、description と規則を直した。効果は未確認 (実機の確認は、行わない。ユーザーの決定。TEST-PLAN 2-20)**。応答が英語になる件は、リポジトリでは直さない (Claude Code の `language` 設定は、ユーザーの環境)。SK2・SK3 = ✔ 2 回 (2026-11-02。SK2、SK2b。どちらも、5 つとも守られた) |
 
 ### 2-3. 一部のみ確認 (△)。理由と、再開条件
