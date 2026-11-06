@@ -832,10 +832,10 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| DC1 | `python3 ~/.claude/skills/mfc-check/scripts/mfc_check.py` を、実物のウィザードの DLL (`MFCLibrary1`・`MFCLibrary1/MFCLibrary2`) と、生成した DLL (`MfcExtCheck`・`MfcStdCheck`) に実行する | どれも、error 0 / warning 0 (LAY002 の info だけ) | ✔ (2026-11-04、リポジトリのスクリプトで確認。配布した Skill での確認は、未実施) |
-| DC2 | `MfcStdCheck` の `LogicLayer` の公開関数から `AFX_MANAGE_STATE` の行を消し、`mfc_check.py` を実行する | DLL007 の warning が 1 件 | 未実施 |
-| DC3 | `MfcExtCheck` の `LogicLayer.vcxproj` で、`_USRDLL` を足す (標準 DLL との併用にする) | DLL001 の error。(元に戻す) | 未実施 |
-| DC4 | `MfcExtCheck` のメイン (`MfcExtCheck.vcxproj`) の `UseOfMfc` を `false` にし、`mfc_check.py` を実行する | DLL008 の error (ビルドが通れば、実行時の挙動も見る)。(元に戻す) | 未実施 |
+| DC1 | `python3 ~/.claude/skills/mfc-check/scripts/mfc_check.py` を、実物のウィザードの DLL (`MFCLibrary1`・`MFCLibrary1/MFCLibrary2`) と、生成した DLL (`MfcExtCheck`・`MfcStdCheck`) に実行する | どれも、error 0 / warning 0 (LAY002 の info だけ) | ✔ (2026-11-04、リポジトリのスクリプトで確認。配布した Skill での確認も ✔ (2026-11-06、`CSharpTF/dllchk` = `/new-solution --type mfc-dialog --layers none --tests none` + `/add-project layer` で `ExtLayer` (拡張 DLL、メインから参照) と `StdLayer` (標準 DLL)。`python3 -I ~/.claude/skills/mfc-check/scripts/mfc_check.py .` = `error 0 / warning 0 (3 projects: ExtLayer, StdLayer, dllchk)`)) |
+| DC2 | `MfcStdCheck` の `LogicLayer` の公開関数から `AFX_MANAGE_STATE` の行を消し、`mfc_check.py` を実行する | DLL007 の warning が 1 件 | ✔ (2026-11-06、`dllchk`。`StdLayer/StdLayerModuleInfo.cpp` の `AFX_MANAGE_STATE(AfxGetStaticModuleState());` の行を消す → `error 0 / warning 1`、`[1] warning DLL007 標準 DLL (共有 MFC) の公開関数 StdLayerModuleName が、先頭で AFX_MANAGE_STATE を呼んでいない (StdLayer/StdLayerModuleInfo.cpp(6))`。元に戻した) |
+| DC3 | `MfcExtCheck` の `LogicLayer.vcxproj` で、`_USRDLL` を足す (標準 DLL との併用にする) | DLL001 の error。(元に戻す) | ✔ (2026-11-06、`dllchk`。`ExtLayer.vcxproj` の `_AFXEXT;` を `_AFXEXT;_USRDLL;` にする → `error 1 / warning 0`、`[1] error DLL001 ExtLayer: _USRDLL と _AFXEXT が、同じ構成で、両方定義されている (標準 DLL と拡張 DLL の、どちらか 1 つにする) (ExtLayer.vcxproj)`。元に戻した) |
+| DC4 | `MfcExtCheck` のメイン (`MfcExtCheck.vcxproj`) の `UseOfMfc` を `false` にし、`mfc_check.py` を実行する | DLL008 の error (ビルドが通れば、実行時の挙動も見る)。(元に戻す) | ✔ (2026-11-06、`dllchk`。`dllchk.vcxproj` の `<UseOfMfc>Dynamic</UseOfMfc>` を `false` にする → `error 1 / warning 0`、`[1] error DLL008 dllchk: MFC 拡張 DLL ExtLayer を参照しているが、UseOfMfc が Dynamic でない (MFC のランタイムが 2 つになり、実行時に壊れる) (dllchk.vcxproj)`。元に戻した。元に戻した後は `error 0 / warning 0`。**実行時の挙動 (ビルドして起動) は、見ていない (静的検査だけ)**) |
 
 ### 2-29. 画面を持つ DLL の、画面ホストと UI テスト (v2.49.0。`docs/DESIGN.md` 4.65)
 
