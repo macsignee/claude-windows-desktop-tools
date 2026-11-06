@@ -778,10 +778,10 @@ Skill のスクリプトを変えたときは、Windows に配る前に、これ
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| RN1 | `install/install.sh` (または `--host-only`) を実行する | 「ホスト側ツール -> /mnt/c/tools/claude-watcher」と、「Windows 側のパス: C:\tools\claude-watcher」が出る。旧い配布先の警告は、ない (v2.42.0 で削除。旧い `C:\tools\cpp-watcher\` は、ユーザーが、手で削除する) | 未実施 |
-| RN2 | `C:\tools\claude-watcher\run_watcher.cmd <プロジェクトのフォルダ>` を実行する | 起動バナーに、`Version      : 2.42.0` が出る (HV1 と同じ) | 未実施 |
-| RN3 | RN2 のウォッチャーを動かしたまま、同じフォルダで、もう 1 つ、ウォッチャーを起動する | 2 つ目が、`ERROR: a watcher is already running for this folder: ...` で、拒否される (新しいミューテックス名で、排他が効く。TEST-PLAN 1-4 と同じ) | 未実施 |
-| RN4 | RN1〜RN3 を確認したら、旧い `C:\tools\cpp-watcher\` を削除し、Windows 側のショートカットなどが、新しいパスを指していることを確かめる | 旧いパスを、指すものが、残っていない | 未実施 (任意) |
+| RN1 | `install/install.sh` (または `--host-only`) を実行する | 「ホスト側ツール -> /mnt/c/tools/claude-watcher」と、「Windows 側のパス: C:\tools\claude-watcher」が出る。旧い配布先の警告は、ない (v2.42.0 で削除。旧い `C:\tools\cpp-watcher\` は、ユーザーが、手で削除する) | ✔ (2026-11-06、実質済み。`/mnt/c/tools/claude-watcher/` に、`watch_and_build.ps1`・`lib/` (8 ファイル)・`run_watcher.cmd` などがあり、`VERSION` は 2.53.0。以降の `install.sh` の出力に、旧い配布先の警告は、出ていない。旧い配布先は、存在しない) |
+| RN2 | `C:\tools\claude-watcher\run_watcher.cmd <プロジェクトのフォルダ>` を実行する | 起動バナーに、`Version      : 2.42.0` が出る (HV1 と同じ) | ✔ (2026-11-06、実質済み。2.42.0 の期待は、そのあとの版 (いま 2.53.0) に置き換わった。結果の `RESULT_INFO` に `watcher=2.53.0` が出ることを、今日、何度も確認した (HV2 など))。起動バナーの版の表示そのものは、v2.29.0 から、毎回、出る |
+| RN3 | RN2 のウォッチャーを動かしたまま、同じフォルダで、もう 1 つ、ウォッチャーを起動する | 2 つ目が、`ERROR: a watcher is already running for this folder: ...` で、拒否される (新しいミューテックス名で、排他が効く。TEST-PLAN 1-4 と同じ) | ✔ (2026-11-06、`mfcdlg`。ウォッチャーが動いているフォルダで、`C:\tools\claude-watcher\run_watcher.cmd C:\Workspace\macsignee\source\repos\CSharpTF\mfcdlg` を、もう一度実行 → `ERROR: a watcher is already running for this folder: C:\Workspace\macsignee\source\repos\CSharpTF\mfcdlg` / `Use that window, or close it first.` / `Watcher exited with code 3.`。`watch_and_build.ps1` の 303 行目に、新しい名前 `Local\claude-windows-desktop-tools-watcher-<hash>` がある) |
+| RN4 | RN1〜RN3 を確認したら、旧い `C:\tools\cpp-watcher\` を削除し、Windows 側のショートカットなどが、新しいパスを指していることを確かめる | 旧いパスを、指すものが、残っていない | ✔ (2026-11-06、実質済み。`C:\tools\cpp-watcher\` は、存在しない (前に、手で削除済み)。Windows 側のショートカットなどが、旧いパスを指していないかの目視は、していない) |
 
 
 ### 2-24. `watch_and_build.ps1` の `lib\` への分割 (v2.43.0。`docs/DESIGN.md` 4.59)
