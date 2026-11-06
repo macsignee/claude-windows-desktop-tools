@@ -152,8 +152,8 @@ D="$(mk mvvm2)"
 out="$(python3 "$NS" "$D" --type winforms --layers logic --tests mstest --dry-run)"
 ok "dry-run (WinForms): no MVVM line (MVP)" "$([ "$(has "$out" 'MVVM の基底')" = 0 ] && echo 1 || echo 0)"
 D="$(mk mvvm3)"; python3 "$NS" "$D" --type wpf --layers data,logic,viewmodel --tests mstest >/dev/null 2>&1
-ok "generated CLAUDE.md (WPF): names the own base, recommends CommunityToolkit.Mvvm, and says Prism is not actively adopted" "$(f="$D/CLAUDE.md"; grep -q '自前の最小実装' "$f" && grep -q '推奨の CommunityToolkit.Mvvm' "$f" && grep -q 'Prism は、積極的には採用しない' "$f" && echo 1 || echo 0)"
-ok "rules: wpf-csharp.md recommends CommunityToolkit.Mvvm and says Prism is not actively adopted (wpf-check does not flag it); csharp-common.md says the container belongs to the composition root" "$(grep -q '推奨は、MVVM Toolkit (`CommunityToolkit.Mvvm`)' "$ROOT/rules/wpf-csharp.md" && grep -q 'Prism は、積極的には採用しない' "$ROOT/rules/wpf-csharp.md" && grep -q 'コンテナは、組み立てる場所だけで使い' "$ROOT/rules/csharp-common.md" && echo 1 || echo 0)"
+ok "generated CLAUDE.md (WPF): names the own base, recommends CommunityToolkit.Mvvm, and says Prism is free to use but not recommended" "$(f="$D/CLAUDE.md"; grep -q '自前の最小実装' "$f" && grep -q '推奨の CommunityToolkit.Mvvm' "$f" && grep -q 'Prism は、使うのは自由だが、推奨しない' "$f" && echo 1 || echo 0)"
+ok "rules: wpf-csharp.md recommends CommunityToolkit.Mvvm and says Prism is free to use but not recommended (wpf-check does not flag it); csharp-common.md says the container belongs to the composition root" "$(grep -q '推奨は、MVVM Toolkit (`CommunityToolkit.Mvvm`)' "$ROOT/rules/wpf-csharp.md" && grep -q 'Prism は、使うのは自由だが、推奨しない' "$ROOT/rules/wpf-csharp.md" && grep -q 'コンテナは、組み立てる場所だけで使い' "$ROOT/rules/csharp-common.md" && echo 1 || echo 0)"
 
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

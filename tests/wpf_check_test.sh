@@ -628,7 +628,7 @@ mkstd "$T/std7"; edit "$T/std7" Sample.Domain/Sample.Domain.csproj '<TargetFrame
 out="$(check "$T/std7" --data Sample.Domain)"
 ok "--data Sample.Domain overrides the standard-name guess (reported as a data layer)" "$([ "$(has "$out" 'data 層の Sample.Domain')" = 1 ] && echo 1 || echo 0)"
 
-# ---------------------------------------------------------------- Prism は、積極的には採用しないが、add-package で入っても、引っかからない (v2.59.0)
+# ---------------------------------------------------------------- Prism は、使うのは自由だが、推奨しない。add-package で入っても、引っかからない (v2.59.0)
 mutate p1
 mkdir -p "$T/p1/MyApp.ViewModels" "$T/p1/WpfApp"
 cat > "$T/p1/MyApp.ViewModels/PrismViewModel.cs" <<'EOF'
