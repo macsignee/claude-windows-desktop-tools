@@ -2,6 +2,28 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.58.0] 2026-11-06 (Skill のパスを、配布先に固定せず、Skill のフォルダを基準にする。プロジェクトのリポジトリへの配布)
+
+- **きっかけ:** 「配布先を、プロジェクトのリポジトリにできないか」。`install.sh` は、配布先を変えられたが、Skill の中のコマンドが、`~/.claude/skills/...` に固定されていた。
+- **Skill のコマンドを、`<Skill群>` (= その Skill のフォルダの 1 つ上。Base directory) を基準に書き直した** (`skills/` の `SKILL.md` と `references/`。8 つの `SKILL.md` の冒頭に、「パスの書き方」を追加)。ホームの `~/.claude/skills/` でも、プロジェクトの `.claude/skills/` でも、同じに動く。
+- 規約・ひな形・道具への言及を、`~/.claude/rules/...` から `.claude/rules/...` に (`rules/`、`templates/dotnet/.editorconfig` と `add_project.py` の同じ文、生成する `CLAUDE.md` の文)。生成する `CLAUDE.md` の中の Skill のパスは、Skill の名前で書く (`<Skill群>` が使えないため)。
+- スクリプト: `solution_state.py` の `SCRIPTS` を、`__file__` から求める。`test_guard_note.sh` が、`test_guard.py` の実際のパスを出す。
+- **README:** 配布先の表に「またはプロジェクトの `.claude/`」、「2-2」に `<Skill群>` の説明、「5. 配布」を、「5-1 ホームへ」「5-2 プロジェクトのリポジトリへ (チームで共有)」「5-3 版と警告」に分けた。`docs/USAGE.md` に一言。
+- テスト: `tests/skill_paths_test.sh` (新規、8 件)。`convert_utf8_bom_test.sh`・`new_solution_winforms_test.sh` の期待のパスを `.claude/...` に更新。固定のパスを入れ直すと、4 件が失敗することを確認 (変異テスト)。
+- 契約の変更なし。ホスト側の変更なし。`claude-spec-workflow` v1.5.0 も、同じ書き方に直した (同じ `skills/` フォルダに配ることが、前提)。DESIGN 4.79。**配布が要る** (`install/install.sh`)。
+- **取り下げた案:** `install.sh` が、コピーのときに、パスを置換する (「バイトを変えずにコピー」を、やめる必要があるため)。
+
+## [2.57.1] 2026-11-06 (文書: README.md の整理)
+
+- **README.md を、読みやすく整理し直した (記録の変更。ユーザーの指示。内容の削除はしていない):**
+  - 1 行が長い箇条書き (最長 545 → 216 文字、150 文字超の行 32 → 11) を、サブ項目に分けた。
+  - 冒頭に、「まず読む」(`docs/USAGE.md`) と、目次を足した。
+  - 「1. フォルダの構成」を、表 (フォルダ / 内容 / 配布先) にした。
+  - 「2. Skill」に、**13 の Skill の早見表** (Skill / 起動 / ひとこと。短いセルだけ) を足し、各 Skill を、見出し + サブ項目 (用途・引数・スクリプト) にした。`静的検査` の節にあった、静的検査でないもの (`fix-policy.md`、`add_ui_host.py`) を、それぞれ、ビルドとテストの節、`/add-project` の節へ移した。
+  - 旧「3. 規約」「4. ひな形」「5. 道具」を、「3. 規約・ひな形・道具」にまとめた (規約は、表)。節の番号を、12 から 10 に減らした。
+  - **古かった記述を直した:** 規約の数 (4 → 5)、版の不一致の警告 (v2.56.0 の `HOST_VERSION` に合わせて、「ウォッチャーが、ホスト側が最後に変わった版より古いときだけ」)、`tests/` の一覧 (抜けていた `add_project_skill`・`add_reference`・`add_ui_host`・`usage_guide`・`fix_policy` を足し、分類の表にした)、`/add-project` の流れ (番号つき)、`audit` と `mutation-check.md`。
+- テストは変更なし。`usage_guide_test.sh` と `rules_split_test.sh` (README を参照するもの) が通ることを確認した。Skill・スクリプト・ホスト側の変更なし (配布は、要らない)。
+
 ## [2.57.0] 2026-11-06 (テストの中身の点検 `test_guard.py audit` と、変異の確認)
 
 - 他チームの運用ドラフトの、「テストが、形だけでなく、不具合を捕まえる中身を持つか」の点検から。

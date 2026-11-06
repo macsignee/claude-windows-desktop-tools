@@ -17,7 +17,7 @@ paths:
 3. C# のクラスライブラリ (`CLAUDE.md` が「C# クラスライブラリ」) は、本規約の「3 層」と「6 テスト」と、`csharp-common.md` を使う。
 
 **この文書は、`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を読むときに、読み込まれる** (WPF の規約は、読み込まれない)。
-詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`~/.claude/templates/dotnet/` のひな形)。
+詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`.claude/templates/dotnet/` のひな形)。
 「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `csharp-test-first` / `winforms-check` / `add-package`) との対応。機械で判定できる項目は、**`winforms-check`** が確かめる (付録)。
 
 ## 1. 適用範囲

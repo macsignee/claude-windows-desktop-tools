@@ -37,7 +37,7 @@
 Windows 側で、**ウォッチャー** (`run_watcher.cmd`) を、対象のプロジェクトのフォルダで、起動しておく。ビルドとテストは、ウォッチャー経由でしか、実行できない。静的検査 (`mfc-check` など) と、ソリューションの作成・層の追加は、ウォッチャーがなくても、できる。
 
 ### 新しい Skill を使えないとき
-Skill を配布したあと (`install/install.sh --skills-only`) は、**Claude Code のセッションを、新しく起動する。** 起動中のセッションには、反映されない。
+Skill を配布したあと (`install/install.sh --skills-only`) は、**Claude Code のセッションを、新しく起動する。** 起動中のセッションには、反映されない。ホームの `~/.claude/skills/` に配っても、プロジェクトの `.claude/skills/` に配っても (`--skills-dir`。README の「5-2」)、同じ。
 
 ## 2. 承認と差し戻しの言い方
 

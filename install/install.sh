@@ -7,6 +7,9 @@
 #   templates/*   -> ~/.claude/templates/          (.editorconfig などのひな形)
 #   scripts/*     -> ~/.claude/scripts/            (規約が参照する道具。convert_to_utf8_bom.py = Shift-JIS から UTF-8 (BOM 付き) への変換)
 #
+# プロジェクトのリポジトリへ配るとき (チームで共有する): --skills-dir <プロジェクト>/.claude/skills --rules-dir <プロジェクト>/.claude/rules ... (README の「5-2」)。
+#   Skill の中のコマンドは、配布先のパスを固定せず、Skill のフォルダを基準にする (<Skill群>)。ホームでも、プロジェクトでも、同じに動く。
+#
 # Usage: install/install.sh [--skills-dir DIR] [--host-dir DIR] [--rules-dir DIR] [--templates-dir DIR] [--scripts-dir DIR]
 #                           [--skills-only | --host-only | --rules-only] [--dry-run]
 #

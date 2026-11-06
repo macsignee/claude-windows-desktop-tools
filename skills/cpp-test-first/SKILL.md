@@ -5,13 +5,15 @@ description: Windows デスクトップの C++ (Visual Studio / MSBuild。MFC・
 
 # C++ テストファースト (Red を作る)
 
+> **パスの書き方:** `<Skill群>` = この Skill のフォルダ (Base directory) の 1 つ上。ほかの Skill も、そこにある。コマンドでは、実際のパスに置き換える。
+
 実装の前に、仕様をテストとして書き、**正しい理由で失敗すること (Red)** を確かめるところまでを行う。
 実装して通す (Green) 工程は、`build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ。
 
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
 - ソリューションフォルダを `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude Code は、このフォルダをカレントにして起動されている。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 <Skill群>/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - **ソリューションは、次の 3 層 + テストの構成であること。** (プロジェクトの作り方と規約は、同梱の `DLL-LAYOUT.md`)
 
   | 層 | プロジェクト | 種類 | MFC | テスト |
@@ -157,7 +159,7 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 
 **Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN_DIR/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
 テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
-- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
+- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I <Skill群>/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`DISABLED_` 化・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - **Green のあと、報告の前に、`test_guard.py audit "$SLN_DIR"`** (空洞なテストを探す)。中心の項目は、実装をわざと壊して確かめる (`build-test-loop` の `references/mutation-check.md`。了承を得て、必ず元に戻す。していなければ、「変異の確認は、していない」と報告)。
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。

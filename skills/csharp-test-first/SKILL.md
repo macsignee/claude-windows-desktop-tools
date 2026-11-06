@@ -5,6 +5,8 @@ description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または 
 
 # C# (WPF / WinForms) テストファースト (Red を作る)
 
+> **パスの書き方:** `<Skill群>` = この Skill のフォルダ (Base directory) の 1 つ上。ほかの Skill も、そこにある。コマンドでは、実際のパスに置き換える。
+
 実装の前に、仕様をテストとして書き、**正しい理由で失敗すること (Red)** を確かめるところまでを行う。
 実装して通す (Green) 工程は、`build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ (MSTest の失敗も、GoogleTest と同じ形の要約で返る)。
 C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じで、C# (.NET) 固有の部分 (層、スタブ、MSTest の書き方) が違う。**
@@ -20,7 +22,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 | WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) | WinForms の型 (`Control` / `Form` / `MessageBox` / `Application` / `Timer` / `Clipboard`)。Presenter では、使わない (`IDialogService` などに分ける) |
 | 組み立てる場所 (`App.xaml.cs` の `OnStartup`) | `Program.cs` (`Form` と Presenter を作って結ぶ。`IDialogService` の実装 (`MessageBox.Show` を呼ぶ) も、ここで渡す) |
 | `wpf-check` | `winforms-check` |
-| 規約 `~/.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `~/.claude/rules/winforms-csharp.md` (WinForms 固有。`Forms/` `Presenters/` `*Presenter*.cs` などを読むときに、読み込まれる)。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
+| 規約 `.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `.claude/rules/winforms-csharp.md` (WinForms 固有。`Forms/` `Presenters/` `*Presenter*.cs` などを読むときに、読み込まれる)。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
 
 - **`IView` にイベントや、Presenter に依存 (`IDialogService` など) を足すと、既存のテストが、コンパイルで落ちる** (`IView` の Fake が、新しいメンバーを実装していない / `MainPresenter` のコンストラクターの引数が変わる)。**Fake と、既存のテストの呼び出し箇所 (`new MainPresenter(...)` の引数) だけを、機械的に直す。期待値とアサーションは、変えない。** 直した箇所は、Red の報告 (5.) に、書く。
 
@@ -34,7 +36,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
 - ソリューションフォルダを `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude Code は、このフォルダをカレントにして起動されている。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 <Skill群>/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - **ソリューションがないとき** (カレントにも、作業フォルダの候補にも、`.slnx` / `.sln` がない): **ここで止まり、テストも、スタブも、書かない。** 「ソリューションがありません。`/new-solution --type wpf` (または `winforms`) を、ご自身で実行してください (例: `--layers data,logic --tests mstest`。ViewModel をテストしたいなら `data,logic,viewmodel`)」と案内する。**種類 (WPF / WinForms / C++) が分からないときは、ユーザーに聞く** (C++ なら、`cpp-test-first` と、`/new-solution` の C++ の種類を案内する)。**空のフォルダで、サンドボックスの内側に、`.gitconfig`・`.idea`・`.vscode`・`.mcp.json`・`.claude/skills` などの、0 バイトのキャラクタ特殊ファイルが見えても、書き込み禁止の目隠しで、プロジェクトのファイルではない。環境の不具合と判断しない** (ソリューションの有無は、`.slnx` / `.sln` の有無だけで決める)。**`/new-solution` を、`Skill` ツールで呼ばない** (`disable-model-invocation` で、エラーになる)。**ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、このスキルの対象外**。この手順を使わず、そのことを伝える。
 - **ソリューションは、次の層 + テストの構成であること** (作り方と規約は、同梱の `PROJECT-LAYOUT.md`)。
 
@@ -104,7 +106,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 - 新しい型に `public` を付ける (`internal` のままだと、テストプロジェクトから見えない: `CS0122`。`InternalsVisibleTo` で、わざと見せているときを除く)。
 
 ### 3. テストを書く (対象の層に対応する `<名前>.Tests` 側)
-- 既存のテストの書き方 (ファイルの命名 `<クラス名>Tests.cs`、`[TestClass]` / `[TestMethod]`、`using` の形) に合わせる。**規約の全文は、`~/.claude/rules/csharp-common.md` の「16 テスト規約」 (WinForms は、これに加えて、`~/.claude/rules/winforms-csharp.md` の「13 テスト規約」)。**
+- 既存のテストの書き方 (ファイルの命名 `<クラス名>Tests.cs`、`[TestClass]` / `[TestMethod]`、`using` の形) に合わせる。**規約の全文は、`.claude/rules/csharp-common.md` の「16 テスト規約」 (WinForms は、これに加えて、`.claude/rules/winforms-csharp.md` の「13 テスト規約」)。**
 - 1 つのテストで、1 つのことを確かめる。名前は、`メソッド_条件_期待` (例: `Greeting_NameEmpty_AsksForName`)。Arrange / Act / Assert の順に書き、空行で区切る。
 - 期待値は、**仕様から導いた値を、直接、書く。** 実装の出力を、写さない (まだ実装がない)。**`Assert.AreEqual(期待値, 実際の値)` の順** (逆にしない)。
 - 浮動小数点は、許容誤差を指定する (`Assert.AreEqual(1.0, x, 1e-9)`)。例外は、`Assert.ThrowsException<T>`。非同期は、`async Task` (`async void` にしない)。
@@ -156,7 +158,7 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 
 **Green の完了条件 (新しいテストが、実際に実行されたこと):** `PASSED` の 2 行目の `tests: N passed` の N が、**ベースライン (下記の 4.0) の件数 + 今回、書いたテストの件数** であり、**新しいテストの名前が、実行結果に含まれる**こと。確かめ方 (読み取りだけ): `grep -l "<新しいテストの名前>" "$SLN_DIR/.claude-logs/test-results/"*` (GoogleTest の XML / MSTest の trx)。**含まれなければ、PASSED でも、完了ではない** (`.vcxproj` / `.csproj` への足し忘れ、`-TestExePattern` に合わない exe、フィルターで外れている、など。`PASSED` は「実行されたテストが、すべて通った」の意味でしかない)。
 テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
-- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
+- **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I <Skill群>/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`[Ignore]` 化・`Assert.Inconclusive` で飛ばす・アサーションを弱める、は、ユーザーの許可なしにしない。**
 - **Green のあと、報告の前に、`test_guard.py audit "$SLN_DIR"`** (空洞なテストを探す)。中心の項目は、実装をわざと壊して確かめる (`build-test-loop` の `references/mutation-check.md`。了承を得て、必ず元に戻す。していなければ、「変異の確認は、していない」と報告)。
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。

@@ -1238,3 +1238,16 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **`test_guard.py` の `check` との違い:** `check` は、基準との差 (改変の検出)。`audit` は、いまの状態の中身の検査 (基準は、要らない)。
 - **限界:** `audit` は、形だけ (ヘルパーの中のアサーション、期待値が変数に入った値かどうか、は、判定できない)。変異の確認は、人 (Claude) が、壊し方を選ぶので、網羅ではない。
 - **実機の確認 (TEST-PLAN 2-34、2026-11-06):** `audit` は、実際のソリューション (`wpfcutC` 8 件、`mfcdlg` 5 件) で、誤検出がなかった (TQ1 ✔)。変異の確認は、`wpfcutC` (C#) で 3 か所を壊して、すべて落ち、復元して `PASSED` に戻った (TQ2 ✔)。`mfcdlg` (C++) でも、1 か所を壊して、DLL の再ビルドのあとテスト exe が落ち、復元して `PASSED` に戻った (TQ3 ✔)。**未確認:** 生き残る変異の扱い、`/add-feature` の `.trace.md` の流れ。
+
+### 4.79 Skill のパスを、配布先に固定せず、Skill のフォルダを基準にする (v2.58.0)
+
+- **きっかけ:** 「配布先を、プロジェクトのリポジトリ (`.claude/skills`) にできないか」という質問。`install.sh` は、`--skills-dir` などで、配布先を変えられるが、**Skill の中のコマンドが、`~/.claude/skills/<Skill 名>/scripts/...` と、ホームに固定**されていた (37 か所、23 ファイル)。プロジェクトへ配ると、Skill は読み込まれるが、中のコマンドが、ホームのスクリプトを探しに行き、ホームにないと失敗し、あると、プロジェクトの版でなく、ホームの版が動いた。
+- **判断 (案 A):** Skill のコマンドを、**`<Skill群>`** (= その Skill のフォルダの 1 つ上。Skill の読み込み時に、Base directory として示される) を基準に書く。`<Skill群>/build-test-loop/scripts/test_guard.py` のように。Claude が、実行するときに、実際のパスに置き換える (`new-solution` が、すでに、`<このSkillのフォルダ>` で、同じことをしていた)。各 `SKILL.md` の冒頭に、「パスの書き方」を 1 行書く。
+  - 規約・ひな形・道具 (`rules/`、`templates/`、`scripts/`) への言及は、`~/.claude/rules/...` を、**`.claude/rules/...`** に変えた (ホームの `~/.claude/` と、プロジェクトの `.claude/` の、どちらも指す)。
+  - 生成する `CLAUDE.md` (`new_solution.py`、`add_ui_tests.py`) の文は、`<Skill群>` を使えない (プロジェクトの `CLAUDE.md` には、定義がない) ので、「`build-test-loop` Skill の `scripts/uitest_once.sh`」のように、Skill の名前で書く。
+  - スクリプトは、自分の場所から、Skill 群を求める (`solution_state.py` の `SCRIPTS` は、`__file__` の 3 つ上。`test_guard_note.sh` は、`test_guard.py` の実際のパスを出す)。
+- **取らなかった案 (B):** `install.sh` が、コピーのときに、パスを置換する。「配布先は、バイトを変えずにコピー (`cmp` で確認)」という約束を、やめる必要があるため。
+- **`claude-spec-workflow`:** `add-feature` と `update-from-ideas` も、同じ書き方にした (v1.5.0)。**両方のリポジトリの Skill が、同じ `skills/` フォルダにあることが、前提** (`/add-feature` が、`<Skill群>/new-solution/...` を、呼ぶため)。
+- **テスト:** `tests/skill_paths_test.sh` (固定のパスが、残っていない、`<Skill群>/...` の参照先が、リポジトリと、プロジェクトの `.claude/skills` に配ったあとの、両方で、実在する、`solution_state.py` の例のコマンドが、実行した場所を指す)。
+- **ホーム配布の利点 (Skill が 1 か所にあり、更新が 1 回で済む) は、残る。** プロジェクトへ配ると、**プロジェクトごとに、版が、ずれうる**。ホームとプロジェクトの両方に、同じ名前の Skill があると、どちらが使われるかは、Claude Code の規則による (README の「5-2」)。
+- **確認できていないこと (実機):** プロジェクトの `.claude/skills` に配って、Claude Code から使ったとき、Skill が、そのフォルダで読み込まれ (Base directory)、コマンドが、そのスクリプトを実行すること。ホームと両方にあるときの優先。

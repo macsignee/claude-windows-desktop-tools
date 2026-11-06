@@ -10,7 +10,7 @@ WPF (`wpf-csharp.md`) と WinForms (`winforms-csharp.md`) の規約のうち、*
 
 **適用の順序:**
 1. プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、それが最優先。
-2. 詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`~/.claude/templates/dotnet/` のひな形)。
+2. 詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`.claude/templates/dotnet/` のひな形)。
 3. **例に、WPF の用語 (ViewModel、`wpf-check`、`Window` など) が出てくる。WinForms では、ViewModel を Presenter に、`wpf-check` を `winforms-check` に、読み替える** (対応は、`csharp-test-first` の SKILL.md の「読み替え」の表)。
 4. 「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `csharp-test-first` / `wpf-check` / `winforms-check` / `add-package`) との対応や、規約を補う決まり。どの規則を、どのツールが確かめるかは、`wpf-csharp.md` / `winforms-csharp.md` の付録。
 
@@ -84,7 +84,7 @@ public CustomerViewModel(ICustomerService customerService)
 ### ツール群の補足: 書式
 - ファイルの形式: 手書き・新規の `.cs` / `.xaml` / `.csproj` は **UTF-8 (BOM 付き)、CRLF**。インデントは、`.cs` / `.xaml` がスペース 4、`.csproj` / `.props` がスペース 2。`.slnx` / `.json` / `.md` は BOM なし。
 - **`obj/` と `bin/` と `*.g.cs` は、編集しない** (次のビルドで、上書きされる)。XAML のコンパイルエラー (`MC` / `XDG`) は、元の `.xaml` / `.cs` を直す。ウィザード生成の書式は、直さない (差分が、全行に広がるため)。
-- 既存の **Shift-JIS の `.cs` は、編集の前に、UTF-8 (BOM 付き) に変換する** (`~/.claude/scripts/convert_to_utf8_bom.py`。変換だけの、別のコミット)。
+- 既存の **Shift-JIS の `.cs` は、編集の前に、UTF-8 (BOM 付き) に変換する** (`.claude/scripts/convert_to_utf8_bom.py`。変換だけの、別のコミット)。
 - 括弧は **Allman** (開き括弧は、次の行の頭)。**`if` / `for` / `foreach` / `while` の本体は、1 行でも、波括弧を付ける。** 名前空間は、ファイルスコープ (`namespace X;`)。`using` は、名前空間の外、`System` が先頭。整形は `dotnet format`。
 - **XAML:** 属性が多い要素 (目安: 3 個以上、または 100 文字超) は、**1 行に 1 属性**にする。属性の順は、`x:Name` / `x:Key` → レイアウト (`Grid.Row` `Margin` など) → 見た目 → バインディング → イベント。
 

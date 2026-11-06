@@ -1,5 +1,7 @@
 # UI テスト (FlaUI): 実行と書き方の詳細
 
+> `<Skill群>` の意味は、`SKILL.md` の冒頭の「パスの書き方」を参照。
+
 `build-test-loop` の `SKILL.md` から分けた文書。**UI テストを、実行する・書く・足す・失敗を調べるときだけ読む** (ふだんの、ビルド → テストの流れでは、読まない)。`$SLN_DIR` などの用語は、`SKILL.md` と同じ。UI テストは、**ユーザーが求めたとき**と、**`/ui-test-first` のループの中**だけ実行する (ビルド → テストの流れには含めない。`PASSED` になっても、自動では、続けて実行しない)。
 
 **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れに、含めない。** 遅く、アプリを起動し、**制限時間を長く取る必要がある**ため、`PASSED` になっても、自動では、続けて実行しない。実行するのは、次のときだけ。
@@ -12,7 +14,7 @@
 - **`--ui-timeout 秒`:** ウォッチャーが、UI テストのプロジェクトを、強制終了するまでの時間 (既定 600 秒)。**UI テストが多い、重い画面は、長く** (例: `--ui-timeout 1800`)。指定しない既定は、`uitest.settings` の `timeout=` (プロジェクトごとの既定。例: `timeout=1800`) → ウォッチャーの `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC`。`--ui-timeout` が 780 以上なら、Skill 側の待ち時間も、自動で、`秒 + 120` に延びる。
 - デスクトップ (`--visible` / `--separate`)、操作の間の待ち (`--slowmo`) は、上の「どのデスクトップで実行されるか」。
 - **実行が、遅い・止まっているように見えるとき:** `.claude-logs/ui-timing.txt` (UI テストの各段階の時刻。実行ごとに作り直される) を読む。どの段階の間が、長いかが、分かる (ビルド完了から UI テスト開始までの空白、`dotnet test` の開始から終了まで、など)。
-- **`--hold 秒` / `--preview [秒]` (目視確認):** UI テストは、いつもは、裏 (別のデスクトップ) で実行し、**見たいときだけ、その画面を、ユーザーのデスクトップに出す。** 生成される `PreviewUiTests.cs` (`[TestCategory("Preview")]`。アサーションなし) が、画面を、見せたい状態にして、`HoldForViewing()` を呼ぶ。`--hold N` は、`HoldForViewing` が、N 秒、待つ (ウィンドウを閉じると、早く終わる)。`--preview [N]` は、`--visible --hold N` (既定 60 秒) の省略形。例: `uitest_once.sh "$SLN_DIR" --filter "TestCategory=Preview" --preview`。ウォッチャーの制限時間は、`hold + 120` 秒以上に、自動で延びる。`UiTestBase.Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。`/ui-test-first` の「目視確認」に、手順。**既存の UI テストのプロジェクト (この機能より前に作ったもの) は、先に `python3 ~/.claude/skills/new-solution/scripts/add_ui_tests.py <フォルダ> --refresh-support-files` で、`UiTestBase.cs` などを更新する** (旧い版のままだと、`HoldForViewing` / `Highlight` がなく、`--present` の赤い枠が出ず、操作の間隔が、約 3 倍になる。実機で確認)。
+- **`--hold 秒` / `--preview [秒]` (目視確認):** UI テストは、いつもは、裏 (別のデスクトップ) で実行し、**見たいときだけ、その画面を、ユーザーのデスクトップに出す。** 生成される `PreviewUiTests.cs` (`[TestCategory("Preview")]`。アサーションなし) が、画面を、見せたい状態にして、`HoldForViewing()` を呼ぶ。`--hold N` は、`HoldForViewing` が、N 秒、待つ (ウィンドウを閉じると、早く終わる)。`--preview [N]` は、`--visible --hold N` (既定 60 秒) の省略形。例: `uitest_once.sh "$SLN_DIR" --filter "TestCategory=Preview" --preview`。ウォッチャーの制限時間は、`hold + 120` 秒以上に、自動で延びる。`UiTestBase.Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。`/ui-test-first` の「目視確認」に、手順。**既存の UI テストのプロジェクト (この機能より前に作ったもの) は、先に `python3 <Skill群>/new-solution/scripts/add_ui_tests.py <フォルダ> --refresh-support-files` で、`UiTestBase.cs` などを更新する** (旧い版のままだと、`HoldForViewing` / `Highlight` がなく、`--present` の赤い枠が出ず、操作の間隔が、約 3 倍になる。実機で確認)。
 - **`--present` (デモとして再生):** `--visible` + `--slowmo 800` (指定がなければ) + **操作する要素を赤い枠で囲む** (`UiTestBase.Find` / `OpenModal` が描く。`UITEST_PRESENT=1`)。UI テストを、そのまま、見せられる形で、ゆっくり再生する。**再生するのは、`--filter` で指定したテストだけ** (`--filter` が必須。ないと `BAD_ARGS`)。`--separate` とは、同時に使えない。入力やボタンの押下は、UIA で、一瞬で行われる (マウスのカーソルは、動かない。枠と待ちで、見せる)。
 
 ## いつ実行するか
@@ -36,7 +38,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 ## 動いたことを、確かめる (トレースと、目で見るモード)
 - `uitest_once.sh` は、最後に、**操作の記録 (`.claude-logs/ui-screenshots/ui-trace.txt`)** から、テストごとの結果の行 (`=== テスト名: Passed` など) を出す。**UI テストが、実際に、起動して、操作したことの確認**に使う (`PASSED` と出ても、テストが 0 件でないこと、狙いのテストが動いたことを、行で確かめる)。記録は、`find: <AutomationId>` (探した要素)、`launched: <exe>`、`=== <テスト名>: start (desktop: ..., slowmo: ... ms)` などで、全文は、Read で読める。
 - **ユーザーが「目で確かめたい」と言うとき:** `uitest_once.sh <dir> [秒] --visible --slowmo 800` で、実行する (ウォッチャーの起動し直しは、要らない。待ちは、`--slowmo 1500` などで変える)。ウィンドウが、画面に出て、入力や、ボタンが、順番に動くのが見える。**実行中、ユーザーは、PC を、快適には使えない** (マウスやキーボードの入力が、フォーカスを持つテスト対象のアプリに入ることがある)。`desktop=visible` のプロジェクト (WPF) は、`--slowmo` を付けなければ、待ちなしで、ユーザーのデスクトップで動く。(ウォッチャーを `run_watcher_visible.cmd` で起動する従来の方法も、使える。`WATCH_UI_DESKTOP=default`、`WATCH_UI_SLOWMO_MS=800` が、設定される。1 回ごとの `--separate` は、これより優先される。)
-- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --refresh-support-files` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
+- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I <Skill群>/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --refresh-support-files` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
 
 ## 失敗したら
 1. 最後に出る **スクリーンショット (`.claude-logs/ui-screenshots/*.png`) を、Read ツールで画像として開き、画面に何が写っているかを確かめる** (入力欄の値、表示、ダイアログ、アプリが落ちていないか)。例外のメッセージだけでは、分からないことがある。
@@ -55,7 +57,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 5. UI テストの修正の繰り返しは、**スクリプトの実行の合計で、5 回まで、同じ失敗は 3 回まで** (`SKILL.md` の「止めどき」。単体テストの回数とは、別に数える)。それでも通らなければ、スクリーンショットと原因の仮説を、報告して止まる。
 
 ## UI テストを書く・足すとき
-- **UI テストのプロジェクトがなければ、ユーザーに、足してよいかを確認する** (`.slnx` / `.sln` が変わる)。足し方: `python3 -I ~/.claude/skills/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --dry-run` (何を作るかを見せる) → 了承 → `--dry-run` なしで実行。(新しいソリューションなら `/new-solution --ui-tests flaui`。)
+- **UI テストのプロジェクトがなければ、ユーザーに、足してよいかを確認する** (`.slnx` / `.sln` が変わる)。足し方: `python3 -I <Skill群>/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --dry-run` (何を作るかを見せる) → 了承 → `--dry-run` なしで実行。(新しいソリューションなら `/new-solution --ui-tests flaui`。)
 - **何を書くか:** 仕様の**主要な操作の流れ** (起動して開く、入力して表示が変わる、ボタンで状態が変わる、ダイアログが開く・閉じる)。**画面あたり数件**。見た目 (レイアウト・色)、細かい計算 (単体テストで確かめる)、独自描画のコントロールは、対象にしない。
 - **要素は AutomationId で探す** (`Find("NameTextBox")`)。**操作は UIA のパターン** (`Find("Id").AsTextBox().Text = "..."` (Value)、`.AsButton().Invoke()` (Invoke))。**マウス・キーボードの入力 (`Click()`、`Keyboard.Type`) は使わない** (別のデスクトップで動かず、ユーザーの作業と干渉する)。**待ちは `WaitFor(() => 条件)`** (固定の `Thread.Sleep` を使わない)。UIA3 を使う (UIA2 は、別のデスクトップで `Invoke` が失敗する)。
 - 操作したいコントロールに AutomationId がなければ、**XAML に付ける** (ユーザーの了承を得てから)。名前は、役割が分かるもの。同じ画面の操作が増えたら、Page Object にまとめる。

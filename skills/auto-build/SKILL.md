@@ -5,6 +5,8 @@ description: C++ (MSBuild / .vcxproj) と .NET (WPF などの SDK 形式 .csproj
 
 # 自動ビルド & エラー修正ループ (C++ / .NET)
 
+> **パスの書き方:** `<Skill群>` = この Skill のフォルダ (Base directory) の 1 つ上。ほかの Skill も、そこにある。コマンドでは、実際のパスに置き換える。
+
 サンドボックスから msbuild を直接実行できないため、ホスト側の `run_watcher.cmd`
 (watch_and_build.ps1) がフラグファイルを監視してビルドする。Claude はフラグを置いて結果を読むだけ。
 
@@ -13,12 +15,12 @@ description: C++ (MSBuild / .vcxproj) と .NET (WPF などの SDK 形式 .csproj
 ## 前提
 - ユーザーが対象プロジェクトで `run_watcher.cmd` を起動済みであること。
 - プロジェクトフォルダ(.sln または .slnx があるフォルダ)を `$PROJ` とする。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$PROJ` は、カレントではなく、対象の候補。`PROJ=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$PROJ` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$PROJ` は、カレントではなく、対象の候補。`PROJ=$(python3 <Skill群>/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$PROJ` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 
 ## ビルド実行 (1回分)
 
 必ず同梱スクリプトを使う。自分で flag を作ったり待機ループを書いたりしない。
-**スクリプトは、この Skill のフォルダ (`~/.claude/skills/auto-build/scripts/`) のものだけを使う。** 同じ名前の古いコピー (ホーム直下の `cpp-auto-build/` など) を、探して使わない。古い版は、エラーの要約や `.claude-logs/*_summary.json` を出さず、`.claude-logs/test-results/` も扱えない。
+**スクリプトは、この Skill のフォルダ (`<Skill群>/auto-build/scripts/`) のものだけを使う。** 同じ名前の古いコピー (ホーム直下の `cpp-auto-build/` など) を、探して使わない。古い版は、エラーの要約や `.claude-logs/*_summary.json` を出さず、`.claude-logs/test-results/` も扱えない。
 失敗の要約 (`N errors (M unique) ...` の行と、`.claude-logs/build_summary.json`) が出ないときは、まず、古い版を実行していないか (スクリプトのパス) を確認する。
 
 ```bash
@@ -73,7 +75,7 @@ bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
 8. **ビルドを通すために、警告の抑制 (`#pragma warning disable`、`<NoWarn>`、`TreatWarningsAsErrors` の解除、アナライザの無効化) を足さない。** 必要だと思うときは、理由を添えて、ユーザーに確認する。
 9. `.csproj` / `Directory.Build.props` / `global.json` (対象フレームワーク、パッケージ、SDK) の変更は、ビルドエラーの直接の原因である場合に限り、必要最小限にする。変更したことは、報告の先頭で述べる。
 
-10. **修正の前の確認 (ユーザーの未コミットの変更と重なるなら、停止する)、直してよいエラーと止めるもの、警告の方針 (既定は報告だけ。`fix` と指定されたときだけ、安全な警告を直す)、報告の項目は、`~/.claude/skills/build-test-loop/references/fix-policy.md`。**
+10. **修正の前の確認 (ユーザーの未コミットの変更と重なるなら、停止する)、直してよいエラーと止めるもの、警告の方針 (既定は報告だけ。`fix` と指定されたときだけ、安全な警告を直す)、報告の項目は、`<Skill群>/build-test-loop/references/fix-policy.md`。**
 
 ## トークン節約
 - 成功時は `build_error.log` や `.claude-logs/` を読まない。報告も1〜2行。

@@ -6,6 +6,8 @@ argument-hint: "[画面名 / ファイル / 規則 ID]"
 
 # UI デザインガイドライン (ui-design-review)
 
+> **パスの書き方:** `<Skill群>` = この Skill のフォルダ (Base directory) の 1 つ上。ほかの Skill も、そこにある。コマンドでは、実際のパスに置き換える。
+
 画面を、**ガイドライン (`references/UI-Design-Guidelines.md`。v2.10、草案)** に沿って、設計し、レビューする。
 ガイドラインは、**利用者に見える結果と振る舞い**の規範 (ボタンの並び、キーボード、色、DPI、メッセージ、アクセシビリティなど)。**テストの手法は、含まない** (UI テストは `/ui-test-first`)。
 
@@ -18,7 +20,7 @@ argument-hint: "[画面名 / ファイル / 規則 ID]"
 本文は、約 1,200 行ある。**全文を読まない。** 章を探して、必要な範囲だけ読む。
 
 ```bash
-G=~/.claude/skills/ui-design-review/references/UI-Design-Guidelines.md
+G=<Skill群>/ui-design-review/references/UI-Design-Guidelines.md
 grep -n '^## \|^### ' "$G"        # 章・節の位置
 grep -n 'UI-CTL-110' "$G"          # 規則 ID の位置 (本文と、付録 F のチェックリスト)
 sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
@@ -49,11 +51,11 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 
 ### 2. 作った画面 (または、既存の画面) のレビュー
 
-`$SLN_DIR` は、ソリューションのフォルダ (カレント)。作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がない) で起動しているときは、`/ui-test-first` と同じく、`python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>]` で対象を決める。
+`$SLN_DIR` は、ソリューションのフォルダ (カレント)。作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がない) で起動しているときは、`/ui-test-first` と同じく、`python3 <Skill群>/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>]` で対象を決める。
 
 1. **静的検査を実行する** (読み取りだけ。Windows もウォッチャーも不要):
    ```bash
-   python3 -I ~/.claude/skills/ui-design-review/scripts/ui_guideline_check.py "$SLN_DIR" [--all] [--json <ファイル>] [--fail-on-warning]
+   python3 -I <Skill群>/ui-design-review/scripts/ui_guideline_check.py "$SLN_DIR" [--all] [--json <ファイル>] [--fail-on-warning]
    ```
    既定は、warning (必須の規則への指摘) だけを出す。`--all` で、info (推奨の規則への指摘と、人の確認を促すもの (UIG-CTL101)) も出す。
 2. **各 warning を、規則の本文で確かめる。** 静的検査は、推測 (下の「誤検出と限界」)。誤検出は、報告に、理由つきで書く。
@@ -120,7 +122,7 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 4. 直したら、再実行して、warning が減ったことを確認する。**最大 3 回。** 同じ指摘が残るなら、停止して、原因 (誤検出の疑いを含む) を報告する。
 5. 必須の規則を、満たせないときは、**自分で例外にしない。** 付録 C の様式で、ユーザーに、例外申請を提案する。
 6. **`Name` / `AutomationId` / コントロール ID を変えたら、UI テスト (`*.UITests`) の `Find` も、同時に直す** (`/ui-test-first`)。
-7. ガイドラインの本文は、このリポジトリで管理する。配布先 (`~/.claude/skills/ui-design-review/references/`) を、直接編集しない。
+7. ガイドラインの本文は、このリポジトリで管理する。配布先 (`<Skill群>/ui-design-review/references/`) を、直接編集しない。
 
 ## 誤検出と限界
 - **静的解析 (字面と構造の推測)。** 実行はしない。**通ったことは、規則を満たすことを意味しない。**

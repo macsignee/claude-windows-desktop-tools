@@ -15,6 +15,7 @@ DIR="${1:-}"
 command -v python3 >/dev/null 2>&1 || exit 0
 guard="$(dirname "${BASH_SOURCE[0]}")/test_guard.py"
 [ -f "$guard" ] || exit 0
+TG="$(cd "$(dirname "$guard")" && pwd)/test_guard.py"   # 全文を出すコマンドに、実際のパスを使う (ホームでも、プロジェクトの .claude/skills でも)
 
 out="$(python3 -I "$guard" check "$DIR" --max-lines 400 2>/dev/null)"
 rc=$?
@@ -25,12 +26,12 @@ counts="${summary#test_guard: }"; counts="${counts%% (*}"      # error N / warni
 if [ "$rc" = 1 ]; then
     echo "TEST_GUARD: ERROR ($counts)"
     printf '%s\n' "$out" | grep -a -E '^TMG[0-9]+ +error ' | head -n 5
-    echo "  -> Red のあとに、テストが改変された。ユーザーの明示的な許可なしに、通してはいけない: 元に戻すか、止まって確認する (承認されたら snapshot をやり直す)。全文: python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check \"\$SLN_DIR\""
+    echo "  -> Red のあとに、テストが改変された。ユーザーの明示的な許可なしに、通してはいけない: 元に戻すか、止まって確認する (承認されたら snapshot をやり直す)。全文: python3 -I \"$TG\" check \"\$SLN_DIR\""
 else
     warn="$(printf '%s' "$counts" | sed -n 's/.*warning \([0-9]*\).*/\1/p')"
     rev="$(printf '%s' "$counts" | sed -n 's/.*review \([0-9]*\).*/\1/p')"
     if [ "${warn:-0}" != 0 ] || [ "${rev:-0}" != 0 ]; then
-        echo "TEST_GUARD: REVIEW ($counts) -- warning / review は、変更前後を、ユーザーに見せる。全文: python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check \"\$SLN_DIR\""
+        echo "TEST_GUARD: REVIEW ($counts) -- warning / review は、変更前後を、ユーザーに見せる。全文: python3 -I \"$TG\" check \"\$SLN_DIR\""
     else
         echo "TEST_GUARD: OK ($counts)"
     fi

@@ -7,10 +7,12 @@ disable-model-invocation: true
 
 # 候補ごとのソリューションを作る (/new-solutions)
 
+> **パスの書き方:** `<Skill群>` = この Skill のフォルダ (Base directory) の 1 つ上。ほかの Skill も、そこにある。コマンドでは、実際のパスに置き換える。
+
 **まれな使い方。** 1 つのソリューションを作るなら、`/new-solution` を使う (こちらは、使わない)。
 カレントは、**作業フォルダ** (例: `...\repos\ToDo`)。`.sln` / `.slnx` が、すでにあるフォルダでは、使わない (「ここは、1 つのソリューションです。`/new-solution` のテストの後付けなどを使います」と伝えて、止まる)。
 個々の候補の作り方 (種類・層・テストの意味、`--tfm`、名前空間) は、`/new-solution` と同じ (`new_solution.py` の引数)。
-**候補を作るスクリプトは、`/new-solution` の `scripts/` にある** (`~/.claude/skills/new-solution/scripts/new_solutions.py`)。
+**候補を作るスクリプトは、`/new-solution` の `scripts/` にある** (`<Skill群>/new-solution/scripts/new_solutions.py`)。
 
 **同じ題材を、種類を変えて (WPF / WinForms / MFC など)、候補ごとのソリューションとして作り、個別に比べる**ためのモード。カレントは、**作業フォルダ** (例: `...\repos\ToDo`)。
 `docs/` (壁打ちのメモ・仕様書) は、作業フォルダにたまる (**正本**)。候補は、その下のフォルダ (`<作業フォルダ>/<候補名>/`) に、独立したソリューションとして作られる。
@@ -54,7 +56,7 @@ ToDo/   docs/ideas/  docs/specs/  solutions.md  TodoWpf/  TodoWin/  TodoMfc/
    名前は、**フォルダ名 = ソリューション名** (英数字と `_`)。列は、`new_solution.py` の引数と同じ (任意の列: 層の種類・TFM・備考)。仕様書は、`/update-from-ideas` で、作業フォルダの `docs/specs/` に作る (**構成案は、使わない**)。
 2. **案を示して、了承を得る (必ず止まる)。**
    ```bash
-   python3 ~/.claude/skills/new-solution/scripts/new_solutions.py create "$PWD" --dry-run
+   python3 <Skill群>/new-solution/scripts/new_solutions.py create "$PWD" --dry-run
    ```
    候補ごとの、種類・層・テスト・作るファイル・仕様書の取り込みを、要約して見せる。**1 つでも不正なら、何も作られない** (終了コード 2)。
 3. **作成する** (`--dry-run` を外す)。すでに `.slnx` がある候補は、触らない (行を足して、再実行すると、足した分だけ作られる)。**自分で、`.slnx` や `.vcxproj` を手書きしない。**
@@ -62,7 +64,7 @@ ToDo/   docs/ideas/  docs/specs/  solutions.md  TodoWpf/  TodoWin/  TodoMfc/
    - 全候補の `CLAUDE.md` に、「## 比較の候補」の節 (自動生成。候補の一覧と、仕様書の扱い) が、書かれる・更新される。
    - **GoogleTest (vcpkg) の仕上げと、最初のベースライン確認は、`create` では、しない** (候補ごとのウォッチャーが要る)。**候補を扱うときに行う。** `gtest` の候補で、`create` の出力に `GTEST_VCPKG: no-baseline` と出たら、その候補のウォッチャーを起動してから、次を実行する (自分でフラグを置かない。長いので、`run_in_background: true`、完了通知を待つ。`$候補` は、`resolve` で決めたパス)。**調査 (Explore) に回らず、この手順を使う:**
      ```bash
-     bash ~/.claude/skills/add-package/scripts/package_once.sh "$候補" --timeout 1800 "vcpkg baseline" "vcpkg install"
+     bash <Skill群>/add-package/scripts/package_once.sh "$候補" --timeout 1800 "vcpkg baseline" "vcpkg install"
      ```
      結果の表は、`add-package` Skill の「手順 2: vcpkg」と同じ。`GTEST_VCPKG: present` なら、仕上げは要らない。
 4. **次の手順を、伝える** (出力に、候補ごとの、Windows のパスと `run_watcher.cmd` のコマンドが出る)。**候補の数だけ、ウォッチャーを起動してもらう** (まとめて起動するなら、`run_watchers.cmd "<作業フォルダ>"`。候補ごとに別のウィンドウで `run_watcher.cmd` を起動する。`/list` を付けると、一覧だけ)。

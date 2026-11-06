@@ -634,12 +634,12 @@ UI / メイン → ロジック → データ (のインターフェース)
 - GoogleTest は C++17 以上が必要 (プロジェクトは C++20)。
 """
     is_mfc = kind in (KIND['mfc'], KIND['mfc-mdi'], KIND['mfc-dialog']) or (bool(layers) and layer_kind in ('mfc-ext-dll', 'mfc-std-dll'))
-    mfc_rule = ('- MFC を使うコード (MFC のメイン、MFC の層) は、`~/.claude/rules/mfc-cpp.md` も読んでから書く (ウィザード生成の `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイルでは、自動では読み込まれない)。\n'
+    mfc_rule = ('- MFC を使うコード (MFC のメイン、MFC の層) は、`.claude/rules/mfc-cpp.md` も読んでから書く (ウィザード生成の `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイルでは、自動では読み込まれない)。\n'
                 if is_mfc else f'- このソリューションは、MFC を使わない{" (Win32 API と C++)" if kind == KIND["win32"] else ""}。MFC の規約 (`mfc-cpp.md`) は、適用しない。MFC のクラス (`CString` `CWnd` など) を、持ち込まない。\n')
     out += f"""
 ## 規約
 - C++20。ファイルは UTF-8 (BOM 付き)、改行は CRLF。`.rc` は ASCII。
-- C++ の規約: `~/.claude/rules/cpp-common.md` (`.cpp` / `.h` を扱うときに、自動で読み込まれる)。
+- C++ の規約: `.claude/rules/cpp-common.md` (`.cpp` / `.h` を扱うときに、自動で読み込まれる)。
 {mfc_rule}- `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
     return out
@@ -921,7 +921,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
 """
     out += """
 ## 規約
-- 規約は、ユーザー共通の `~/.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`~/.claude/rules/wpf-csharp.md` (**WPF プログラミング規約**の、WPF / XAML / MVVM の部分。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs` を扱うときに、読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。機械で判定できる項目は、`wpf-check` が確かめる。
+- 規約は、ユーザー共通の `.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`.claude/rules/wpf-csharp.md` (**WPF プログラミング規約**の、WPF / XAML / MVVM の部分。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs` を扱うときに、読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。機械で判定できる項目は、`wpf-check` が確かめる。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
@@ -976,7 +976,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。NuGet の復元は、ビルドが行う (`/restore`)。
 - **パッケージの追加は、`add-package` Skill** (`.csproj` を、手で書き換えない)。
 - 新しい `.cs` は、SDK 形式なので、`.csproj` に追加しなくてよい (自動で含まれる)。
-- **Form / `*.Designer.cs` / Presenter を編集したら、`winforms-check`** (画面が空になる、UI テストが要素を探せない、Presenter に WinForms が混ざる、などの、コンパイルでは見つからない不具合の静的検査。`~/.claude/skills/winforms-check/scripts/winforms_check.py "$PWD"`)。
+- **Form / `*.Designer.cs` / Presenter を編集したら、`winforms-check`** (画面が空になる、UI テストが要素を探せない、Presenter に WinForms が混ざる、などの、コンパイルでは見つからない不具合の静的検査。`winforms-check` Skill の `scripts/winforms_check.py "$PWD"`)。
 - **`*.Designer.cs` は、Visual Studio のデザイナーが書き直す。** 手で編集するときは、`InitializeComponent` の形 (`// コントロール名` のコメント、プロパティの代入、`Controls.Add`) を保つ。イベントは、Designer の `+=` と、`Form` のハンドラーの名前を、そろえる。
 - Visual Studio で実行 (F5) するときは、`{name}` が、スタートアッププロジェクト (`{name}.slnx` の `DefaultStartup="true"`)。ただし、`.vs/` の個人の設定が、すでにあれば、そちらが優先される。
 """
@@ -989,7 +989,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 """
     out += """
 ## 規約
-- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `~/.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`~/.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
+- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
@@ -1042,7 +1042,7 @@ C# のクラスライブラリ (.NET)。ソリューション: `{name}.slnx` (�
 """
     out += """
 ## 規約
-- C# の規約は、ユーザー共通の `~/.claude/rules/csharp-common.md` (5 C# コーディング規約 / 10 非同期 / 11 依存性注入 / 12 例外 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)。WPF / XAML / MVVM の規約 (`wpf-csharp.md`) は、適用しない。`.editorconfig` が、書式を定める。
+- C# の規約は、ユーザー共通の `.claude/rules/csharp-common.md` (5 C# コーディング規約 / 10 非同期 / 11 依存性注入 / 12 例外 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)。WPF / XAML / MVVM の規約 (`wpf-csharp.md`) は、適用しない。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """

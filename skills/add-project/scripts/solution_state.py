@@ -28,7 +28,7 @@ import sys
 
 UI_WORDS = ('ui', 'view', 'views', 'dialog', 'dialogs')
 RANK = {'main': 0, 'ui': 1, 'viewmodel': 2, 'logic': 3, 'data': 4}
-SCRIPTS = '~/.claude/skills'
+SCRIPTS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # Skill 群のフォルダ (このファイルの 3 つ上)。ホームでも、プロジェクトの .claude/skills でも、同じに求まる
 
 
 def read_text(path):

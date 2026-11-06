@@ -5,6 +5,8 @@ description: C++ (GoogleTest) と .NET / WPF (MSTest) のソリューション�
 
 # ビルド + テスト 自動修正ループ (C++ GoogleTest / .NET MSTest)
 
+> **パスの書き方:** `<Skill群>` = この Skill のフォルダ (Base directory) の 1 つ上。ほかの Skill も、そこにある。コマンドでは、実際のパスに置き換える。
+
 サンドボックスから msbuild やテスト exe を直接実行できないため、ホスト側の `run_watcher.cmd`
 (watch_and_build.ps1) が `trigger_test.flag` を監視し、ビルド → テストの実行まで行う。
 Claude はフラグを置いて結果を読むだけ。
@@ -19,7 +21,7 @@ Claude はフラグを置いて結果を読むだけ。
 ## 前提
 - ユーザーが対象ソリューションのフォルダで `run_watcher.cmd` を起動済みであること。
 - ソリューションフォルダ (.sln または .slnx があるフォルダ) を `$SLN_DIR` とする (**`.slnx` / `.sln` のファイルのパスではなく、それを含むフォルダ**。スクリプトの第 1 引数も、このフォルダ)。Claude はこのフォルダをルートとして動く。
-- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 ~/.claude/skills/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
+- **作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) で起動しているとき** (複数の候補のソリューションを、比べているとき): `$SLN_DIR` は、カレントではなく、対象の候補。`SLN_DIR=$(python3 <Skill群>/new-solution/scripts/new_solutions.py resolve "$PWD" [<候補名>])` で決める (終了コード 2: 候補が複数 → 一覧を示して、ユーザーに質問する。3: 対象がない)。以降の `CLAUDE.md` や `docs/` は、`$SLN_DIR` の下 (その候補のコピー)。**他の候補は、読まない・書かない。** ウォッチャーは、その候補のフォルダで、起動されている必要がある。
 - xxxTest は同じソリューションにあり、xxx をプロジェクト参照している。ソリューションをビルドすれば
   xxx → xxxTest の順は MSBuild が自動で解決する (順序を自分で指定しない)。
 - .NET のテストは、`Microsoft.NET.Test.Sdk` + MSTest (v3 以降。VSTest モード) のプロジェクト。`dotnet test` で、trx が出ること。
@@ -28,7 +30,7 @@ Claude はフラグを置いて結果を読むだけ。
 ## 実行 (1回分)
 
 必ず同梱スクリプトを使う。自分で flag を作ったり待機ループを書いたりしない。
-**スクリプトは、この Skill のフォルダ (`~/.claude/skills/build-test-loop/scripts/`) のものだけを使う。** 同じ名前の古いコピー (ホーム直下の `cpp-build-test-loop/` など) を、探して使わない。古い版は、エラーの要約や `.claude-logs/*_summary.json` を出さず、`.claude-logs/test-results/` も扱えない。
+**スクリプトは、この Skill のフォルダ (`<Skill群>/build-test-loop/scripts/`) のものだけを使う。** 同じ名前の古いコピー (ホーム直下の `cpp-build-test-loop/` など) を、探して使わない。古い版は、エラーの要約や `.claude-logs/*_summary.json` を出さず、`.claude-logs/test-results/` も扱えない。
 失敗の要約 (`[ran N: passed X / failed Y / skipped Z]` の行と、`.claude-logs/test_summary.json`) が出ないときは、まず、古い版を実行していないか (スクリプトのパス) を確認する。
 
 ```bash
@@ -145,8 +147,8 @@ bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN_DIR" 300
 禁止事項は、文章だけでは、守られたかを、確かめられない。**Red を確認したテストを、基準として、コピーしておき、いまのテストと比べる** (読み取りだけ。Windows もウォッチャーも、要らない)。
 
 ```bash
-python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"   # Red を確認した直後に、1 回 (ユーザーが、テストの変更を承認したときも、やり直す)
-python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py check    "$SLN_DIR"   # 修正のあと (ビルド・テストの前でよい) と、報告の前に
+python3 -I <Skill群>/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"   # Red を確認した直後に、1 回 (ユーザーが、テストの変更を承認したときも、やり直す)
+python3 -I <Skill群>/build-test-loop/scripts/test_guard.py check    "$SLN_DIR"   # 修正のあと (ビルド・テストの前でよい) と、報告の前に
 ```
 
 - **対象:** `*Test/` `*.Tests/` `*.UITests/` の中のファイル、`Test*.cpp` / `*Tests.cs`、`*.runsettings`、テストの `.csproj` / `.vcxproj`。`UiDialogs.cs` / `UiTestBase.cs` (支援ファイル) は、除く。基準は `.claude-logs/test_guard_base/`。
