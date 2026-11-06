@@ -4,7 +4,7 @@ Claude Code (WSL) が、Windows 側の Visual Studio で、**C++ (GoogleTest) �
 
 - **使い方 (どのコマンドを打つか、承認の言い方、困ったとき) は、[`docs/USAGE.md`](docs/USAGE.md)。まず、これを読む。**
 - C++ のみ、.NET のみ、混在のソリューションのどれでも、同じ Skill と同じウォッチャーで使う (ソリューションの中身から、自動で判定する。[設計メモ 4.24](docs/DESIGN.md))。
-- テストを先に書いて Red を確認し、実装して Green にする、TDD の流れにも使える。
+- **テスト先行 (TDD) の流れを支える。** ロジック層・ViewModel / Presenter では、テストを先に書いて Red を確認し、実装して Green にする。画面は、UI テストを先に書く (`/ui-test-first`)。1 タスクごとに、テストを数件まとめて回す (1 件ずつではない。→ 「2-5」)。
 - 仕様の整理 (`/brainstorm` → `/update-from-ideas`) と機能の追加 (`/add-feature`) は、別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) (→ 「2-4」)。
 
 Claude Code のサンドボックスからは、Windows 側の MSBuild やテスト exe を、直接実行できない。そこで、Windows 側にウォッチャーを常駐させ、Claude は、フラグファイルを置いて、結果ファイルを読むだけにしている。
@@ -130,6 +130,14 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 - 流れ: `/brainstorm` → `/update-from-ideas` → `/add-feature`。`/new-solution --spec <仕様書>` で、器を先に作ってもよい。
 
 ### 2-5. テストを先に書く (TDD)
+
+**範囲 (TDD で、できることと、しないこと):**
+
+- できること: ロジック層・データ層・ViewModel / Presenter で、テストを先に書き、Red (失敗の理由が、アサーションであること) を確認し、実装して Green にする。テストの改変の検出 (`test_guard.py`)、テストの中身の点検 (`audit`、変異の確認) が、手順として、組み込まれている。
+- **画面 (View) は、テスト先行の対象外。** WPF の XAML・code-behind、WinForms の `Form` / `Designer.cs`、MFC の画面は、ViewModel / Presenter / 層に切り出してテストする。画面そのものは、UI テスト (FlaUI) を先に書く (`/ui-test-first`)。
+- **サイクルの粒度:** 1 タスク (1 つの層) ごとに、テスト 3〜8 件をまとめて書いて、Red → Green を回す。テスト 1 件ごとの往復ではない (ビルドとテストが、ウォッチャー経由で、数十秒〜数分かかるため)。
+- 整理 (リファクタリング) は、必要なときだけ、テストを変えずに行う。
+- `CLAUDE.md` の設定が `テスト: なし` のときは、テスト先行ではなく、「実装 → ビルド確認 → 手動確認」で進む (TDD ではない)。
 
 #### `cpp-test-first`
 Windows デスクトップの C++ (MFC・Win32・DLL) で、GoogleTest のテストを先に書き、スタブで Red を確認する。Red のあと、`test_guard.py` で、テストの改変を検出する。
