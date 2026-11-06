@@ -1251,3 +1251,15 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **テスト:** `tests/skill_paths_test.sh` (固定のパスが、残っていない、`<Skill群>/...` の参照先が、リポジトリと、プロジェクトの `.claude/skills` に配ったあとの、両方で、実在する、`solution_state.py` の例のコマンドが、実行した場所を指す)。
 - **ホーム配布の利点 (Skill が 1 か所にあり、更新が 1 回で済む) は、残る。** プロジェクトへ配ると、**プロジェクトごとに、版が、ずれうる**。ホームとプロジェクトの両方に、同じ名前の Skill があると、どちらが使われるかは、Claude Code の規則による (README の「5-2」)。
 - **確認できていないこと (実機):** プロジェクトの `.claude/skills` に配って、Claude Code から使ったとき、Skill が、そのフォルダで読み込まれ (Base directory)、コマンドが、そのスクリプトを実行すること。ホームと両方にあるときの優先。
+
+### 4.80 WPF の MVVM の基底の明示と、Prism を積極的には採用しない方針 (v2.59.0)
+
+- **きっかけ:** 「WPF で MVVM を組み込むが、どのライブラリを使うかが、明示されていない」という指摘。調べると、**自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要) と決まっていたが、`SKILL.md`・生成する `CLAUDE.md`・規約・DESIGN 4.27 にだけ書かれ、**利用者が読む README と、作成前に見せる案には、出てこなかった**。
+- **判断 (利用者の決定):**
+  - **推奨のライブラリは、`CommunityToolkit.Mvvm`。** (ほかのライブラリを使うのは、自由。推奨は、強制ではない。) `/new-solution` が作るソリューションは、これまでどおり、自前の最小実装 (NuGet 不要。生成は、変えない)。`CommunityToolkit.Mvvm` に替えるときは、あとから `add-package` で足して、置き換える。引数 (`--mvvm`) は、足さない。
+  - **Prism は、積極的には採用しないが、使うのは自由** (利用者の判断: ライブラリの更新が遅く、有償のライセンスが求められる場合があるため。**この理由は、利用者の判断を、そのまま記録したもので、私は、確認していない**)。ただし、`add-package` で Prism が入っても、`wpf-check` が、誤検出しない程度には、しておく。規約に、Prism の使い方 (レシピ) は、書かない。
+  - **明示:** `/new-solution --dry-run` の出力に、「MVVM の基底 : 自前の最小実装 (…)。推奨の CommunityToolkit.Mvvm に替えるときは、あとから、add-package で置き換える」を足した (SKILL に、案を示すときに、この行も見せる、と書いた)。README の `/new-solution`、生成する `CLAUDE.md`、`SKILL.md` の表にも、書いた (Prism は、積極的には採用しない、とも)。
+- **実験 (疑似プロジェクト):** Prism 型 (`BindableBase`、`DelegateCommand`、`DelegateCommand<T>`、コンストラクターインジェクション、`PrismApplication` の `RegisterTypes`) は、`wpf-check` で、指摘 0 件 (もともと、`BindableBase` は、`INotifyPropertyChanged` の基底として、知っていた)。**衝突は、1 つだけ見つかった:** 名前に `ViewModel` を含むファイルは、ViewModel として検査されるため、**DI コンテナへの登録** (`RegisterInstance<…>(new …Service())`) を書いたファイルで、`DI001` が誤検出された。
+- **`wpf-check` の直し (これだけ):** DI コンテナへの登録を書いたファイル (`IContainerRegistry` / `IContainerExtension` / `IServiceCollection` / `RegisterTypes` / `ConfigureServices` / `ContainerBuilder` / `PrismApplication` / `PrismModule` / `IModule` を含む) は、依存を組み立てる場所 (composition root) として、`DI001` の対象外にした。Prism だけでなく、`Microsoft.Extensions.DependencyInjection` などの、登録のファイルでも、誤検出が、なくなる。`csharp-common.md` の 11 に、「DI コンテナを使うときも、コンテナは、組み立てる場所だけで使う」を足した。
+- **取り下げた案:** (1) `--mvvm none|toolkit|prism` の引数で、生成のときに選ぶ。(2) 規約に、Prism を使うときの形 (`Prism.Core` だけを参照する、など) を、書く。(3) ViewModel が、DI コンテナ・ロケーターを使う (サービスロケーター) ことを検査する `DI002` (一度、実装して、利用者の、「積極的には採用しない」という方針に合わせて、削除した)。
+- **限界・未確認:** `ViewModelLocator.AutoWireViewModel` や、リージョンを使う構成は、`wpf-check` が、DataContext を推定できず、バインディングの検査 (`BND001` など) が、省かれる (誤検出は、出ない)。実機で、Prism を `add-package` したときの動作は、確認していない。

@@ -144,5 +144,16 @@ ok "--spec: reads wpf / layers / mstest / namespace from the plan" "$([ "$(has "
 NSK="$ROOT/skills/new-solution/SKILL.md"
 ok "new-solution SKILL.md: WPF recommends data,logic when --layers is omitted; viewmodel is offered only when the user wants to test the ViewModel; an explicit --layers is used as given" "$(grep -q 'WPF でも、推奨は `data,logic`' "$NSK" && grep -q '選択肢に、`viewmodel` を出さない' "$NSK" && grep -q 'data,logic,viewmodel` を提案する' "$NSK" && grep -q '`--layers` の指定がある場合は、そのまま使う' "$NSK" && echo 1 || echo 0)"
 
+# ---------------------------------------------------------------- MVVM の基底を、利用者に明示する (v2.59.0)
+D="$(mk mvvm1)"
+out="$(python3 "$NS" "$D" --type wpf --layers data,logic --tests mstest --dry-run)"
+ok "dry-run (WPF): the plan shows the MVVM base (own minimal implementation; the recommended CommunityToolkit.Mvvm can replace it later; Prism is not mentioned)" "$([ "$(has "$out" 'MVVM の基底    : 自前の最小実装 (ObservableObject / RelayCommand。NuGet 不要)')" = 1 ] && [ "$(has "$out" '推奨の CommunityToolkit.Mvvm に替える')" = 1 ] && [ "$(has "$out" 'Prism')" = 0 ] && echo 1 || echo 0)"
+D="$(mk mvvm2)"
+out="$(python3 "$NS" "$D" --type winforms --layers logic --tests mstest --dry-run)"
+ok "dry-run (WinForms): no MVVM line (MVP)" "$([ "$(has "$out" 'MVVM の基底')" = 0 ] && echo 1 || echo 0)"
+D="$(mk mvvm3)"; python3 "$NS" "$D" --type wpf --layers data,logic,viewmodel --tests mstest >/dev/null 2>&1
+ok "generated CLAUDE.md (WPF): names the own base, recommends CommunityToolkit.Mvvm, and says Prism is not actively adopted" "$(f="$D/CLAUDE.md"; grep -q '自前の最小実装' "$f" && grep -q '推奨の CommunityToolkit.Mvvm' "$f" && grep -q 'Prism は、積極的には採用しない' "$f" && echo 1 || echo 0)"
+ok "rules: wpf-csharp.md recommends CommunityToolkit.Mvvm and says Prism is not actively adopted (wpf-check does not flag it); csharp-common.md says the container belongs to the composition root" "$(grep -q '推奨は、MVVM Toolkit (`CommunityToolkit.Mvvm`)' "$ROOT/rules/wpf-csharp.md" && grep -q 'Prism は、積極的には採用しない' "$ROOT/rules/wpf-csharp.md" && grep -q 'コンテナは、組み立てる場所だけで使い' "$ROOT/rules/csharp-common.md" && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

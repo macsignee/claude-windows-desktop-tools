@@ -904,7 +904,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
 """
     if vm_in_app:
         out += "- ViewModel 層を作っていないので、ViewModel は、アプリの `ViewModels/` フォルダにある (テストできない。テストしたくなったら、`ViewModels` ライブラリに切り出す)。\n"
-    out += f"""- MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要)。CommunityToolkit.Mvvm などを使うときは、`add-package` Skill で追加して、置き換える。
+    out += f"""- MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要)。推奨の CommunityToolkit.Mvvm を使うときは、`add-package` Skill で追加して、置き換える (規約 `wpf-csharp.md` の 8)。Prism は、積極的には採用しないが、使うのは自由。
 
 ## ビルドとテスト
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。NuGet の復元は、ビルドが行う (`/restore`)。
@@ -1137,6 +1137,7 @@ def create_wpf(a, folder, name):
         print(f'メイン         : {name} ({kind_label}、{AP.windows_tfm(tfm)}。Presenter は、{lnames["logic"] if "logic" in lnames else "アプリの Presenters フォルダ"})')
     else:
         print(f'メイン         : {name} ({kind_label}、{AP.windows_tfm(tfm)}。ViewModel は、{vm_where})')
+        print('MVVM の基底    : 自前の最小実装 (ObservableObject / RelayCommand。NuGet 不要)。推奨の CommunityToolkit.Mvvm に替えるときは、あとから、add-package で置き換える')
     print(f'層             : {layer_desc}')
     print(f'テスト         : {"あり (MSTest): " + ", ".join(nm + ".Tests" for nm in test_targets) if tests else "なし"}')
     print(f'名前空間       : {ns}')

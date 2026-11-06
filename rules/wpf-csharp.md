@@ -386,7 +386,7 @@ Prism は、MVVM、DI、Command、Event Aggregator、Navigation、Modularity、R
 
 途中でライブラリを選択できるようにするため、ViewModel や Service の責務を明確にし、**WPF 固有型や特定ライブラリの型を、業務ロジックへ漏らさない**設計とする。
 
-- **ツール群の補足:** 生成されるソリューションの MVVM 基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要。ライブラリの選択を、後に残すため)。MVVM Toolkit を採用するときは、`add-package` で足して、置き換える (**自前の `ObservableObject.cs` を、削除しないと、名前が衝突して、`[ObservableProperty]` が解決されない**。`wpf-check` は、`[ObservableProperty]` / `[RelayCommand]` が生成するメンバーを、知っている)。Prism を採用するときは、`wpf-check` の DataContext の推定 (Region・ViewModelLocator) が効かない場合がある。
+- **ツール群の補足:** 生成されるソリューションの MVVM 基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要。ライブラリの選択を、後に残すため)。MVVM Toolkit を採用するときは、`add-package` で足して、置き換える (**自前の `ObservableObject.cs` を、削除しないと、名前が衝突して、`[ObservableProperty]` が解決されない**。`wpf-check` は、`[ObservableProperty]` / `[RelayCommand]` が生成するメンバーを、知っている)。**推奨は、MVVM Toolkit (`CommunityToolkit.Mvvm`)。** **Prism は、積極的には採用しない** (ライブラリの更新が遅く、有償のライセンスが求められる場合がある)。**ただし、使うのは自由** (`add-package` で足してよい)。Prism が入っても、`wpf-check` が誤検出しないようにしてある (`BindableBase` を `INotifyPropertyChanged` の基底として知っている。DI コンテナへの登録を書いたファイルは、`DI001` の対象外)。Region・`ViewModelLocator` を使う画面は、`wpf-check` が DataContext を推定できず、`BND900` (info) になる (検査が、省かれるだけ)。
 
 ## 9. データバインディング規約
 
