@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.59.0] 2026-11-07 (WPF の MVVM の基底の明示。推奨は CommunityToolkit.Mvvm、Prism は積極的には採用しない)
+
+- **MVVM の基底が、利用者に明示されていなかった** (自前の最小実装と、決まっていたが、`SKILL.md`・規約・DESIGN だけ) ため、**`/new-solution --dry-run` の出力に、「MVVM の基底」の行を足し**、README の `/new-solution`、生成する `CLAUDE.md`、`SKILL.md` の表にも書いた。
+- **推奨のライブラリは、`CommunityToolkit.Mvvm`** (生成は、これまでどおり、自前の最小実装。`add-package` で、あとから、置き換える。ほかのライブラリを使うのは、自由)。**Prism は、積極的には採用しないが、使うのは自由** (利用者の判断: ライブラリの更新が遅く、有償のライセンスが求められる場合があるため)。規約 (`rules/wpf-csharp.md`) にも、その方針を書いた。
+- **`wpf-check`:** `add-package` で Prism が入っても、引っかからない程度の、直しだけ。**DI コンテナへの登録を書いたファイル** (`IContainerRegistry` / `IServiceCollection` / `RegisterTypes` / `ConfigureServices` / `PrismApplication` など) は、**`DI001` の誤検出を、出さない** (名前に `ViewModel` を含むファイルでも)。`rules/csharp-common.md` の 11 に、「コンテナは、組み立てる場所だけで使う」。
+- (一度、実装した `DI002` (サービスロケーターの検査) と、規約の Prism のレシピは、「積極的には採用しない」という方針に合わせて、削除した。)
+- テスト: `tests/wpf_check_test.sh` に 2 件 (80 件。Prism 型が指摘 0 件、`ViewModel*.cs` の登録ファイルは `DI001` の対象外)。登録ファイルの対象外を外すと失敗することを確認 (変異テスト)。`tests/new_solution_wpf_test.sh` に 4 件 (65 件。`--dry-run` の「MVVM の基底」と Prism を載せないこと、WinForms にはないこと、生成する `CLAUDE.md`、規約の記述)。
+- 契約の変更なし。ホスト側の変更なし。**配布が要る** (`--skills-only` と `--rules-only`)。DESIGN 4.80。
+
 ## [2.58.3] 2026-11-07 (文書: README の「2-3」「2-4」「2-5」「2-8」を、「2-6」「2-7」と同じ書き方にそろえた)
 
 - 「2-6」「2-7」は、**太字の名前の箇条書きに、説明を文章で書き、サブ項目 (頼み方、結果、スクリプトなど) を付ける**書き方だった。「2-3」(`/new-solution`、`/new-solutions`、`/add-project`)、「2-4」(`claude-spec-workflow` の 3 つのコマンド)、「2-5」(TDD の範囲、`cpp-test-first`、`csharp-test-first`、`/ui-test-first`)、「2-8」(`add-package`) が、小見出し (`####`) + 段落の書き方で、違いが目立っていたため、そろえた。

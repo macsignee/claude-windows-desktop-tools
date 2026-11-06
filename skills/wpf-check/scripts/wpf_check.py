@@ -28,7 +28,9 @@ XAML は、XML として読む。C# は、軽い字句解析で、型・プロ�
   LAY003 error   プロジェクト参照の方向が、層 (View → ViewModel → ロジック → データ) に反する。
                  Presentation / Application / Domain / Infrastructure の名前のプロジェクトは、標準の依存
                  (Presentation → Application → Domain、Infrastructure → Application / Domain。Domain は何も参照しない) で検査する
-  DI001  warning ViewModel 内で、Service / Repository などを new している (コンストラクターインジェクションにする)
+  DI001  warning ViewModel 内で、Service / Repository などを new している (コンストラクターインジェクションにする)。
+                 DI コンテナへの登録 (IContainerRegistry / IServiceCollection / RegisterTypes / ConfigureServices などを書いたファイル) は、
+                 依存を組み立てる場所 (composition root) なので、対象外 (名前に ViewModel を含むファイルでも、誤検出しない)
   ASY001 warning .Result / .Wait() / GetAwaiter().GetResult() による、非同期処理の同期待機 (UI スレッドのデッドロック)
   ASY002 warning イベントハンドラ以外の async void
   EXC001 warning 空の catch (例外の握りつぶし)
@@ -79,6 +81,9 @@ WPF_USAGE = re.compile(r"\bMessageBox\.Show\b|\bApplication\.Current\b|\bnew\s+\
                        r"|\bOpenFileDialog\b|\bSaveFileDialog\b|\bClipboard\.|\.ShowDialog\s*\(|\bWindow\.Show\b")
 VIEW_USING = re.compile(r"\busing\s+[\w.]*\.Views(?:\.[\w.]+)?\s*;")
 NEW_SERVICE = re.compile(r"\bnew\s+[A-Z]\w*(?:Service|Repository|Client|Provider|Gateway)\s*[({]")
+# DI コンテナへの登録を書いたファイルは、依存を組み立てる場所 (composition root)。ViewModel の規則 (DI001) の対象外
+COMPOSITION_ROOT = re.compile(r"\b(?:IContainerRegistry|IContainerExtension|IServiceCollection|RegisterTypes|ConfigureServices|ContainerBuilder|"
+                              r"PrismApplication|PrismModule|IModule)\b")
 SYNC_WAIT = re.compile(r"(?:\)|\bTask\w*|\bawait\w*)\.Result\b|\.Wait\s*\(\s*\)|\.GetAwaiter\s*\(\s*\)\s*\.GetResult\s*\(\s*\)")
 ASYNC_VOID = re.compile(r"\basync\s+void\s+(\w+)\s*\(([^)]*)\)")
 EMPTY_CATCH = re.compile(r"\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}")
@@ -1198,6 +1203,8 @@ def check_vm_file(pr, path, code):
     m = WPF_USING.search(code) or WPF_USAGE.search(code) or VIEW_USING.search(code)
     if m:
         pr.add("LAY002", "warning", f"ViewModel が、View の型を使っている: {m.group(0).strip()} (テストしにくい。IDialogService などに分ける)", pr.rel(path), lineno(code, m.start()))
+    if COMPOSITION_ROOT.search(code):      # DI コンテナへの登録 (依存を組み立てる場所)。new は、ここでは正しい
+        return
     m = NEW_SERVICE.search(code)
     if m:
         pr.add("DI001", "warning", f"ViewModel 内で、{m.group(0).strip()} を生成している (コンストラクターインジェクションで受け取る)", pr.rel(path), lineno(code, m.start()))

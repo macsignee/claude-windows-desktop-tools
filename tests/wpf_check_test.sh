@@ -628,5 +628,83 @@ mkstd "$T/std7"; edit "$T/std7" Sample.Domain/Sample.Domain.csproj '<TargetFrame
 out="$(check "$T/std7" --data Sample.Domain)"
 ok "--data Sample.Domain overrides the standard-name guess (reported as a data layer)" "$([ "$(has "$out" 'data 層の Sample.Domain')" = 1 ] && echo 1 || echo 0)"
 
+# ---------------------------------------------------------------- Prism は、積極的には採用しないが、add-package で入っても、引っかからない (v2.59.0)
+mutate p1
+mkdir -p "$T/p1/MyApp.ViewModels" "$T/p1/WpfApp"
+cat > "$T/p1/MyApp.ViewModels/PrismViewModel.cs" <<'EOF'
+using Prism.Commands;
+using Prism.Mvvm;
+
+namespace MyApp.ViewModels;
+
+public sealed class PrismViewModel : BindableBase
+{
+    private readonly IGreetingService _greeting;
+    private string _name = "";
+
+    public PrismViewModel(IGreetingService greeting)
+    {
+        _greeting = greeting;
+        ClearCommand = new DelegateCommand(Clear, () => Name.Length > 0);
+        SendCommand = new DelegateCommand<string>(Send);
+    }
+
+    public string Name
+    {
+        get => _name;
+        set { if (SetProperty(ref _name, value)) { RaisePropertyChanged(nameof(Greeting)); ClearCommand.RaiseCanExecuteChanged(); } }
+    }
+
+    public string Greeting => _greeting.Make(Name);
+    public DelegateCommand ClearCommand { get; }
+    public DelegateCommand<string> SendCommand { get; }
+    private void Clear() { Name = ""; }
+    private void Send(string text) { Name = text; }
+}
+
+public interface IGreetingService { string Make(string name); }
+EOF
+cat > "$T/p1/WpfApp/PrismRegistrations.cs" <<'EOF'
+using Prism.DryIoc;
+using Prism.Ioc;
+using MyApp.ViewModels;
+
+namespace WpfApp;
+
+public partial class PrismBootstrap : PrismApplication
+{
+    protected override void RegisterTypes(IContainerRegistry containerRegistry)
+    {
+        containerRegistry.RegisterInstance<IGreetingService>(new GreetingService());
+        containerRegistry.Register<PrismViewModel>();
+    }
+}
+
+public sealed class GreetingService : IGreetingService
+{
+    public string Make(string name) => name;
+}
+EOF
+out="$(check "$T/p1" --all)"; rc=$?
+ok "a Prism-style project (BindableBase + DelegateCommand (+ <T>) + constructor injection + PrismApplication.RegisterTypes registering with new) is not flagged (rc=0)" "$([ $rc = 0 ] && [ "$(has "$out" 'error 0 / warning 0')" = 1 ] && [ "$(has "$out" 'DI001')" = 0 ] && echo 1 || echo 0)"
+mutate p5
+cat > "$T/p5/WpfApp/ViewModelModule.cs" <<'EOF'
+using Microsoft.Extensions.DependencyInjection;
+using MyApp.ViewModels;
+
+namespace WpfApp;
+
+internal static class ViewModelModule
+{
+    internal static IServiceCollection AddViewModels(this IServiceCollection services)
+    {
+        services.AddSingleton<IGreetingService>(new CustomerService());
+        return services;
+    }
+}
+EOF
+out="$(check "$T/p5")"
+ok "a file named ViewModel*.cs that registers services (IServiceCollection) is a composition root: no DI001" "$([ "$(has "$out" 'DI001')" = 0 ] && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]
