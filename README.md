@@ -75,91 +75,62 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-3. ソリューションを作る・足す
 
-#### `/new-solution`
-カレントのフォルダに、**1 つ**のソリューションを作る。フォルダ名と同名の `.slnx`、メインのプロジェクト、層、テストを作り、`CLAUDE.md` に設定 (メイン・層・テスト) を書く。
+この 3 つは、スラッシュコマンドだけで起動する (依頼文では、起動しない)。
 
-- **省略した項目は、質問する。`--tests` は、必ず質問する。**
-- 引数:
-  - `--type`: `wpf` / `winforms` / `csharp-dll` (C# のクラスライブラリ) / `mfc` (SDI) / `mfc-mdi` / `mfc-dialog` / `win32` / `console` / `dll` / `lib` (静的ライブラリ)。
-  - `--layers`: `none` / `logic` / `data` / `logic,data`。**推奨は `data,logic`** (WPF も同じ)。
-    - 名前の指定は `logic:OrderLogic,data:OrderData` の形。
-    - WPF は、`viewmodel` も組み合わせられる (例: `data,logic,viewmodel`。ViewModel をテストしたいときに足す)。
-    - WinForms と `csharp-dll` は、`data` / `logic` だけ。
-  - `--tests`: `none` / `gtest` (C++) / `mstest` (.NET。層のライブラリごとに `<名前>.Tests`)。
-  - `--ui-tests`: `none` / `flaui` (`<アプリ名>.UITests`)。WPF / WinForms / MFC で、省略すると質問する。ビルド → テストの流れには含めない。
-  - `--layer-kind`: C++ の層の種類。`dll` / `lib` / `mfc-ext-dll` (MFC 拡張 DLL。メインが MFC のときだけ) / `mfc-std-dll` (MFC 標準 DLL。共有 MFC)。
-  - `--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。
-  - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
-  - `--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
-- すでにソリューションがあるときは、テストの後付け (`--tests gtest` / `--tests mstest`) と、UI テストの後付け (`--ui-tests flaui`) だけができる。
-- スクリプト: `new_solution.py`、`gtest_once.sh <project_dir> [tag] [timeout_sec=180]` (GoogleTest のソース取得)。
-
-#### `/new-solutions [create | sync-spec | resolve]`
-作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) の下に、同じ題材の、種類違いの複数のソリューション (WPF / WinForms / MFC など) を、候補として、まとめて作り、比べる。1 つだけ作るときは、`/new-solution`。
-
-- スクリプト: `new_solutions.py`。ウォッチャーを、候補ごとに起動する `host-tools/run_watchers.cmd` もある。
-
-#### `/add-project [layer | tests | ui-host | ui-tests] [名前]`
-すでにあるソリューション (C++ / .NET) に、プロジェクトを足していく入口。
-
-- 流れ:
-  1. 現状を読む (`scripts/solution_state.py`。読み取りだけ)。
-  2. 何を足すか質問する。
-  3. 案 (`--dry-run`) を示して、**承認を得る** (承認が出るまで、何も作らない)。
-  4. 既存のスクリプト (`add_layer.py` / `add_project.py` / `add_ui_host.py` / `new_solution.py`) で作る。
-  5. 使う側のプロジェクトに、参照を足す (`scripts/add_reference.py`。向き・循環・MFC の設定を検査して、断ることがある)。
-  6. `CLAUDE.md` の「層:」「層の表」「テスト:」を合わせる。
-  7. ビルド・テスト・静的検査で確かめる。
-- 足せるもの:
-  - 層 (ロジック・データ・ViewModel。C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL) と、そのテスト。
-  - 画面を持つ DLL + 画面ホスト (C++。`add_ui_host.py`。ロジック層の `Greeting`、UI テストも足す)。
-  - テストの後付け、UI テストの後付け。
-- ソリューションの新規作成は `/new-solution`。
+- **`/new-solution`**: カレントのフォルダに、**1 つ**のソリューションを作る。フォルダ名と同名の `.slnx`、メインのプロジェクト、層、テストを作り、`CLAUDE.md` に設定 (メイン・層・テスト) を書く。省略した引数は、質問する (`--tests` は、必ず質問する)。
+  - 引数:
+    - `--type`: `wpf` / `winforms` / `csharp-dll` (C# のクラスライブラリ) / `mfc` (SDI) / `mfc-mdi` / `mfc-dialog` / `win32` / `console` / `dll` / `lib` (静的ライブラリ)。
+    - `--layers`: `none` / `logic` / `data` / `logic,data`。**推奨は `data,logic`** (WPF も同じ)。名前の指定は `logic:OrderLogic,data:OrderData` の形。WPF は、`viewmodel` も組み合わせられる (例: `data,logic,viewmodel`。ViewModel をテストしたいときに足す)。WinForms と `csharp-dll` は、`data` / `logic` だけ。
+    - `--tests`: `none` / `gtest` (C++) / `mstest` (.NET。層のライブラリごとに `<名前>.Tests`)。
+    - `--ui-tests`: `none` / `flaui` (`<アプリ名>.UITests`)。WPF / WinForms / MFC で、省略すると質問する。ビルド → テストの流れには、含めない。
+    - `--layer-kind`: C++ の層の種類。`dll` / `lib` / `mfc-ext-dll` (MFC 拡張 DLL。メインが MFC のときだけ) / `mfc-std-dll` (MFC 標準 DLL。共有 MFC)。
+    - `--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。
+    - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
+    - `--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
+  - すでにソリューションがあるフォルダでは、テストの後付け (`--tests gtest` / `--tests mstest`) と、UI テストの後付け (`--ui-tests flaui`) だけができる。
+  - スクリプト: `new_solution.py`、`gtest_once.sh <project_dir> [tag] [timeout_sec=180]` (GoogleTest のソース取得)。
+- **`/new-solutions [create | sync-spec | resolve]`**: 作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) の下に、同じ題材の、種類違いの複数のソリューション (WPF / WinForms / MFC など) を、候補として、まとめて作り、比べる。1 つだけ作るときは、`/new-solution`。
+  - スクリプト: `new_solutions.py`。ウォッチャーを、候補ごとに起動する `host-tools/run_watchers.cmd` もある。
+- **`/add-project [layer | tests | ui-host | ui-tests] [名前]`**: すでにあるソリューション (C++ / .NET) に、プロジェクトを足す。案を示して、**承認を得るまで、何も作らない。** ソリューションの新規作成は、`/new-solution`。
+  - 流れ:
+    1. 現状を読む (`scripts/solution_state.py`。読み取りだけ)。
+    2. 何を足すか質問する。
+    3. 案 (`--dry-run`) を示して、承認を得る。
+    4. 既存のスクリプト (`add_layer.py` / `add_project.py` / `add_ui_host.py` / `new_solution.py`) で作る。
+    5. 使う側のプロジェクトに、参照を足す (`scripts/add_reference.py`。向き・循環・MFC の設定を検査して、断ることがある)。
+    6. `CLAUDE.md` の「層:」「層の表」「テスト:」を合わせる。
+    7. ビルド・テスト・静的検査で確かめる。
+  - 足せるもの: 層 (ロジック・データ・ViewModel。C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL) と、そのテスト。画面を持つ DLL + 画面ホスト (C++。`add_ui_host.py`。ロジック層の `Greeting`、UI テストも足す)。テストの後付け、UI テストの後付け。
 
 ### 2-4. 仕様から機能まで
 
-- **別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) に分けた** (v2.44.0):
-  - `/brainstorm`: 壁打ち → `docs/ideas/`。
-  - `/update-from-ideas`: 仕様書 `docs/specs/` の作成・更新。
-  - `/add-feature`: 仕様書から、計画 → 承認 → Red → Green → 検証。
-- **この 3 つは、このリポジトリの Skill (`cpp-test-first`、`csharp-test-first`、`build-test-loop` など) と scripts を、前提にする。**
-- **このリポジトリに残る、仕様書とのつなぎ:**
-  - `/new-solution --spec <仕様書>` と `new_solutions.py` が、仕様書 (`docs/specs/*.md`。「## 構成案」「具体例」「境界値と異常系」) を読んで、器と、テストケースの種を作る。
-  - **この形式は、このリポジトリが読む側。**
+仕様の整理と機能の追加は、別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) に分けた (v2.44.0)。
+
+- **`/brainstorm`**: 壁打ちで、考えを整理して、`docs/ideas/` にメモを残す。
+- **`/update-from-ideas`**: メモを整理して、仕様書 `docs/specs/` を作る・更新する。
+- **`/add-feature`**: 仕様書から、計画 → 承認 → Red → Green → 検証、まで進める。
+- この 3 つは、**このリポジトリの Skill (`cpp-test-first`、`csharp-test-first`、`build-test-loop` など) と scripts を、前提にする。**
+- **このリポジトリに残る、仕様書とのつなぎ**: `/new-solution --spec <仕様書>` と `new_solutions.py` が、仕様書 (`docs/specs/*.md`。「## 構成案」「具体例」「境界値と異常系」) を読んで、器と、テストケースの種を作る。
+  - 仕様書の形式は、このリポジトリが読む側。
   - `/new-solution` が `CLAUDE.md` に書く 3 行が、`claude-spec-workflow` の Skill の入口になる。
 - 流れ: `/brainstorm` → `/update-from-ideas` → `/add-feature`。`/new-solution --spec <仕様書>` で、器を先に作ってもよい。
 
 ### 2-5. テストを先に書く (TDD)
 
-**範囲 (TDD で、できることと、しないこと):**
-
-- できること: ロジック層・データ層・ViewModel / Presenter で、テストを先に書き、Red (失敗の理由が、アサーションであること) を確認し、実装して Green にする。テストの改変の検出 (`test_guard.py`)、テストの中身の点検 (`audit`、変異の確認) が、手順として、組み込まれている。
-- **画面 (View) は、テスト先行の対象外。** WPF の XAML・code-behind、WinForms の `Form` / `Designer.cs`、MFC の画面は、ViewModel / Presenter / 層に切り出してテストする。画面そのものは、UI テスト (FlaUI) を先に書く (`/ui-test-first`)。
-- **サイクルの粒度:** 1 タスク (1 つの層) ごとに、テスト 3〜8 件をまとめて書いて、Red → Green を回す。テスト 1 件ごとの往復ではない (ビルドとテストが、ウォッチャー経由で、数十秒〜数分かかるため)。
-- 整理 (リファクタリング) は、必要なときだけ、テストを変えずに行う。
-- `CLAUDE.md` の設定が `テスト: なし` のときは、テスト先行ではなく、「実装 → ビルド確認 → 手動確認」で進む (TDD ではない)。
-
-#### `cpp-test-first`
-Windows デスクトップの C++ (MFC・Win32・DLL) で、GoogleTest のテストを先に書き、スタブで Red を確認する。Red のあと、`test_guard.py` で、テストの改変を検出する。
-
-- 起動: 「先にテストを書いて」「TDD で」など。
-- スクリプト: `add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]` (層と、そのテストを足す)。
-
-#### `csharp-test-first`
-WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は Presenter と `IView` の Fake でテストする。
-
-- ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
-- 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
-- 守る手順:
-  - Red のあとの確認。
-  - Green の前の `test_guard.py snapshot`、実装のあとの `check`。
-  - `wpf-check` / `winforms-check`。
-  - 報告の先頭にテストファイル。
-
-#### `/ui-test-first [作りたい画面・動作の説明]`
-画面を、プロンプトで作りながら、UI テスト (FlaUI) を先に書き、実行して、直す、小さなループ。WinForms / WPF / MFC。
-
-- `uitest_once.sh` で、絞って (`--filter`)、長い制限時間 (`--ui-timeout`) で、実行する。
+- **TDD の範囲**: ロジック層・データ層・ViewModel / Presenter で、テストを先に書き、Red (失敗の理由が、アサーションであること) を確認し、実装して Green にする。テストの改変の検出 (`test_guard.py`)、テストの中身の点検 (`audit`、変異の確認) が、手順として、組み込まれている。
+  - **画面 (View) は、テスト先行の対象外。** WPF の XAML・code-behind、WinForms の `Form` / `Designer.cs`、MFC の画面は、ViewModel / Presenter / 層に切り出してテストする。画面そのものは、UI テスト (FlaUI) を先に書く (`/ui-test-first`)。
+  - サイクルの粒度: 1 タスク (1 つの層) ごとに、テスト 3〜8 件をまとめて書いて、Red → Green を回す。テスト 1 件ごとの往復ではない (ビルドとテストが、ウォッチャー経由で、数十秒〜数分かかるため)。
+  - 整理 (リファクタリング) は、必要なときだけ、テストを変えずに行う。
+  - `CLAUDE.md` の設定が `テスト: なし` のときは、テスト先行ではなく、「実装 → ビルド確認 → 手動確認」で進む (TDD ではない)。
+- **`cpp-test-first`**: Windows デスクトップの C++ (MFC・Win32・DLL) で、GoogleTest のテストを先に書き、スタブで Red を確認する。Red のあと、`test_guard.py` で、テストの改変を検出する。
+  - 頼み方: 「先にテストを書いて」「TDD で」など。
+  - スクリプト: `add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]` (層と、そのテストを足す)。
+- **`csharp-test-first`**: WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は Presenter と `IView` の Fake でテストする。
+  - ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
+  - 守る手順: Red のあとの確認。Green の前の `test_guard.py snapshot`、実装のあとの `check`。`wpf-check` / `winforms-check`。報告の先頭にテストファイル。
+  - 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
+- **`/ui-test-first [作りたい画面・動作の説明]`**: 画面を、プロンプトで作りながら、UI テスト (FlaUI) を先に書き、実行して、直す、小さなループ。WinForms / WPF / MFC。スラッシュコマンドだけで起動する。
+  - スクリプト: `uitest_once.sh` で、絞って (`--filter`)、長い制限時間 (`--ui-timeout`) で、実行する。
 
 ### 2-6. ビルドとテストの実行
 
@@ -204,6 +175,7 @@ WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書
 ### 2-8. パッケージの追加
 
 - **`add-package`**: NuGet (`dotnet add package`)、vcpkg (マニフェストモード)、GitHub のソースの取り込み (ヘッダーのみのライブラリなど) で、ライブラリを足す。ホスト側に実行させる。
+  - 頼み方: 「○○を追加して」「vcpkg で xxx を使いたい」。
   - スクリプト: `package_once.sh <solution_dir> [--timeout 秒] <操作>...`。
   - 操作の例: `nuget search <term>`、`vcpkg baseline`、`vcpkg install`、`fetch <owner/repo> <tag> <name> [<subfolder>]`。
 
