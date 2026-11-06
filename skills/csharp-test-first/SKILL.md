@@ -158,6 +158,7 @@ bash <build-test-loop の Skill のフォルダ>/scripts/build_test_once.sh "$SL
 テストが確定したら、`build-test-loop` の手順で、実装して全テストを通す。**その時点から、テストは、凍結する。**
 - **テストを確定したら、Green に進む前に、基準を作る:** `python3 -I ~/.claude/skills/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"`。実装のあと (と、報告の前) に `check` を実行し、**error は、許可なしにしてはいけない変更**なので、元に戻すか、止まって確認する。warning / review は、理由を報告する。変更されたテストファイルの一覧は、報告の先頭に書く (`build-test-loop` の「テストの改変の検査」)。ユーザーが、テストの変更を承認したときだけ、`snapshot` をやり直す。
 - `build-test-loop` の規則が、そのまま適用される: **テストの変更・削除・`[Ignore]` 化・`Assert.Inconclusive` で飛ばす・アサーションを弱める、は、ユーザーの許可なしにしない。**
+- **Green のあと、報告の前に、`test_guard.py audit "$SLN_DIR"`** (空洞なテストを探す)。中心の項目は、実装をわざと壊して確かめる (`build-test-loop` の `references/mutation-check.md`。了承を得て、必ず元に戻す。していなければ、「変異の確認は、していない」と報告)。
 - 実装中に、テストの期待値が誤りだと分かった場合は、テストを直す前に、ユーザーに、理由 (どの仕様と矛盾するか) を添えて確認する。
 - 実装のあと、**XAML / ViewModel を触ったら、`wpf-check` を実行する** (WinForms は、`Form` / `Designer.cs` / Presenter を触ったら、`winforms-check`) (バインディングのパスの誤りなど、ユニットテストでは見つからない不具合を、静的に確かめる)。
 - **UI テスト (`*.UITests`。`CLAUDE.md` に「UI テスト (FlaUI)」の節がある) は、このビルド → テストの流れに、含めない。** 遅く、アプリを起動し、制限時間を長く取る必要があるため、**ユーザーが求めたとき**だけ、`uitest_once.sh` で、別に実行する (`build-test-loop` の `references/ui-tests.md`)。**画面を、プロンプトで作りながら、UI テストを書いて、繰り返し実行するときは、`/ui-test-first`** (UI テストを先に書く)。通常のテストが `PASSED` になっても、UI テストは、自動では、実行しない。

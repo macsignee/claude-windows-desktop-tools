@@ -73,6 +73,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
   - スクリプト: `build_test_once.sh <solution_dir> [timeout_sec=300]`。
   - **UI テスト (FlaUI) は、ビルド → テストの流れに含めない。** 求められたときと、`/ui-test-first` のループで、別に実行する (別のデスクトップで実行され、ユーザーの作業を止めない。失敗時のスクリーンショットを Claude が読める)。スクリプト: `uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present]`。詳細は `references/ui-tests.md`。
   - `test_guard.py snapshot <dir>` / `check <dir>`: Red を確認したテストを基準にコピーし、テストの改変 (削除、`[Ignore]`、アサーションを弱める、など) を検出する。`build_test_once.sh` / `uitest_once.sh` の出力の末尾に `TEST_GUARD:` の行が出る。
+  - `test_guard.py audit <dir>` (v2.57.0): 基準を使わず、**テストの中身が、空洞でないか**を調べる (アサーションがない・常に成功する・「null でない」だけ・期待値も実測値も呼び出しの結果)。**形だけの検査。** 本当に不具合を捕まえるかは、**実装をわざと壊して確かめる** (変異の確認。手順と規則は `skills/build-test-loop/references/mutation-check.md`。必ず元に戻す)。
   - 出力の末尾の `RESULT_INFO:` (どの実行の結果か) と、`NOTE: 版の不一致` (Skill とウォッチャーの版が違う。警告だけ)。
 
 ### 2-6. 静的検査 (Windows 不要。読み取りだけ)
