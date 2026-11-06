@@ -163,26 +163,21 @@ WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書
 
 ### 2-6. ビルドとテストの実行
 
-#### `auto-build`
-ビルドだけ (C++ / .NET 共通)。エラーを読んで、自動で直し、成功するまで繰り返す。
+ビルドとテストは、Windows 側のウォッチャーが実行します。Claude は、ウォッチャーに「ビルドして」と頼む合図 (フラグファイル) を置き、結果のファイルを読みます。結果が失敗なら、原因を読んで、ソースを直し、もう一度実行します。成功するまで、これを繰り返します。この繰り返しをする Skill が、`auto-build` と `build-test-loop` の 2 つです。
 
-- スクリプト: `build_once.sh <project_dir> [timeout_sec=180]`。
+**`auto-build`** は、ビルドだけをします。「ビルドして」「ビルドエラーを直して」と頼むと使われます。テストは、実行しません。ビルドが通れば `SUCCESS` が返り、失敗なら `FAILED` と、エラーの内容が返ります。C++ でも、.NET でも、その混在でも、手順は同じです。スクリプトは `build_once.sh <project_dir> [timeout_sec=180]` です。
 
-#### `build-test-loop`
-ビルド + テスト (GoogleTest / MSTest 共通。失敗の要約は、同じ形)。失敗を直し、全テストが通るまで繰り返す (Green)。
+**`build-test-loop`** は、ビルドに続けて、テストまで実行します。「テストまで通して」「テストが通るまで直して」と頼むと使われます。ビルドが通り、全テストが通れば `PASSED` が返り、2 行目に `build: SUCCESS / tests: 6 passed` のような要約が付きます。これが、テスト先行の流れの、Green です。テストが失敗すれば、`FAILED` と、失敗したテストの一覧と詳細が返ります。ビルドが失敗すれば `BUILD_FAILED` です。テストが制限時間内に終わらないとき (無限ループなどの疑い) は `TEST_TIMEOUT` です。GoogleTest (C++) と MSTest (.NET) で、結果の形は同じです。スクリプトは `build_test_once.sh <solution_dir> [timeout_sec=300]` です。
 
-- スクリプト: `build_test_once.sh <solution_dir> [timeout_sec=300]`。
-- 出力の末尾:
-  - `RESULT_INFO:` (どの実行の結果か)。
-  - `NOTE: 版の不一致` (ウォッチャーが、ホスト側が最後に変わった版より古いときだけ。警告だけで、実行は止めない。→ 「5」)。
-  - `TEST_GUARD:` (下の `test_guard.py`)。
-- **UI テスト (FlaUI) は、ビルド → テストの流れに含めない。** 求められたときと、`/ui-test-first` のループで、別に実行する (別のデスクトップで実行され、ユーザーの作業を止めない。失敗時のスクリーンショットを Claude が読める)。
-  - スクリプト: `uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present]`。詳細は `references/ui-tests.md`。
-- **`test_guard.py`** (テストの検査):
-  - `snapshot <dir>` / `check <dir>`: Red を確認したテストを基準にコピーし、テストの改変 (削除、`[Ignore]`、アサーションを弱める、など) を検出する。
-  - `audit <dir>` (v2.57.0): 基準を使わず、**テストの中身が、空洞でないか**を調べる (アサーションがない・常に成功する・「null でない」だけ・期待値も実測値も呼び出しの結果)。**形だけの検査。**
-  - 本当に不具合を捕まえるかは、**実装をわざと壊して確かめる** (変異の確認。手順と規則は `references/mutation-check.md`。必ず元に戻す)。
-- `references/fix-policy.md`: 自動修正の方針 (修正の前の、未コミットの変更の確認、直してよいものと止めるもの、警告の方針 `ignore` / `report` / `fix`、完了報告の項目)。`auto-build` と `build-test-loop` が、参照する。
+どちらも、ソースのせいではない問題 (ビルドの環境など) は `ENV_ERROR`、ウォッチャーが起動していないときは `WATCHER_NOT_RUNNING`、完了の印が時間内に出ないときは `TIMEOUT` が返ります。この 3 つは、ソースを直しても、解決しないので、Claude は、直さずに、止まって報告します。
+
+`build-test-loop` の出力の末尾には、次の行が付くことがあります。`RESULT_INFO:` は、どの実行の結果かを示します。`NOTE: 版の不一致` は、ウォッチャーが、ホスト側が最後に変わった版より古いときだけ出る警告で、実行は止めません (→ 「5」)。`TEST_GUARD:` は、テストが改変されていないかの検査の結果です。
+
+**止まる条件**は、2 つの Skill で共通です。スクリプトの実行は、通算で最大 5 回までで、5 回目も失敗なら、残りの失敗と、試したことを報告して、止まります。同じ失敗が、修正のあとも、同じ内容で出たら、2 回目で止めて、原因を調べます。また、ユーザーの許可なしに、テストの削除や無効化 (`[Ignore]` など)、アサーションを弱めること、テストを通すためだけの細工 (固定の答えを返す、など) は、しません。修正の前には、ユーザーの未コミットの変更と重なっていないかも、確認します。この方針の全文は、`references/fix-policy.md` にあります (直してよいものと止めるもの、警告の方針 `ignore` / `report` / `fix`、完了報告の項目)。
+
+テストの改変の検査は、`test_guard.py` が行います。`snapshot <dir>` で、Red を確認したテストを基準としてコピーしておき、`check <dir>` で、いまのテストと比べて、削除や `[Ignore]`、アサーションを弱める改変を見つけます。`audit <dir>` (v2.57.0) は、基準を使わずに、テストの中身が空洞でないか (アサーションがない、常に成功する、「null でない」だけ、期待値も実測値も呼び出しの結果、など) を調べます。これは形だけの検査なので、テストが本当に不具合を捕まえるかは、実装をわざと壊して確かめます (変異の確認。手順は `references/mutation-check.md`。必ず元に戻します)。
+
+UI テスト (FlaUI) は、ビルドとテストの流れには含めません。求められたときと、`/ui-test-first` のループで、別に実行します。別のデスクトップで実行されるので、ユーザーの作業を止めず、失敗したときのスクリーンショットを、Claude が読めます。スクリプトは `uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present]` で、詳細は `references/ui-tests.md` にあります。
 
 ### 2-7. 静的検査 (Windows 不要。読み取りだけ)
 
