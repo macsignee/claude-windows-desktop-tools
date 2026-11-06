@@ -31,10 +31,10 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 | フォルダ | 内容 | 配布先 |
 |---|---|---|
-| [`skills/`](skills/) | Claude Code の Skill (13 個。→ 「2」) | `~/.claude/skills/` (WSL) |
-| [`rules/`](rules/) | ユーザー共通のコーディング規約 (5 つ。→ 「3」) | `~/.claude/rules/` (WSL) |
-| [`templates/`](templates/) | 規約が参照する、設定ファイルのひな形 (→ 「3」) | `~/.claude/templates/` (WSL) |
-| [`scripts/`](scripts/) | 規約が参照する道具 (→ 「3」) | `~/.claude/scripts/` (WSL) |
+| [`skills/`](skills/) | Claude Code の Skill (13 個。→ 「2」) | `~/.claude/skills/` (WSL)、またはプロジェクトの `.claude/skills/` |
+| [`rules/`](rules/) | ユーザー共通のコーディング規約 (5 つ。→ 「3」) | `~/.claude/rules/` (WSL)、またはプロジェクトの `.claude/rules/` |
+| [`templates/`](templates/) | 規約が参照する、設定ファイルのひな形 (→ 「3」) | `~/.claude/templates/` (WSL)、またはプロジェクトの `.claude/templates/` |
+| [`scripts/`](scripts/) | 規約が参照する道具 (→ 「3」) | `~/.claude/scripts/` (WSL)、またはプロジェクトの `.claude/scripts/` |
 | [`host-tools/`](host-tools/) | Windows 側のウォッチャーと、起動・ビルド用の `.cmd` (→ 「4」) | Windows 側の任意のフォルダ (既定: `C:\tools\claude-watcher\`) |
 | [`install/`](install/) | `install.sh` (配布先へ、バイトを変えずに、コピーする。→ 「5」) | — |
 | [`tools/`](tools/) | `check-formats.sh` (文字コード・改行・BOM の検証) | — |
@@ -43,6 +43,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 - `CHANGELOG.md`: 変更履歴。
 - `VERSION`: 版。配布先にも置かれる (→ 「5」)。
+- **配布先は、ホームでも、プロジェクトのリポジトリでもよい** (→ 「5-2」)。文書の `.claude/...` は、ホームの `~/.claude/...` と、プロジェクトの `.claude/...` の、どちらも指す。
 
 ## 2. Skill (`skills/`)
 
@@ -69,6 +70,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 - **スラッシュコマンドだけで起動する Skill** (依頼文では、自動では、起動しない。`disable-model-invocation: true`): `/new-solution`、`/add-project`、`/new-solutions`、`/ui-test-first`。
 - **依頼文で、自動で選ばれる Skill** (description に合う依頼で起動する): 上の表の「依頼文」。`ui-design-review` は、`/ui-design-review [画面名 / ファイル / 規則 ID]` で、引数つきの起動もできる。
 - Skill の一覧は、Claude Code の起動時に読み込まれる。**配布したあとは、セッションを、新しく起動する。**
+- **Skill の中のコマンドは、配布先のパスを、固定しない** (v2.58.0)。`<Skill群>` (この Skill のフォルダの 1 つ上。Skill の読み込み時に、Base directory として示される) を基準に書き、実行するときに、実際のパスに置き換える。ホームの `~/.claude/skills/` でも、プロジェクトの `.claude/skills/` でも、同じに動く。
 - 各 Skill の下の `scripts/` は、Skill が内部で呼ぶスクリプト。`references/` は、必要なときだけ読む詳細 (読み込みを小さくするため)。
 
 ### 2-3. ソリューションを作る・足す
@@ -201,7 +203,7 @@ WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書
 
 ### 3-1. 規約 (`rules/`)
 
-- 配布先は `~/.claude/rules/`。**`paths` に合うファイルを Claude が読むときだけ、自動で読み込まれる** (読み込みを小さくするため、技術ごとに分けている)。
+- 配布先は `~/.claude/rules/` (または、プロジェクトの `.claude/rules/`)。**`paths` に合うファイルを Claude が読むときだけ、自動で読み込まれる** (読み込みを小さくするため、技術ごとに分けている)。
 - 名前の方針: 言語の共通 = `<言語>-common.md`、技術ごと = `<技術>-<言語>.md`。
 
 | ファイル | 大きさ | 内容 |
@@ -231,7 +233,7 @@ WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書
 
 ### 3-2. ひな形 (`templates/`)
 
-- 配布先は `~/.claude/templates/`。
+- 配布先は `~/.claude/templates/` (または、プロジェクトの `.claude/templates/`)。
 - `templates/dotnet/.editorconfig`、`templates/dotnet/Directory.Build.props`: C# / WPF 用。`/new-solution` が生成するものと、同じ内容。規約 (`csharp-common.md`) が参照する。
 - `templates/cpp/.clang-format`、`.clang-tidy`、`.editorconfig`: C++ 用。`cpp-common.md` が参照する。
   - 内容: Allman、インデント 4、`#include` の順序は変えない、関数は 100 行まで (`readability-function-size`)、`.cpp` / `.h` / `.hpp` は CRLF。
@@ -240,7 +242,7 @@ WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書
 
 ### 3-3. 道具 (`scripts/`)
 
-- 配布先は `~/.claude/scripts/`。規約 (`cpp-common.md`、`csharp-common.md`) が参照する。
+- 配布先は `~/.claude/scripts/` (または、プロジェクトの `.claude/scripts/`)。規約 (`cpp-common.md`、`csharp-common.md`) が参照する。
 - **`convert_to_utf8_bom.py`**: Shift-JIS (CP932) のソースを、UTF-8 (BOM 付き) / CRLF に変換する。
   - 使い方: `python3 -I ~/.claude/scripts/convert_to_utf8_bom.py [--apply] <ファイル>...`。既定は、検証だけ (書かない)。`--apply` で書き換える。
   - **手動で、ファイルを指定して、1 回だけ実行する** (規約の「変換だけの、別のコミット」)。ビルドの流れには、組み込まれていない。
@@ -266,6 +268,8 @@ Windows 側に置く。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-wind
 
 ## 5. 配布 (インストール)
 
+### 5-1. ホームへ配る (既定)
+
 WSL のターミナルで、リポジトリのルートから実行する。
 
 ```bash
@@ -274,7 +278,7 @@ install/install.sh                  # すべて配る
 ```
 
 - 配るもの (オプションなしは、すべて):
-  - Skill → `~/.claude/skills` (`--skills-only`)。
+  - Skill → `~/.claude/skills` (`--skills-only`)。プロジェクトへ配るときは、`--skills-dir` (→ 「5-2」)。
   - ホスト側ツール → `/mnt/c/tools/claude-watcher` (`--host-only`)。
   - 規約・ひな形・道具 → `~/.claude/rules`、`~/.claude/templates`、`~/.claude/scripts` (`--rules-only`)。
   - **Skill だけを配っても、規約は、配られない。** 規約を変えたときは、`--rules-only` も、実行する。
@@ -283,7 +287,27 @@ install/install.sh                  # すべて配る
 - 配布先は、**コピー先であって、編集する場所ではない。** 直すときは、このリポジトリを直して、配り直す。
 - Skill を読み込ませるには、Claude Code のセッションを、新しく起動する。ホスト側を再配置したら、ウォッチャーを再起動する (起動時に読み込むため)。
 
-### 版 (`VERSION`) と、警告 (`NOTE`)
+### 5-2. プロジェクトのリポジトリへ配る (チームで共有する)
+
+`--skills-dir` などで、配布先を、プロジェクトの `.claude/` にする。**チームのメンバーが、`git clone` するだけで、Skill と規約が使える。**
+
+```bash
+# Skill (プロジェクトの .claude/skills)
+install/install.sh --skills-only --skills-dir <プロジェクト>/.claude/skills
+
+# 規約・ひな形・道具 (プロジェクトの .claude/rules・templates・scripts)
+install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
+  --templates-dir <プロジェクト>/.claude/templates --scripts-dir <プロジェクト>/.claude/scripts
+```
+
+- 配ったあと、プロジェクトの git で、コミットする。**更新するときは、このリポジトリを直して、配り直し、差分をコミットする** (プロジェクトの中の `.claude/` を、直接編集しない)。
+- **ホスト側ツール (`host-tools/`) は、リポジトリに入れない。** Windows 側の 1 か所 (既定: `C:\tools\claude-watcher\`) に置き、全プロジェクトで、共有する (→ 「4」)。
+- `claude-spec-workflow` の Skill も、同じ `<プロジェクト>/.claude/skills` に配ると、`/add-feature` などが、同じフォルダの `new-solution` や `build-test-loop` を、見つけられる (`<Skill群>` が同じになるため)。
+- **ホームと、プロジェクトの両方に、同じ名前の Skill があると、どちらが使われるかは、Claude Code の規則による。** 混乱を避けるため、どちらか一方にそろえる。
+- Claude Code のサンドボックスは、`.claude/skills` などへの書き込みを、禁止していることがある。**配布は、ユーザーが、ターミナルで行う。**
+- プロジェクトごとに、コピーが、独立する。**版が、プロジェクトごとに、ずれうる** (各 Skill のフォルダの `VERSION` で分かる)。
+
+### 5-3. 版 (`VERSION`) と、警告 (`NOTE`)
 
 - 配布先に、このリポジトリの版 (`VERSION`) と、**ホスト側が最後に変わった版 (`host-tools/HOST_VERSION`)** を置く (各 Skill のフォルダ。ホスト側のフォルダには `VERSION`)。
 - ウォッチャーは、起動バナーに版を出し、結果の `run_id.txt` に書く。

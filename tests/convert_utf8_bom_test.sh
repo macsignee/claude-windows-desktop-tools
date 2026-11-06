@@ -69,8 +69,8 @@ ok "bytes that are not valid CP932 are NG, the file is not changed" "$([ $rc = 1
 # 9. 配布: install.sh が、~/.claude/scripts/ に配る
 T="$D/inst"; bash "$ROOT/install/install.sh" --rules-only --rules-dir "$T/r" --templates-dir "$T/t" --scripts-dir "$T/s" >/dev/null 2>&1
 ok "install.sh --rules-only copies scripts/convert_to_utf8_bom.py (identical to the repo)" "$([ -f "$T/s/convert_to_utf8_bom.py" ] && cmp -s "$T/s/convert_to_utf8_bom.py" "$S" && echo 1 || echo 0)"
-# 10. 規則が参照する場所と同じ名前 (~/.claude/scripts/convert_to_utf8_bom.py)
-ok "cpp-common.md and csharp-common.md refer to ~/.claude/scripts/convert_to_utf8_bom.py, which the repo now ships" "$(grep -q '~/.claude/scripts/convert_to_utf8_bom.py' "$ROOT/rules/cpp-common.md" && grep -q '~/.claude/scripts/convert_to_utf8_bom.py' "$ROOT/rules/csharp-common.md" && [ -f "$S" ] && echo 1 || echo 0)"
+# 10. 規則が参照する場所と同じ名前 (.claude/scripts/convert_to_utf8_bom.py)
+ok "cpp-common.md and csharp-common.md refer to .claude/scripts/convert_to_utf8_bom.py, which the repo now ships" "$(grep -q '.claude/scripts/convert_to_utf8_bom.py' "$ROOT/rules/cpp-common.md" && grep -q '.claude/scripts/convert_to_utf8_bom.py' "$ROOT/rules/csharp-common.md" && [ -f "$S" ] && echo 1 || echo 0)"
 
 rm -rf "$D" 2>/dev/null
 echo "PASS=$PASS FAIL=$FAIL"

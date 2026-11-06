@@ -49,8 +49,8 @@ disable-model-invocation: true
 | MVVM の基底 | **自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要)。CommunityToolkit.Mvvm などは、`add-package` で足して、置き換える |
 | アプリの構成 | **WPF プログラミング規約 3.1 に合わせる:** `App.xaml(.cs)` / `Views/` / `ViewModels/` (`viewmodel` 層がないとき) / `Resources/Styles.xaml` (共通の余白・スタイル。`App.xaml` で結合)。**`DataContext` は、`App.xaml.cs` の `OnStartup` (composition root) で設定する** (`MainWindow` のコードビハインドには、書かない)。画面は `Grid` レイアウト (`Auto` / `*`、`MinWidth` / `MinHeight`)、バインディングは `Mode` を明示 |
 | サンプル | `MainWindow` (入力欄・表示・ボタン) と `MainViewModel` (`Name` / `Greeting` / `ClearCommand`)。`viewmodel` と `mstest` を作ると、`MainViewModelTests` (5 件) も付く。**サンプルは、消してよい** |
-| 作るファイル | `<名前>.slnx` (構成は書かない。アプリに `DefaultStartup="true"`)、各 `.csproj` (SDK 形式)、`Directory.Build.props` (`Nullable` / `ImplicitUsings` / `LangVersion`)、`.editorconfig` (C# / XAML の書式。`~/.claude/rules/csharp-common.md` の「5 C# コーディング規約」と同じ)、`CLAUDE.md` / `.gitignore` / `.gitattributes` |
-| 規約 | ユーザー共通の `~/.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`wpf-csharp.md` (WPF 固有。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs`) / `winforms-csharp.md` (WinForms 固有。`*.Designer.cs`、`Forms/` `Presenters/` の下、`*Presenter*.cs`、`I*View.cs`)。`install.sh` が配る (`install.sh --rules-only`) |
+| 作るファイル | `<名前>.slnx` (構成は書かない。アプリに `DefaultStartup="true"`)、各 `.csproj` (SDK 形式)、`Directory.Build.props` (`Nullable` / `ImplicitUsings` / `LangVersion`)、`.editorconfig` (C# / XAML の書式。`.claude/rules/csharp-common.md` の「5 C# コーディング規約」と同じ)、`CLAUDE.md` / `.gitignore` / `.gitattributes` |
+| 規約 | ユーザー共通の `.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`wpf-csharp.md` (WPF 固有。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs`) / `winforms-csharp.md` (WinForms 固有。`*.Designer.cs`、`Forms/` `Presenters/` の下、`*Presenter*.cs`、`I*View.cs`)。`install.sh` が配る (`install.sh --rules-only`) |
 | 追加の引数 | `--tfm` (既定 `net10.0`。例: `net8.0`)、`--mstest-version` / `--testsdk-version` (既定は、実在を確認した版。新しい版は、`add-package` の `nuget versions` で確認して指定) |
 | 使えない引数 | `--layer-kind` / `--gtest` / `--gtest-from` / `--toolset` (C++ 用。指定するとエラー)。`--tests gtest` もエラー |
 

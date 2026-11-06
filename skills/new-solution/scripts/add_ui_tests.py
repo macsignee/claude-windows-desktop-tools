@@ -1457,7 +1457,7 @@ def main():
 def claude_md_section(ui, app):
     return f'''## UI テスト (FlaUI)
 - `{ui}` (MSTest + FlaUI.UIA3)。`{app}` の exe を、テストごとに起動して、UIA のパターン (Invoke / Value) で操作する。**マウス・キーボードの入力は使わない。**
-- **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れには、含めない** (遅く、制限時間を長く取る必要がある)。**ユーザーが求めたとき**だけ、`uitest_once.sh "$PWD" 900` (`~/.claude/skills/build-test-loop/scripts/uitest_once.sh`) で、別に実行する。**画面を、プロンプトで作りながら、UI テストを先に書いて、繰り返し実行するときは、`/ui-test-first`。** 実行を絞るには `--filter "FullyQualifiedName~クラス名"`、制限時間を長くするには `--ui-timeout 1800`、または `uitest.settings` の `timeout=`。
+- **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れには、含めない** (遅く、制限時間を長く取る必要がある)。**ユーザーが求めたとき**だけ、`uitest_once.sh "$PWD" 900` (`build-test-loop` Skill の `scripts/uitest_once.sh`) で、別に実行する。**画面を、プロンプトで作りながら、UI テストを先に書いて、繰り返し実行するときは、`/ui-test-first`。** 実行を絞るには `--filter "FullyQualifiedName~クラス名"`、制限時間を長くするには `--ui-timeout 1800`、または `uitest.settings` の `timeout=`。
 - **通常のテスト (`build_test_once.sh`) には、含まれない。** 別のデスクトップで実行され (`-UiTestDesktop separate`)、ユーザーの画面を乱さない。「マウスとキーボードに触らないで」と頼む必要は、ない。
 - 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
 - **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `Invoke` を別スレッド。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。

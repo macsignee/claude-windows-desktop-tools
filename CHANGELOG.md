@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.58.0] 2026-11-06 (Skill のパスを、配布先に固定せず、Skill のフォルダを基準にする。プロジェクトのリポジトリへの配布)
+
+- **きっかけ:** 「配布先を、プロジェクトのリポジトリにできないか」。`install.sh` は、配布先を変えられたが、Skill の中のコマンドが、`~/.claude/skills/...` に固定されていた。
+- **Skill のコマンドを、`<Skill群>` (= その Skill のフォルダの 1 つ上。Base directory) を基準に書き直した** (`skills/` の `SKILL.md` と `references/`。8 つの `SKILL.md` の冒頭に、「パスの書き方」を追加)。ホームの `~/.claude/skills/` でも、プロジェクトの `.claude/skills/` でも、同じに動く。
+- 規約・ひな形・道具への言及を、`~/.claude/rules/...` から `.claude/rules/...` に (`rules/`、`templates/dotnet/.editorconfig` と `add_project.py` の同じ文、生成する `CLAUDE.md` の文)。生成する `CLAUDE.md` の中の Skill のパスは、Skill の名前で書く (`<Skill群>` が使えないため)。
+- スクリプト: `solution_state.py` の `SCRIPTS` を、`__file__` から求める。`test_guard_note.sh` が、`test_guard.py` の実際のパスを出す。
+- **README:** 配布先の表に「またはプロジェクトの `.claude/`」、「2-2」に `<Skill群>` の説明、「5. 配布」を、「5-1 ホームへ」「5-2 プロジェクトのリポジトリへ (チームで共有)」「5-3 版と警告」に分けた。`docs/USAGE.md` に一言。
+- テスト: `tests/skill_paths_test.sh` (新規、8 件)。`convert_utf8_bom_test.sh`・`new_solution_winforms_test.sh` の期待のパスを `.claude/...` に更新。固定のパスを入れ直すと、4 件が失敗することを確認 (変異テスト)。
+- 契約の変更なし。ホスト側の変更なし。`claude-spec-workflow` v1.5.0 も、同じ書き方に直した (同じ `skills/` フォルダに配ることが、前提)。DESIGN 4.79。**配布が要る** (`install/install.sh`)。
+- **取り下げた案:** `install.sh` が、コピーのときに、パスを置換する (「バイトを変えずにコピー」を、やめる必要があるため)。
+
 ## [2.57.1] 2026-11-06 (文書: README.md の整理)
 
 - **README.md を、読みやすく整理し直した (記録の変更。ユーザーの指示。内容の削除はしていない):**
