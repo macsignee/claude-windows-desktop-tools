@@ -904,7 +904,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
 """
     if vm_in_app:
         out += "- ViewModel 層を作っていないので、ViewModel は、アプリの `ViewModels/` フォルダにある (テストできない。テストしたくなったら、`ViewModels` ライブラリに切り出す)。\n"
-    out += f"""- MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要)。推奨の CommunityToolkit.Mvvm を使うときは、`add-package` Skill で追加して、置き換える (規約 `wpf-csharp.md` の 8)。Prism は、積極的には採用しないが、使うのは自由。
+    out += f"""- MVVM の基底クラス (`ObservableObject` / `RelayCommand`) は、**自前の最小実装** (NuGet 不要)。推奨の CommunityToolkit.Mvvm を使うときは、`add-package` Skill で追加して、置き換える (規約 `wpf-csharp.md` の 8)。Prism は、使うのは自由だが、推奨しない。
 
 ## ビルドとテスト
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。NuGet の復元は、ビルドが行う (`/restore`)。

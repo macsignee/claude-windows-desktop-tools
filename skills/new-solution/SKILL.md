@@ -46,7 +46,7 @@ disable-model-invocation: true
 | 層の依存 | データ ← ロジック ← ViewModel ← View。上の層は、すぐ下の層を参照する (アプリは、すべての層を参照する) |
 | テスト | `--tests mstest`: **層のライブラリごとに** `<名前>.Tests` (MSTest v3)。**View (アプリ) には、作らない。** 層がないと、テスト対象がないので、エラー (層を作るか、`--tests none`) |
 | 名前空間 | ルート = フォルダ名 (`--namespace` で変更)。層は `<ルート>.Data` / `.Logic` / `.ViewModels`、テストは `<名前空間>.Tests` |
-| MVVM の基底 | **自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要)。**推奨は、CommunityToolkit.Mvvm** (`add-package` で足して、置き換える。規約 `wpf-csharp.md` の 8)。Prism は、積極的には採用しないが、使うのは自由 (`add-package` で入っても、`wpf-check` は、誤検出しない)。**案を示すときに、この行 (`--dry-run` の「MVVM の基底」) も、利用者に見せる** |
+| MVVM の基底 | **自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要)。**推奨は、CommunityToolkit.Mvvm** (`add-package` で足して、置き換える。規約 `wpf-csharp.md` の 8)。Prism は、使うのは自由だが、推奨しない (`add-package` で入っても、`wpf-check` は、誤検出しない)。**案を示すときに、この行 (`--dry-run` の「MVVM の基底」) も、利用者に見せる** |
 | アプリの構成 | **WPF プログラミング規約 3.1 に合わせる:** `App.xaml(.cs)` / `Views/` / `ViewModels/` (`viewmodel` 層がないとき) / `Resources/Styles.xaml` (共通の余白・スタイル。`App.xaml` で結合)。**`DataContext` は、`App.xaml.cs` の `OnStartup` (composition root) で設定する** (`MainWindow` のコードビハインドには、書かない)。画面は `Grid` レイアウト (`Auto` / `*`、`MinWidth` / `MinHeight`)、バインディングは `Mode` を明示 |
 | サンプル | `MainWindow` (入力欄・表示・ボタン) と `MainViewModel` (`Name` / `Greeting` / `ClearCommand`)。`viewmodel` と `mstest` を作ると、`MainViewModelTests` (5 件) も付く。**サンプルは、消してよい** |
 | 作るファイル | `<名前>.slnx` (構成は書かない。アプリに `DefaultStartup="true"`)、各 `.csproj` (SDK 形式)、`Directory.Build.props` (`Nullable` / `ImplicitUsings` / `LangVersion`)、`.editorconfig` (C# / XAML の書式。`.claude/rules/csharp-common.md` の「5 C# コーディング規約」と同じ)、`CLAUDE.md` / `.gitignore` / `.gitattributes` |

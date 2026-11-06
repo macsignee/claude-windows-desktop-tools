@@ -82,12 +82,12 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
     - `--type`: `wpf` / `winforms` / `csharp-dll` (C# のクラスライブラリ) / `mfc` (SDI) / `mfc-mdi` / `mfc-dialog` / `win32` / `console` / `dll` / `lib` (静的ライブラリ)。
     - `--layers`: `none` / `logic` / `data` / `logic,data`。**推奨は `data,logic`** (WPF も同じ)。名前の指定は `logic:OrderLogic,data:OrderData` の形。WPF は、`viewmodel` も組み合わせられる (例: `data,logic,viewmodel`。ViewModel をテストしたいときに足す)。WinForms と `csharp-dll` は、`data` / `logic` だけ。
     - `--tests`: `none` / `gtest` (C++) / `mstest` (.NET。層のライブラリごとに `<名前>.Tests`)。
-  - **WPF の MVVM の基底クラス**は、**自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要) で、引数では、選べない。**推奨のライブラリは `CommunityToolkit.Mvvm`** で、替えるときは、あとから `add-package` で足して、置き換える (規約 `wpf-csharp.md` の 8)。**Prism は、積極的には採用しないが、使うのは自由** (ライブラリの更新が遅く、有償のライセンスが求められる場合があるため、推奨はしない)。`add-package` で入っても、`wpf-check` は、誤検出しない。
     - `--ui-tests`: `none` / `flaui` (`<アプリ名>.UITests`)。WPF / WinForms / MFC で、省略すると質問する。ビルド → テストの流れには、含めない。
     - `--layer-kind`: C++ の層の種類。`dll` / `lib` / `mfc-ext-dll` (MFC 拡張 DLL。メインが MFC のときだけ) / `mfc-std-dll` (MFC 標準 DLL。共有 MFC)。
     - `--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。
     - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
     - `--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
+  - **WPF の MVVM の基底クラス**は、**自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要) で、引数では、選べない。**推奨のライブラリは `CommunityToolkit.Mvvm`** で、替えるときは、あとから `add-package` で足して、置き換える (規約 `wpf-csharp.md` の 8)。**Prism は、使うのは自由だが、推奨しない** (商用利用の有償化と、ライブラリの更新の停滞のため)。`add-package` で入っても、`wpf-check` は、誤検出しない。
   - すでにソリューションがあるフォルダでは、テストの後付け (`--tests gtest` / `--tests mstest`) と、UI テストの後付け (`--ui-tests flaui`) だけができる。
   - スクリプト: `new_solution.py`、`gtest_once.sh <project_dir> [tag] [timeout_sec=180]` (GoogleTest のソース取得)。
 - **`/new-solutions [create | sync-spec | resolve]`**: 作業フォルダ (`solutions.md` があり、`.sln` / `.slnx` がないフォルダ) の下に、同じ題材の、種類違いの複数のソリューション (WPF / WinForms / MFC など) を、候補として、まとめて作り、比べる。1 つだけ作るときは、`/new-solution`。
