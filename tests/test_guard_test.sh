@@ -364,5 +364,50 @@ ok "note: フォルダがない → 何も出さない (rc 0)" "$([ -z "$out" ] 
 BT="$ROOT/skills/build-test-loop/scripts/build_test_once.sh"; UT="$ROOT/skills/build-test-loop/scripts/uitest_once.sh"
 ok "build_test_once.sh は、終了時に note を呼ぶ (UI テストの流れでは呼ばない)。uitest_once.sh は、末尾と早期終了で呼ぶ" "$(grep -q 'test_guard_note.sh' "$BT" && grep -q 'BUILD_TEST_FLAG:-' "$BT" && [ "$(grep -c 'test_guard_note.sh' "$UT")" -ge 2 ] && echo 1 || echo 0)"
 
+# ---------------------------------------------------------------- audit: テストの中身が空洞でないか (v2.57.0)
+D="$T/AuditOk"; make_base "$D"
+out="$(python3 "$S" audit "$D" 2>&1)"; rc=$?
+ok "audit: 基準のソリューション (健全なテスト) は、error 0 (rc=0)。誤検出がない" "$([ $rc = 0 ] && [ "$(has "$out" 'error 0')" = 1 ] && echo 1 || echo 0)"
+ok "audit: [TestCategory(\"Preview\")] の目視確認のテスト (アサーションなし) は、対象外 (指摘しない)" "$(hasnt "$out" "Preview_Login")"
+ok "audit: 点検したテストの件数を出す (--all で TQ090)" "$(python3 "$S" audit "$D" --all 2>&1 | grep -q 'TQ090' && echo 1 || echo 0)"
+D="$T/AuditBad"; mkdir -p "$D/MyAppTest" "$D/MyApp.Tests"
+cat > "$D/MyAppTest/TestA.cpp" <<'EOF'
+#include <gtest/gtest.h>
+TEST(A, Good) { EXPECT_EQ(Add(1, 2), 3); }
+TEST(A, None) { Add(1, 2); }
+TEST(A, Trivial) { EXPECT_TRUE(true); }
+TEST(A, Weak) { EXPECT_NE(Make(), nullptr); }
+TEST(A, Calc) { EXPECT_EQ(Total(a), Total(a)); }
+TEST(A, Helper) { VerifyOrder(x); }
+TEST(A, Throws) { EXPECT_THROW(f(), std::runtime_error); }
+EOF
+cat > "$D/MyApp.Tests/CalcTests.cs" <<'EOF'
+[TestClass] public class CalcTests {
+ [TestMethod] public void Good() { Assert.AreEqual(3, new Calc().Add(1, 2)); }
+ [TestMethod] public void None() { var c = new Calc(); c.Add(1, 2); }
+ [TestMethod] public void Both() { Assert.AreEqual(Sut.Compute(x), Other.Compute(x)); }
+ [TestMethod] [ExpectedException(typeof(System.Exception))] public void Exc() { Boom(); }
+}
+EOF
+out="$(python3 "$S" audit "$D" --all 2>&1)"; rc=$?
+ok "audit: rc=1 (error あり)。点検したテスト 11 件" "$([ $rc = 1 ] && [ "$(has "$out" '点検したテスト 11 件')" = 1 ] && echo 1 || echo 0)"
+ok "audit: TQ001 (アサーションなし) を、C++ と C# の両方で検出。件数 2" "$([ "$(cnt "$out" 'TQ001 error')" = 2 ] && [ "$(has "$out" 'A.None')" = 1 ] && [ "$(has "$out" 'CalcTests.None')" = 1 ] && echo 1 || echo 0)"
+ok "audit: TQ002 (EXPECT_TRUE(true))、TQ003 (EXPECT_NE だけ)" "$([ "$(has "$out" 'TQ002 error   MyAppTest/TestA.cpp::A.Trivial')" = 1 ] && [ "$(has "$out" 'TQ003 warning MyAppTest/TestA.cpp::A.Weak')" = 1 ] && echo 1 || echo 0)"
+ok "audit: TQ004 (期待値も実測値も呼び出し。C++ と C# の 2 件)、TQ011 (ヘルパーだけ)" "$([ "$(cnt "$out" 'TQ004 review')" = 2 ] && [ "$(has "$out" 'TQ011 review  MyAppTest/TestA.cpp::A.Helper')" = 1 ] && echo 1 || echo 0)"
+ok "audit: 健全なテスト (Good)、例外を期待するテスト (Throws、ExpectedException の Exc) は、指摘しない" "$([ "$(has "$out" 'A.Good')" = 0 ] && [ "$(has "$out" 'CalcTests.Good')" = 0 ] && [ "$(has "$out" 'A.Throws')" = 0 ] && [ "$(has "$out" 'CalcTests.Exc')" = 0 ] && echo 1 || echo 0)"
+python3 "$S" audit "$D" --json "$T/audit.json" >/dev/null 2>&1
+ok "audit: --json に、テスト件数と指摘を書く" "$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(1 if d['tests']==11 and len(d['findings'])>=7 else 0)" "$T/audit.json")"
+mkdir -p "$T/AuditNone"; python3 "$S" audit "$T/AuditNone" >/dev/null 2>&1; r3=$?
+python3 "$S" audit "$T/nonexistent" >/dev/null 2>&1; r2=$?
+ok "audit: テストがない = rc=3、フォルダがない = rc=2" "$([ $r3 = 3 ] && [ $r2 = 2 ] && echo 1 || echo 0)"
+before="$(find "$D" -type f | sort | xargs md5sum | md5sum)"; python3 "$S" audit "$D" >/dev/null 2>&1
+ok "audit: 何も書かない (基準のコピーも作らない。.claude-logs もない)" "$([ "$(find "$D" -type f | sort | xargs md5sum | md5sum)" = "$before" ] && [ ! -e "$D/.claude-logs" ] && echo 1 || echo 0)"
+
+# ---------------------------------------------------------------- audit と変異の確認の手順 (v2.57.0): 文書の整合
+MC="$ROOT/skills/build-test-loop/references/mutation-check.md"
+ok "mutation-check.md がある。形の検査 (audit) と変異の確認の 2 段階、必ず元に戻す、ユーザーの了承、上限 3 件、生き残ったときの扱い、実施しないときの明記" "$(r=1; for k in 'test_guard.py audit' '変異の確認' '必ず、元に戻す' 'ユーザーに、実装を、一時的に壊すことを、伝えて、了承を得る' '最大 3 件' '生き残った' '変異の確認は、していない' 'cmp '; do grep -qF -- "$k" "$MC" || r=0; done; echo $r)"
+ok "build-test-loop / cpp-test-first / csharp-test-first の SKILL.md が、audit と mutation-check.md へ案内している" "$(r=1; for f in "$ROOT/skills/build-test-loop/SKILL.md" "$ROOT/skills/cpp-test-first/SKILL.md" "$ROOT/skills/csharp-test-first/SKILL.md"; do grep -q 'test_guard.py audit' "$f" && grep -q 'references/mutation-check.md' "$f" || r=0; done; echo $r)"
+ok "test_guard.py の説明 (先頭) に audit の使い方と TQ001〜TQ011 がある" "$(r=1; for k in 'test_guard.py audit' 'TQ001' 'TQ002' 'TQ003' 'TQ004' 'TQ011'; do head -n 50 "$S" | grep -qF -- "$k" || r=0; done; echo $r)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

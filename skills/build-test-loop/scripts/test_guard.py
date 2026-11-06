@@ -3,6 +3,7 @@
 
 Usage: test_guard.py snapshot <dir>
        test_guard.py check    <dir> [--json <out.json>] [--max-lines 40] [--all]
+       test_guard.py audit    <dir> [--json <out.json>] [--max-lines 40] [--all]
 
 <dir> はソリューションのフォルダ。テストファイル (下の「対象」) を、`<dir>/.claude-logs/test_guard_base/` にコピーするのが snapshot。
 check は、いまのテストファイルを、そのコピーと比べる。**Red を確認した直後に snapshot し、Green に向けた修正のあと (と、報告の前) に check する。**
@@ -26,7 +27,17 @@ check は、いまのテストファイルを、そのコピーと比べる。**
   TMG011 review  テスト以外の部分 (Fake、ヘルパー、[TestInitialize] / SetUp、フィクスチャ、設定) が変わった
   TMG090 info    追加されたテスト (件数。--all で表示)
 
-終了コード: 0 = error なし / 1 = error あり / 2 = 引数が不正 / 3 = 基準がない・テストファイルがない。
+audit は、基準を使わず、**いまのテストの中身が、空洞でないか**を調べる ([TestCategory("Preview")] の目視確認のテストは、アサーションを持たないのが正しいので、対象外) (Green のあと、報告の前)。テストが、形だけで、不具合を捕まえない
+(アサーションがない、常に成功する、「null でない」だけ、期待値も実測値も呼び出しの結果) ものを探す。**書き方の良し悪しは、判定しない** (空洞かどうかだけ):
+  TQ001 error    アサーションがない (例外を期待するものを除く)。ヘルパー (Verify / Check / Assert / Expect / Validate で始まる呼び出し) があれば、TQ011
+  TQ002 error    常に成功するアサーション (IsTrue(true)、EXPECT_EQ(x, x) など) がある
+  TQ003 warning  アサーションが、すべて「等しくない」「null でない」だけ (何が正しいかを、確かめていない)
+  TQ004 review   強いアサーション (等しい) が、すべて、リテラルを含まず、呼び出しが 2 つ以上 (期待値を、実装から計算している疑い)
+  TQ011 review   アサーションが見当たらないが、ヘルパーの呼び出しがある (ヘルパーの中に、あるか、確かめる)
+  TQ090 info     点検したテストの件数 (--all で表示)
+この点検は、静的な目安 (形の検査)。**テストが、本当に不具合を捕まえるか**は、実装を、わざと壊して確かめる (`references/mutation-check.md`)。
+
+終了コード: 0 = error なし / 1 = error あり / 2 = 引数が不正 / 3 = 基準がない (check)・テストファイルがない。
 """
 import argparse
 import difflib
@@ -531,9 +542,71 @@ def cmd_check(root, json_out, max_lines, show_all):
     return 1 if cnt["error"] else 0
 
 
+LITERAL = re.compile(r"(?<![\w.])\d+(?:\.\d+)?[fFdDmMuUlL]*(?![\w])|\"(?:[^\"\\]|\\.)*\"|\b(?:true|false|nullptr|null)\b")
+HELPER_CALL = re.compile(r"\b(?:Verify|Check|Assert|Expect|Validate)\w*\s*\(")
+
+
+def audit_test(t):
+    """1 つのテストの情報 (analyze の結果) から、(コード, 重大度, 内容) のリストを返す。"""
+    out = []
+    if "Preview" in t.get("cats", ()):       # 目視確認のテスト (ui-test-first の Preview_<画面>)。アサーションを持たないのが、正しい形
+        return out
+    if t["n_assert"] == 0 and t["throws"] == 0:
+        if t.get("helper"):
+            out.append(("TQ011", "review", "アサーションが見当たらない (ヘルパーの呼び出しはある。ヘルパーの中に、アサーションがあるか確かめる)"))
+        else:
+            out.append(("TQ001", "error", "アサーションがない (何も確かめていない。実装が壊れていても、通る)"))
+        return out
+    if t["trivial"]:
+        out.append(("TQ002", "error", "常に成功するアサーションがある (%d 件)" % t["trivial"]))
+    if t["n_assert"] > 0 and all(is_weak(k) for k in t["kinds"]):
+        out.append(("TQ003", "warning", "アサーションが、すべて「等しくない」「null でない」だけ (%s)。正しい値を、確かめていない" % ", ".join(sorted(t["kinds"]))))
+    strong_lines = [ln for ln in t["assert_lines"] if any(is_strong(m.group(1)) for m in list(ASSERT_CS.finditer(ln)) + list(ASSERT_CPP.finditer(ln)))]
+    if strong_lines and all(not LITERAL.search(ln) and ln.count("(") >= 3 for ln in strong_lines):
+        out.append(("TQ004", "review", "強いアサーションが、すべて、リテラルを含まず、呼び出しが 2 つ以上 (期待値を、実装から計算していないか)"))
+    return out
+
+
+def cmd_audit(root, json_out, max_lines, show_all):
+    files = find_test_files(root)
+    findings, n = [], 0
+    for rel, full in sorted(files.items()):
+        text = decode(read_bytes(full))
+        tests, _, _ = analyze(text, os.path.splitext(rel)[1].lower())
+        code = strip_comments(text.replace("\r\n", "\n").replace("\r", "\n"))
+        bodies = {k: body for k, _b, _e, _h, body in extract_tests(code)}
+        for key, t in tests.items():
+            n += 1
+            t["helper"] = bool(HELPER_CALL.search(bodies.get(key, "")))
+            for c, sev, msg in audit_test(t):
+                add(findings, c, sev, rel, key, msg, (t["assert_lines"][:3] if c in ("TQ003", "TQ004") else None))
+    if not n:
+        print("test_guard audit: テストが見つからない (対象の規則は、このスクリプトの先頭を参照)")
+        return 3
+    findings.sort(key=lambda x: (SEV_ORDER[x["severity"]], x["file"], x["test"] or ""))
+    cnt = Counter(x["severity"] for x in findings)
+    lines = ["test_guard audit: error %d / warning %d / review %d (点検したテスト %d 件)" % (cnt["error"], cnt["warning"], cnt["review"], n)]
+    for x in findings:
+        lines.append("%s %-7s %s::%s: %s" % (x["code"], x["severity"], x["file"], x["test"], x["message"]))
+        lines.extend("    " + d for d in x["detail"])
+    if show_all:
+        lines.append("TQ090 info    点検したテスト %d 件" % n)
+    if cnt["error"]:
+        lines.append("→ error は、空洞なテスト。直す (テストを直すときは、ユーザーに確認する。build-test-loop の「止めどき」5)")
+    elif cnt["warning"] or cnt["review"]:
+        lines.append("→ warning / review は、目安。正当なものは、理由を報告に書く。実装を、わざと壊して確かめる (references/mutation-check.md)")
+    if len(lines) > max_lines:
+        lines = lines[:max_lines] + ["... (%d 行を省略。--max-lines で増やせる)" % (len(lines) - max_lines)]
+    print("\n".join(lines))
+    if json_out:
+        with open(json_out, "w", encoding="utf-8") as f:
+            json.dump({"tests": n, "findings": findings}, f, ensure_ascii=False, indent=1)
+    return 1 if cnt["error"] else 0
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description="テストの改変を検出する")
-    ap.add_argument("mode", choices=["snapshot", "check"])
+    ap.add_argument("mode", choices=["snapshot", "check", "audit"])
     ap.add_argument("dir")
     ap.add_argument("--json")
     ap.add_argument("--max-lines", type=int, default=40)
@@ -546,6 +619,8 @@ def main(argv):
         print("test_guard: フォルダがない: %s" % a.dir)
         return 2
     root = os.path.abspath(a.dir)
+    if a.mode == "audit":
+        return cmd_audit(root, a.json, a.max_lines, a.all)
     return cmd_snapshot(root) if a.mode == "snapshot" else cmd_check(root, a.json, a.max_lines, a.all)
 
 
