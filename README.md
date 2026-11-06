@@ -5,6 +5,7 @@ Claude Code (WSL) が、Windows 側の Visual Studio で、**C++ (GoogleTest) �
 - C++ のみ、.NET のみ、混在のソリューションのどれでも、同じ Skill と同じウォッチャーで使う (ソリューションの中身から、自動で判定する。[設計メモ 4.24](docs/DESIGN.md))。
 - テストを先に書いて Red を確認し (`cpp-test-first` / `csharp-test-first` / `ui-test-first`)、実装して Green にする (`build-test-loop`) という、TDD の流れにも使える。
 - ソリューションの作成 (`/new-solution`) も、同じ Skill 群で行う。仕様の整理 (`/brainstorm` → `/update-from-ideas`) と機能の追加 (`/add-feature`) は、別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) に分けた (→ 「2-3」)。
+- **使い方 (どのコマンドを打つか、承認の言い方、困ったとき) は、[`docs/USAGE.md`](docs/USAGE.md)。**
 - Claude Code のサンドボックスからは、Windows 側の MSBuild やテスト exe を、直接実行できない。そこで、Windows 側にウォッチャーを常駐させ、Claude は、フラグファイルを置いて、結果ファイルを読むだけにしている。
 
 ```
@@ -158,6 +159,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ## 9. 文書 (`docs/`)
 
+- [`USAGE.md`](docs/USAGE.md): 利用ガイド (どのコマンドを打つかの判断フロー、承認と差し戻しの言い方、困ったとき)。
 - [`DESIGN.md`](docs/DESIGN.md): 設計メモ (契約、設計判断、取り下げた案)。
 - [`TEST-PLAN.md`](docs/TEST-PLAN.md): テスト手順書 (実機の確認の手順と結果。「変更したときの、最低限の確認」を含む)。
 - [`REMAINING-CHECKS.md`](docs/REMAINING-CHECKS.md): 実機の確認の状況 (確認済み、未了、廃止、保留) の正本。
