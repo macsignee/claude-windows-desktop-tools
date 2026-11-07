@@ -589,6 +589,13 @@ void CSampleDlg::DoDataExchange(CDataExchange* pDX)
 BOOL CSampleDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
+
+    // アプリのアイコン (res\\<名前>.ico。IDR_MAINFRAME) を、タイトルバーとタスクバーに設定する。
+    // CDialog は、アイコンを、自動では読み込まない (ウィザードのダイアログベースのアプリも、同じ)。
+    HICON icon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+    SetIcon(icon, TRUE);     // 大きいアイコン (タスクバー、Alt+Tab)
+    SetIcon(icon, FALSE);    // 小さいアイコン (タイトルバー)
+
     Refresh();
     return TRUE;
 }

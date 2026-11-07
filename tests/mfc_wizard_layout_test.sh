@@ -124,6 +124,14 @@ else
 fi
 if ! grep -q 'OnCreateClient' "$WORK/W_mfc/W_mfc/MainFrame.h"; then ok "mfc (SDI): OnCreateClient は上書きしない"; else ng "mfc (SDI): OnCreateClient を上書きしている"; fi
 
+# ダイアログ: アプリのアイコンを、タイトルバーとタスクバーに設定する (CDialog は、自動では読み込まない。v2.60.2。実機で見つかった)
+DLG="$WORK/W_mfc_dialog/W_mfc_dialog/SampleDlg.cpp"
+if grep -q 'LoadIcon(IDR_MAINFRAME)' "$DLG" && [ "$(grep -c 'SetIcon(icon' "$DLG")" = 2 ]; then
+    ok "mfc-dialog: OnInitDialog が、res のアイコンを、大・小の両方に設定する"
+else
+    ng "mfc-dialog: アイコンを設定していない (res のアイコンが、使われない)"
+fi
+
 # 層・テスト付きでも、メインの構成は同じ (層の .vcxproj は、v2.60.0 では変えない)
 D="$WORK/W_layers"; mkdir -p "$D"
 if python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest vcpkg >"$WORK/layers.out" 2>&1; then

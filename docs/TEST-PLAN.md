@@ -930,3 +930,17 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 **注意 (退けるとき):** 退けている間に、アプリが `~/.claude/skills` を、新しく作り直す (`synced`) ことがある。そこへ `mv ~/.claude/skills.off ~/.claude/skills` を実行すると、**フォルダが、中に入る** (`~/.claude/skills/skills.off`)。今回、実際に起きた (中身は無事。`~/.claude/skills` を `skills.new` に退け、`skills.new/skills.off` を `skills` に戻して復旧)。戻すときは、先に `ls ~/.claude/skills` を見て、すでにあれば、上の手順で戻す。
 
 **結論:** プロジェクトだけに Skill があるときは、プロジェクトのものが使われ、通しで動く。**両方にあるときは、ホームが優先される。** 確認用のフォルダ `plchk`・`plchk2` は、後片付けの対象 (ユーザー)。
+
+### 2-36. MFC のメイン (SDI・MDI・ダイアログ) の構成と、起動 (v2.60.0〜v2.60.2。`docs/DESIGN.md` 4.81)
+
+**v2.60.0 で、補助ファイル + PCH、`res\`、`.vcxproj` の設定を、ウィザードの構成に合わせた。静的テスト (`tests/mfc_wizard_layout_test.sh`) は通っている。** 準備: `install.sh --skills-only` で配布し、新しい Claude Code のセッションで、`/new-solution --type <mfc | mfc-mdi | mfc-dialog> --layers none --tests none --ui-tests none`。ウォッチャーは、引数なし (`Build : Debug|x64` を、バナーで確かめる)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| WZ1 | SDI (`mfcwSdi`): 作成、ビルド、`mfc-check`、起動、Visual Studio で `.slnx` を開く | ビルド `SUCCESS`、error 0 / warning 0、起動する、青いアイコン、3 つのフィルターの下に、ウィザードと同じ並び | ✔ (2026-11-09。`x64\Debug\mfcwSdi.exe` は x64、青いアイコン) |
+| WZ2 | MDI (`mfcwMdi`): 同じ | 同じ。子ウィンドウが開く。「File」→「New」が押せる | **✗ → 修正 → ✔。(1) 起動した直後に `Debug Assertion Failed! winmdi.cpp, Line: 128` (`ASSERT(iMenu >= 0)`)。原因: `CMDIFrameWnd::OnCreateClient` の既定が、メニューバーの右から 2 番目を Window メニューと推測するのに、`IDR_MAINFRAME` が File だけ。MDI を実機で起動したのは、初めてで、以前の版からの不具合。(2) 「File」→「New」が disable。原因: `CWinApp` は `ID_FILE_NEW` を割り当てない。v2.60.1 で直した (`OnCreateClient` の上書き、`ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)`)。手で直した `mfcwMdi` で起動と「New」を確認、配布後に作り直した `mfcwMdi2` で、手直しなしで、すべて OK (2026-11-09)** |
+| WZ3 | ダイアログ (`mfcwDlg`): 同じ | 入力欄・あいさつ・Clear・OK・Cancel。名前を入れると「こんにちは、<名前> さん」、Clear が押せる。アイコン | ✗ → 修正。**入力欄・あいさつ・Clear は OK (2026-11-09)。アイコンが付かなかった** (`CDialog` は自動で読み込まない)。v2.60.2 で、`OnInitDialog` に `LoadIcon` / `SetIcon` を足した。**配布後の再確認は未実施** |
+| WZ4 | Win32 のビルドが、環境でできるか。ウィザードの `MFCSDISample` を、ウォッチャーを Win32 で起動して、`auto-build` | `SUCCESS` | ✔ (2026-11-09。ソリューション構成 `Debug|x86`、`HostX64\x86\CL.exe`、`Debug\MFCSDISample.exe` は x86 (PE 0x14c)。x86 の MFC も、入っている。VS で Win32 に切り替える必要はない。**生成物の Win32 は、v2.61.0 の範囲 (未着手)**) |
+
+**教訓:** (1) ビルドと `mfc-check` が通っても、起動して見るまでは、動くとは言えない (MDI は、以前の版から、起動しない不具合を持っていた)。(2) ウォッチャーのバナーの `Build : <構成>|<Platform>` を確かめる (Win32 で起動したまま、x64 だけの生成物をビルドして、`MSB4126` になった)。(3) メニューやダイアログの文言は、`.rc` が ASCII のため、英語 (日本語は、コードに置く。DESIGN 865 行目)。日本語にするかは、判断待ち。
+
