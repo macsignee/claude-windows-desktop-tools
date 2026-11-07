@@ -1,6 +1,6 @@
 # 次の作業 (再開用メモ)
 
-2026-11-08 時点 (v2.59.4。`claude-spec-workflow` は v1.7.2)。**必須の残り作業は、ない。** 残っているのは、任意の確認、条件が整ってから行うもの、判断待ちのものだけ。
+2026-11-10 時点 (v2.62.4。`claude-spec-workflow` は v1.7.2)。**必須の残り作業は、ない。** 残っているのは、任意の確認、条件が整ってから行うもの、判断待ちのものだけ。
 各項目の状況は `docs/REMAINING-CHECKS.md`、手順と結果は `docs/TEST-PLAN.md`、変更の一覧は `CHANGELOG.md`。以前の版のこのメモ (手順や依頼文) は、git の履歴にある。
 
 ## 1. 任意の確認
@@ -12,17 +12,17 @@
 - **済み (2026-11-08):** DC4 の実行時 (MFC のメインは、`UseOfMfc` を外すと、ビルド `C1189` で止まる。テスト exe は DLL008 の対象外)、MX の `AFX_EXT_CLASS` (別の exe から使える。外すと LNK2019 / LNK2001)。
 - **済み・閉じたもの (任意の確認には、含めない):** WS1〜WS4・CS1・CS2 は ✔ (2026-11-04)、SK2・SK3 は ✔ (2026-11-02)、**SK1 は、実機の確認を、行わない** (ユーザーの決定。TEST-PLAN 2-20)。
 - **条件が整うまで保留 (△):** T6、N0、N3s、TG1、TG3、UG3・UG4・UG4b、WC4。理由と再開条件は、`REMAINING-CHECKS.md` の「2-3」。
-- **確認用のフォルダの後片付け (ユーザーの作業):** `CSharpTF` の `wpfcutE`、`plchk`、`plchk2` ほか。ホームの `~/dcbak`、`~/mfcdlg-CLAUDE.md.bak`、`~/ap5-*.txt`。
+- **確認用のフォルダの後片付け (ユーザーの作業):** `CSharpTF` の `wpfcutE`、`plchk`、`plchk2` ほか (`mfcw*`・`mfcj*`・`plBoth`・`plLater`・`plW3`・`plW3b`・`plW5` から `plw5d`・`plW7`・`plW8`・`extchk` など)。ホームの `~/dcbak`、`~/mfcdlg-CLAUDE.md.bak`、`~/ap5-*.txt`。
 
 ## 2. 判断待ち・任意の機能
 
 - **A: 既存コードから、仕様を逆生成する新 Skill。** 既存の MFC・WPF のプロジェクトを、仕様駆動 (`claude-spec-workflow`) へ移す予定があるかで、決める。作るなら大きい作業。
 - **`ExtLayerApi.h` の注意書き:** 「公開ヘッダーは、自分で `<afxwin.h>` を include する」を足す (MX の確認で、プリコンパイル済みヘッダーのないテスト exe で、`BUILD_FAILED` になった。TEST-PLAN 2-25)。ひな形 (`new_solution.py` の生成部分) の変更と、テストが要る (配布が要る版)。
 - **MFC の生成物の、残り (v2.60.x):**
-  - **C++ のプラットフォーム (Win32 / x64) (v2.62.0。実装・静的テスト済み)。** `/new-solution --platforms` と `/add-project platform`。**実機の確認 (TEST-PLAN 2-38 の W1〜W8) が、未実施**。特に、vcpkg の x86 の gtest と、ウィザードで作った `.vcxproj` への `add_platform.py`。
+  - **C++ のプラットフォーム (Win32 / x64) (v2.62.0。実機の確認 ✔、TEST-PLAN 2-38 の W1〜W8)。** `/new-solution --platforms` と `/add-project platform`。W3 (MFC 拡張・標準 DLL の層) は、ビルドだけの確認で、Win32 でのテストの実行は、確認していない (任意)。
   - **メニューとダイアログの文言を日本語にした (v2.60.4。決定済み。実機の確認 ✔、TEST-PLAN 2-37)。** **`/add-project ui-host` の画面ホストの `.rc` は、英語のまま** (直す候補)。
   - **`mfc-check` の MDI の静的検査:** `OnCreateClient` の上書きと、`IDR_MAINFRAME` のメニューの数 (v2.60.1 の不具合を、起動せずに見つける)。任意。
-  - **`auto-build` / `build-test-loop` の SKILL:** 「`MSB4126` で、構成に `Win32` と出たら、ウォッチャーの Platform 引数を疑う」。任意。
+  - **`auto-build` / `build-test-loop` の SKILL:** 「`MSB4126` で、構成に `Win32` と出たら、ウォッチャーの Platform 引数を疑う」「結果に、ビルドログの `ソリューション構成` の行から Platform を書く」。任意 (W7 では、SKILL になくても、Claude が正しく診断した)。同じ版に、「ウォッチャーが起動済みかを、質問ツールで尋ねない (`WATCHER_NOT_RUNNING` のときだけ依頼する)」を入れるかは、再び出たら決める (W5 の `console` で 1 回)。
 - **UI ガイドライン (v2.26.0〜v2.27.0) の、残り:**
   - **「既知の指摘」の質問を、指摘ごとにする** (`ui-test-first`)。運用して、不都合が出たときに行う。
   - **`/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す** (任意)。
