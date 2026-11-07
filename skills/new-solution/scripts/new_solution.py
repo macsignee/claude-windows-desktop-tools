@@ -155,14 +155,89 @@ MFC_CC_MANIFEST = r'''
 #endif
 '''
 
-MFC_FILES = {
-    'pch.h': '''#pragma once
+# ウィザードの構成 (framework.h / targetver.h / pch.h / pch.cpp)。Common Controls 6.0 の指令は、ウィザードと同じく framework.h に置く。
+MFC_TARGETVER_H = '''#pragma once
+
+// SDKDDKVer.h をインクルードすると、利用できる最も上位の Windows プラットフォームが定義される。
+// 以前の Windows 用にビルドするときは、SDKDDKVer.h の前に WinSDKVer.h をインクルードし、_WIN32_WINNT を設定する。
+
 #include <SDKDDKVer.h>
-#include <afxwin.h>
-#include <afxext.h>
-''' + MFC_CC_MANIFEST,
+'''
+MFC_FRAMEWORK_H = '''#pragma once
+
+#ifndef VC_EXTRALEAN
+#define VC_EXTRALEAN            // Windows ヘッダーから使用されていない部分を除外する。
+#endif
+
+#include "targetver.h"
+
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // 一部の CString コンストラクターは明示的。
+
+// 一般的で無視しても安全な MFC の警告メッセージの一部の非表示を解除する。
+#define _AFX_ALL_WARNINGS
+
+#include <afxwin.h>         // MFC のコアおよび標準コンポーネント
+#include <afxext.h>         // MFC の拡張部分
+
+#ifndef _AFX_NO_OLE_SUPPORT
+#include <afxdtctl.h>       // MFC の Internet Explorer 4 コモン コントロール サポート
+#endif
+#ifndef _AFX_NO_AFXCMN_SUPPORT
+#include <afxcmn.h>         // MFC の Windows コモン コントロール サポート
+#endif
+''' + MFC_CC_MANIFEST
+MFC_PCH_H = '''#pragma once
+
+// プリコンパイル済みヘッダー。ここに列挙したファイルは、1 回だけコンパイルされる。
+// 頻繁に更新するファイルを、ここに追加しない (追加すると、ビルドが、遅くなる)。
+#include "framework.h"
+'''
+MFC_PCH_CPP = '''// pch.cpp: プリコンパイル済みヘッダーに対応するソース ファイル。
+// プリコンパイル済みヘッダーを使うときは、このソース ファイルが必要 (削除しない)。
+
+#include "pch.h"
+'''
+# res\ フォルダ (ウィザードの構成)。rc2 は、Visual Studio のリソース エディターでは、編集しないリソースを書くファイル (ASCII のみ)。
+MFC_RC2 = '''//
+// @@NAME@@.rc2 - resources not edited directly by Visual Studio
+//
+
+#ifdef APSTUDIO_INVOKED
+#error this file is not editable by Visual Studio
+#endif //APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// Add manually edited resources here...
+
+/////////////////////////////////////////////////////////////////////////////
+'''
+
+
+def make_ico(rgb):
+    """16x16 の、単色のアイコン (32 ビット)。ウィザードの既定のアイコンの代わりの、置き場所の確保用 (あとで、差し替える)。"""
+    import struct
+    r, g, b = rgb
+    n = 16
+    px = bytearray()
+    for y in range(n):                       # 下の行から (BMP の並び)
+        for x in range(n):
+            edge = x in (0, n - 1) or y in (0, n - 1)
+            px += bytes((b // 2, g // 2, r // 2, 255)) if edge else bytes((b, g, r, 255))
+    mask = bytes(n * 4)                      # AND マスク (16 行 x 4 バイト。すべて 0 = 不透明)
+    dib = struct.pack('<IiiHHIIiiII', 40, n, n * 2, 1, 32, 0, len(px) + len(mask), 0, 0, 0, 0)
+    body = dib + bytes(px) + mask
+    entry = struct.pack('<BBBBHHII', n, n, 0, 0, 1, 32, len(body), 22)
+    return struct.pack('<HHH', 0, 1, 1) + entry + body
+
+
+MFC_FILES = {
+    'targetver.h': MFC_TARGETVER_H,
+    'framework.h': MFC_FRAMEWORK_H,
+    'pch.h': MFC_PCH_H,
+    'pch.cpp': MFC_PCH_CPP,
     'Resource.h': '''#pragma once
 #define IDR_MAINFRAME           128
+#define IDR_SAMPLETYPE          129
 ''',
     'SampleApp.h': '''#pragma once
 #include "pch.h"
@@ -256,10 +331,21 @@ void CSampleView::OnDraw(CDC* pDC)
 ''',
 }
 
+MFC_RC_TAIL = '''
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+// Resources edited outside Visual Studio.
+#include "res\\@@NAME@@.rc2"
+#endif
+'''
+
 MFC_RC = '''#include "Resource.h"
 #include "afxres.h"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
+IDR_SAMPLETYPE ICON "res\\\\@@NAME@@Doc.ico"
 
 IDR_MAINFRAME MENU
 BEGIN
@@ -273,11 +359,14 @@ STRINGTABLE
 BEGIN
     IDR_MAINFRAME           "@@NAME@@\\n\\n@@NAME@@\\n\\n\\n@@NAME@@.Document\\n@@NAME@@ Document"
 END
-'''
+''' + MFC_RC_TAIL
 
 # ---- MFC MDI ----
 MFC_MDI_FILES = {
-    'pch.h': MFC_FILES['pch.h'],
+    'targetver.h': MFC_TARGETVER_H,
+    'framework.h': MFC_FRAMEWORK_H,
+    'pch.h': MFC_PCH_H,
+    'pch.cpp': MFC_PCH_CPP,
     'Resource.h': '''#pragma once
 #define IDR_MAINFRAME           128
 #define IDR_SAMPLETYPE          129
@@ -362,6 +451,9 @@ MFC_MDI_RC = '''#include "Resource.h"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
+IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
+IDR_SAMPLETYPE ICON "res\\\\@@NAME@@Doc.ico"
+
 IDR_MAINFRAME MENU
 BEGIN
     POPUP "&File"
@@ -393,12 +485,16 @@ BEGIN
     IDR_MAINFRAME           "@@NAME@@"
     IDR_SAMPLETYPE          "\\n@@NAME@@\\n@@NAME@@\\n\\n\\n@@NAME@@.Document\\n@@NAME@@ Document"
 END
-'''
+''' + MFC_RC_TAIL
 
 # ---- MFC ダイアログベース ----
 MFC_DIALOG_FILES = {
-    'pch.h': MFC_FILES['pch.h'],
+    'targetver.h': MFC_TARGETVER_H,
+    'framework.h': MFC_FRAMEWORK_H,
+    'pch.h': MFC_PCH_H,
+    'pch.cpp': MFC_PCH_CPP,
     'Resource.h': '''#pragma once
+#define IDR_MAINFRAME           128
 #define IDD_SAMPLE_DIALOG       101
 #define IDC_NAME_EDIT           1001
 #define IDC_GREETING_TEXT       1002
@@ -511,6 +607,8 @@ MFC_DIALOG_RC = '''#include "Resource.h"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
+IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
+
 IDD_SAMPLE_DIALOG DIALOGEX 0, 0, 240, 100
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "@@NAME@@"
@@ -523,7 +621,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,183,79,50,14
 END
-'''
+''' + MFC_RC_TAIL
 
 # --type -> (ソースの一式, .rc)
 MFC_VARIANTS = {
@@ -812,8 +910,8 @@ def write_plain(folder, rel, text, crlf=False):
 
 
 def main_files(name, mtype, ns, toolset, guid):
-    """メインのプロジェクトのファイル一式を返す: (files, rc の相対パス (BOM なしで書く))"""
-    files, plain = {}, set()
+    """メインのプロジェクトのファイル一式を返す: (files, BOM なしで書く相対パス, バイナリ (相対パス -> bytes))"""
+    files, plain, binaries = {}, set(), {}
     if mtype in LIBRARY_TYPES:
         files.update(AL.dll_files(name, ns, [], toolset, guid, kind=mtype))
     elif mtype == 'console':
@@ -831,10 +929,19 @@ def main_files(name, mtype, ns, toolset, guid):
         rc = f'{name}.rc'
         files[f'{name}/{rc}'] = mfc_rc.replace('@@NAME@@', name)
         plain.add(f'{name}/{rc}')
-        items = list(mfc_files) + [rc]
-        files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, items, [], [], '_WINDOWS;', 'Windows', mfc=True)
+        # res\ フォルダ (ウィザードの構成): rc2 (テキスト)、アプリのアイコン。SDI・MDI は、文書のアイコンも。
+        files[f'{name}/res/{name}.rc2'] = MFC_RC2.replace('@@NAME@@', name)
+        plain.add(f'{name}/res/{name}.rc2')
+        binaries[f'{name}/res/{name}.ico'] = make_ico((0x2B, 0x6C, 0xB0))
+        res_items = [f'res\\{name}.ico']
+        if mtype != 'mfc-dialog':
+            binaries[f'{name}/res/{name}Doc.ico'] = make_ico((0x3A, 0x8F, 0x4E))
+            res_items.append(f'res\\{name}Doc.ico')
+        res_items.append(f'res\\{name}.rc2')
+        items = list(mfc_files) + [rc] + res_items
+        files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, items, [], [], '_WINDOWS;', 'Windows', mfc=True, wizard=True)
         files[f'{name}/{name}.vcxproj.filters'] = AL.vcxproj_filters(items)
-    return files, plain
+    return files, plain, binaries
 
 
 # ---------------- WPF (.NET) ----------------
@@ -1273,7 +1380,7 @@ def create_mode(a, folder, name):
         gfiles, gprojects, gguid = AL.plan_gtest(folder, gmode, toolset)
 
     mg = AL.new_guid()
-    files, plain = main_files(name, a.type, ns, toolset, mg)
+    files, plain, binaries = main_files(name, a.type, ns, toolset, mg)
     projects = [(name, mg)]
     dll_list = [(name, mg, [], a.type)] if a.type in LIBRARY_TYPES else []
     data_name = dict(layers).get('data')
@@ -1299,7 +1406,7 @@ def create_mode(a, folder, name):
     print(f'名前空間       : {ns}')
     print(f'PlatformToolset: {toolset}')
     print(f'  + {name}.slnx ({len(projects)} プロジェクト)')
-    for rel in files:
+    for rel in list(files) + list(binaries):
         print(f'  + {rel}')
     extras = [x for x in ('CLAUDE.md', '.gitignore', '.gitattributes') if not os.path.exists(os.path.join(folder, x))]
     for e in extras:
@@ -1316,6 +1423,11 @@ def create_mode(a, folder, name):
     AL.write_files(folder, {k: v for k, v in files.items() if k not in plain})
     for rel in plain:
         write_plain(folder, rel, files[rel], crlf=True)
+    for rel, data in binaries.items():
+        bp = os.path.join(folder, *rel.split('/'))
+        os.makedirs(os.path.dirname(bp), exist_ok=True)
+        with open(bp, 'wb') as f:
+            f.write(data)
     write_plain(folder, f'{name}.slnx', slnx_text(projects, name if a.type in EXE_TYPES else None), crlf=True)
     if 'CLAUDE.md' in extras:
         write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg'))

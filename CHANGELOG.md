@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.60.0] 2026-11-09 (MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成を、Visual Studio のウィザードに合わせた)
+
+- **メインの構成をウィザードに合わせた** (`docs/DESIGN.md` 4.81)。参照は、ウィザードで作った `MFCSDISample` と `MFCFirstApp`。
+  - **補助ファイルと PCH:** `framework.h`・`targetver.h`・`pch.h`・`pch.cpp` を作り、PCH を `Use` / `Create` にした。Common Controls 6.0 の指令は、ウィザードと同じく `framework.h` に移した (`pch.h` は `framework.h` を読むだけ)。
+  - **`res\` フォルダ:** `res\<名前>.rc2`、アプリのアイコン `res\<名前>.ico`、SDI・MDI は文書のアイコン `res\<名前>Doc.ico` (16x16 の置き場所。あとで差し替える)。`.rc` が、アイコンと rc2 を読む。
+  - **`.vcxproj` の設定:** `Keyword` を `MFCProj` に。`Midl`、`ResourceCompile` (`Culture` 0x0411、`$(IntDir)`)、`LinkIncremental`、`EnableSegmentHeap`、Release の `WholeProgramOptimization`、`ExtensionTargets` を足した。
+  - **フィルター:** `res\` の `.ico` は `Image`、`.rc2` は `None` で、「リソース ファイル」の下に出す (フィルターの 3 つの構成は、もともと同じ)。
+  - **残したもの:** `OutDir` / `IntDir` (ウォッチャーが探す場所)、`stdcpp20`、`EnableDpiAwareness`。
+  - **合わせないもの (利用者の決定):** ファイル名・クラス名 (`SampleApp` などのまま)、ドッキングウィンドウ。**Win32 の構成と、層・テスト・画面ホストの `.vcxproj` は、v2.61.0 で行う** (x64 のみ)。MDI とダイアログは、SDI の規則から推定した。
+- `tests/mfc_wizard_layout_test.sh` を新設 (3 種類 x 2 項目 + 層・テスト付き 3 項目)。`tests/ui_guideline_check_test.sh` は、Common Controls の指令を `framework.h` で確かめるように直した。
+- **配布が要る** (`new-solution`、`cpp-test-first` の `add_layer.py`)。実機の確認 (3 種類を作って、ビルドして、起動して見る) は、未実施。
+
 ## [2.59.8] 2026-11-08 (文書: MX の `AFX_EXT_CLASS` の確認の記録)
 
 - **MFC 拡張 DLL の生成 (v2.45.0) の `AFX_EXT_CLASS` を、実機で確認した** (`dllchk`。TEST-PLAN 2-25 の MX4、REMAINING-CHECKS)。`ExtLayer` に `class AFX_EXT_CLASS ExtGreeting : public CObject` (`CString`、`DECLARE_DYNAMIC`) を足し、別の exe (`ExtLayerTest`) から、ビルド・リンク・実行できた (`PASSED`、3 件。`mfc-check` は error 0 / warning 0)。**`AFX_EXT_CLASS` を外すと、`ExtLayerTest` のリンクで LNK2019 / LNK2001 になる** (`GetThisClass`・`GetRuntimeClass`・`Make`)。`ExtLayerApi.h` の注意書きは、正しい。
