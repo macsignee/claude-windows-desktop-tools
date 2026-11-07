@@ -49,29 +49,38 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-1. 早見
 
-| Skill | 起動 | ひとこと |
-|---|---|---|
-| `/new-solution` | スラッシュ | ソリューションを 1 つ作る |
-| `/new-solutions` | スラッシュ | 種類違いの候補を、まとめて作って比べる |
-| `/add-project` | スラッシュ | すでにあるソリューションに、層・テスト・画面などを足す |
-| `/ui-test-first` | スラッシュ | 画面を作りながら、UI テストを先に書く |
-| `cpp-test-first` | 依頼文 | C++ で、テストを先に書いて Red を確認する |
-| `csharp-test-first` | 依頼文 | WPF / WinForms で、テストを先に書いて Red を確認する |
-| `auto-build` | 依頼文 | ビルドして、エラーを直す |
-| `build-test-loop` | 依頼文 | ビルドとテストを通す (Green) |
-| `mfc-check` | 依頼文 | MFC の、実行時に壊れる所を、静的に検査する |
-| `wpf-check` | 依頼文 | WPF の、同上 |
-| `winforms-check` | 依頼文 | WinForms の、同上 |
-| `ui-design-review` | 依頼文 / スラッシュ | 画面を、UI ガイドラインに沿って、設計・レビューする |
-| `add-package` | 依頼文 | NuGet・vcpkg・GitHub のソースで、ライブラリを足す |
+Skill は 13 個ある。**スラッシュで打って起動するもの**と、**依頼文に合わせて Claude が選ぶもの**がある (→ 「2-2」)。
+
+- **`/new-solution`** (スラッシュ): ソリューションを 1 つ作る。
+- **`/new-solutions`** (スラッシュ): 種類違いの候補を、まとめて作って比べる。
+- **`/add-project`** (スラッシュ): すでにあるソリューションに、層・テスト・画面などを足す。
+- **`/ui-test-first`** (スラッシュ): 画面を作りながら、UI テストを先に書く。
+- **`cpp-test-first`** (依頼文): C++ で、テストを先に書いて Red を確認する。
+- **`csharp-test-first`** (依頼文): WPF / WinForms で、テストを先に書いて Red を確認する。
+- **`auto-build`** (依頼文): ビルドして、エラーを直す。
+- **`build-test-loop`** (依頼文): ビルドとテストを通す (Green)。
+- **`mfc-check`** (依頼文): MFC の、実行時に壊れる所を、静的に検査する。
+- **`wpf-check`** (依頼文): WPF の、実行時に壊れる所を、静的に検査する。
+- **`winforms-check`** (依頼文): WinForms の、実行時に壊れる所を、静的に検査する。
+- **`ui-design-review`** (依頼文 / スラッシュ): 画面を、UI ガイドラインに沿って、設計・レビューする。
+- **`add-package`** (依頼文): NuGet・vcpkg・GitHub のソースで、ライブラリを足す。
 
 ### 2-2. 起動のしかた
 
-- **スラッシュコマンドだけで起動する Skill** (依頼文では、自動では、起動しない。`disable-model-invocation: true`): `/new-solution`、`/add-project`、`/new-solutions`、`/ui-test-first`。
-- **依頼文で、自動で選ばれる Skill** (description に合う依頼で起動する): 上の表の「依頼文」。`ui-design-review` は、`/ui-design-review [画面名 / ファイル / 規則 ID]` で、引数つきの起動もできる。
-- Skill の一覧は、Claude Code の起動時に読み込まれる。**配布したあとは、セッションを、新しく起動する。**
-- **Skill の中のコマンドは、配布先のパスを、固定しない** (v2.58.0)。`<Skill群>` (この Skill のフォルダの 1 つ上。Skill の読み込み時に、Base directory として示される) を基準に書き、実行するときに、実際のパスに置き換える。ホームの `~/.claude/skills/` でも、プロジェクトの `.claude/skills/` でも、同じに動く。
-- 各 Skill の下の `scripts/` は、Skill が内部で呼ぶスクリプト。`references/` は、必要なときだけ読む詳細 (読み込みを小さくするため)。
+Skill の起動には、スラッシュで打つものと、依頼文から自動で選ばれるものがある。
+
+- **スラッシュコマンドだけで起動する Skill**: 依頼文では、自動では、起動しない (`disable-model-invocation: true`)。
+  - 対象: `/new-solution`、`/add-project`、`/new-solutions`、`/ui-test-first`。
+- **依頼文で、自動で選ばれる Skill**: description に合う依頼で起動する (「2-1」の「依頼文」)。
+  - `ui-design-review` は、`/ui-design-review [画面名 / ファイル / 規則 ID]` で、引数つきの起動もできる。
+- **Skill の一覧**: Claude Code の起動時に読み込まれる。
+  - **配布したあとは、セッションを、新しく起動する。**
+- **Skill の中のコマンドは、配布先のパスを、固定しない** (v2.58.0): `<Skill群>` を基準に書き、実行するときに、実際のパスに置き換える。
+  - `<Skill群>` は、この Skill のフォルダの 1 つ上。Skill の読み込み時に、Base directory として示される。
+  - ホームの `~/.claude/skills/` でも、プロジェクトの `.claude/skills/` でも、同じに動く。
+- **`scripts/` と `references/`**: Skill の下にある。
+  - `scripts/`: Skill が内部で呼ぶスクリプト。
+  - `references/`: 必要なときだけ読む詳細 (読み込みを小さくするため)。
 
 ### 2-3. ソリューションを作る・足す
 
@@ -184,42 +193,40 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 3-1. 規約 (`rules/`)
 
-- 配布先は `~/.claude/rules/` (または、プロジェクトの `.claude/rules/`)。**`paths` に合うファイルを Claude が読むときだけ、自動で読み込まれる** (読み込みを小さくするため、技術ごとに分けている)。
-- 名前の方針: 言語の共通 = `<言語>-common.md`、技術ごと = `<技術>-<言語>.md`。
+技術ごとに分けた 5 つの規約がある。**`paths` に合うファイルを Claude が読むときだけ、自動で読み込まれる** (読み込みを小さくするため)。
 
-| ファイル | 大きさ | 内容 |
-|---|---|---|
-| `cpp-common.md` | 16KB | C++ の共通 (MFC・Win32・コンソール・DLL・ライブラリ) |
-| `mfc-cpp.md` | 5KB | MFC 固有 |
-| `csharp-common.md` | 13KB | C# の共通 (コーディング規約、非同期、依存性注入、例外、ログ、コメント、テスト、禁止事項) |
-| `wpf-csharp.md` | 28KB | WPF / XAML / MVVM 固有 |
-| `winforms-csharp.md` | 24KB | WinForms / MVP 固有 |
-
-`paths` (どのファイルを読むときに、読み込まれるか):
-
-- `cpp-common.md`: `*.cpp` `*.h` `*.hpp` `*.cc` `*.cxx`。
-- `mfc-cpp.md`: MFC のウィザードが作るファイル名 (`*Dlg` `*View` `*Doc` `MainFrm` `*Frame`) だけ。MFC のプロジェクトの `CLAUDE.md` が、読むよう指示する。MFC を使わないプロジェクトには、適用しない。
-- `csharp-common.md`: `*.cs`。章の番号は、WPF 規約のまま。
-- `wpf-csharp.md`: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
-- `winforms-csharp.md`: `*.Designer.cs` `Forms/` `Presenters/` `*Presenter*.cs` `I*View.cs`。
-
-補足:
-
-- 読み込みの大きさの目安:
+- **配布先**: `~/.claude/rules/` (または、プロジェクトの `.claude/rules/`)。
+- **名前の方針**: 言語の共通 = `<言語>-common.md`、技術ごと = `<技術>-<言語>.md`。
+- **`cpp-common.md`** (16KB): C++ の共通 (MFC・Win32・コンソール・DLL・ライブラリ)。
+  - 読み込まれるファイル (`paths`): `*.cpp` `*.h` `*.hpp` `*.cc` `*.cxx`。
+- **`mfc-cpp.md`** (5KB): MFC 固有。
+  - 読み込まれるファイル: MFC のウィザードが作るファイル名 (`*Dlg` `*View` `*Doc` `MainFrm` `*Frame`) だけ。
+  - MFC のプロジェクトの `CLAUDE.md` が、読むよう指示する。MFC を使わないプロジェクトには、適用しない。
+- **`csharp-common.md`** (13KB): C# の共通 (コーディング規約、非同期、依存性注入、例外、ログ、コメント、テスト、禁止事項)。
+  - 読み込まれるファイル: `*.cs`。章の番号は、WPF 規約のまま。
+- **`wpf-csharp.md`** (28KB): WPF / XAML / MVVM 固有。
+  - 読み込まれるファイル: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
+- **`winforms-csharp.md`** (24KB): WinForms / MVP 固有。
+  - 読み込まれるファイル: `*.Designer.cs` `Forms/` `Presenters/` `*Presenter*.cs` `I*View.cs`。
+- **読み込みの大きさの目安**:
   - WinForms の Presenter = `csharp-common.md` + `winforms-csharp.md`。
   - WPF の ViewModel = `csharp-common.md` + `wpf-csharp.md`。
   - 画面と無関係の `.cs` = `csharp-common.md` だけ。
-- プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらが、優先される。書式の詳細は、プロジェクトの `.editorconfig` (C++ は `.clang-format`) が正。
-- 配布: `install/install.sh --rules-only`。
+- **優先**: プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらが、優先される。書式の詳細は、プロジェクトの `.editorconfig` (C++ は `.clang-format`) が正。
+- **配布**: `install/install.sh --rules-only`。
 
 ### 3-2. ひな形 (`templates/`)
 
-- 配布先は `~/.claude/templates/` (または、プロジェクトの `.claude/templates/`)。
-- `templates/dotnet/.editorconfig`、`templates/dotnet/Directory.Build.props`: C# / WPF 用。`/new-solution` が生成するものと、同じ内容。規約 (`csharp-common.md`) が参照する。
-- `templates/cpp/.clang-format`、`.clang-tidy`、`.editorconfig`: C++ 用。`cpp-common.md` が参照する。
+規約が参照する、設定ファイルのひな形。
+
+- **配布先**: `~/.claude/templates/` (または、プロジェクトの `.claude/templates/`)。
+- **`templates/dotnet/.editorconfig`、`templates/dotnet/Directory.Build.props`**: C# / WPF 用。規約 (`csharp-common.md`) が参照する。
+  - `/new-solution` が生成するものと、同じ内容。
+- **`templates/cpp/.clang-format`、`.clang-tidy`、`.editorconfig`**: C++ 用。`cpp-common.md` が参照する。
   - 内容: Allman、インデント 4、`#include` の順序は変えない、関数は 100 行まで (`readability-function-size`)、`.cpp` / `.h` / `.hpp` は CRLF。
   - `/new-solution` (C++) は、生成しない。
-- 手で直した既存のファイルは、上書きせず、番号付きのバックアップ (`*.~N~`) を残す。バックアップは、読み込まれない。消してよい。
+- **手で直した既存のファイル**: 配布のとき、上書きせず、番号付きのバックアップ (`*.~N~`) を残す。
+  - バックアップは、読み込まれない。消してよい。
 
 ### 3-3. 道具 (`scripts/`)
 
@@ -232,20 +239,21 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ## 4. ホスト側ツール (`host-tools/`)
 
-Windows 側に置く。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-windows.cmd` の 3 ファイルと、`lib\` フォルダ (`watch_and_build.ps1` が読み込む 8 ファイル) は、同じフォルダに置く。** `install.sh` は、`lib\` も配る。
+Windows 側に置くツール。ビルド・テスト・UI テストの実行は、ここのウォッチャーが行う (→ 「2-6」)。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-windows.cmd` の 3 ファイルと、`lib\` フォルダ (`watch_and_build.ps1` が読み込む 8 ファイル) は、同じフォルダに置く。** `install.sh` は、`lib\` も配る。
 
-- `run_watcher.cmd`: 入口。プロジェクトのフォルダを指定して、ウォッチャーを起動する (ダブルクリック、ドラッグ&ドロップも可)。
-- `watch_and_build.ps1`: ウォッチャー本体 (フラグの監視ループ)。機能ごとの関数 (ビルド・テストの実行、GoogleTest の取得、パッケージ操作、UI テストの基盤) は、`lib\*.ps1` に分かれている。
-- `build-windows.cmd`: Visual Studio の環境を読み込んで、MSBuild を実行する。
-- `run_watcher_visible.cmd [ProjectDir] [Solution] [Platform] [Configuration]` (任意。引数は `run_watcher.cmd` と同じ):
-  - UI テストを、**ユーザー自身のデスクトップで、目で見ながら**実行する設定で、ウォッチャーを起動する。
-  - 操作の間に、遅延を入れる (環境変数 `WATCH_UI_SLOWMO_MS`。既定 800 ms)。実行中は、PC を使いにくい。
-- `run_watchers.cmd [WorkFolder] [/list] [/windows]` (任意。`/new-solutions` 用):
-  - 作業フォルダの直下の、候補 (`.sln` / `.slnx` のあるサブフォルダ) ごとに、ウォッチャーを起動する。
+- **`run_watcher.cmd`**: 入口。プロジェクトのフォルダを指定して、ウォッチャーを起動する。
+  - ダブルクリックでも、ドラッグ&ドロップでも、起動できる。
+- **`watch_and_build.ps1`**: ウォッチャー本体 (フラグの監視ループ)。
+  - 機能ごとの関数 (ビルド・テストの実行、GoogleTest の取得、パッケージ操作、UI テストの基盤) は、`lib\*.ps1` に分かれている。
+- **`build-windows.cmd`**: Visual Studio の環境を読み込んで、MSBuild を実行する。
+- **`run_watcher_visible.cmd [ProjectDir] [Solution] [Platform] [Configuration]`** (任意): UI テストを、**ユーザー自身のデスクトップで、目で見ながら**実行する設定で、ウォッチャーを起動する。引数は `run_watcher.cmd` と同じ。
+  - 操作の間に、遅延を入れる (環境変数 `WATCH_UI_SLOWMO_MS`。既定 800 ms)。
+  - 実行中は、PC を使いにくい。
+- **`run_watchers.cmd [WorkFolder] [/list] [/windows]`** (任意。`/new-solutions` 用): 作業フォルダの直下の、候補 (`.sln` / `.slnx` のあるサブフォルダ) ごとに、ウォッチャーを起動する。
   - 既定は、Windows ターミナル (`wt.exe`) の 1 つのウィンドウに、候補ごとのタブ。`/windows` は、候補ごとのコンソール窓。`/list` は、候補の一覧。
   - タブ / 窓を閉じると、そのウォッチャーだけが止まる。
-- 1 つのウォッチャーは、1 つのプロジェクトと、1 つの Platform / Configuration 専用。
-- 起動の仕方、引数、取り決め (フラグファイルと結果ファイル)、トラブルシューティングは、[`host-tools/README.md`](host-tools/README.md)。
+- **1 つのウォッチャーの範囲**: 1 つのプロジェクトと、1 つの Platform / Configuration 専用。
+- **詳しい説明**: 起動の仕方、引数、取り決め (フラグファイルと結果ファイル)、トラブルシューティングは、[`host-tools/README.md`](host-tools/README.md)。
 
 ## 5. 配布 (インストール)
 
