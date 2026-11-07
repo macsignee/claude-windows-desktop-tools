@@ -91,13 +91,25 @@ need(re.search(r'<None Include="res\\' + n + r'\.rc2">\s*<Filter>リソース �
 need(re.search(r'<ClCompile Include="pch.cpp">\s*<Filter>ソース ファイル</Filter>', fl) is not None, 'pch.cpp がソース ファイルの下にない')
 need(re.search(r'<ClInclude Include="framework.h">\s*<Filter>ヘッダー ファイル</Filter>', fl) is not None, 'framework.h がヘッダー ファイルの下にない')
 
-# .rc: アイコンと rc2。.rc と .rc2 は BOM なしで書くので、ASCII だけ
-rc = open(os.path.join(p, n + '.rc'), 'rb').read()
+# .rc: アイコンと rc2。.rc は、日本語の文言を含むので、UTF-8 (BOM 付き) + #pragma code_page(65001) + LANG_JAPANESE。
+# .rc2 は ASCII だけ (BOM なし)
+rc_b = open(os.path.join(p, n + '.rc'), 'rb').read()
 rc2 = open(os.path.join(p, 'res', n + '.rc2'), 'rb').read()
+rc = rc_b
 need(b'IDR_MAINFRAME ICON "res\\\\' + n.encode() + b'.ico"' in rc, '.rc がアイコンを読んでいない')
 need(b'#include "res\\' + n.encode() + b'.rc2"' in rc, '.rc が rc2 を読んでいない')
-need(all(c < 0x80 for c in rc) and all(c < 0x80 for c in rc2), '.rc / .rc2 に ASCII 以外がある')
-need(not rc.startswith(b'\xef\xbb\xbf') and not rc2.startswith(b'\xef\xbb\xbf'), '.rc / .rc2 は BOM なし')
+need(rc_b.startswith(b'\xef\xbb\xbf'), '.rc は UTF-8 の BOM 付き')
+need(b'#pragma code_page(65001)' in rc_b, '.rc に #pragma code_page(65001) がない')
+need(b'LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT' in rc_b and b'LANG_ENGLISH' not in rc_b, '.rc の言語が LANG_JAPANESE でない')
+rc_text = rc_b.decode('utf-8-sig')
+need(any(ord(ch) > 0x7F for ch in rc_text), '.rc に日本語の文言がない')
+if t != 'mfc-dialog':
+    need('ファイル(&F)' in rc_text, '.rc のメニューが日本語でない')
+if t == 'mfc-dialog':
+    need('名前(&N):' in rc_text and 'クリア(&C)' in rc_text and 'キャンセル' in rc_text, 'ダイアログのラベルが日本語でない')
+if t == 'mfc-mdi':
+    need('ウィンドウ(&W)' in rc_text and '新規作成(&N)' in rc_text, 'MDI のメニューが日本語でない')
+need(all(c < 0x80 for c in rc2) and not rc2.startswith(b'\xef\xbb\xbf'), '.rc2 は、ASCII だけ・BOM なし')
 if t != 'mfc-dialog':
     need(b'IDR_SAMPLETYPE ICON' in rc, '.rc が文書のアイコンを読んでいない')
     need(b'IDR_SAMPLETYPE' in open(os.path.join(p, 'Resource.h'), 'rb').read(), 'Resource.h に IDR_SAMPLETYPE がない')
