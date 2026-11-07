@@ -18,6 +18,11 @@
 
 - **A: 既存コードから、仕様を逆生成する新 Skill。** 既存の MFC・WPF のプロジェクトを、仕様駆動 (`claude-spec-workflow`) へ移す予定があるかで、決める。作るなら大きい作業。
 - **`ExtLayerApi.h` の注意書き:** 「公開ヘッダーは、自分で `<afxwin.h>` を include する」を足す (MX の確認で、プリコンパイル済みヘッダーのないテスト exe で、`BUILD_FAILED` になった。TEST-PLAN 2-25)。ひな形 (`new_solution.py` の生成部分) の変更と、テストが要る (配布が要る版)。
+- **MFC の生成物の、残り (v2.60.x):**
+  - **v2.61.0: Win32 の構成** (メイン・層・テスト・画面ホストの `.vcxproj`、`.slnx` の x86、GoogleTest の `x86-windows-static-md`)。環境で x86 のビルドができることは、確認済み (TEST-PLAN 2-36 の WZ4)。
+  - **メニューとダイアログの文言の言語:** 今は英語 (`.rc` が ASCII のため。DESIGN 865 行目)。日本語にする案は、`.rc` の符号化 (UTF-8 BOM + `#pragma code_page(65001)` など) と、UI テストの文言を見直す別の版。判断待ち。
+  - **`mfc-check` の MDI の静的検査:** `OnCreateClient` の上書きと、`IDR_MAINFRAME` のメニューの数 (v2.60.1 の不具合を、起動せずに見つける)。任意。
+  - **`auto-build` / `build-test-loop` の SKILL:** 「`MSB4126` で、構成に `Win32` と出たら、ウォッチャーの Platform 引数を疑う」。任意。
 - **UI ガイドライン (v2.26.0〜v2.27.0) の、残り:**
   - **「既知の指摘」の質問を、指摘ごとにする** (`ui-test-first`)。運用して、不都合が出たときに行う。
   - **`/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す** (任意)。
