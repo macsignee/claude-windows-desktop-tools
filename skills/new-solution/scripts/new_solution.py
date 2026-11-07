@@ -371,7 +371,18 @@ MFC_MDI_FILES = {
 #define IDR_MAINFRAME           128
 #define IDR_SAMPLETYPE          129
 ''',
-    'SampleApp.h': MFC_FILES['SampleApp.h'],
+    'SampleApp.h': '''#pragma once
+#include "pch.h"
+
+// アプリケーション本体 (UI 層)。
+class CSampleApp : public CWinApp
+{
+public:
+    BOOL InitInstance() override;
+
+    DECLARE_MESSAGE_MAP()
+};
+''',
     'SampleApp.cpp': '''#include "pch.h"
 #include "SampleApp.h"
 #include "MainFrame.h"
@@ -381,6 +392,12 @@ MFC_MDI_FILES = {
 #include "Resource.h"
 
 CSampleApp theApp;
+
+BEGIN_MESSAGE_MAP(CSampleApp, CWinApp)
+    // 「ファイル」→「新規」。CWinApp は、この ID を割り当てない (ウィザードのアプリも、ここで割り当てている)。
+    // 割り当てがないと、子ウィンドウのメニューの「New」が、押せなくなる。
+    ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
+END_MESSAGE_MAP()
 
 BOOL CSampleApp::InitInstance()
 {
@@ -420,12 +437,24 @@ BOOL CSampleApp::InitInstance()
 class CMainFrame : public CMDIFrameWnd
 {
     DECLARE_DYNAMIC(CMainFrame)
+
+protected:
+    BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;
 };
 ''',
     'MainFrame.cpp': '''#include "pch.h"
 #include "MainFrame.h"
 
 IMPLEMENT_DYNAMIC(CMainFrame, CMDIFrameWnd)
+
+BOOL CMainFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext*)
+{
+    // 既定の実装 (CMDIFrameWnd::OnCreateClient) は、メニューバーの「右から 2 番目」を Window メニューと推測する。
+    // IDR_MAINFRAME のメニューが File だけだと、その推測が成り立たず、起動時に ASSERT で止まる (winmdi.cpp)。
+    // ここでは、Window メニューを指定せずに、MDI のクライアント領域を作る。
+    // 子ウィンドウが開いたあとの Window メニューは、IDR_SAMPLETYPE のメニューから、MFC が見つける。
+    return CreateClient(lpcs, nullptr);
+}
 ''',
     'ChildFrame.h': '''#pragma once
 #include "pch.h"
