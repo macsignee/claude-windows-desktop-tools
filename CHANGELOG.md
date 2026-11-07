@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.59.8] 2026-11-08 (文書: MX の `AFX_EXT_CLASS` の確認の記録)
+
+- **MFC 拡張 DLL の生成 (v2.45.0) の `AFX_EXT_CLASS` を、実機で確認した** (`dllchk`。TEST-PLAN 2-25 の MX4、REMAINING-CHECKS)。`ExtLayer` に `class AFX_EXT_CLASS ExtGreeting : public CObject` (`CString`、`DECLARE_DYNAMIC`) を足し、別の exe (`ExtLayerTest`) から、ビルド・リンク・実行できた (`PASSED`、3 件。`mfc-check` は error 0 / warning 0)。**`AFX_EXT_CLASS` を外すと、`ExtLayerTest` のリンクで LNK2019 / LNK2001 になる** (`GetThisClass`・`GetRuntimeClass`・`Make`)。`ExtLayerApi.h` の注意書きは、正しい。
+- **発見 (候補として記録):** 公開ヘッダーが `<afxwin.h>` を include していないと、プリコンパイル済みヘッダーのないテスト exe で、`BUILD_FAILED` になる。`ExtLayerApi.h` の注意書きに足す候補 (未着手。NEXT-STEPS)。
+- `docs/NEXT-STEPS.md` を更新した (DC4 の実行時と MX の `AFX_EXT_CLASS` は、済み。残る任意の確認を整理)。
+- 動作は変えていない (文書と記録だけ)。
+
 ## [2.59.7] 2026-11-08 (文書: DLL008 の「テスト exe も、同じ」の誤りを直した。DC4 の実行時の確認の記録)
 
 - **`mfc-check` の SKILL の DLL008 の行を、実装に合わせて直した。** 以前は、「テスト exe も、同じ」と書いていたが、`mfc_check.py` の `check_mfc_dlls` は、名前が `Test` / `Tests` で終わるプロジェクトを、DLL の検査ごと、読み飛ばす。実機 (`dllchk`) で、`UseOfMfc` を `false` にした `ExtLayerTest` に、指摘が出ないことで、食い違いが分かった。「テストは、検査しない」と明記し、「実行時に壊れる」は、**MFC の状態 (`CString`・ダイアログ・リソースなど) を使う関数を呼ぶとき**の話だと、書き足した。
