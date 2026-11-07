@@ -192,5 +192,7 @@ ok "SKILL.md: 同一でないファイルが 1 つでもあれば、どのファ
 ok "SKILL.md: 質問のツールが失敗したときも、既定の名前で黙って進まず、チャットで名前を聞く" "$(grep -q '既定の名前で黙って進まず' "$SK" && echo 1 || echo 0)"
 ok "SKILL.md: ViewModel の層を作ったとき、「アプリの構成」の行と「ViewModel 層を作っていない」の行も直す" "$(grep -q 'ViewModel の層を作ったとき' "$SK" && grep -q 'ViewModel 層を作っていないので' "$SK" && echo 1 || echo 0)"
 
+ok "SKILL.md: 「移す」を選んだあと、層のサンプルのテストが失敗しうる。黙って直さず・弱めず、ユーザーに確認する" "$(grep -q '層の側に生成されたサンプルのテスト' "$SK" && grep -q 'テストを、黙って直さず、弱めない' "$SK" && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
