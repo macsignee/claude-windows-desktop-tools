@@ -473,6 +473,7 @@ def main():
             die(f'すでに存在する: {d} (何も書いていない)', 3)
 
     toolset = a.toolset or AL.detect_toolset(sln_dir)
+    AL.set_platforms(AL.detect_platforms(sln_dir))   # 新しい画面ホストは、このソリューションのプラットフォームに、そろえる
     ns = a.namespace or AL.default_namespace(sln)
     up = ui.upper()
     logic = logic_info(sln_dir, sln, a.logic)

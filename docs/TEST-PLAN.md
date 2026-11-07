@@ -956,3 +956,18 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | JA4 | Visual Studio で `.slnx` を開き、`.rc` のリソース ビューを開く | 開ける。メニューとダイアログが、日本語で表示される (文字コードの確認の画面が出た場合は、その内容を記録) | ✔ (2026-11-10) Visual Studio で、メニューとダイアログのリソースが、すべて正しく表示された |
 | JA5 | ダイアログで、アクセスキー (Alt+N、Alt+C) | 「名前」の入力欄に移る、「クリア」が押せる (名前を入れたあと) | ✔ (2026-11-10) アクセスキーの動作も確認 |
 
+### 2-38. C++ のプラットフォーム (Win32 / x64) の指定と、あとからの追加 (v2.62.0。`docs/DESIGN.md` 4.83)
+
+**v2.62.0 で追加。静的テスト (`tests/win32_platform_test.sh`) は通っている。実機のビルドと実行は、未確認。** 準備: マージして、`install.sh --skills-only` で配布する。新しいフォルダと、新しい Claude Code のセッションで行う。**ウォッチャーは、1 つの Platform 専用。起動時の表示 `Build : <構成>|<Platform>` を、毎回、確かめる。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| W1 | **回帰:** 既定 (`--platforms` なし) で `/new-solution --type mfc --layers logic,data --tests gtest`。ウォッチャーは、引数なし | x64 で、ビルドして、`PASSED` (いままでと同じ)。`CLAUDE.md` に「プラットフォームは x64 だけ。Win32 は、あとから `/add-project platform Win32`」 | 未実施 |
+| W2 | `--platforms x64,Win32` で同じソリューション。x64 で `PASSED` のあと、**ウォッチャーを Win32 で起動し直して** (`run_watcher.cmd <フォルダ> "" Win32`)、ビルドとテスト | `Win32\Debug\*Test.exe` が、`PASSED`。初回は、vcpkg の x86 の gtest (`x86-windows-static-md`) の取得で、数分かかる | 未実施 |
+| W3 | MFC 拡張 DLL・標準 DLL の層 (`--layer-kind`) を、`--platforms x64,Win32` で作り、Win32 でビルド | `SUCCESS` (拡張 DLL を参照するメインも、Win32 でリンクできる) | 未実施 |
+| W4 | Visual Studio で `.slnx` を開く | ソリューション プラットフォームに、x86 と x64 の両方が出て、x86 でビルドできる | 未実施 |
+| W5 | MFC 以外 (`win32`・`console`・`dll`・`lib`) を、`--platforms x64,Win32` で作り、Win32 でビルド | `SUCCESS` | 未実施 |
+| W6 | **x64 だけで作ったソリューションに、`/add-project platform Win32` で、あとから足す** (承認の案で、`+` のファイルが、全部の `.vcxproj` と `.slnx`) → Win32 でビルド → 続けて、`/add-project layer` で、層とテストを足す | 全部のプロジェクトが Win32 の構成を持ち、Win32 でビルドできる。足した層・テストも、Win32 の構成を持つ。`solution_state.py` の `PLATFORMS` が `Win32, x64` | 未実施 |
+| W7 | `--platforms Win32` (Win32 のみ) を作り、`/add-project` で層とテストを足して、Win32 でビルド | 足した層・テストは、Win32 だけ。ウォッチャーは、Win32 で起動する (引数なしだと、`MSB4126`) | 未実施 |
+| W8 | **ウィザードで作った x64 だけのプロジェクト** (手で x86 を消したもの、または、別のソリューション) に、`/add-project platform Win32` | 変換できるか、想定外の形式として、何も書かずに止まるか。**止まったとき、その `.vcxproj` の、どこが想定と違うか**を記録する (`add_platform.py` の限界の確認) | 未実施 |
+

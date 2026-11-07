@@ -1284,3 +1284,17 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **影響しないもの:** UI テストの生成 (`add_ui_tests.py`) は、コントロールの AutomationId (ID の数値) で探すので、ラベルの文言に依存しない。`mfc-check` の検査 (ID の対応) も、文言に依存しない。
 - **含めなかったもの:** `/add-project ui-host` が作る画面ホストの `.rc` (`GreetingDialog` のラベル) は、英語 (ASCII、BOM なし) のまま。**別に、直す候補** (NEXT-STEPS)。STRINGTABLE の文書の種類の文字列 (`<名前>.Document`) も、そのまま。
 - **実機の確認 ✔ (2026-11-10。TEST-PLAN 2-37):** `rc.exe` は、UTF-8 (BOM 付き) + `code_page(65001)` の `.rc` を、警告なしでビルドした。メニューとダイアログの文字は、文字化けなしで表示され、Visual Studio で、メニューとダイアログのリソースが、正しく表示された (開いたときの、文字コードの確認の画面の有無は、記録していない)。
+
+### 4.83 C++ のプラットフォーム (Win32 / x64) の指定と、あとからの追加 (v2.62.0)
+
+- **きっかけ:** 「Win32 / x86 のビルドは可能か」という質問。ウォッチャーは、Platform 引数 (`x64` / `Win32` / `ARM64`) に、すでに対応していた (出力先 `<ソリューション>\<Platform>\<構成>\`、vcpkg のトリプレットも Platform から決まる)。実機で、ウィザードで作った `MFCSDISample` を、Win32 で、ビルドして、成功した (`Debug|x86`、PE 種別 0x14c)。**足りなかったのは、私たちの生成物**: `.vcxproj` と `.slnx` が x64 だけだった。
+- **決定 (利用者):** Win32 は、(1) **`/new-solution --platforms` の引数で選べる** (`x64` 既定 / `x64,Win32` / `Win32`。**質問はしない**)、(2) **あとから足せる** (`/add-project platform Win32`)。「常に両方」は、見送った。**ウォッチャーは変えない** (選択中のプラットフォームに従う案は、利用者が差し戻した)。
+- **実装:**
+  - `add_layer.py` の `vcxproj()` が、プラットフォームの繰り返しで、`.vcxproj` を作る (`set_platforms()` で、1 回の実行の最初に決める。既定は x64 だけ。`ProjectConfiguration`、構成ごとの `PropertyGroup` / `ImportGroup` / `ItemDefinitionGroup`、Win32 の `WIN32;`、`VcpkgTriplet` は Win32 で `x86-windows-static-md`)。**既定 (x64 だけ) の出力は、v2.60.4 と、バイト単位で同じ** (192 通りの組み合わせで確認)。
+  - `new_solution.py` が `--platforms` を受け取り (.NET と、すでにあるソリューションには、エラー)、`.slnx` に `<Platform Name="x86" />` を足し、`.gitignore` に `Win32/`、`CLAUDE.md` に、ウォッチャーの起動の案内を書く。仕様書の構成案に `プラットフォーム:` のキー。
+  - 層・テスト・画面ホストを、**あとから足す**スクリプト (`add_layer.py`・`add_ui_host.py`・`new_solution.py --tests gtest`) は、既存のソリューションのプラットフォームを、`.vcxproj` の `ProjectConfiguration` から読み取って (`detect_platforms()`)、そろえる。`.sln` の編集は、ソリューションの x86 を、プロジェクトの Win32 に対応づける。`cpp_pkg.py` (`add-package`) は、すでに、x64・Win32・ARM64 のトリプレットを書いていたので、変えていない。
+  - **`add_platform.py` (`/add-project platform`) 新設:** 既存の `.vcxproj` の、元のプラットフォームのブロックを、複製して、新しいプラットフォームのブロックにする (連続したブロックは、まとめて、Win32 は前、x64 は後ろ。ウィザードと同じ並び)。`.slnx` に `<Platform>`、`.sln` に構成の対応づけを足す。**結果は、最初から `--platforms x64,Win32` で作ったものと、まったく同じ** (テストで、7 種類のメインと、MFC 拡張・標準 DLL の層について、確かめた)。冪等 (すでにあれば、何もしない。終了コード 3)。**想定と違う形の `.vcxproj` が 1 つでもあれば、何も書かずに止まる** (終了コード 2。全部か、何もか)。
+  - `solution_state.py` に `PLATFORMS` の行と、`ADDABLE` の `platform:Win32` / `platform:x64`。
+- **注意:** (1) Win32 のビルドは、**ウォッチャーを `run_watcher.cmd <フォルダ> "" Win32` で起動した場合だけ** (引数なしは x64)。Win32 のまま、x64 だけのソリューションをビルドすると、`MSB4126` になる (実機で起きた)。(2) 手で直した `.vcxproj` (インデントが違う、条件の書き方が違う) は、`add_platform.py` が、断ることがある。(3) .NET (`AnyCPU`) は、対象外。(4) ARM64 は、扱わない。
+- **未確認 (実機):** TEST-PLAN 2-38 (W1〜W7)。特に、vcpkg の x86 の gtest (`x86-windows-static-md`) の取得と、Win32 のテストの実行。
+

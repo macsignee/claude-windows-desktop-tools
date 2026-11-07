@@ -17,6 +17,7 @@ Usage: python3 solution_state.py <SLN_DIR>
   MISMATCH       CLAUDE.md と、実際の構成の食い違い (層の記録、テストの有無、「追加した層」の行のテストの有無)
   REF_ISSUES     層の参照の向きの違反 (下の層が、上の層を参照している。メイン → 画面 → ViewModel → ロジック → データ)
   SUGGEST_REF    どこからも参照されていない層と、参照するのが自然なプロジェクト (使う側 -> 層)
+  PLATFORMS      C++ のプラットフォーム (x64 / Win32。全部のプロジェクトが持つもの。一部だけのときは、その旨)
   ADDABLE        足せるもの | 説明 | dry-run の例 (そのまま、実行できる形ではない。< > を埋める)
 
 終了コード: 0 / 2 ソリューションが見つからない / 3 ソリューションが複数ある
@@ -276,6 +277,27 @@ def suggest_refs(projects):
     return out
 
 
+def cpp_platforms(sln_dir):
+    """C++ の .vcxproj が持つプラットフォーム (x64 / Win32)。各プロジェクトが、すべて持つものと、一部だけが持つものを分ける。
+    戻り値: (すべてが持つ, 一部が持つ)。C++ のプロジェクトがなければ、([], [])"""
+    per = []
+    for root, dirs, files in os.walk(sln_dir):
+        dirs[:] = [d for d in dirs if d not in ('packages', 'obj', '.vs', '.git', 'x64', 'x86', 'Win32', 'Debug', 'Release', 'vcpkg_installed', 'ThirdParty', '.claude-logs')]
+        for f in files:
+            if f.lower().endswith('.vcxproj'):
+                try:
+                    t = open(os.path.join(root, f), encoding='utf-8-sig').read()
+                except OSError:
+                    continue
+                per.append(set(re.findall(r'<Platform>(x64|Win32)</Platform>', t)))
+    if not per:
+        return [], []
+    every = set.intersection(*per)
+    some = set.union(*per) - every
+    order = ('Win32', 'x64')
+    return [x for x in order if x in every], [x for x in order if x in some]
+
+
 def addables(sln_dir, projects, kind, main_name):
     out = []
     tests = tests_of(projects)
@@ -290,6 +312,11 @@ def addables(sln_dir, projects, kind, main_name):
                             f'python3 {SCRIPTS}/cpp-test-first/scripts/add_layer.py "{sd}" {n} --tests-only --dry-run'))
         out.append(('ui-host', '画面を持つ DLL (UI DLL) と、画面ホストの exe を足す',
                     f'python3 {SCRIPTS}/cpp-test-first/scripts/add_ui_host.py "{sd}" [--name UiLayer] [--kind mfc-std-dll|mfc-ext-dll] --dry-run'))
+        every, some = cpp_platforms(sln_dir)
+        for pl in (('Win32', 'x64') if (every or some) else ()):
+            if pl not in every:
+                out.append((f'platform:{pl}', f'{pl} の構成を、全部の C++ プロジェクト (と .slnx / .sln) に足す (いまは、{", ".join(every) or "なし"}' + (f'。一部だけ: {", ".join(some)}' if some else '') + ')',
+                            f'python3 {SCRIPTS}/add-project/scripts/add_platform.py "{sd}" --platform {pl} --dry-run'))
     else:
         out.append(('layer', '層 (クラスライブラリ) と、そのテストを足す',
                     f'python3 {SCRIPTS}/csharp-test-first/scripts/add_project.py "{sd}" <Name> [--kind lib|data|logic|viewmodel] [--tests mstest|none] [--uses <Other>...] --dry-run'))
@@ -341,6 +368,9 @@ def main():
     for n, p in projects.items():
         t = tests.get(n) or uitests.get(n) or '-'
         print(f'PROJECT: {n} | {p["kind"]} | {p["role"]} | {t} | {",".join(p["refs"]) or "-"} | {",".join(p["uses"]) or "-"}')
+    if kind in ('cpp', 'mixed'):
+        every, some = cpp_platforms(sln_dir)
+        print(f'PLATFORMS: {", ".join(every) or "(なし)"}' + (f' (一部のプロジェクトだけ: {", ".join(some)})' if some else ''))
     for m in mismatches(projects, settings, main_name):
         print(f'MISMATCH: {m}')
     for m in ref_issues(projects):
