@@ -342,16 +342,19 @@ MFC_RC_TAIL = '''
 MFC_RC = '''#include "Resource.h"
 #include "afxres.h"
 
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+// この .rc は、UTF-8 (BOM 付き) で書く。リソース コンパイラーに、UTF-8 だと伝える (日本語の文言を含むため)。
+#pragma code_page(65001)
+
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 
 IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
 IDR_SAMPLETYPE ICON "res\\\\@@NAME@@Doc.ico"
 
 IDR_MAINFRAME MENU
 BEGIN
-    POPUP "&File"
+    POPUP "ファイル(&F)"
     BEGIN
-        MENUITEM "E&xit",                   ID_APP_EXIT
+        MENUITEM "アプリケーションの終了(&X)",   ID_APP_EXIT
     END
 END
 
@@ -478,34 +481,37 @@ IMPLEMENT_DYNCREATE(CChildFrame, CMDIChildWnd)
 MFC_MDI_RC = '''#include "Resource.h"
 #include "afxres.h"
 
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+// この .rc は、UTF-8 (BOM 付き) で書く。リソース コンパイラーに、UTF-8 だと伝える (日本語の文言を含むため)。
+#pragma code_page(65001)
+
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 
 IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
 IDR_SAMPLETYPE ICON "res\\\\@@NAME@@Doc.ico"
 
 IDR_MAINFRAME MENU
 BEGIN
-    POPUP "&File"
+    POPUP "ファイル(&F)"
     BEGIN
-        MENUITEM "E&xit",                   ID_APP_EXIT
+        MENUITEM "アプリケーションの終了(&X)",   ID_APP_EXIT
     END
 END
 
 IDR_SAMPLETYPE MENU
 BEGIN
-    POPUP "&File"
+    POPUP "ファイル(&F)"
     BEGIN
-        MENUITEM "&New\\tCtrl+N",            ID_FILE_NEW
-        MENUITEM "&Close",                  ID_FILE_CLOSE
+        MENUITEM "新規作成(&N)\\tCtrl+N",        ID_FILE_NEW
+        MENUITEM "閉じる(&C)",                   ID_FILE_CLOSE
         MENUITEM SEPARATOR
-        MENUITEM "E&xit",                   ID_APP_EXIT
+        MENUITEM "アプリケーションの終了(&X)",   ID_APP_EXIT
     END
-    POPUP "&Window"
+    POPUP "ウィンドウ(&W)"
     BEGIN
-        MENUITEM "&New Window",             ID_WINDOW_NEW
-        MENUITEM "&Cascade",                ID_WINDOW_CASCADE
-        MENUITEM "&Tile",                   ID_WINDOW_TILE_HORZ
-        MENUITEM "&Arrange Icons",          ID_WINDOW_ARRANGE
+        MENUITEM "新しいウィンドウ(&N)",         ID_WINDOW_NEW
+        MENUITEM "重ねて表示(&C)",               ID_WINDOW_CASCADE
+        MENUITEM "上下に並べて表示(&T)",         ID_WINDOW_TILE_HORZ
+        MENUITEM "アイコンの整列(&A)",           ID_WINDOW_ARRANGE
     END
 END
 
@@ -641,7 +647,10 @@ END_MESSAGE_MAP()
 MFC_DIALOG_RC = '''#include "Resource.h"
 #include "afxres.h"
 
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+// この .rc は、UTF-8 (BOM 付き) で書く。リソース コンパイラーに、UTF-8 だと伝える (日本語の文言を含むため)。
+#pragma code_page(65001)
+
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 
 IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
 
@@ -650,12 +659,12 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "@@NAME@@"
 FONT 9, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    LTEXT           "&Name:",IDC_STATIC,7,9,30,8
+    LTEXT           "名前(&N):",IDC_STATIC,7,9,30,8
     EDITTEXT        IDC_NAME_EDIT,40,7,193,14,ES_AUTOHSCROLL
     LTEXT           "",IDC_GREETING_TEXT,7,30,226,8
-    PUSHBUTTON      "&Clear",IDC_CLEAR_BUTTON,7,79,50,14
+    PUSHBUTTON      "クリア(&C)",IDC_CLEAR_BUTTON,7,79,50,14
     DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,183,79,50,14
+    PUSHBUTTON      "キャンセル",IDCANCEL,183,79,50,14
 END
 ''' + MFC_RC_TAIL
 
@@ -772,7 +781,7 @@ UI / メイン → ロジック → データ (のインターフェース)
                 if is_mfc else f'- このソリューションは、MFC を使わない{" (Win32 API と C++)" if kind == KIND["win32"] else ""}。MFC の規約 (`mfc-cpp.md`) は、適用しない。MFC のクラス (`CString` `CWnd` など) を、持ち込まない。\n')
     out += f"""
 ## 規約
-- C++20。ファイルは UTF-8 (BOM 付き)、改行は CRLF。`.rc` は ASCII。
+- C++20。ファイルは UTF-8 (BOM 付き)、改行は CRLF。`.rc` は UTF-8 (BOM 付き。`#pragma code_page(65001)`)、言語は日本語 (`LANG_JAPANESE`)。`res\\*.rc2` は ASCII (BOM なし)。
 - C++ の規約: `.claude/rules/cpp-common.md` (`.cpp` / `.h` を扱うときに、自動で読み込まれる)。
 {mfc_rule}- `git commit` / `git push` は、ユーザーの指示があるときだけ。
 """
@@ -963,8 +972,7 @@ def main_files(name, mtype, ns, toolset, guid):
         for fn, body in mfc_files.items():
             files[f'{name}/{fn}'] = body.replace('@@NAME@@', name)
         rc = f'{name}.rc'
-        files[f'{name}/{rc}'] = mfc_rc.replace('@@NAME@@', name)
-        plain.add(f'{name}/{rc}')
+        files[f'{name}/{rc}'] = mfc_rc.replace('@@NAME@@', name)   # UTF-8 (BOM 付き)・CRLF。日本語の文言を含むため、#pragma code_page(65001)
         # res\ フォルダ (ウィザードの構成): rc2 (テキスト)、アプリのアイコン。SDI・MDI は、文書のアイコンも。
         files[f'{name}/res/{name}.rc2'] = MFC_RC2.replace('@@NAME@@', name)
         plain.add(f'{name}/res/{name}.rc2')

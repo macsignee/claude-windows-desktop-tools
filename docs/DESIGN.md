@@ -862,7 +862,7 @@ Copilot の案 (「UI テストファースト開発の、ハーネスとガー�
 
 **変更:**
 - **ダイアログ:** 名前の Edit (`IDC_NAME_EDIT` = 1001)、挨拶の静的テキスト (`IDC_GREETING_TEXT` = 1002)、「クリア」ボタン (`IDC_CLEAR_BUTTON` = 1003) を追加。`ON_EN_CHANGE` で挨拶を更新し、入力が空のときは、クリアボタンを無効にする。クリアは、入力欄を空にして、フォーカスを入力欄へ戻す。挨拶の文言は、WPF・WinForms と同じ (「名前を入力してください」/「こんにちは、◯◯ さん」)。
-- **`.rc` は ASCII (BOM なし) で書くため、日本語の文言は、コード (UTF-8 BOM) に置いた。** 入力欄のラベルは `&Name:` (入力欄の直前の静的テキスト。アクセスキー付き)。
+- **(v2.60.4 で変更。4.82 を参照)** 以前は、`.rc` を ASCII (BOM なし) で書くため、日本語の文言は、コード (UTF-8 BOM) に置き、ラベルは `&Name:` だった。いまは、`.rc` も日本語 (`名前(&N):`)。
 - **挨拶の静的テキストには、`IDC_STATIC` ではなく、専用の ID を付けた。** MFC の UI テストでは、コントロール ID の数値が AutomationId で、`IDC_STATIC` は、ID で探せない (DESIGN 4.29 の PoC)。
 - **UI テストのひな形 (`add_ui_tests.py`):** C++ のアプリで、`Resource.h` に 3 つの ID の `#define` があれば、標準のダイアログと判定し、ID の数値を埋め込んだテスト (`MainWindow_Opens_WithTitle` / `Greeting_NameEntered_ShowsGreeting` / `ClearButton_Invoked_ClearsName`) を出す。なければ、従来の汎用のテスト。クリアボタンは、`UiDialogs.Click` (BM_CLICK) で押す。
 
@@ -1276,3 +1276,11 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 
 **v2.60.1 の追記 (4.81 の実機の確認で見つかった不具合):** `--type mfc-mdi` のアプリが、起動した直後に、`winmdi.cpp` 128 行目の `ASSERT(iMenu >= 0)` で止まった。**MDI の生成物は、それまで、ビルドと `mfc-check` だけを確認し、実機で起動していなかった** (ダイアログは、UI テストで起動している。SDI は、v2.60.0 の確認で、起動した)。原因は、`CMDIFrameWnd::OnCreateClient` の既定の実装が、「メニューバーの右から 2 番目が Window メニュー」と推測するのに、生成した `IDR_MAINFRAME` のメニューが `File` だけだったこと。直し方は、`MainFrame` で `OnCreateClient` を上書きし、`CreateClient(lpcs, nullptr)` を呼ぶこと (Window メニューを、推測させない)。**教訓:** ビルドと静的検査が通っても、起動して見るまでは、動くとは言えない。MFC の種類 (SDI・MDI・ダイアログ) は、起動して、子ウィンドウを開くところまで見る。静的に、同じ不具合を見つける検査 (MDI のメインフレームの `OnCreateClient` と、`IDR_MAINFRAME` のメニューの数) は、未着手。
 
+### 4.82 MFC の生成物のメニューとダイアログの文言を、日本語にする (v2.60.4)
+
+- **きっかけ:** v2.60.0〜v2.60.2 の実機の確認で、MDI を起動した利用者から、「メニューが `File` `Window` と英語」という指摘。以前は、`.rc` を ASCII (BOM なし) で書く都合で、`.rc` の文言を英語にし、日本語の文言は、コード (UTF-8 BOM) に置いていた (4.7x。ウィザードで作ったアプリは、日本語のメニュー「ファイル(&F)」)。**利用者の決定: 日本語にする。**
+- **符号化 (決定):** `.rc` を、**UTF-8 (BOM 付き) + CRLF** で書き、先頭に **`#pragma code_page(65001)`**、言語は **`LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT`** (`.vcxproj` の `ResourceCompile` の `Culture` 0x0411 と、そろえた)。UTF-16 (ウィザードの形式) にしなかった理由: 解析ツール (`grep`、テスト) が、そのまま読める。`mfc-check` と `ui_guideline_check` は、UTF-16 / UTF-8 (BOM) / CP932 のどれでも読める。`res\<名前>.rc2` は、コメントだけなので、ASCII (BOM なし) のまま。
+- **文言:** メニュー「ファイル(&F)」「アプリケーションの終了(&X)」「新規作成(&N)\tCtrl+N」「閉じる(&C)」「ウィンドウ(&W)」「新しいウィンドウ(&N)」「重ねて表示(&C)」「上下に並べて表示(&T)」「アイコンの整列(&A)」。ダイアログ「名前(&N):」「クリア(&C)」「OK」「キャンセル」。ウィザードの日本語版の言い回しに合わせた。
+- **影響しないもの:** UI テストの生成 (`add_ui_tests.py`) は、コントロールの AutomationId (ID の数値) で探すので、ラベルの文言に依存しない。`mfc-check` の検査 (ID の対応) も、文言に依存しない。
+- **含めなかったもの:** `/add-project ui-host` が作る画面ホストの `.rc` (`GreetingDialog` のラベル) は、英語 (ASCII、BOM なし) のまま。**別に、直す候補** (NEXT-STEPS)。STRINGTABLE の文書の種類の文字列 (`<名前>.Document`) も、そのまま。
+- **実機の確認 ✔ (2026-11-10。TEST-PLAN 2-37):** `rc.exe` は、UTF-8 (BOM 付き) + `code_page(65001)` の `.rc` を、警告なしでビルドした。メニューとダイアログの文字は、文字化けなしで表示され、Visual Studio で、メニューとダイアログのリソースが、正しく表示された (開いたときの、文字コードの確認の画面の有無は、記録していない)。

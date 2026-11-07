@@ -53,7 +53,7 @@ check "テストのプロジェクトは、ない" bash -c "! ls -d '$D'/*Test >
 check "packages も packages.config も、ない" bash -c "[ ! -e '$D/packages' ] && [ -z \"\$(find '$D' -name packages.config)\" ]"
 check "ロジックは、データのヘッダを参照 (リンクはしない)" bash -c "grep -q 'ProjectDir)..\\\\DataLayer' '$D/LogicLayer/LogicLayer.vcxproj' && ! grep -q 'ProjectReference' '$D/LogicLayer/LogicLayer.vcxproj'"
 check "MFC: UseOfMfc Dynamic" grep -q '<UseOfMfc>Dynamic</UseOfMfc>' "$D/LayersOnly/LayersOnly.vcxproj"
-check "MFC: .rc が ASCII (BOM なし)" bash -c "! head -c3 '$D/LayersOnly/LayersOnly.rc' | xxd -p | grep -q efbbbf && ! grep -qP '[^\x00-\x7F]' '$D/LayersOnly/LayersOnly.rc'"
+check "MFC: .rc は UTF-8 (BOM 付き)・日本語・#pragma code_page(65001)・LANG_JAPANESE" bash -c "f='$D/LayersOnly/LayersOnly.rc'; [ \"\$(head -c3 \"\$f\" | xxd -p)\" = efbbbf ] && grep -q 'code_page(65001)' \"\$f\" && grep -q 'LANG_JAPANESE, SUBLANG_DEFAULT' \"\$f\" && grep -qP '[^\x00-\x7F]' \"\$f\""
 check "CLAUDE.md: 層: logic,data / テスト: なし" bash -c "grep -q '^- 層: data,logic' '$D/CLAUDE.md' && grep -q '^- テスト: なし' '$D/CLAUDE.md'"
 check "XML が正しい" xml_ok "$D"
 
@@ -320,7 +320,7 @@ for t in mfc mfc-mdi mfc-dialog; do
     rc_is 0 "$t: 作成が成功" python3 "$NEW" "$D" --type "$t" --layers logic,data --tests none
     check "$t: XML が正しい" xml_ok "$D"
     check "$t: .vcxproj は MFC (UseOfMfc) と、.rc を持つ" bash -c "grep -q UseOfMfc '$D/V_${t//-/_}/V_${t//-/_}.vcxproj' && grep -q 'V_${t//-/_}.rc' '$D/V_${t//-/_}/V_${t//-/_}.vcxproj'"
-    check "$t: .rc は、BOM なし・CRLF" bash -c "f='$D/V_${t//-/_}/V_${t//-/_}.rc'; ! head -c3 \"\$f\" | grep -q \$'\\xef\\xbb\\xbf' && grep -q \$'\\r' \"\$f\""
+    check "$t: .rc は、UTF-8 (BOM 付き)・CRLF" bash -c "f='$D/V_${t//-/_}/V_${t//-/_}.rc'; [ \"\$(head -c3 \"\$f\" | xxd -p)\" = efbbbf ] && grep -q \$'\\r' \"\$f\""
     check "$t: CLAUDE.md の種類の表記" bash -c "grep -q '^- メイン: V_${t//-/_} (MFC' '$D/CLAUDE.md'"
     check "$t: mfc-check が、error / warning 0" bash -c "python3 '$MFC_CHK' '$D' --all | grep -q 'error 0 / warning 0'"
 done

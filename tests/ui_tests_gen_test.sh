@@ -74,7 +74,7 @@ python3 -I "$NS" "$T/MfcDlg" --type mfc-dialog --layers none --tests none --ui-t
 ok "MFC: new-solution --ui-tests flaui succeeds" "$(b $rc)"
 ok "MFC: UITests project added to the slnx (mixed C++ + .NET)" "$(grep -q 'MfcDlg.vcxproj' "$T/MfcDlg/MfcDlg.slnx" && grep -q 'MfcDlg.UITests/MfcDlg.UITests.csproj' "$T/MfcDlg/MfcDlg.slnx" && echo 1 || echo 0)"
 ok "MFC: standard dialog -> sample tests use the control IDs (1001 / 1002 / 1003 = AutomationId)" "$(f="$T/MfcDlg/MfcDlg.UITests/MainWindowUiTests.cs"; grep -q 'NameEdit = "1001"' "$f" && grep -q 'GreetingText = "1002"' "$f" && grep -q 'ClearButton = "1003"' "$f" && grep -q 'Greeting_NameEntered_ShowsGreeting' "$f" && ! grep -q '__ID_' "$f" && echo 1 || echo 0)"
-ok "MFC: the generated dialog defines those IDs, and the .rc has the Edit / static / button" "$(r="$T/MfcDlg/MfcDlg/MfcDlg.rc"; grep -q 'EDITTEXT *IDC_NAME_EDIT' "$r" && grep -q 'IDC_GREETING_TEXT' "$r" && grep -q 'PUSHBUTTON *"&Clear",IDC_CLEAR_BUTTON' "$r" && echo 1 || echo 0)"
+ok "MFC: the generated dialog defines those IDs, and the .rc has the Edit / static / button" "$(r="$T/MfcDlg/MfcDlg/MfcDlg.rc"; grep -q 'EDITTEXT *IDC_NAME_EDIT' "$r" && grep -q 'IDC_GREETING_TEXT' "$r" && grep -q 'PUSHBUTTON *"クリア(&C)",IDC_CLEAR_BUTTON' "$r" && echo 1 || echo 0)"
 python3 -I "$NS" "$T/MfcSdi" --type mfc --layers none --tests none --ui-tests flaui >"$T/o5b" 2>&1; rc=$?
 ok "MFC (SDI): new-solution --ui-tests flaui succeeds" "$(b $rc)"
 ok "MFC (SDI, no standard dialog): generic sample (window opens only)" "$(f="$T/MfcSdi/MfcSdi.UITests/MainWindowUiTests.cs"; grep -q 'MainWindow_Opens_WithTitle' "$f" && ! grep -q 'Greeting_NameEntered' "$f" && echo 1 || echo 0)"
