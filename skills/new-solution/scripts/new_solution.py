@@ -677,6 +677,7 @@ MFC_VARIANTS = {
 
 GITIGNORE = '''.vs/
 x64/
+Win32/
 obj/
 *.user
 # GoogleTest: vcpkg の取得結果 (vcpkg_installed/)、旧 NuGet 方式 (廃止) のパッケージ (packages\\)、ソース方式のソース (ウォッチャーが取得したもの)
@@ -710,7 +711,7 @@ GITATTRIBUTES = """# 改行コードの規則。保存 (リポジトリ内) は 
 """
 
 
-def claude_md(name, kind, layers, tests, layer_kind='dll', gtest_mode='vcpkg'):
+def claude_md(name, kind, layers, tests, layer_kind='dll', gtest_mode='vcpkg', platforms=('x64',)):
     """layers: [(key, 名前), ...]"""
     default = all(nm == LAYER_NAMES[k] for k, nm in layers)
     layer_txt = ('なし' if not layers else
@@ -757,6 +758,15 @@ UI / メイン → ロジック → データ (のインターフェース)
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。出力先: `x64\Debug\`。
 - 新しい `.cpp` / `.h` は、`.vcxproj` (と `.filters`) に追加する。
 """
+    if 'Win32' in platforms:
+        only = platforms == ('Win32',)
+        out = out.replace('出力先: `x64\\Debug\\`。', '出力先: `<プラットフォーム>\\<構成>\\` (x64 は `x64\\Debug\\`、Win32 は `Win32\\Debug\\`)。')
+        out += ('- **プラットフォーム: ' + ('Win32 のみ' if only else 'x64 と Win32') + '。** ウォッチャーがビルドする Platform は、**ウォッチャーの起動の引数**で決まる (引数なしは x64)。'
+                + ('このソリューションは Win32 だけなので、**必ず** ' if only else 'Win32 でビルドするときは、')
+                + '`run_watcher.cmd <フォルダ> "" Win32` で、ウォッチャーを起動する (1 つのウォッチャーは、1 つの Platform 専用。起動時の表示 `Build : <構成>|<Platform>` を確かめる)。\n'
+                '- 新しい層・テストは、このソリューションのプラットフォームに、そろえる (`/add-project`)。\n')
+    else:
+        out += '- プラットフォームは x64 だけ。Win32 は、あとから `/add-project platform Win32` で足せる。\n'
     if layers and kind not in (KIND['dll'], KIND['lib']):
         out += f"""- Visual Studio で実行 (F5) するときは、メインの `{name}` を、**スタートアッププロジェクトに設定する** (層は DLL / ライブラリなので、単体では起動できない)。`{name}.slnx` の `DefaultStartup="true"` で、最初に開くときは、メインが選ばれる。ただし、`.vs/` の個人の設定 (`.suo`) が、すでにあれば、そちらが優先される (DLL が選ばれていたら、メインを、右クリックの「スタートアップ プロジェクトに設定」で選び直す)。
 """
@@ -935,9 +945,11 @@ def existing_solutions(folder):
     return [f for f in sorted(os.listdir(folder)) if f.lower().endswith(('.sln', '.slnx'))]
 
 
-def slnx_text(projects, startup=None):
-    """startup: 最初に開くときの、スタートアッププロジェクトの名前 (DefaultStartup="true")。個人の設定 (.suo) が、あれば、そちらが優先される"""
-    out = '<Solution>\n  <Configurations>\n    <BuildType Name="Debug" />\n    <BuildType Name="Release" />\n    <Platform Name="x64" />\n  </Configurations>\n'
+def slnx_text(projects, startup=None, platforms=('x64',)):
+    """startup: 最初に開くときの、スタートアッププロジェクトの名前 (DefaultStartup="true")。個人の設定 (.suo) が、あれば、そちらが優先される。
+    platforms: プロジェクトの名前 (x64 / Win32)。.slnx では、Win32 は x86 と書く (Visual Studio が、プロジェクトの Win32 に対応づける)"""
+    plats = ''.join(f'    <Platform Name="{"x86" if pl == "Win32" else pl}" />\n' for pl in sorted(platforms, key=lambda x: x != 'x64'))
+    out = '<Solution>\n  <Configurations>\n    <BuildType Name="Debug" />\n    <BuildType Name="Release" />\n' + plats + '  </Configurations>\n'
     for n, g in projects:
         mark = ' DefaultStartup="true"' if n == startup else ''
         out += f'  <Project Path="{n}/{n}.vcxproj" Id="{g.strip("{}").lower()}"{mark} />\n'
@@ -1384,6 +1396,8 @@ def add_tests_wpf(a, folder, name, sln_name):
 
 def create_mode(a, folder, name):
     if a.type in DOTNET_TYPES:
+        if a.platforms:
+            die('--platforms は C++ (mfc / mfc-mdi / mfc-dialog / win32 / console / dll / lib) 用。.NET は、AnyCPU')
         create_wpf(a, folder, name)
         return
     if a.tests == 'mstest':
@@ -1395,6 +1409,10 @@ def create_mode(a, folder, name):
         die(f'新規作成には、{" / ".join(missing)} が必要 (省略した項目は、ユーザーに質問して、決めること)')
     layers = parse_layers(a.layers)
     tests = a.tests == 'gtest'
+    try:
+        platforms = AL.set_platforms(a.platforms or 'x64')
+    except ValueError as e:
+        die(f'--platforms が不正: {e}')
     if tests and not layers and a.type not in LIBRARY_TYPES:
         die('--tests gtest は、テスト対象 (DLL / 静的ライブラリ) が必要。メインが exe で --layers none のときは、指定できない '
             '(層を作るか、--tests none にする)')
@@ -1444,7 +1462,9 @@ def create_mode(a, folder, name):
 
     print(f'フォルダ       : {folder}')
     print(f'ソリューション : {name}.slnx (フォルダ名と同名)')
-    print(f'メイン         : {name} ({KIND[a.type]}、x64 の Debug / Release)')
+    print(f'メイン         : {name} ({KIND[a.type]}、{" / ".join(platforms)} の Debug / Release)')
+    if platforms != ('x64',):
+        print(f'プラットフォーム: {", ".join(platforms)} (.slnx は {", ".join("x86" if p == "Win32" else p for p in platforms)})。ウォッチャーは、`run_watcher.cmd <フォルダ> "" Win32` のように、Platform を指定して起動する')
     print(f'層             : {", ".join(f"{nm} ({k})" for k, nm in layers) + f" ({KIND[lkind]})" if layers else "なし"}')
     print(f'テスト         : {"あり (GoogleTest): " + ", ".join(t + "Test" for t in targets) if tests else "なし"}')
     print(f'名前空間       : {ns}')
@@ -1472,9 +1492,9 @@ def create_mode(a, folder, name):
         os.makedirs(os.path.dirname(bp), exist_ok=True)
         with open(bp, 'wb') as f:
             f.write(data)
-    write_plain(folder, f'{name}.slnx', slnx_text(projects, name if a.type in EXE_TYPES else None), crlf=True)
+    write_plain(folder, f'{name}.slnx', slnx_text(projects, name if a.type in EXE_TYPES else None, platforms), crlf=True)
     if 'CLAUDE.md' in extras:
-        write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg'))
+        write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg', platforms))
     if '.gitignore' in extras:
         write_plain(folder, '.gitignore', GITIGNORE)
     if '.gitattributes' in extras:
@@ -1495,6 +1515,7 @@ def add_tests_mode(a, folder, name, sln_name):
         die('すでにソリューションがあるフォルダでは、--tests gtest だけを指定できる (--type / --layers / --spec は、指定できない)')
     sln = os.path.join(folder, sln_name)
     toolset = a.toolset or AL.detect_toolset(folder)
+    AL.set_platforms(AL.detect_platforms(folder))   # 後付けのテストは、このソリューションのプラットフォームに、そろえる
     todo = []
     for vp in sorted(os.listdir(folder)):
         pf = os.path.join(folder, vp, f'{vp}.vcxproj')
@@ -1543,7 +1564,7 @@ def add_tests_mode(a, folder, name, sln_name):
 
 
 SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace',
-             'UIテスト': 'ui_tests', 'TFM': 'tfm'}
+             'UIテスト': 'ui_tests', 'TFM': 'tfm', 'プラットフォーム': 'platforms'}
 SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'),
                 'tests': ('none', 'gtest', 'mstest'), 'ui_tests': ('none', 'flaui')}
 
@@ -1583,6 +1604,14 @@ def apply_spec(a):
             continue
         if key == 'tfm' and not re.match(r'^net\d+\.\d+$', val):
             die(f'構成案の値が不正: TFM: {val} (例: net8.0)')
+        if key == 'platforms':
+            if (a.type or cfg.get('type')) in DOTNET_TYPES:
+                print(f'注意: 構成案のプラットフォーム ({val}) は、C++ 用。.NET では、読み飛ばす')
+                continue
+            try:
+                AL.normalize_platforms(val)
+            except ValueError as e:
+                die(f'構成案の値が不正: プラットフォーム: {val} ({e})')
         if getattr(a, key, None) is None:
             setattr(a, key, val)
             used.append(f'{key}={val}')
@@ -1619,6 +1648,7 @@ def main():
     ap.add_argument('--gtest', choices=['auto', 'vcpkg', 'source', 'nuget'])
     ap.add_argument('--layer-kind', choices=['dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'])
     ap.add_argument('--ui-tests', choices=['none', 'flaui'])
+    ap.add_argument('--platforms', help='C++ のプラットフォーム: x64 (既定) / x64,Win32 / Win32 (x86 は Win32 の別名)')
     ap.add_argument('--spec')
     ap.add_argument('--check-git', action='store_true')
     ap.add_argument('--add-gitattributes', action='store_true')
@@ -1645,6 +1675,8 @@ def main():
         apply_spec(a)
     if len(sols) > 1:
         die(f'ソリューションが複数ある ({", ".join(sols)})。どれを使うか、ユーザーに確認すること')
+    if sols and a.platforms:
+        die('--platforms は、新規作成のときだけ。すでにあるソリューションに Win32 を足すには、/add-project platform Win32 (add_platform.py)')
     if sols and a.ui_tests == 'flaui' and a.tests is None:
         add_ui_tests_flaui(folder, a.dry_run)
         return

@@ -49,6 +49,56 @@ CPP_TYPE = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
 GTEST_ID = 'Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn'
 GTEST_VER = '1.8.1.8'
 VCPKG_TRIPLET = 'x64-windows-static-md'
+VCPKG_TRIPLETS = {'x64': 'x64-windows-static-md', 'Win32': 'x86-windows-static-md'}
+# プロジェクトのプラットフォーム。.vcxproj の名前は Win32 (ソリューションの .slnx / .sln では x86)。並びは、ウィザードと同じ (Win32、x64)。
+PLATFORM_ORDER = ('Win32', 'x64')
+_PLATFORMS = ('x64',)
+
+
+def normalize_platforms(values):
+    """['x86', 'x64'] や 'x64,Win32' を、('Win32', 'x64') の形にそろえる (x86 は Win32 の別名)。不正な値は、ValueError。"""
+    if isinstance(values, str):
+        values = [v for v in re.split(r'[,\s]+', values) if v]
+    out = set()
+    for v in values:
+        key = {'x64': 'x64', 'win32': 'Win32', 'x86': 'Win32'}.get(str(v).strip().lower())
+        if key is None:
+            raise ValueError(f'プラットフォームは、x64 / Win32 (x86) のどれか: {v}')
+        out.add(key)
+    if not out:
+        raise ValueError('プラットフォームが、空')
+    return tuple(p for p in PLATFORM_ORDER if p in out)
+
+
+def set_platforms(values):
+    """これ以降に作る .vcxproj のプラットフォームを決める (1 回の実行の、最初に呼ぶ。既定は x64 だけ)。"""
+    global _PLATFORMS
+    _PLATFORMS = normalize_platforms(values)
+    return _PLATFORMS
+
+
+def get_platforms():
+    return _PLATFORMS
+
+
+def detect_platforms(sln_dir):
+    """すでにあるソリューションの、プラットフォームを、.vcxproj の ProjectConfiguration から読む。読めなければ x64。
+    (新しい層・テストを、そのソリューションに、そろえるために使う。複数のプロジェクトのうち、プラットフォームが多いものを採る。)"""
+    best = ()
+    for root, dirs, files in os.walk(sln_dir):
+        dirs[:] = [d for d in dirs if d not in ('packages', 'obj', '.vs', '.git', 'x64', 'x86', 'Win32', 'Debug', 'Release', 'vcpkg_installed', 'ThirdParty')]
+        for f in files:
+            if not f.endswith('.vcxproj'):
+                continue
+            try:
+                text = open(os.path.join(root, f), encoding='utf-8-sig').read()
+            except OSError:
+                continue
+            found = set(re.findall(r'<Platform>(x64|Win32)</Platform>', text))
+            cand = tuple(p for p in PLATFORM_ORDER if p in found)
+            if len(cand) > len(best):
+                best = cand
+    return best or ('x64',)
 VCPKG_MAIN_CPP = '''#include <gtest/gtest.h>
 
 // vcpkg の GoogleTest は、gtest_main を自動でリンクしないので、main() をここに書く (出力の「Running main() from ...」の行は出ない)。
@@ -140,9 +190,11 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
     if incs:
         inc = '\n      <AdditionalIncludeDirectories>' + ';'.join(incs) + ';%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>'
 
-    def cfg(c, debug):
+    plats = get_platforms()
+
+    def cfg(c, debug, plat):
         wpo = '\n    <WholeProgramOptimization>true</WholeProgramOptimization>' if (wizard and not debug) else ''
-        return f'''  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'" Label="Configuration">
+        return f'''  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{c}|{plat}'" Label="Configuration">
     <ConfigurationType>{cfgtype}</ConfigurationType>
     <UseDebugLibraries>{'true' if debug else 'false'}</UseDebugLibraries>
     <PlatformToolset>{toolset}</PlatformToolset>{wpo}
@@ -150,16 +202,16 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
   </PropertyGroup>
 '''
 
-    def props(c):
-        return f'''  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='{c}|x64'">
+    def props(c, plat):
+        return f'''  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='{c}|{plat}'">
     <Import Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
 '''
 
     pch_file = '\n      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>' if pch else ''
 
-    def defs_group(c, debug):
-        d = ('_DEBUG;' if debug else 'NDEBUG;') + defs
+    def defs_group(c, debug, plat):
+        d = ('WIN32;' if plat == 'Win32' else '') + ('_DEBUG;' if debug else 'NDEBUG;') + defs
         opt = '' if debug else '\n      <FunctionLevelLinking>true</FunctionLevelLinking>\n      <IntrinsicFunctions>true</IntrinsicFunctions>'
         lnk = '' if debug else '\n      <EnableCOMDATFolding>true</EnableCOMDATFolding>\n      <OptimizeReferences>true</OptimizeReferences>'
         # 静的ライブラリは、リンカーを使わない (<Link> は、意味を持たない)
@@ -184,7 +236,7 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
 '''
-        return f'''  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'">
+        return f'''  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='{c}|{plat}'">
     <ClCompile>
       <WarningLevel>{'TurnOffAllWarnings' if third_party else 'Level3'}</WarningLevel>
       <SDLCheck>{'false' if third_party else 'true'}</SDLCheck>
@@ -199,15 +251,11 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
     out = f'''<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
-      <Platform>x64</Platform>
+''' + ''.join(f'''    <ProjectConfiguration Include="{c}|{pl}">
+      <Configuration>{c}</Configuration>
+      <Platform>{pl}</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|x64">
-      <Configuration>Release</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-  </ItemGroup>
+''' for pl in plats for c in ('Debug', 'Release')) + f'''  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{guid}</ProjectGuid>
@@ -218,24 +266,26 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
 ''' + (f'''  <PropertyGroup Label="Vcpkg">
     <!-- GoogleTest: ソリューション直下の vcpkg.json の gtest を使う -->
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
-    <VcpkgTriplet Condition="'$(Platform)'=='x64'">{VCPKG_TRIPLET}</VcpkgTriplet>
-  </PropertyGroup>
+''' + ''.join(f'''    <VcpkgTriplet Condition="'$(Platform)'=='{pl}'">{VCPKG_TRIPLETS[pl]}</VcpkgTriplet>
+''' for pl in plats) + '''  </PropertyGroup>
 ''' if vcpkg else '') + '''  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props" />
-''' + cfg('Debug', True) + cfg('Release', False) + '''  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />
+''' + ''.join(cfg(c, c == 'Debug', pl) for pl in plats for c in ('Debug', 'Release')) + '''  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-''' + props('Debug') + props('Release') + '''  <PropertyGroup Label="UserMacros" />
+''' + ''.join(props(c, pl) for pl in plats for c in ('Debug', 'Release')) + '''  <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <!-- ウォッチャーが、<ソリューション>\\x64\\<Configuration>\\ の *Test.exe を探す。DLL も同じ場所に出す (実行時に、exe と同じフォルダが必要)。 -->
     <OutDir>$(SolutionDir)$(Platform)\\$(Configuration)\\</OutDir>
     <IntDir>$(SolutionDir)obj\\$(ProjectName)\\$(Platform)\\$(Configuration)\\</IntDir>
   </PropertyGroup>
-''' + (''.join(f'''  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'">
-    <LinkIncremental>{li}</LinkIncremental>
+''' + ''.join(
+        ''.join(f'''  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{c}|{pl}'">
+    <LinkIncremental>{'true' if c == 'Debug' else 'false'}</LinkIncremental>
   </PropertyGroup>
-''' for c, li in (('Debug', 'true'), ('Release', 'false'))) if wizard else '') + defs_group('Debug', True) + defs_group('Release', False)
+''' for c in ('Debug', 'Release') if wizard) + ''.join(defs_group(c, c == 'Debug', pl) for c in ('Debug', 'Release'))
+        for pl in plats)
     hd = [i for i in items if i.endswith('.h')]
     cl = [i for i in items if i.endswith(('.cpp', '.cc', '.cxx', '.c'))]
     rc = [i for i in items if i.endswith('.rc')]
@@ -840,7 +890,7 @@ def edit_sln(path, projects):
     nl = '\r\n' if '\r\n' in text else '\n'
     lines = text.replace('\r\n', '\n').split('\n')
 
-    # ソリューション構成 (x64 だけ対応)
+    # ソリューション構成 (x64 と x86。.sln の x86 は、プロジェクトの Win32 に対応づける)。(構成, ソリューションのプラットフォーム, プロジェクトのプラットフォーム)
     cfgs, in_sec = [], False
     for ln in lines:
         if 'GlobalSection(SolutionConfigurationPlatforms)' in ln:
@@ -848,11 +898,13 @@ def edit_sln(path, projects):
             continue
         if in_sec and 'EndGlobalSection' in ln:
             break
-        m = re.match(r'\s*(\w+)\|x64\s*=', ln) if in_sec else None
+        m = re.match(r'\s*(\w+)\|(x64|x86|Win32)\s*=', ln) if in_sec else None
         if m:
-            cfgs.append(m.group(1))
+            pj = 'x64' if m.group(2) == 'x64' else 'Win32'
+            if pj in get_platforms():
+                cfgs.append((m.group(1), m.group(2), pj))
     if not cfgs:
-        print('WARNING: ソリューションに x64 の構成がない。プロジェクトは追加するが、構成の対応付けは、Visual Studio で行うこと')
+        print('WARNING: ソリューションに、対応するプラットフォーム (x64 / x86) の構成がない。プロジェクトは追加するが、構成の対応付けは、Visual Studio で行うこと')
 
     def idx(pred, start=0):
         for i in range(start, len(lines)):
@@ -870,8 +922,8 @@ def edit_sln(path, projects):
 
     map_lines = []
     for n, gd in projects:
-        for c in cfgs:
-            map_lines += [f'\t\t{gd}.{c}|x64.ActiveCfg = {c}|x64', f'\t\t{gd}.{c}|x64.Build.0 = {c}|x64']
+        for c, sp, pj in cfgs:
+            map_lines += [f'\t\t{gd}.{c}|{sp}.ActiveCfg = {c}|{pj}', f'\t\t{gd}.{c}|{sp}.Build.0 = {c}|{pj}']
     if map_lines:
         s = idx(lambda x: 'GlobalSection(ProjectConfigurationPlatforms)' in x)
         if s >= 0:
@@ -1067,6 +1119,7 @@ def main():
 
     test = a.name + 'Test'
     toolset = a.toolset or detect_toolset(sln_dir)
+    set_platforms(detect_platforms(sln_dir))   # 新しい層・テストは、このソリューションのプラットフォームに、そろえる
 
     if a.tests_only:
         info = read_dll_info(sln_dir, a.name)
