@@ -962,10 +962,10 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| W1 | **回帰:** 既定 (`--platforms` なし) で `/new-solution --type mfc --layers logic,data --tests gtest`。ウォッチャーは、引数なし | x64 で、ビルドして、`PASSED` (いままでと同じ)。`CLAUDE.md` に「プラットフォームは x64 だけ。Win32 は、あとから `/add-project platform Win32`」 | 未実施 |
-| W2 | `--platforms x64,Win32` で同じソリューション。x64 で `PASSED` のあと、**ウォッチャーを Win32 で起動し直して** (`run_watcher.cmd <フォルダ> "" Win32`)、ビルドとテスト | `Win32\Debug\*Test.exe` が、`PASSED`。初回は、vcpkg の x86 の gtest (`x86-windows-static-md`) の取得で、数分かかる | 未実施 |
+| W1 | **回帰:** 既定 (`--platforms` なし) で `/new-solution --type mfc --layers logic,data --tests gtest`。ウォッチャーは、引数なし | x64 で、ビルドして、`PASSED` (いままでと同じ)。`CLAUDE.md` に「プラットフォームは x64 だけ。Win32 は、あとから `/add-project platform Win32`」 | ✔ (2026-11-10) `plBoth` (`--platforms x64,Win32`) を、ウォッチャーを引数なしで起動して、x64 でビルドとテスト → `PASSED` (`DataLayerTest` 1 件・`LogicLayerTest` 1 件)。`x64\Debug\*Test.exe` は、x64 (PE 0x8664)。**注:** 実機では、W1 を、既定 (`--platforms` なし) ではなく、`x64,Win32` で行った (x64 のビルドが、4 構成でも、通ること)。既定 (x64 だけ) の回帰は、テストで、v2.60.4 と同じ出力であることを確認済み (実機の確認は、別に行う) |
+| W2 | `--platforms x64,Win32` で同じソリューション。x64 で `PASSED` のあと、**ウォッチャーを Win32 で起動し直して** (`run_watcher.cmd <フォルダ> "" Win32`)、ビルドとテスト | `Win32\Debug\*Test.exe` が、`PASSED`。初回は、vcpkg の x86 の gtest (`x86-windows-static-md`) の取得で、数分かかる | ✔ (2026-11-10) ウォッチャーを `run_watcher.cmd <フォルダ> "" Win32` で起動し直して、Win32 でビルドとテスト → `PASSED` (2 件)。ログは「ソリューション構成 `Debug|x86`」、`HostX64\x86\CL.exe`、vcpkg は **`x86-windows-static-md`** のトリプレットで gtest を取得 (`vcpkg_installed\x86-windows-static-md`)。`Win32\Debug\*Test.exe` は、x86 (PE 0x14c)。x64 の出力 (`x64\Debug\`) と、別のフォルダに出た |
 | W3 | MFC 拡張 DLL・標準 DLL の層 (`--layer-kind`) を、`--platforms x64,Win32` で作り、Win32 でビルド | `SUCCESS` (拡張 DLL を参照するメインも、Win32 でリンクできる) | 未実施 |
-| W4 | Visual Studio で `.slnx` を開く | ソリューション プラットフォームに、x86 と x64 の両方が出て、x86 でビルドできる | 未実施 |
+| W4 | Visual Studio で `.slnx` を開く | ソリューション プラットフォームに、x86 と x64 の両方が出て、x86 でビルドできる | ✔ (2026-11-10) Visual Studio で `plBoth.slnx` を開き、ソリューション プラットフォームが 2 つ (x64 と x86) あることを確認 (ユーザー確認) |
 | W5 | MFC 以外 (`win32`・`console`・`dll`・`lib`) を、`--platforms x64,Win32` で作り、Win32 でビルド | `SUCCESS` | 未実施 |
 | W6 | **x64 だけで作ったソリューションに、`/add-project platform Win32` で、あとから足す** (承認の案で、`+` のファイルが、全部の `.vcxproj` と `.slnx`) → Win32 でビルド → 続けて、`/add-project layer` で、層とテストを足す | 全部のプロジェクトが Win32 の構成を持ち、Win32 でビルドできる。足した層・テストも、Win32 の構成を持つ。`solution_state.py` の `PLATFORMS` が `Win32, x64` | 未実施 |
 | W7 | `--platforms Win32` (Win32 のみ) を作り、`/add-project` で層とテストを足して、Win32 でビルド | 足した層・テストは、Win32 だけ。ウォッチャーは、Win32 で起動する (引数なしだと、`MSB4126`) | 未実施 |
