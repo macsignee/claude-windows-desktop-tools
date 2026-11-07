@@ -298,7 +298,7 @@ ok "generated WPF: app.manifest declares DPI awareness and the csproj references
 ok "generated WPF: the name box gets its UIA name from LabeledBy (Label Target alone is silent in Narrator)" "$(f="$T/gen_wpf/gen_wpf/Views/MainWindow.xaml"; grep -q 'x:Name="NameLabel"' "$f" && grep -q 'AutomationProperties.LabeledBy="{Binding ElementName=NameLabel}"' "$f" && echo 1 || echo 0)"
 ok "generated WinForms: ApplicationHighDpiMode is set in the csproj" "$(grep -q '<ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>' "$T/gen_wf/gen_wf/gen_wf.csproj" && echo 1 || echo 0)"
 for d in gen_mfc gen_mdi gen_sdi; do
-    ok "$d: pch.h has the Common Controls directive" "$(grep -q 'Microsoft.Windows.Common-Controls' "$T/$d/$d/pch.h" && echo 1 || echo 0)"
+    ok "$d: framework.h (included from pch.h) has the Common Controls directive" "$(grep -q 'Microsoft.Windows.Common-Controls' "$T/$d/$d/framework.h" && echo 1 || echo 0)"
     ok "$d: DPI awareness is declared in the vcxproj (Debug and Release: <Manifest><EnableDpiAwareness>true), not by SetProcessDPIAware()" "$([ "$(grep -c '<EnableDpiAwareness>true</EnableDpiAwareness>' "$T/$d/$d/$d.vcxproj")" = 2 ] && ! grep -q 'SetProcessDPIAware' "$T/$d/$d/SampleApp.cpp" && echo 1 || echo 0)"
 done
 

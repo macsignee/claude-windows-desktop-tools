@@ -96,6 +96,7 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
     - `--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。
     - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
     - `--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
+  - **MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成は、Visual Studio のウィザードに合わせる** (v2.60.0)。`framework.h`・`targetver.h`・`pch.h`・`pch.cpp` (PCH を使う)、`res\` (`<名前>.rc2`、アプリのアイコン。SDI・MDI は文書のアイコンも)、`.vcxproj` の設定 (`MFCProj`、`Midl`、`ResourceCompile`、`LinkIncremental` など)、フィルター (ソース / ヘッダー / リソース。`res\` は `Image` と `None`)。ファイル名とクラス名 (`SampleApp` など) と、ドッキングウィンドウは、ウィザードと同じにしない。層・テストの `.vcxproj` と、Win32 の構成は、未対応 (x64 だけ)。
   - **WPF の MVVM の基底クラス**は、**自前の最小実装** (`ObservableObject` / `RelayCommand`。NuGet 不要) で、引数では、選べない。**推奨のライブラリは `CommunityToolkit.Mvvm`** で、替えるときは、あとから `add-package` で足して、置き換える (規約 `wpf-csharp.md` の 8)。**Prism は、使うのは自由だが、推奨しない** (商用利用の有償化と、ライブラリの更新の停滞のため)。`add-package` で入っても、`wpf-check` は、誤検出しない。
   - すでにソリューションがあるフォルダでは、テストの後付け (`--tests gtest` / `--tests mstest`) と、UI テストの後付け (`--ui-tests flaui`) だけができる。
   - スクリプト: `new_solution.py`、`gtest_once.sh <project_dir> [tag] [timeout_sec=180]` (GoogleTest のソース取得)。

@@ -76,7 +76,7 @@ def filter_name_for(path):
         return FILTER_HEADER[0]
     if ext in ('cpp', 'c', 'cc', 'cxx'):
         return FILTER_SOURCE[0]
-    if ext == 'rc':
+    if ext in ('rc', 'rc2', 'ico', 'bmp', 'cur', 'png'):
         return FILTER_RESOURCE[0]
     return None
 
@@ -128,9 +128,12 @@ def to_crlf(text):
     return text.replace('\r\n', '\n').replace('\n', '\r\n')
 
 
-def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, tail='', mfc=False, third_party=False, vcpkg=False, pch=False, mfc_only=False):
+def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, tail='', mfc=False, third_party=False, vcpkg=False, pch=False, mfc_only=False, wizard=False):
     # mfc: MFC のプロジェクト (UseOfMfc=Dynamic。Application なら DPI のマニフェストも)。mfc_only: UseOfMfc=Dynamic だけ (MFC 拡張 DLL を参照するテスト exe)。
     # pch: プリコンパイル済みヘッダー (pch.h) を使う (pch.cpp が Create、dllmain.cpp が NotUsing。MFC 拡張 DLL)。
+    # wizard: MFC アプリ (exe) を、Visual Studio のウィザードが作る構成に合わせる (Keyword MFCProj、PCH を Use / pch.cpp を Create、
+    #   Midl・ResourceCompile・LinkIncremental・EnableSegmentHeap、Release の WholeProgramOptimization、res\ の Image / None)。mfc=True と一緒に使う。
+    pch = pch or wizard
     mfcx = '\n    <UseOfMfc>Dynamic</UseOfMfc>' if (mfc or mfc_only) else ''
     sub = f'\n      <SubSystem>{subsystem}</SubSystem>'
     inc = ''
@@ -138,10 +141,11 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
         inc = '\n      <AdditionalIncludeDirectories>' + ';'.join(incs) + ';%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>'
 
     def cfg(c, debug):
+        wpo = '\n    <WholeProgramOptimization>true</WholeProgramOptimization>' if (wizard and not debug) else ''
         return f'''  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'" Label="Configuration">
     <ConfigurationType>{cfgtype}</ConfigurationType>
     <UseDebugLibraries>{'true' if debug else 'false'}</UseDebugLibraries>
-    <PlatformToolset>{toolset}</PlatformToolset>
+    <PlatformToolset>{toolset}</PlatformToolset>{wpo}
     <CharacterSet>Unicode</CharacterSet>{mfcx}
   </PropertyGroup>
 '''
@@ -165,6 +169,21 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
 '''
         # MFC のアプリは、DPI 認識モード (システム DPI 対応) を、マニフェストツールの設定で、明示する (UI-DPI-002。MFC の既定も、true)
         manifest_xml = '    <Manifest>\n      <EnableDpiAwareness>true</EnableDpiAwareness>\n    </Manifest>\n' if (mfc and cfgtype == 'Application') else ''
+        wiz_xml = ''
+        if wizard:
+            manifest_xml = '    <Manifest>\n      <EnableSegmentHeap>true</EnableSegmentHeap>\n      <EnableDpiAwareness>true</EnableDpiAwareness>\n    </Manifest>\n'
+            dd = '_DEBUG;' if debug else 'NDEBUG;'
+            wiz_xml = f'''    <Midl>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <ValidateAllParameters>true</ValidateAllParameters>
+      <PreprocessorDefinitions>{dd}%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </Midl>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+      <PreprocessorDefinitions>{dd}%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+'''
         return f'''  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'">
     <ClCompile>
       <WarningLevel>{'TurnOffAllWarnings' if third_party else 'Level3'}</WarningLevel>
@@ -174,7 +193,7 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
       <PrecompiledHeader>{'Use' if pch else 'NotUsing'}</PrecompiledHeader>{pch_file}
       <PreprocessorDefinitions>{d}%(PreprocessorDefinitions)</PreprocessorDefinitions>{opt}{inc}
     </ClCompile>
-{link_xml}{manifest_xml}  </ItemDefinitionGroup>
+{link_xml}{manifest_xml}{wiz_xml}  </ItemDefinitionGroup>
 '''
 
     out = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -192,7 +211,7 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{guid}</ProjectGuid>
-    <Keyword>Win32Proj</Keyword>
+    <Keyword>{'MFCProj' if wizard else 'Win32Proj'}</Keyword>
     <RootNamespace>{name}</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -213,7 +232,10 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
     <OutDir>$(SolutionDir)$(Platform)\\$(Configuration)\\</OutDir>
     <IntDir>$(SolutionDir)obj\\$(ProjectName)\\$(Platform)\\$(Configuration)\\</IntDir>
   </PropertyGroup>
-''' + defs_group('Debug', True) + defs_group('Release', False)
+''' + (''.join(f'''  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='{c}|x64'">
+    <LinkIncremental>{li}</LinkIncremental>
+  </PropertyGroup>
+''' for c, li in (('Debug', 'true'), ('Release', 'false'))) if wizard else '') + defs_group('Debug', True) + defs_group('Release', False)
     hd = [i for i in items if i.endswith('.h')]
     cl = [i for i in items if i.endswith(('.cpp', '.cc', '.cxx', '.c'))]
     rc = [i for i in items if i.endswith('.rc')]
@@ -225,19 +247,29 @@ def vcxproj(name, guid, cfgtype, toolset, items, refs, incs, defs, subsystem, ta
     out += '  <ItemGroup>\n' + ''.join(cl_item(c) for c in cl) + '  </ItemGroup>\n'
     if rc:
         out += '  <ItemGroup>\n' + ''.join(f'    <ResourceCompile Include="{r}" />\n' for r in rc) + '  </ItemGroup>\n'
+    img = [i for i in items if i.lower().endswith(('.ico', '.bmp', '.cur', '.png'))]
+    non = [i for i in items if i.lower().endswith('.rc2')]
+    if img:
+        out += '  <ItemGroup>\n' + ''.join(f'    <Image Include="{i}" />\n' for i in img) + '  </ItemGroup>\n'
+    if non:
+        out += '  <ItemGroup>\n' + ''.join(f'    <None Include="{i}" />\n' for i in non) + '  </ItemGroup>\n'
     if refs:
         out += '  <ItemGroup>\n' + ''.join(
             f'    <ProjectReference Include="..\\{n}\\{n}.vcxproj">\n      <Project>{g}</Project>\n    </ProjectReference>\n'
             for n, g in refs) + '  </ItemGroup>\n'
-    out += '  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n' + tail + '</Project>\n'
+    out += '  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />\n'
+    if wizard:
+        out += '  <ImportGroup Label="ExtensionTargets">\n  </ImportGroup>\n'
+    out += tail + '</Project>\n'
     return out
 
 
 def vcxproj_filters(items):
     hd = [i for i in items if filter_name_for(i) == FILTER_HEADER[0]]
     cl = [i for i in items if filter_name_for(i) == FILTER_SOURCE[0]]
-    rc = [i for i in items if filter_name_for(i) == FILTER_RESOURCE[0]]
-    defs = [d for d, present in ((FILTER_SOURCE, cl), (FILTER_HEADER, hd), (FILTER_RESOURCE, rc)) if present]
+    rc = [i for i in items if i.lower().endswith('.rc')]
+    res_all = [i for i in items if filter_name_for(i) == FILTER_RESOURCE[0]]
+    defs = [d for d, present in ((FILTER_SOURCE, cl), (FILTER_HEADER, hd), (FILTER_RESOURCE, res_all)) if present]
 
     out = '<?xml version="1.0" encoding="utf-8"?>\n'
     out += '<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n'
@@ -254,6 +286,8 @@ def vcxproj_filters(items):
     out += group('ClInclude', hd, FILTER_HEADER[0])
     out += group('ClCompile', cl, FILTER_SOURCE[0])
     out += group('ResourceCompile', rc, FILTER_RESOURCE[0])
+    out += group('Image', [i for i in items if i.lower().endswith(('.ico', '.bmp', '.cur', '.png'))], FILTER_RESOURCE[0])
+    out += group('None', [i for i in items if i.lower().endswith('.rc2')], FILTER_RESOURCE[0])
     out += '</Project>\n'
     return out
 
