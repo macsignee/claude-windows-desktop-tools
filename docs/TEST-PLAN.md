@@ -917,3 +917,16 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | TQ3 | `mfcdlg` (C++・GoogleTest) で、「`ReportLogic` の `ReportLogicModuleName()` の仕様 (「ReportLogic」を返す) について、`references/mutation-check.md` の手順で、変異の確認をしてください」と頼む (C++ の流れ: DLL の再ビルド → テスト exe の失敗 → 復元) | TQ2 と同じ。加えて、DLL が再ビルドされ、テスト exe が `FAILED` になる (ビルドエラーにならない) | ✔ (2026-11-06、`CSharpTF/mfcdlg`。`audit` = 5 件で指摘なし。**壊す前に、`ReportLogicModuleInfo.cpp` の 7 行目 `return "ReportLogic";` を `return "x";` にする案を示して、了承を求め**、「進めてよい」の返事のあとに実行。Green (`PASSED` 5 件) の確認と `snapshot` のあと、バックアップ (`.claude-logs/mutation_bak/ReportLogicModuleInfo.cpp`) → 変異 → ビルド・テスト: `FAILED`、`ReportLogicModuleInfoTest.ModuleName_ReturnsProjectName` が落ちた (`Which is: "x"`)。ビルドエラーにならなかった → 復元 (`cmp` で一致) → `PASSED` (5 件)・`test_guard.py check` = error 0 / warning 0 / review 0。生き残り = 0。事後の確認 (私): `ReportLogicModuleInfo.cpp` は元のとおり、バックアップと `cmp` で一致、`test_result.txt` = `PASSED`、`test.log` に 5 つの exe の `PASSED`。**気づき (実害なし):** ① Claude が、使えないツールを呼んで、`prompt is required when stop is not true` のエラーが 1 回出た (`wpfcutC` でも同様。そのあと、完了通知を待つ形に戻り、結果に影響なし)。② 対象は、ベースラインの 1 件 (戻り値の文字列) だけなので、変異は 1 件) |
 
 **まだ確認していないこと:** **生き残る変異**を見つけたときの扱い (テストを足す / このまま進む)、`spec-workflow` v1.4.0 の `/add-feature` の検証の流れでの、`.trace.md` の「変異の確認」の列。
+
+### 2-35. プロジェクトの `.claude/skills` への配布 (v2.58.0。`docs/DESIGN.md` 4.79)
+
+**v2.58.0 で追加。静的テスト (`tests/skill_paths_test.sh`) は通っている。** 配り方は、`install/install.sh --skills-only --skills-dir <プロジェクト>/.claude/skills` (spec-workflow も、同じフォルダへ)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| PL1 | 新しいフォルダ `plchk` に、プロジェクトの `.claude/skills` へ配り (ホームにも、同じ Skill がある状態)、`/new-solution --type wpf --layers data,logic --tests mstest` を実行する | `Base directory` が、プロジェクトの `.claude/skills/new-solution` になる (または、ホームが優先されるなら、そう記録する) | ✔ (2026-11-07) **ホームが優先された**。`Base directory` は `~/.claude/skills/new-solution` と `~/.claude/skills/build-test-loop`、`new_solution.py` / `add_project.py` / `build_test_once.sh` の実行もホーム側。ベースラインは、`SUCCESS` / `PASSED`、`CLAUDE.md` の 3 行も正しい。プロジェクトの Skill は、Claude が、`ls` と `find` で見つけたが、使わなかった |
+| PL2 | 新しいフォルダ `plchk2` に、同じ配布をし、**ホームの `~/.claude/skills` を、一時的に退けて** (`mv ~/.claude/skills ~/.claude/skills.off`)、同じコマンドを実行する。終わったら、元に戻す | `Base directory` が `plchk2/.claude/skills/...`、`new_solution.py`・`add_project.py` (`csharp-test-first`)・`build_test_once.sh` が、すべてプロジェクト内。`PASSED` (2 件) | ✔ (2026-11-07) 期待どおり。`Base directory` は `plchk2/.claude/skills/new-solution`・`build-test-loop`、コマンドも `plchk2/.claude/skills/...`、`SUCCESS` / `PASSED`、`CLAUDE.md` は `plchk2`・`data,logic`・`あり (MSTest)` |
+
+**注意 (退けるとき):** 退けている間に、アプリが `~/.claude/skills` を、新しく作り直す (`synced`) ことがある。そこへ `mv ~/.claude/skills.off ~/.claude/skills` を実行すると、**フォルダが、中に入る** (`~/.claude/skills/skills.off`)。今回、実際に起きた (中身は無事。`~/.claude/skills` を `skills.new` に退け、`skills.new/skills.off` を `skills` に戻して復旧)。戻すときは、先に `ls ~/.claude/skills` を見て、すでにあれば、上の手順で戻す。
+
+**結論:** プロジェクトだけに Skill があるときは、プロジェクトのものが使われ、通しで動く。**両方にあるときは、ホームが優先される。** 確認用のフォルダ `plchk`・`plchk2` は、後片付けの対象 (ユーザー)。
