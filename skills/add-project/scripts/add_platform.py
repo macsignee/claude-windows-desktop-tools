@@ -152,8 +152,16 @@ def transform(text, src, dst):
     return text, n_added
 
 
+def src_specific_lines(text, src):
+    """元のプラットフォームの名前 (x64 など) を含む行 (Condition の行を除く)。複製で、新しいプラットフォームに、そのまま、写った行を、見つけるために使う。"""
+    import collections
+    pat = re.compile(re.escape(src), re.I)
+    return collections.Counter(l.strip() for l in text.split('\n')
+                               if pat.search(l) and 'Condition=' not in l and '<Platform>' not in l and 'VcpkgTriplet' not in l)
+
+
 def plan_project(path, dst):
-    """戻り値: ('skip' | 'add' | 'error', メッセージ, 新しいテキスト)"""
+    """戻り値: ('skip' | 'add' | 'error', メッセージ, 新しいテキスト)。メッセージには、複製で写った、元のプラットフォームに固有らしい行の注意も含める"""
     text, bom, nl = read_keep(path)
     if has_platform(text, dst):
         return 'skip', 'すでに、' + dst + ' の構成がある', None
@@ -169,7 +177,12 @@ def plan_project(path, dst):
         return 'error', f'変換後の XML が、壊れた ({e})', None
     if not has_platform(new, dst):
         return 'error', '変換後に、構成がない', None
-    return 'add', f'{src} のブロック {n} か所を、{dst} に複製する', new
+    extra = src_specific_lines(new, src) - src_specific_lines(text, src)
+    note = ''
+    if extra:
+        shown = '; '.join(list(extra.elements())[:2])
+        note = f' 【注意】{src} を含む記述が、そのまま {dst} に写った (確認すること。例: {shown[:140]})'
+    return 'add', f'{src} のブロック {n} か所を、{dst} に複製する' + note, new
 
 
 # ---------------------------------------------------------------- ソリューション

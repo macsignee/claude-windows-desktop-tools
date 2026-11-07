@@ -138,6 +138,22 @@ mkdir -p "$WORK/Net"; mkdir -p "$WORK/Net/App"; printf '<Solution>\n  <Project P
 rc_is 2 "C++ のプロジェクトがなければ rc 2 (.NET は対象外)" python3 "$ADD" "$WORK/Net" --platform Win32
 rc_is 2 "不正な --platform は rc 2" python3 "$ADD" "$WORK/Dr" --platform arm64
 
+# x64 に固有の記述 (例: ライブラリのフォルダ) は、Win32 に、そのまま写るので、注意を出す (止めない)
+mk Sp --type mfc --layers none --tests none
+python3 - "$WORK/Sp/Sp/Sp.vcxproj" <<'PYX'
+import sys
+p = sys.argv[1]
+t = open(p, encoding='utf-8-sig').read()          # 改行は、\n に直って読める
+t = t.replace('<Link>\n      <SubSystem>', '<Link>\n      <AdditionalLibraryDirectories>..\\lib\\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n      <SubSystem>', 1)
+open(p, 'wb').write(b'\xef\xbb\xbf' + t.replace('\n', '\r\n').encode('utf-8'))
+PYX
+grep -q 'lib\\x64' "$WORK/Sp/Sp/Sp.vcxproj" && ok "(準備) x64 固有のライブラリのフォルダを、Link に足した" || ng "(準備) x64 固有のライブラリのフォルダを足せなかった"
+python3 "$ADD" "$WORK/Sp" --platform Win32 --dry-run > "$WORK/sp.out" 2>&1
+grep -q '【注意】x64 を含む記述が、そのまま Win32 に写った' "$WORK/sp.out" && ok "x64 固有の記述が写るとき、注意を出す" || ng "x64 固有の記述の注意が出ない"
+rc_is 0 "注意は出しても、止めない (rc 0)" python3 "$ADD" "$WORK/Sp" --platform Win32
+mk Nn --type mfc --layers none --tests none
+python3 "$ADD" "$WORK/Nn" --platform Win32 --dry-run 2>&1 | grep -q '【注意】' && ng "固有の記述がないのに、注意が出た" || ok "固有の記述がなければ、注意は出ない"
+
 # ウィザードで作った形 (x64 と Win32 の両方) は、何もしない
 mkdir -p "$WORK/Wz/Wz"
 cp "$WORK/F_mfc/F_mfc/F_mfc.vcxproj" "$WORK/Wz/Wz/Wz.vcxproj"; cp "$WORK/F_mfc/F_mfc.slnx" "$WORK/Wz/Wz.slnx"
