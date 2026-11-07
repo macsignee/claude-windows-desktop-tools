@@ -60,7 +60,7 @@
 | UH1〜UH5 | 2-29 | v2.49.0 (画面を持つ DLL の、画面ホストと UI テスト): 標準 DLL (UH1〜UH4) と拡張 DLL (UH5) の、ビルド・単体テスト・UI テスト。UH1〜UH3、UH5 ✔ (2026-11-04。MFC の静的テキストの UIA の `Name` も、読めた)。**未実施 (任意):** UH4 (目視) |
 | DC4 (任意) | 2-28 | v2.48.0 (`mfc-check` の MFC の DLL の検査): DC1〜DC4 は、すべて ✔ (2026-11-06。配布した Skill で、基準 error 0 / warning 0、DLL007・DLL001・DLL008 の検出)。**未実施 (任意):** DC4 の、実行時の挙動 (拡張 DLL を参照するメインの `UseOfMfc` を外して、ビルドして起動したとき、本当に壊れること) |
 | CS1・CS2 | 2-27 | v2.47.0 (C++ の規約の分割): win32 のプロジェクトでは `cpp-common.md` だけが読み込まれる (CS1)。MFC のプロジェクトでは、`mfc-cpp.md` も読み込まれる (CS2)。CS1・CS2 ✔ (2026-11-04) |
-| SD1〜SD4 | 2-26 | v2.46.0 (MFC 標準 DLL の生成): 作った一式が実機でビルドでき (SD2)、MFC なしのテスト exe から標準 DLL (共有 MFC) の関数を呼べ (SD3)、設定が実物 (`MFCLibrary2`) と一致する (SD4)。SD1〜SD3 ✔、SD4 は静的比較 ✔ (2026-11-04)。**未実施 (任意):** Visual Studio のプロパティページ、`AFX_MANAGE_STATE` の確認 |
+| SD1〜SD4 | 2-26 | v2.46.0 (MFC 標準 DLL の生成): 作った一式が実機でビルドでき (SD2)、MFC なしのテスト exe から標準 DLL (共有 MFC) の関数を呼べ (SD3)、設定が実物 (`MFCLibrary2`) と一致する (SD4)。SD1〜SD3 ✔、SD4 は静的比較 ✔ (2026-11-04)。**`AFX_MANAGE_STATE` の生成の確認も静的に ✔ (2026-11-08。エクスポート関数の先頭、`theApp`、`UseOfMfc` = `Dynamic`)。未実施 (任意):** Visual Studio のプロパティページの目視、`AFX_MANAGE_STATE` を外して動かす実行時の確認 |
 | MX1〜MX4 | 2-25 | v2.45.0 (MFC 拡張 DLL の生成): MX1〜MX3 ✔、MX4 は静的比較 ✔ (2026-11-04)。**未実施 (任意):** Visual Studio のプロパティページでの見比べ、`AFX_EXT_CLASS` クラスの利用 |
 | WS1〜WS4 | 2-24 | v2.43.0 (`watch_and_build.ps1` の `lib\` への分割): `lib\` の 8 ファイルが配られ、ウォッチャーが起動する (WS1)。build / test / gtest / package / UI テストが、分割の前と同じに動く (WS2〜WS4)。**完了 (✔ 2026-11-04。TEST-PLAN 2-24)** |
 | CR1〜CR4 | 2-22 | v2.41.0: すべて ✔ (2026-11-06。配布先の状態で確認: 規約・ひな形・道具が、リポジトリと一致。`convert_to_utf8_bom.py` は、BOM なしの UTF-8 に `NG`。`install.sh --rules-only` の出力の表示そのものは、見ていない) |
