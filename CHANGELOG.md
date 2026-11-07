@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.62.2] 2026-11-10 (文書: Win32 のあとからの追加 (W6) の実機の確認の記録)
+
+- **W6 が ✔。** 既定 (x64 だけ) で作った `plLater` (MFC SDI + 層 2 つ + GoogleTest) に、`/add-project platform Win32` で、あとから Win32 を足し、x64 と Win32 の両方で、ビルドとテストが通った。続けて、`/add-project layer` で足した `ReportLayer` (とテスト) は、**Win32 と x64 の 4 構成で作られ**、Win32 で `PASSED` (3 件)、`mfc-check` は 0 / 0。**既定の実機の回帰 (W1 の既定側) も、同時に確認した。**
+- **気づき (候補):** `auto-build` / `build-test-loop` の SKILL に、「結果を報告するときは、ビルドのログのソリューション構成の行 (`Debug|x86` / `Debug|x64`) から、Platform を書く」を足す (ウォッチャーは変えない)。Claude が、`SUCCESS` が x64 か Win32 か、判断できなかった。
+- **未実施:** W3・W5・W7・W8。
+- 動作は変えていない (記録だけ)。
+
 ## [2.62.1] 2026-11-10 (文書: Win32 の実機の確認 (W1・W2・W4) の記録)
 
 - **v2.62.0 の実機の確認 (TEST-PLAN 2-38) のうち、W1・W2・W4 が ✔。** `--platforms x64,Win32` で作った MFC のソリューション (`plBoth`、層 2 つ + GoogleTest) を、x64 でビルド・テスト (`PASSED`)、ウォッチャーを Win32 で起動し直して、Win32 でビルド・テスト (`PASSED`。`Debug|x86`、vcpkg の `x86-windows-static-md`、`Win32\Debug\*Test.exe` は x86 (PE 0x14c))。Visual Studio で、ソリューション プラットフォームが x64 と x86 の 2 つ。
