@@ -109,6 +109,21 @@ PYX
     if python3 "$MFC_CHK" "$D" --all 2>&1 | grep -q 'error 0 / warning 0'; then ok "$t: mfc-check が error 0 / warning 0"; else ng "$t: mfc-check が指摘を出した"; fi
 done
 
+# MDI: メインフレームは OnCreateClient を上書きして、Window メニューを推測させない (既定の実装は、IDR_MAINFRAME のメニューが
+# File だけだと、起動時に winmdi.cpp の ASSERT で止まる。v2.60.1。実機で見つかった)
+M="$WORK/W_mfc_mdi/W_mfc_mdi"
+if grep -q 'OnCreateClient' "$M/MainFrame.h" && grep -q 'CreateClient(lpcs, nullptr)' "$M/MainFrame.cpp"; then
+    ok "mfc-mdi: MainFrame が OnCreateClient を上書きし、Window メニューを推測しない"
+else
+    ng "mfc-mdi: MainFrame が OnCreateClient を上書きしていない (起動時に ASSERT で止まる)"
+fi
+if grep -q 'DECLARE_MESSAGE_MAP' "$M/SampleApp.h" && grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)' "$M/SampleApp.cpp" && grep -q 'ID_FILE_NEW' "$M/W_mfc_mdi.rc"; then
+    ok "mfc-mdi: メニューの File→New (ID_FILE_NEW) を、アプリが割り当てている (CWinApp は割り当てない。なければ、New が押せない)"
+else
+    ng "mfc-mdi: ID_FILE_NEW の割り当てがない (子ウィンドウのメニューの New が、押せなくなる)"
+fi
+if ! grep -q 'OnCreateClient' "$WORK/W_mfc/W_mfc/MainFrame.h"; then ok "mfc (SDI): OnCreateClient は上書きしない"; else ng "mfc (SDI): OnCreateClient を上書きしている"; fi
+
 # 層・テスト付きでも、メインの構成は同じ (層の .vcxproj は、v2.60.0 では変えない)
 D="$WORK/W_layers"; mkdir -p "$D"
 if python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest vcpkg >"$WORK/layers.out" 2>&1; then

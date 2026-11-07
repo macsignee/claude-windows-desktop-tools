@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.60.1] 2026-11-09 (不具合修正: `--type mfc-mdi` のアプリが、起動時に ASSERT で止まる。「ファイル」→「新規」が、押せない)
+
+- **`--type mfc-mdi` のアプリが、起動した直後に、`Debug Assertion Failed! ... winmdi.cpp, Line: 128` で止まる不具合を直した。** v2.60.0 の実機の確認 (`mfcwMdi`) で見つかった。ビルドと `mfc-check` は通っていた。**MDI は、これまで、実機で起動したことがなかった** (ビルドだけ確認していた)。つまり、v2.60.0 で入った不具合ではなく、**以前の版から、あった不具合**。
+- **原因:** MFC の `CMDIFrameWnd::OnCreateClient` (既定の実装) は、メニューバーの「右から 2 番目」を Window メニューと推測する (`winmdi.cpp` 128 行目の `ASSERT(iMenu >= 0)`)。生成していた `IDR_MAINFRAME` のメニューは `File` だけなので、`iMenu` が -1 になり、`ASSERT` で止まる。
+- **直し方:** 生成する `MainFrame` (MDI) が、`OnCreateClient` を上書きし、`CreateClient(lpcs, nullptr)` で、Window メニューを指定せずに、MDI のクライアント領域を作る。子ウィンドウが開いたあとの Window メニューは、`IDR_SAMPLETYPE` のメニューから、MFC が見つける。SDI とダイアログは、変えていない。
+- **「ファイル」→「新規」が、押せない (disable) 不具合も直した** (同じ実機の確認で見つかった)。`CWinApp` のメッセージマップは、`ID_APP_EXIT` などだけで、**`ID_FILE_NEW` を割り当てない** (MFC の `appcore.cpp` で確認)。ウィザードのアプリは、アプリのクラスで割り当てている。生成する MDI の `CSampleApp` に、`DECLARE_MESSAGE_MAP` と `ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)` を足した。起動時の最初の子ウィンドウは、`ProcessShellCommand` が `OnFileNew` を直接呼ぶので、割り当てがなくても、開いていた。「閉じる」は `CDocument`、「ウィンドウ」のコマンドは `CMDIFrameWnd` が持つので、直す必要はない。
+- テスト: `tests/mfc_wizard_layout_test.sh` に 3 件 (MDI が `OnCreateClient` を上書きする / MDI が `ID_FILE_NEW` を割り当てる / SDI は `OnCreateClient` を上書きしない)。**実機で、起動して、子ウィンドウを開けることの確認は、未実施。**
+- **配布が要る** (`new-solution`)。作成済みの MDI のソリューションは、`MainFrame` と `SampleApp` を、手で直す (上のとおり)。
+
 ## [2.60.0] 2026-11-09 (MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成を、Visual Studio のウィザードに合わせた)
 
 - **メインの構成をウィザードに合わせた** (`docs/DESIGN.md` 4.81)。参照は、ウィザードで作った `MFCSDISample` と `MFCFirstApp`。
