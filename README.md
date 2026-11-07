@@ -284,7 +284,7 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 - 配ったあと、プロジェクトの git で、コミットする。**更新するときは、このリポジトリを直して、配り直し、差分をコミットする** (プロジェクトの中の `.claude/` を、直接編集しない)。
 - **ホスト側ツール (`host-tools/`) は、リポジトリに入れない。** Windows 側の 1 か所 (既定: `C:\tools\claude-watcher\`) に置き、全プロジェクトで、共有する (→ 「4」)。
 - `claude-spec-workflow` の Skill も、同じ `<プロジェクト>/.claude/skills` に配ると、`/add-feature` などが、同じフォルダの `new-solution` や `build-test-loop` を、見つけられる (`<Skill群>` が同じになるため)。
-- **ホームと、プロジェクトの両方に、同じ名前の Skill があると、どちらが使われるかは、Claude Code の規則による。** 混乱を避けるため、どちらか一方にそろえる。
+- **ホームと、プロジェクトの両方に、同じ名前の Skill があると、ホーム (`~/.claude/skills`) のほうが使われる** (実機の確認、2026-11-07。`Base directory` も、実行されるスクリプトも、ホーム側だった)。プロジェクトに配った Skill を、チームで使うときは、**メンバーのホームに、同じ名前の古い Skill があると、そちらが優先される**ので、注意する。混乱を避けるため、どちらか一方にそろえる。プロジェクトにしかない Skill は、プロジェクトの `.claude/skills` のものが、使われる (`new-solution` から `csharp-test-first` / `build-test-loop` を呼ぶ通しも、動く)。
 - Claude Code のサンドボックスは、`.claude/skills` などへの書き込みを、禁止していることがある。**配布は、ユーザーが、ターミナルで行う。**
 - プロジェクトごとに、コピーが、独立する。**版が、プロジェクトごとに、ずれうる** (各 Skill のフォルダの `VERSION` で分かる)。
 
