@@ -82,7 +82,7 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | DLL005 | error | 拡張 DLL に、`AfxInitExtensionModule` がない (`DllMain`) | `DllMain` で、`AfxInitExtensionModule` を呼ぶ。リソースや `CObject` の動的生成が、実行時に壊れる。 |
 | DLL006 | warning | 拡張 DLL に、`new CDynLinkLibrary` または `AfxTermExtensionModule` がない | `DllMain` に足す (リソース チェーンへの追加と、終了時の後始末)。 |
 | DLL007 | warning | **標準 DLL (共有 MFC)** の公開関数 (`<名前>_API` / `__declspec(dllexport)` の関数) が、先頭で `AFX_MANAGE_STATE` を呼んでいない | 関数の先頭 (オブジェクトの宣言よりも前) で、`AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。MFC のリソースやモジュールの状態が、呼び出し元の exe のものになる。 |
-| DLL008 | error | 拡張 DLL を参照する exe / DLL の `UseOfMfc` が `Dynamic` でない (MFC なしの exe も) | 参照する側も、`UseOfMfc=Dynamic` にする (MFC のランタイムが、2 つになるのを防ぐ)。テスト exe も、同じ。 |
+| DLL008 | error | 拡張 DLL を参照する exe / DLL の `UseOfMfc` が `Dynamic` でない (MFC なしの exe も)。**名前が `Test` / `Tests` で終わるプロジェクトは、検査しない** | 参照する側も、`UseOfMfc=Dynamic` にする (MFC のランタイムが、2 つになるのを防ぐ。MFC の状態 (`CString`・ダイアログ・リソースなど) を使う関数を呼ぶと、実行時に壊れる)。テスト exe は、検査の対象外だが、生成されるテストは `Dynamic` にしてある (実機の確認: `Dynamic` でなくても、MFC の状態を使わない関数だけを呼ぶテストは、ビルドも実行も通る) |
 
 ## ループのルール
 1. **`.rc` / `resource.h` / メッセージマップ / ライブラリの構成を編集したら、編集のあとで、実行する。** 編集していない状態で再実行しない。
