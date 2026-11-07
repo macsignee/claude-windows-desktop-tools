@@ -328,7 +328,7 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 - [`DESIGN.md`](docs/DESIGN.md): 設計メモ (契約、設計判断、取り下げた案)。
 - [`TEST-PLAN.md`](docs/TEST-PLAN.md): テスト手順書 (実機の確認の手順と結果。「変更したときの、最低限の確認」を含む)。
 - [`REMAINING-CHECKS.md`](docs/REMAINING-CHECKS.md): 実機の確認の状況 (確認済み、未了、廃止、保留) の正本。
-- [`NEXT-STEPS.md`](docs/NEXT-STEPS.md): 次の作業 (古い部分がある。最新は、`CHANGELOG.md` と `TEST-PLAN.md`)。
+- [`NEXT-STEPS.md`](docs/NEXT-STEPS.md): 次の作業 (再開用メモ。2026-11-08 時点で、必須の残りはない。任意の確認と、条件待ちのものだけ)。
 - [`RECOMMENDED-SETTINGS.md`](docs/RECOMMENDED-SETTINGS.md): 推奨する Claude Code の設定 (テストファイルの編集と、`git commit` に、確認を付ける)。
 
 ## 8. ファイル形式 (重要)
