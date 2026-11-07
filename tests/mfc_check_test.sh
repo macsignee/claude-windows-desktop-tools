@@ -392,6 +392,8 @@ w("dll-bad/MainStatic/MainStatic.vcxproj", vcx("Application", refs("ExtOk"), "St
 w("dll-bad/MainStatic/main.cpp", "int main() { return 0; }\n")
 w("dll-bad/MainNoMfc/MainNoMfc.vcxproj", vcx("Application", refs("ExtOk"), "false"))
 w("dll-bad/MainNoMfc/main.cpp", "int main() { return 0; }\n")
+w("dll-bad/ExtOkTest/ExtOkTest.vcxproj", vcx("Application", refs("ExtOk"), "false"))
+w("dll-bad/ExtOkTest/main.cpp", "int main() { return 0; }\n")
 w("dll-bad/ExtOk/ExtOk.vcxproj", vcx("DynamicLibrary", defs("_AFXEXT")))
 w("dll-bad/ExtOk/dllmain.cpp", EXT_MAIN)
 # ---------------- UI004 (UI テストのプロジェクトがあるときの、IDC_STATIC のままの操作対象) ----------------
@@ -504,6 +506,8 @@ ok "dll-bad: DLL007 AFX_MANAGE_STATE がない公開関数 (Foo)" "$(has "$out" 
 ok "dll-bad: DLL007 AFX_MANAGE_STATE が先頭でない公開関数 (Bar)" "$(has "$out" '公開関数 Bar が、先頭で AFX_MANAGE_STATE を呼んでいない')"
 ok "dll-bad: DLL008 静的 MFC のメインが拡張 DLL を参照" "$(has "$out" 'MainStatic: MFC 拡張 DLL ExtOk を参照しているが')"
 ok "dll-bad: DLL008 MFC なしのメインが拡張 DLL を参照" "$(has "$out" 'MainNoMfc: MFC 拡張 DLL ExtOk を参照しているが')"
+ok "dll-bad: DLL008 は、名前が Test で終わるプロジェクト (UseOfMfc=false で拡張 DLL を参照) を、検査しない (文書どおり)" "$([ "$(has "$out" 'ExtOkTest: MFC 拡張 DLL')" = 0 ] && echo 1 || echo 0)"
+ok "mfc-check SKILL: DLL008 は、テスト (Test / Tests で終わる) を検査しない、と書いてある" "$(grep -q 'Test` / `Tests` で終わるプロジェクトは、検査しない' "$ROOT/skills/mfc-check/SKILL.md" && echo 1 || echo 0)"
 ok "dll-bad: 正常なプロジェクト (ExtOk) には、指摘が出ない" "$([ "$(grep -c 'ExtOk: ' <<<"$out")" = 0 ] && echo 1 || echo 0)"
 
 # ---- 画面を持つ層 (UI DLL) ----

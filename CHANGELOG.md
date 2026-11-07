@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.59.7] 2026-11-08 (文書: DLL008 の「テスト exe も、同じ」の誤りを直した。DC4 の実行時の確認の記録)
+
+- **`mfc-check` の SKILL の DLL008 の行を、実装に合わせて直した。** 以前は、「テスト exe も、同じ」と書いていたが、`mfc_check.py` の `check_mfc_dlls` は、名前が `Test` / `Tests` で終わるプロジェクトを、DLL の検査ごと、読み飛ばす。実機 (`dllchk`) で、`UseOfMfc` を `false` にした `ExtLayerTest` に、指摘が出ないことで、食い違いが分かった。「テストは、検査しない」と明記し、「実行時に壊れる」は、**MFC の状態 (`CString`・ダイアログ・リソースなど) を使う関数を呼ぶとき**の話だと、書き足した。
+- **DC4 の実行時の確認が済んだ** (TEST-PLAN 2-28、REMAINING-CHECKS): (1) MFC のメインの `UseOfMfc` を外すと、`mfc-check` が DLL008 を出し、**ビルドが `C1189` で止まる**。(2) MFC なしのテスト exe (`ExtLayerTest`) は、`UseOfMfc` が `false` でも、MFC の状態を使わない関数だけを呼ぶなら、**ビルドも実行も通る**。MFC の状態を使う関数を呼んだときの実行時の挙動は、未確認。
+- テスト: `tests/mfc_check_test.sh` に 2 件 (99 件)。名前が `Test` で終わる、`UseOfMfc=false` のプロジェクトに、DLL008 が出ないことと、SKILL の記述。
+- 動作は変えていない (検査の動きは、そのまま。文書と記録だけ)。
+
 ## [2.59.6] 2026-11-08 (文書: SD の静的な確認の記録、NEXT-STEPS の訂正)
 
 - **MFC 標準 DLL の生成 (v2.46.0) の `AFX_MANAGE_STATE` を、静的に確認した** (一時フォルダに生成して、ソースを読んだ)。エクスポート関数の最初の文が `AFX_MANAGE_STATE(AfxGetStaticModuleState());`、`CWinApp` 派生と `theApp`、`UseOfMfc` = `Dynamic`、`_USRDLL`、利用側への注意 (`LogicLayerApi.h`)。TEST-PLAN 2-26 の SD4 と、REMAINING-CHECKS の SD の行に記録した。実行時の確認と、Visual Studio の目視は、未実施のまま。
