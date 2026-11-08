@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    .NET (.csproj) の共通設定。v0.1.0 は、これまで /new-solution が作っていた Directory.Build.props の中身と、同じ
+    (動きを変えない)。TargetFramework は、ここに置かない (アプリは net10.0-windows、層は net10.0 と、プロジェクトごとに違う)。
+  -->
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+</Project>
