@@ -35,6 +35,9 @@ for f in skills/cpp-test-first/SKILL.md skills/csharp-test-first/SKILL.md skills
 done
 ok "build-test-loop: documents --filter / --ui-timeout and that UI tests are not part of build -> test" "$(grep -q -- '--filter' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q -- '--ui-timeout' "$ROOT/skills/build-test-loop/SKILL.md" && grep -q 'ビルド → テスト (`build_test_once.sh`) の流れに、含めない' "$ROOT/skills/build-test-loop/SKILL.md" && echo 1 || echo 0)"
 
+# new-solution: 了承の質問の選択肢に、UI テストを足さない (v2.63.2)
+ok "new-solution: the approval question has no UI-test option when ui-tests is none" "$(grep -q '了承の質問の選択肢に、UI テストを足さない' "$ROOT/skills/new-solution/SKILL.md" && echo 1 || echo 0)"
+
 # new-solution: --ui-tests は、質問しない。指定がなければ、どの種類でも none。flaui と明示されたときだけ作る (v2.63.0)
 NS="$ROOT/skills/new-solution/SKILL.md"
 ok "new-solution: never asks about --ui-tests; defaults to none for every type; builds flaui only when explicit" "$(grep -q '`--ui-tests`: \*\*質問しない。' "$NS" && grep -q 'どの種類でも、既定の `none`' "$NS" && grep -q '`flaui` と明示されたときだけ、作る' "$NS" && ! grep -q '種類によって、質問を省かない' "$NS" && echo 1 || echo 0)"

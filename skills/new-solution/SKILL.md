@@ -105,7 +105,7 @@ disable-model-invocation: true
    ```bash
    python3 <このSkillのフォルダ>/scripts/new_solution.py "$PWD" --type <..> --layers <..> --tests <..> [--layer-kind <..>] [--gtest <..>] [--namespace <..>] [--spec <..>] --dry-run
    ```
-   ソリューション名、メイン、作る層 (名前・種類)、テスト、作るファイル、**GoogleTest の方式と状態** (`GTEST_MODE` / `GTEST_VCPKG` / `GTEST_SOURCE`。旧 NuGet 方式のテストが残るときは `NOTE`)、`MAIN_EXE_TARGETNAME` の予定 (あれば) を示す。
+   ソリューション名、メイン、作る層 (名前・種類)、テスト、作るファイル、**GoogleTest の方式と状態** (`GTEST_MODE` / `GTEST_VCPKG` / `GTEST_SOURCE`。旧 NuGet 方式のテストが残るときは `NOTE`)、`MAIN_EXE_TARGETNAME` の予定 (あれば) を示す。**UI テストは、`flaui` と明示されたときだけ案に書く。`none` のときは、「なし」の 1 行だけにして、了承の質問の選択肢に、UI テストを足さない** (「FlaUI も一緒に作る」のような選択肢を、作らない。足したいときは、ユーザーが、「その他」で書く、またはあとから `/add-project ui-tests`)。
 4. **作成する** (`--dry-run` を外して、同じ引数で実行)。**自分で、`.vcxproj` や `.slnx` を手書きしない。**
    - 終了コード 3 (すでにある) は、何も書かれていない。**既存のものを、上書きしない。**
    - 終了コード 2 は、組み合わせや入力の問題。内容をユーザーに伝える。
