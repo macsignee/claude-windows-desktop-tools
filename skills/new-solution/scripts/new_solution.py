@@ -1673,6 +1673,9 @@ def main():
     sols = existing_solutions(folder) if os.path.isdir(folder) else []
     if a.spec and not sols:
         apply_spec(a)
+    # C++ は、名前が Test で終わるメインを、TargetName の変更で扱える (MFCTDDTest。テストあり)。.NET は、そうでない
+    if not sols and a.type in ('wpf', 'winforms', 'csharp-dll') and re.search(r'tests?$', name, re.I):
+        die(f'名前が Test / Tests で終わっている ({name})。ウォッチャーは、末尾が test / tests (大文字小文字を問わない) のプロジェクトを、テストのプロジェクトと見なし、アプリに dotnet test を走らせて ENV_ERROR になる。別のフォルダ名 (例: {name}App) にすること')
     if len(sols) > 1:
         die(f'ソリューションが複数ある ({", ".join(sols)})。どれを使うか、ユーザーに確認すること')
     if sols and a.platforms:

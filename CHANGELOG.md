@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.63.1] 2026-11-08 (`/new-solution`: .NET で、名前が Test / Tests で終わるフォルダを、エラーにする)
+
+- **`new_solution.py`: `--type wpf` / `winforms` / `csharp-dll` で、フォルダ名 (= メインの名前) の末尾が `test` / `tests` (大文字小文字を問わない。例: `uitest`、`MyTests`) のとき、何も書かずに、終了コード 2 で止める** (別の名前を案内)。すでにソリューションがあるフォルダ (後付け) は、対象外。`--spec` の取り込みのあとで検査する。
+- **原因:** ウォッチャーは、`.NET` のプロジェクトの名前が `(Test|Tests)$` に合うと、大文字小文字を区別せずに (`host-tools/lib/tests.ps1:76`)、テストのプロジェクトと見なす。`uitest` のアプリに `dotnet test` が走り、テストが 0 件で `ENV_ERROR` (終了コード 4) になった (v2.63.0 の実機の確認で発見。`uitest2` では起きない)。Python の検査 (`mfc_check.py`・`wpf_check.py` など) は、大文字小文字を区別するので、判定がずれていた。ウォッチャーは、変えていない。
+- **C++ は、対象外。** C++ には、名前が `Test` で終わるメインを、`TargetName` で扱う仕組みがある (`MFCTDDTest`)。
+- テスト: `tests/new_solution_test.sh` に 9 件 (`uitest`・`MyTests`・`apptest` で rc 2 と何も書かない、`uitest2` と C++ の `CppTest` は通る)。`SKILL.md` の「フォルダ名」に追記した。**配布が要る** (`new-solution`)。
+
 ## [2.63.0] 2026-11-08 (`/new-solution`: UI テストの質問をやめる。既定は `none`)
 
 - **`/new-solution` の SKILL: `--ui-tests` を質問しない。** 引数にも構成案 (`UIテスト`) にも指定がなければ、wpf / winforms / mfc 系を含む、どの種類でも、既定の `none`。**`flaui` と明示されたときだけ作る。** あとから足すには、`/add-project ui-tests` か `--ui-tests flaui` (どちらも、いままでどおり)。v2.33.0 の「GUI の種類では必ず質問する」(TEST-PLAN 2-15 の UQ1〜UQ3) を、取り下げた。
