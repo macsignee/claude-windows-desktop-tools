@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    共通の props の入口。ソリューション直下の Directory.Build.props (薄いもの。templates/ を参照) が、
+    このファイルを Import する。言語ごとの設定は、プロジェクトの種類で、振り分ける。
+    props は、プロジェクトの本体より先に読まれるので、各プロジェクトが、同じ名前のプロパティで上書きできる。
+  -->
+
+  <PropertyGroup>
+    <!-- 共通ファイルの版 (VERSION と同じ値。ソリューション側の版が古いことに、気づくため) -->
+    <MsbuildCommonVersion>0.1.0</MsbuildCommonVersion>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)Dotnet.props" Condition="'$(MSBuildProjectExtension)' == '.csproj'" />
+</Project>

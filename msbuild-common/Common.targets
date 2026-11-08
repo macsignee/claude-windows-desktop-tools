@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    共通の targets の入口。ソリューション直下の Directory.Build.targets (薄いもの。templates/ を参照) が、
+    このファイルを Import する。targets は、プロジェクトの本体より後に読まれる。
+
+    ClaudeBuildInfo: ビルドの最後に、プロジェクト名・構成・Platform・出力ファイルを、1 行ずつ、
+    $(IntDir)claude-build-info.txt に書く。結果に Platform を書く、ウォッチャーの Platform の食い違いを
+    確かめる、などに使える。**既定では、何もしない** (動きを変えない)。有効にするには、
+    ビルドに /p:ClaudeBuildInfo=true を渡す。
+  -->
+
+  <Target Name="ClaudeBuildInfo" AfterTargets="Build" Condition="'$(ClaudeBuildInfo)' == 'true'">
+    <PropertyGroup>
+      <_ClaudeBuildInfoFile>$(IntDir)claude-build-info.txt</_ClaudeBuildInfoFile>
+      <_ClaudeBuildInfoLines>project=$(MSBuildProjectName);configuration=$(Configuration);platform=$(Platform);output=$(TargetPath);common_version=$(MsbuildCommonVersion)</_ClaudeBuildInfoLines>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_ClaudeBuildInfoFile)" Lines="$(_ClaudeBuildInfoLines)" Overwrite="true" />
+  </Target>
+</Project>

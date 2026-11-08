@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.64.0] 2026-11-08 (`msbuild-common/`: Directory.Build.props / targets の共通設定のたたき台)
+
+- **`msbuild-common/` を追加した (v0.1.0)。** MSBuild の標準の仕組み (`Directory.Build.props` / `Directory.Build.targets`) で、共通の設定を 1 か所に置くためのたたき台。将来、別のリポジトリに分けて、共通のベースにする。**スキルは、まだ、使っていない** (動きは、何も変わらない。配布も、要らない)。
+  - `Common.props` (入口。版 `MsbuildCommonVersion`。`.csproj` のときだけ `Dotnet.props` を読む)、`Dotnet.props` (`Nullable`・`ImplicitUsings`・`LangVersion`。**いま `/new-solution` が作る `Directory.Build.props` と同じ内容**。`TargetFramework` は、置かない)、`Common.targets` (`ClaudeBuildInfo`: `/p:ClaudeBuildInfo=true` のときだけ、プロジェクト名・構成・Platform・出力ファイル・版を `$(IntDir)claude-build-info.txt` に書く。**既定では何もしない**)、`templates/` (ソリューション直下の薄い `Directory.Build.props` / `.targets`。親のフォルダのファイルも読む)、`VERSION`、`README.md`。
+  - **置き方 (予定):** ソリューションに `build\common\` としてコピーして、コミットする (WSL の `~/.claude` は、Windows のビルドから見えない)。分けるときは、スキルのパスに触れていないので、そのまま移せる。
+- テスト: `tests/msbuild_common_test.sh` (11 件。XML、版の一致、`Dotnet.props` が既存の `DIRECTORY_BUILD_PROPS` と同じ、既定では何もしない、薄いファイルの参照、スキルのパスに触れない)。
+- **未確認:** MSBuild での実際の読み込みとビルド (WSL に MSBuild がないため、静的検査だけ)。実機 (ウォッチャーのある Windows) で、薄いファイルを置いて、ビルドが通ることと、`ClaudeBuildInfo` が書くことを、確かめる必要がある。
+- **次の版の候補:** `/new-solution` が薄いファイルと `build\common\` を作る。`/add-project` で既存のソリューションに足す。C++ の `Cpp.props` (`OutDir`・`IntDir` など)。
+
 ## [2.63.2] 2026-11-08 (`/new-solution`: 了承の質問に、UI テストの選択肢を足さない)
 
 - **`/new-solution` の SKILL (手順 3): `--ui-tests` が `none` のとき、案には「UI テスト: なし」の 1 行だけを書き、了承の質問の選択肢に、「FlaUI も一緒に作る」のような選択肢を足さない。** v2.63.0 で、UI テストの質問をやめたが、実機 (`uitest2`) で、Claude が、作成の了承の選択肢に「UIテスト (FlaUI) も一緒に作る」を足して、実質、もう一度尋ねていた。`flaui` と明示されたときは、案に書く (いままでどおり)。足したいときは、「その他」で書くか、あとから `/add-project ui-tests`。
