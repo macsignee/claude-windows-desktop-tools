@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.63.0] 2026-11-08 (`/new-solution`: UI テストの質問をやめる。既定は `none`)
+
+- **`/new-solution` の SKILL: `--ui-tests` を質問しない。** 引数にも構成案 (`UIテスト`) にも指定がなければ、wpf / winforms / mfc 系を含む、どの種類でも、既定の `none`。**`flaui` と明示されたときだけ作る。** あとから足すには、`/add-project ui-tests` か `--ui-tests flaui` (どちらも、いままでどおり)。v2.33.0 の「GUI の種類では必ず質問する」(TEST-PLAN 2-15 の UQ1〜UQ3) を、取り下げた。
+- `/new-solutions` (複数候補) の質問の順から、`UIテスト` を外した (構成案の表の `UIテスト` 列は、そのまま。省略すると `none`)。README の `--ui-tests` の説明を合わせた。
+- テスト: `tests/ui_test_first_skill_test.sh` の該当の 1 件を、新しい動きに書き換えた。
+- スクリプト (`new_solution.py`) は変えていない (もともと既定は `none`)。**配布が要る** (`new-solution`・`new-solutions`)。UQ1〜UQ3 の期待 (質問が出る) は、古くなった。
+
 ## [2.62.4] 2026-11-10 (文書: Win32 の実機の確認 (W3・W5・W7) の記録。NEXT-STEPS の更新)
 
 - **v2.62.0 の実機の確認 (TEST-PLAN 2-38) の W3・W5・W7 が ✔。これで W1〜W8 は、すべて済んだ。**

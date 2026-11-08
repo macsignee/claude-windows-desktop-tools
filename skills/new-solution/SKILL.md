@@ -98,7 +98,7 @@ disable-model-invocation: true
    - `--type`: MFC (SDI、推奨) / MFC MDI / MFC ダイアログベース / Win32 / コンソール / DLL / 静的ライブラリ。MFC は、**ドキュメントを扱うか**で選ぶ (1 つ: SDI、複数を同時に開く: MDI、ドキュメントなしの、設定・ツール型: ダイアログベース)。
    - `--layers`: `logic,data` (推奨) / `logic` / `data` / `none`。**WPF でも、推奨は `data,logic` (データ層 = Model を含める)。選択肢に、`viewmodel` を出さない。** ViewModel を**テストしたい**と言われたら、`viewmodel` を足した `data,logic,viewmodel` を提案する (`viewmodel` がないと、ViewModel は、アプリの `ViewModels/` に入り、テストできない。あとから足すこともできる: `csharp-test-first` の `references/setup.md`)。**`--layers` の指定がある場合は、そのまま使う** (層を、勝手に足さない)。
    - `--tests`: `gtest` / `none`。**必ず、質問する** (構成案が「未定」のときも)。(`gtest`: TDD の練習向き。`none`: ビルド確認だけの 3 層分離。)
-   - `--ui-tests`: **`wpf` / `winforms` / `mfc` / `mfc-mdi` / `mfc-dialog` のとき、引数にも構成案 (`UIテスト`) にも指定がなければ、必ず、質問する。** 選択肢は、「なし (既定。UI テストは、あとから足せる)」と「FlaUI の UI テストを足す (`flaui`)」。**種類によって、質問を省かない** (以前は、WPF だけで質問が出て、WinForms では、出なかった。TEST-PLAN 2-15)。`csharp-dll` / `win32` / `console` / `dll` / `lib` では、質問しない (既定の `none`)。UI テストは、ビルド → テストの流れに含めない (上の表のとおり)。
+   - `--ui-tests`: **質問しない。引数にも構成案 (`UIテスト`) にも指定がなければ、どの種類でも、既定の `none`** (UI テストは、あとから `/add-project ui-tests` か `--ui-tests flaui` で足せる)。**`flaui` と明示されたときだけ、作る。** UI テストは、ビルド → テストの流れに含めない (上の表のとおり)。
    - **矛盾する組み合わせ** (exe + `--layers none` + `--tests gtest`) は、その場で指摘して、どちらかを変えてもらう。
 2. **名前空間を決める** (層・DLL があるときだけ)。既定は、フォルダ名の大文字の頭文字 (例: `MFCTDDTest` → `mfctddt`)。読みにくいことがあるので、**案を示して、短い名前 (例: `tdd`) に変えるか、確認する。** 変える場合は、`--namespace` で渡す。
 3. **案を示して、了承を得る (必ず止まる)。** 次の dry-run の出力を、要約して見せる。
