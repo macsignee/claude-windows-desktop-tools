@@ -92,7 +92,7 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
     - `--layers`: `none` / `logic` / `data` / `logic,data`。**推奨は `data,logic`** (WPF も同じ)。名前の指定は `logic:OrderLogic,data:OrderData` の形。WPF は、`viewmodel` も組み合わせられる (例: `data,logic,viewmodel`。ViewModel をテストしたいときに足す)。WinForms と `csharp-dll` は、`data` / `logic` だけ。
     - `--tests`: `none` / `gtest` (C++) / `mstest` (.NET。層のライブラリごとに `<名前>.Tests`)。
     - `--platforms`: C++ のプラットフォーム。`x64` (既定。質問しない) / `x64,Win32` (ウィザードと同じ 4 構成) / `Win32`。.NET に指定すると、エラー。あとから足すのは `/add-project platform Win32`。
-    - `--ui-tests`: `none` / `flaui` (`<アプリ名>.UITests`)。WPF / WinForms / MFC で、省略すると質問する。ビルド → テストの流れには、含めない。
+    - `--ui-tests`: `none` / `flaui` (`<アプリ名>.UITests`)。省略すると `none` (質問しない)。`flaui` は、明示したときだけ。あとから足すには、`/add-project ui-tests`。ビルド → テストの流れには、含めない。
     - `--layer-kind`: C++ の層の種類。`dll` / `lib` / `mfc-ext-dll` (MFC 拡張 DLL。メインが MFC のときだけ) / `mfc-std-dll` (MFC 標準 DLL。共有 MFC)。
     - `--gtest`: `auto` / `vcpkg` / `source` (C++。旧 NuGet 方式は廃止)。
     - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
