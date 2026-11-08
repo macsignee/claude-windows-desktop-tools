@@ -91,6 +91,12 @@ mkdir -p "$WORK/R/Bad1"; rc_is 2 "exe + 層なし + テストあり -> rc 2" pyt
 mkdir -p "$WORK/R/Bad2"; rc_is 2 "--tests の省略 -> rc 2" python3 "$NEW" "$WORK/R/Bad2" --type console --layers none
 mkdir -p "$WORK/R/Bad3"; rc_is 2 "--layers の値が不正 -> rc 2" python3 "$NEW" "$WORK/R/Bad3" --type mfc --layers other --tests none
 mkdir -p "$WORK/R/bad name"; rc_is 2 "フォルダ名が不正 -> rc 2" python3 "$NEW" "$WORK/R/bad name" --type mfc --layers none --tests none
+for n in uitest MyTests apptest; do
+  mkdir -p "$WORK/R/$n"; rc_is 2 "名前が test/tests で終わる ($n) -> rc 2" python3 "$NEW" "$WORK/R/$n" --type wpf --layers logic --tests mstest
+  [ -z "$(ls -A "$WORK/R/$n")" ] && ok "  何も書いていない ($n)" || ng "  何も書いていない ($n)"
+done
+mkdir -p "$WORK/R/CppTest"; rc_is 0 "C++ は、名前が Test で終わっても作れる (CppTest) -> rc 0" python3 "$NEW" "$WORK/R/CppTest" --type mfc --layers logic --tests gtest --dry-run
+mkdir -p "$WORK/R/uitest2"; rc_is 0 "名前の末尾が test でない (uitest2) -> rc 0" python3 "$NEW" "$WORK/R/uitest2" --type wpf --layers logic --tests mstest --dry-run
 rc_is 2 "親フォルダもない -> rc 2" python3 "$NEW" "$WORK/none/none/Sample" --type mfc --layers none --tests none
 mkdir -p "$WORK/R/Keep"; echo mine > "$WORK/R/Keep/CLAUDE.md"
 python3 "$NEW" "$WORK/R/Keep" --type console --layers none --tests none >/dev/null 2>&1; grep -q mine "$WORK/R/Keep/CLAUDE.md" && ok "既存の CLAUDE.md を上書きしない" || ng "既存の CLAUDE.md を上書きしない"
