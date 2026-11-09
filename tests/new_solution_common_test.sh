@@ -6,8 +6,7 @@ export LC_ALL=C.UTF-8
 unset MSBUILD_COMMON_DIR   # 既定 (配布用のコピー = コピー型) を確かめる。参照型は、下で、指定する
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NS="$ROOT/skills/new-solution/scripts/new_solution.py"
-M="$ROOT/msbuild-common"
-V="$ROOT/skills/new-solution/msbuild-common"
+M="$ROOT/skills/new-solution/msbuild-common"   # 取り込んだ msbuild-common (正本は macsignee/msbuild-common)
 T="${TMPDIR:-/tmp}/nscommon_$$"
 rm -rf "$T"; mkdir -p "$T"
 trap 'rm -rf "$T"' EXIT
@@ -15,8 +14,6 @@ pass=0; fail=0
 ok() { if [ "$2" = 1 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
 same() { cmp -s "$1" "$2"; }
 
-ok "配布用のコピー (skills/new-solution/msbuild-common) が、正本 (msbuild-common) と同じ (違うときは、cp で同期する)" "$(r=1
-for f in Common.props Dotnet.props Common.targets VERSION templates/Directory.Build.props templates/Directory.Build.targets; do same "$M/$f" "$V/$f" || r=0; done; echo $r)"
 
 n=0
 for spec in "wpf|--layers logic --tests mstest --tfm net10.0" "winforms|--layers logic --tests mstest --tfm net10.0" "csharp-dll|--layers none --tests mstest --tfm net10.0" \
