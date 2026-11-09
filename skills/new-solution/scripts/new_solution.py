@@ -52,6 +52,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'cpp-test-first', 'scripts'))
+sys.path.insert(0, HERE)
+import msbuild_source as MS   # noqa: E402
 try:
     import add_layer as AL
 except ImportError:
@@ -956,37 +958,23 @@ def slnx_text(projects, startup=None, platforms=('x64',)):
     return out + '</Solution>\n'
 
 
-MSBUILD_COMMON_DIR = os.path.join(HERE, '..', 'msbuild-common')   # msbuild-common/ (正本) の、配布用のコピー (テストが、同じであることを確かめる)
-MSBUILD_COMMON_FILES = ('Common.props', 'Dotnet.props', 'Common.targets', 'VERSION')
-MSBUILD_COMMON_NOTE_DOTNET = """
-## MSBuild の共通設定
-
-- ソリューション直下の `Directory.Build.props` / `Directory.Build.targets` (薄いファイル) が、`build\\common\\` の共通ファイル (`msbuild-common`。版は `build\\common\\VERSION`) を読む。**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で、差し替える)。
-- 共通の .NET の設定 (`Nullable` / `ImplicitUsings` / `LangVersion`) は、`build\\common\\Dotnet.props`。`TargetFramework` は、各 `.csproj` に置く。
-- ビルドの情報 (構成・Platform・出力ファイル) は、`/p:ClaudeBuildInfo=true` を渡したときだけ、中間出力フォルダの `claude-build-info.txt` に書かれる (既定では、何もしない)。
-"""
-
-MSBUILD_COMMON_NOTE_CPP = """
-## MSBuild の共通設定
-
-- ソリューション直下の `Directory.Build.props` / `Directory.Build.targets` (薄いファイル) が、`build\\common\\` の共通ファイル (`msbuild-common`。版は `build\\common\\VERSION`) を読む。**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で、差し替える)。
-- ビルドの情報 (構成・Platform・出力ファイル) は、`/p:ClaudeBuildInfo=true` を渡したときだけ、中間出力フォルダの `claude-build-info.txt` に書かれる (既定では、何もしない)。
-"""
-
-
-def msbuild_common_files(folder):
-    """薄いファイル 2 つと build/common/ の 4 ファイルを、(相対パス -> bytes) で返す。すでにある薄いファイルは、作らない (note に、理由を返す)。"""
-    files, notes = {}, []
-    for fn in ('Directory.Build.props', 'Directory.Build.targets'):
+def plan_common(a, folder):
+    """共通の Directory.Build.props / .targets (msbuild-common) の置き方を決める。戻り値: (置くファイル, NOTE の行, モード, 正本のフォルダ)。
+    正本の場所と、モード (参照型 / コピー型) の決め方は、msbuild_source.py。すでにある薄いファイルは、作らない。"""
+    try:
+        src, origin = MS.resolve(folder if os.path.isdir(folder) else None, a.common_dir)
+        mode = MS.decide_mode(a.common, origin)
+        MS.check_source(src, mode)
+    except MS.SourceError as e:
+        die(str(e))
+    files, notes = MS.files_for(src, mode), []
+    for fn in MS.THIN:
         if os.path.exists(os.path.join(folder, fn)):
-            notes.append(f'NOTE: すでに {fn} があるので、薄い版は作らない。build\\common\\ の共通ファイルを使うには、手で Import すること (msbuild-common/README.md)')
-            continue
-        with open(os.path.join(MSBUILD_COMMON_DIR, 'templates', fn), 'rb') as f:
-            files[fn] = f.read()
-    for fn in MSBUILD_COMMON_FILES:
-        with open(os.path.join(MSBUILD_COMMON_DIR, fn), 'rb') as f:
-            files['build/common/' + fn] = f.read()
-    return files, notes
+            del files[fn]
+            notes.append(f'NOTE: すでに {fn} があるので、薄い版は作らない。共通ファイルを使うには、手で Import すること (msbuild-common/README.md)')
+    if mode == 'reference':
+        notes.append(MS.reference_note(src))
+    return files, notes, mode, src
 
 
 def write_bytes(folder, files):
@@ -1329,7 +1317,7 @@ def create_wpf(a, folder, name):
         if tests:
             files.update(AP.test_files(nm, lns, tfm, mver, sver, lkind))
             projects.append((nm + '.Tests', AP.new_guid()))
-    common_files, common_notes = msbuild_common_files(folder)
+    common_files, common_notes, common_mode, common_src = plan_common(a, folder)
 
     vm_where = 'アプリの ViewModels フォルダ' if vm_in_app else lnames.get('viewmodel')
     layer_desc = ', '.join(f'{nm} ({k})' for k, nm in layers) + f' (クラスライブラリ、{tfm}、{"WinForms" if winforms else "WPF"} 非依存)' if layers else 'なし'
@@ -1371,7 +1359,7 @@ def create_wpf(a, folder, name):
     if 'CLAUDE.md' in extras:
         write_plain(folder, 'CLAUDE.md', (claude_md_csharp_dll(name, layers, tests, tfm, ns) if dll
                     else claude_md_winforms(name, layers, tests, tfm, ns) if winforms
-                    else claude_md_wpf(name, layers, tests, tfm, vm_in_app, ns)).rstrip('\n') + '\n' + MSBUILD_COMMON_NOTE_DOTNET)
+                    else claude_md_wpf(name, layers, tests, tfm, vm_in_app, ns)).rstrip('\n') + '\n' + MS.claude_note(True, common_mode, common_src))
     if '.gitignore' in extras:
         write_plain(folder, '.gitignore', AP.GITIGNORE)
     if '.gitattributes' in extras:
@@ -1516,7 +1504,7 @@ def create_mode(a, folder, name):
     print(f'名前空間       : {ns}')
     print(f'PlatformToolset: {toolset}')
     print(f'  + {name}.slnx ({len(projects)} プロジェクト)')
-    common_files, common_notes = msbuild_common_files(folder)
+    common_files, common_notes, common_mode, common_src = plan_common(a, folder)
     for rel in list(files) + list(binaries) + list(common_files):
         print(f'  + {rel}')
     for n in common_notes:
@@ -1544,7 +1532,7 @@ def create_mode(a, folder, name):
     write_bytes(folder, common_files)
     write_plain(folder, f'{name}.slnx', slnx_text(projects, name if a.type in EXE_TYPES else None, platforms), crlf=True)
     if 'CLAUDE.md' in extras:
-        write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg', platforms).rstrip('\n') + '\n' + MSBUILD_COMMON_NOTE_CPP)
+        write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg', platforms).rstrip('\n') + '\n' + MS.claude_note(False, common_mode, common_src))
     if '.gitignore' in extras:
         write_plain(folder, '.gitignore', GITIGNORE)
     if '.gitattributes' in extras:
@@ -1698,6 +1686,8 @@ def main():
     ap.add_argument('--gtest', choices=['auto', 'vcpkg', 'source', 'nuget'])
     ap.add_argument('--layer-kind', choices=['dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'])
     ap.add_argument('--ui-tests', choices=['none', 'flaui'])
+    ap.add_argument('--common', choices=['auto', 'copy', 'reference'], default='auto', help='共通の Directory.Build.* の置き方 (既定 auto: 外の正本の場所が決まれば参照型、なければコピー型)')
+    ap.add_argument('--common-dir', help='外の正本 (msbuild-common) のフォルダ (WSL のパス。省略時は、環境変数 MSBUILD_COMMON_DIR)')
     ap.add_argument('--platforms', help='C++ のプラットフォーム: x64 (既定) / x64,Win32 / Win32 (x86 は Win32 の別名)')
     ap.add_argument('--spec')
     ap.add_argument('--check-git', action='store_true')

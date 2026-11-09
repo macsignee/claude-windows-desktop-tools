@@ -994,3 +994,22 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | CM5 | `--type winforms --layers logic --tests mstest`、`--type csharp-dll --layers data --tests mstest` | それぞれ `PASSED` | ✔ (2026-11-09) `cmWinforms` (`PASSED`。`LogicLayer.Tests` 5 件)、`cmCsLib` (`PASSED`。`cmCsLib.Tests`・`DataLayer.Tests`)。 薄い `Directory.Build.props` / `.targets` と `build\\common\\` の 4 ファイルは、正本と `cmp` で一致。`CLAUDE.md` に「MSBuild の共通設定」の節が 1 つ。`<Nullable>` の直接記述なし。`CLAUDE.md` に `Dotnet.props` の説明あり |
 | CM6 | 空でなく、`Directory.Build.props` だけがあるフォルダで、`--type console ...` | `NOTE: すでに Directory.Build.props があるので` と出て、その `Directory.Build.props` は、そのまま。ビルドは通る | ✔ (2026-11-09) `cmExist` (`<Project><!-- mine --></Project>` だけの `Directory.Build.props` を先に置いた)。作成 → `Directory.Build.props` は `<!-- mine -->` のまま (薄い版は作られない)。`Directory.Build.targets` と `build\\common\\` は作られ、正本と一致。ベースライン `PASSED`。**注:** 承認の案の `NOTE:` の行そのものは、貼られていない (Claude の要約には「注記あり」とある)。この場合も、`CLAUDE.md` の節は、「薄いファイルが読む」と書いてあり、実際とは違う (上書きしなかったため。直すほどのことではない) |
 
+### 2-41. 共通の `Directory.Build.*` の参照型と `/add-project common` (v2.66.0)
+
+**静的テスト (`tests/add_common_test.sh`、`tests/new_solution_common_test.sh`、`tests/msbuild_common_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。新しい Claude Code のセッション。**ウォッチャーを先に起動する** (バナーを確かめる)。
+
+**参照型の準備 (一度だけ):** 正本を、Windows から見える場所に置く (例: `C:\Tools\msbuild-common` に、このリポジトリの `msbuild-common/` をコピー)。**WSL と Windows の両方に、環境変数 `MSBUILD_COMMON_DIR` を設定する:** WSL = `/mnt/c/Tools/msbuild-common` (`export` を `~/.bashrc` に)、Windows = `C:\Tools\msbuild-common` (ユーザー環境変数。設定したら、Visual Studio を再起動し、ウォッチャーは起動し直す)。同じフォルダか、`wslpath -w /mnt/c/Tools/msbuild-common` で確かめる。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| RF1 | 環境変数あり。`/new-solution --type wpf --layers logic --tests mstest --tfm net10.0` | 案に、参照型の薄いファイル 2 つだけ (`build/common/` なし) と、Windows 側の環境変数の NOTE。`CLAUDE.md` に「- MSBuild 共通: /mnt/c/Tools/msbuild-common」。ベースライン `PASSED` | 未 |
+| RF2 | RF1 に `string s = null;` を足してビルド (確認後、消す) | `CS8600` が出る (外の正本の `Dotnet.props` が効く) | 未 |
+| RF3 | RF1 のあと、**Windows 側の環境変数を外して** (またはウォッチャーを、環境変数のない状態で起動して) ビルド | ビルドが止まる。エラーに `__MSBUILD_COMMON_DIR_NOT_SET__\Common.props` が出る。戻すと、`PASSED` | 未 |
+| RF4 | 環境変数あり。`/new-solution --type console --layers logic --tests gtest` | 参照型で、ベースライン `PASSED` (C++ でも、参照型で通る) | 未 |
+| RF5 | WSL の環境変数を外して、RF1 のソリューションで Claude を使う (`/add-project common` など) | `CLAUDE.md` の「- MSBuild 共通:」の行で、正本が決まる (環境変数なしでも、止まらない) | 未 |
+| AC1 | 以前の形の .NET (WPF。`Directory.Build.props` が古い形) に、**環境変数なしで** `/add-project common` | コピー型。案に、`~ Directory.Build.props`、`+ Directory.Build.targets`、`+ build/common/*`、`~ または + CLAUDE.md`。承認 → `build-test-loop` が `PASSED` | 未 |
+| AC2 | 以前の形の .NET に、**環境変数ありで** `/add-project common` | 参照型。案に、`~ Directory.Build.props`、`+ Directory.Build.targets`、Windows 側の NOTE。`PASSED`。`string s = null;` で `CS8600` | 未 |
+| AC3 | 以前の形の C++ (`console` など) に `/add-project common` (環境変数なし / あり) | それぞれ、コピー型 / 参照型。`PASSED` | 未 |
+| AC4 | 手で書いた `Directory.Build.props` (例: `<Project><PropertyGroup><Foo>1</Foo></PropertyGroup></Project>`) があるソリューション | `!` で止まり、何も書かない。Import の行が示される | 未 |
+| AC5 | AC1 / AC2 のあと、もう一度 `/add-project common` | `ADDABLE` に `common` が出ない。実行しても「すべて最新」 | 未 |
+| AC6 | コピー型のソリューションに `/add-project common --common reference` (環境変数あり) | `~` で、参照型に切り替わる。`build/common/` は、残って、触られない。`CLAUDE.md` の節が書き換わる。`PASSED` | 未 |

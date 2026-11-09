@@ -324,6 +324,15 @@ def addables(sln_dir, projects, kind, main_name):
             if p['kind'] == 'classlib' and n not in tests:
                 out.append((f'tests-for:{n}', f'{n} に、テスト (MSTest) を後付けする',
                             f'python3 {SCRIPTS}/csharp-test-first/scripts/add_project.py "{sd}" {n} --tests-only --dry-run'))
+    try:
+        import add_common
+        plan_rows, c_src, _origin, c_mode = add_common.plan(sln_dir)
+        plan_rows.append(('CLAUDE.md',) + add_common.plan_claude(sln_dir, c_mode, c_src)[:1] + (None, None))
+        if any(k in ('add', 'replace', 'error') for _r, k, _m, _n in plan_rows):
+            out.append(('common', '薄い Directory.Build.props / .targets と、build\\common\\ (msbuild-common) を足す (または、新しい版に更新する)',
+                        f'python3 {SCRIPTS}/add-project/scripts/add_common.py "{sd}" --dry-run'))
+    except SystemExit:
+        pass   # 配る共通ファイルがない (new-solution が、配布されていない) ときは、足せるものに出さない
     uitests = uitests_of(projects)
     for n, p in projects.items():
         gui = p['kind'] in ('wpf-app', 'winforms-app') or (p['lang'] == 'cpp' and p['kind'] == 'exe')
