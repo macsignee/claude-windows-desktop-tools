@@ -4,14 +4,18 @@
     このファイルを Import する。targets は、プロジェクトの本体より後に読まれる。
 
     ClaudeBuildInfo: ビルドの最後に、プロジェクト名・構成・Platform・出力ファイルを、1 行ずつ、
-    $(IntDir)claude-build-info.txt に書く。結果に Platform を書く、ウォッチャーの Platform の食い違いを
+    中間出力フォルダの claude-build-info.txt に書く (C++ は $(IntDir)、.NET の SDK 形式は $(IntermediateOutputPath)。
+    SDK 形式の .csproj では、この時点で $(IntDir) が空なので、フォルダを、順に探す)。結果に Platform を書く、ウォッチャーの Platform の食い違いを
     確かめる、などに使える。**既定では、何もしない** (動きを変えない)。有効にするには、
     ビルドに /p:ClaudeBuildInfo=true を渡す。
   -->
 
   <Target Name="ClaudeBuildInfo" AfterTargets="Build" Condition="'$(ClaudeBuildInfo)' == 'true'">
     <PropertyGroup>
-      <_ClaudeBuildInfoFile>$(IntDir)claude-build-info.txt</_ClaudeBuildInfoFile>
+      <_ClaudeBuildInfoDir>$(IntDir)</_ClaudeBuildInfoDir>
+      <_ClaudeBuildInfoDir Condition="'$(_ClaudeBuildInfoDir)' == ''">$(IntermediateOutputPath)</_ClaudeBuildInfoDir>
+      <_ClaudeBuildInfoDir Condition="'$(_ClaudeBuildInfoDir)' == ''">$(MSBuildProjectDirectory)\obj\</_ClaudeBuildInfoDir>
+      <_ClaudeBuildInfoFile>$(_ClaudeBuildInfoDir)claude-build-info.txt</_ClaudeBuildInfoFile>
       <_ClaudeBuildInfoLines>project=$(MSBuildProjectName);configuration=$(Configuration);platform=$(Platform);output=$(TargetPath);common_version=$(MsbuildCommonVersion)</_ClaudeBuildInfoLines>
     </PropertyGroup>
     <WriteLinesToFile File="$(_ClaudeBuildInfoFile)" Lines="$(_ClaudeBuildInfoLines)" Overwrite="true" />

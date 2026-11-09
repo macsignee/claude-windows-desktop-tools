@@ -1,18 +1,18 @@
 # msbuild-common
 
-MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) のたたき台。**v0.1.0。まだ、`/new-solution` などのスキルは、これを使っていない** (使うのは、次の版)。将来、別のリポジトリに分けて、共通のベースにする。
+MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) のたたき台。**v0.1.1。まだ、`/new-solution` などのスキルは、これを使っていない** (使うのは、次の版)。将来、別のリポジトリに分けて、共通のベースにする。
 
 ## 目的
 
 - **設定を 1 か所に置く。** 層やテストを足すたびに、各プロジェクトへ、同じ設定を複製しない。
 - **MSBuild の標準の仕組みだけを使う。** 独自のファイル形式や、設定ファイルの規則は、作らない。
-- **動きを変えずに、始める。** v0.1.0 の中身は、これまで `/new-solution` が作っていた `Directory.Build.props` と、同じ。
+- **動きを変えずに、始める。** v0.1.x の中身は、これまで `/new-solution` が作っていた `Directory.Build.props` と、同じ。
 
 ## 構成
 
 - **`Common.props`**: 入口。共通ファイルの版 (`MsbuildCommonVersion`) を決め、プロジェクトの種類 (`.csproj`) で、言語ごとの props を読む。
 - **`Dotnet.props`**: .NET の共通設定 (`Nullable`・`ImplicitUsings`・`LangVersion`)。`TargetFramework` は置かない (アプリと層で違う)。
-- **`Common.targets`**: 入口。`ClaudeBuildInfo` の target だけを持つ。**既定では何もしない。** `/p:ClaudeBuildInfo=true` を渡すと、ビルドの最後に、プロジェクト名・構成・Platform・出力ファイル・共通ファイルの版を、`$(IntDir)claude-build-info.txt` に、1 行ずつ書く。
+- **`Common.targets`**: 入口。`ClaudeBuildInfo` の target だけを持つ。**既定では何もしない。** `/p:ClaudeBuildInfo=true` を渡すと、ビルドの最後に、プロジェクト名・構成・Platform・出力ファイル・共通ファイルの版を、中間出力フォルダの `claude-build-info.txt` に、1 行ずつ書く (C++ は `$(IntDir)`。SDK 形式の .csproj は `$(IntDir)` が空なので `$(IntermediateOutputPath)`)。
 - **`templates/Directory.Build.props`・`Directory.Build.targets`**: ソリューション直下に置く薄いファイル。親のフォルダのファイルを読み (MSBuild は、最も近い 1 つしか読まないため)、そのあと、`build\common\` の共通ファイルを読む。
 - **`VERSION`**: 共通ファイルの版。`Common.props` の `MsbuildCommonVersion` と同じ値にする (テストが確かめる)。
 
