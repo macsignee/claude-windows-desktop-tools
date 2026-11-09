@@ -980,3 +980,17 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | MB1 | WPF (`--type wpf --layers logic --tests mstest --tfm net10.0`) を作り、`msbuild-common` の 4 ファイルを `build\common\`、`templates/` の 2 ファイルを直下にコピー → `build-test-loop` → `ClaudeBuildInfo` を一時的に有効にしてビルド | `PASSED`。`obj\...` に、3 つのプロジェクトの `claude-build-info.txt` (`platform=AnyCPU`、`common_version`)。`Nullable` が効く | ✔ (2026-11-09) `DPops2`。**(1) 0.1.0:** 薄いファイルに置き換えて `PASSED` (1 件)。`claude-build-info.txt` は 3 つできたが、**各プロジェクト直下** (`$(IntDir)` が空) → v2.64.1 (0.1.1) で直した。**(2) 0.1.1:** 差し替え (`VERSION` = 0.1.1、`_ClaudeBuildInfoDir` あり。目視) → 有効にしてビルドすると、3 つとも **`obj\Debug\net10.0-windows\` と `obj\Debug\net10.0\`** にできた。**(3) Nullable:** `LogicLayer.csproj` に `Nullable` の記述なしで、`string s = null;` を足してビルド → `SUCCESS`、`.claude-logs\warnings.log` に `CS8600` が 1 件 (`CS8603` も 1 件)。削除して再ビルド → 警告なし (`Dotnet.props` が、共通ファイル経由で効いている)。**注:** 警告は `build_error.log` ではなく `warnings.log` に出る。0.1.1 の `common_version` の中身は、貼られていない (MB3 で見る) |
 | MB2 | 直した版 (0.1.1) で、`ClaudeBuildInfo` を有効 / 無効でビルド | 有効: `obj\Debug\net10.0\claude-build-info.txt` (3 つ)。無効: どこにもできない | ✔ (2026-11-09) 有効: MB1 (2) のとおり。無効: 行を消し、3 つを削除してから `auto-build` → `SUCCESS`、`claude-build-info.txt` は 0 件 |
 | MB3 | C++ (`--type console --layers logic --tests gtest`) に、薄いファイルと `build\common\` を置いて、`ClaudeBuildInfo` を有効にしてビルド | `PASSED`。`platform=x64`。`$(IntDir)` にできる。`.csproj` 用の `Dotnet.props` は読まれない | ✔ (2026-11-09) `DPop3` (x64 のウォッチャー)。ベースライン `PASSED` (1 件) のあと、既存の `Directory.Build.*` なしを確認して、0.1.1 の 4 ファイルと薄い 2 ファイルを置いた → `PASSED` (1 件。エラー・警告の増加なし)。有効にしてビルド → `SUCCESS`。`claude-build-info.txt` は 3 つ: **`obj\DPop3\x64\Debug\`・`obj\LogicLayer\x64\Debug\`・`obj\LogicLayerTest\x64\Debug\`** (`$(IntDir)`)。いずれも `common_version=0.1.1`、`output` は `DPop3.exe`・`LogicLayer.dll`・`LogicLayerTest.exe`。無効にして、削除してから再ビルド → `SUCCESS`、0 件。**注:** `platform=x64` の行そのものは、報告に含まれていない。`Dotnet.props` が読まれないことは、エラーなくビルドできたことからの推定 (`.csproj` の条件)。`$(IntermediateOutputPath)` への切り替えは、C++ では働かない (`$(IntDir)` がある) |
+
+### 2-40. `/new-solution` が作る `msbuild-common` (v2.65.0)
+
+**静的テスト (`tests/new_solution_common_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。新しいフォルダ (名前は test / tests で終わらない) と、新しい Claude Code のセッション。**ウォッチャーを先に起動する** (バナーを確かめる)。**作成直後の `build-test-loop` が `PASSED` になることが、合格 (薄いファイルを、手で足す手順は、もう要らない)。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| CM1 | `/new-solution --type wpf --layers logic --tests mstest --tfm net10.0` | 案に `Directory.Build.props`・`.targets`・`build/common/*` が出る。承認 → 作成 → ベースライン `PASSED`。`CLAUDE.md` に「MSBuild の共通設定」の節。`Directory.Build.props` に `Nullable` は直接書かない | 未 |
+| CM2 | CM1 の `LogicLayer` に、`string s = null;` を足してビルド (確認後、消す) | `CS8600` の警告 (`Dotnet.props` が効く) | 未 |
+| CM3 | `/new-solution --type mfc --layers logic,data --tests gtest` (x64) | 案に、同じ 6 ファイル。ベースライン `PASSED`。MFC のビルドが、薄いファイルで壊れない | 未 |
+| CM4 | `--type win32`、`--type dll`、`--type lib` (層は logic、テストは gtest) | それぞれ `PASSED` (`dll` と `lib` は、メインが、DLL・静的ライブラリ) | 未 |
+| CM5 | `--type winforms --layers logic --tests mstest`、`--type csharp-dll --layers data --tests mstest` | それぞれ `PASSED` | 未 |
+| CM6 | 空でなく、`Directory.Build.props` だけがあるフォルダで、`--type console ...` | `NOTE: すでに Directory.Build.props があるので` と出て、その `Directory.Build.props` は、そのまま。ビルドは通る | 未 |
+

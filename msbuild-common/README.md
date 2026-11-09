@@ -27,6 +27,10 @@ MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) �
 
 **Windows (Visual Studio とウォッチャー) から見える場所に置くため、コピーして、ソリューションにコミットする** (WSL の `~/.claude` は、ビルドから見えない)。配布の方法は、あとで、git のサブモジュールか NuGet パッケージ (`build\` の props は、自動で読まれる) に、差し替えられる。
 
+## 正本と、配布用のコピー
+
+- 正本は、この `msbuild-common/`。`/new-solution` が配るのは、`skills/new-solution/msbuild-common/` のコピー (`install.sh` は `skills/` だけを配るため)。**正本を変えたら、同じファイルを、コピーにも同期する** (`tests/msbuild_common_test.sh` が、同じであることを確かめる)。
+
 ## 別のリポジトリに分けるとき
 
 - 共通ファイルは、スキルのパスや `CLAUDE.md` に、触れない。そのまま、移せる。
@@ -35,6 +39,6 @@ MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) �
 ## 今後の候補
 
 - C++ の共通設定 (`Cpp.props`): `OutDir`・`IntDir`・`WarningLevel` など。既存の `.vcxproj` の設定との優先順位を、確かめてから。
-- `/new-solution` が、薄いファイルと `build\common\` を作る。`/add-project` で、既存のソリューションに足す。
+- `/add-project` で、既存のソリューションに足す (薄いファイルと `build\common\`)。
 - ビルドの情報を、ウォッチャーの結果に使う。
 - 品質の強制 (警告をエラーにする) は、生成直後のビルドが通らなくなる恐れがあるので、段階的に。

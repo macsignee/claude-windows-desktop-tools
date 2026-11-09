@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    薄い Directory.Build.targets。ソリューション直下に置く。親のフォルダにあるものも、ここで読む。
+    共通の設定は、build\common\ (msbuild-common のコピー)。
+  -->
+
+  <PropertyGroup>
+    <_ParentBuildTargets>$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))</_ParentBuildTargets>
+  </PropertyGroup>
+  <Import Project="$(_ParentBuildTargets)" Condition="'$(_ParentBuildTargets)' != ''" />
+
+  <Import Project="$(MSBuildThisFileDirectory)build\common\Common.targets" />
+</Project>

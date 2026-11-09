@@ -45,7 +45,7 @@ MyApp/
 ## 規約 (csproj と、ソリューション)
 
 1. **SDK 形式の `.csproj`** (`<Project Sdk="Microsoft.NET.Sdk">`)。ファイルは、自動で含まれる (新しい `.cs` / `.xaml` を、`.csproj` に追加しない)。
-2. **`Directory.Build.props` (ソリューション直下) で、`Nullable` / `ImplicitUsings` / `LangVersion` を、そろえる。** 各 `.csproj` には、`TargetFramework` と `RootNamespace` だけを書く。
+2. **ソリューション直下の `Directory.Build.props` (`/new-solution` が作るものは、`build\common\Dotnet.props` を読む薄いファイル) で、`Nullable` / `ImplicitUsings` / `LangVersion` を、そろえる。** 各 `.csproj` には、`TargetFramework` と `RootNamespace` だけを書く。
 3. **プロジェクト名 = フォルダ名 = `.csproj` の名前 = アセンブリ名。** `.` を含んでよい (`SampleApp.Domain`)。その場合、名前空間は、その名前のまま。型名 (`SampleAppDomainInfo`) では、`.` を除く。 XAML の `xmlns:vm="clr-namespace:NS.ViewModels;assembly=ViewModels"` の `assembly=` は、このアセンブリ名。
 4. **名前空間:** ルート (ソリューション名) + 層 (`<ルート>.Data` / `.Logic` / `.ViewModels`)。画面は `<ルート>.Views`。テストは `<ライブラリの名前空間>.Tests`。ファイルスコープの名前空間 (`namespace X;`)。
 5. **ソリューションは `.slnx`** (新規)。.NET だけなら、構成 (`Debug` / `Release` の `Any CPU`) は、書かない (Visual Studio の既定)。ウォッチャーは、`-Platform auto` で `AnyCPU` を使う。**WPF アプリに `DefaultStartup="true"`** (層は、ライブラリで、起動できない)。

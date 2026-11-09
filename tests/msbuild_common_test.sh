@@ -39,6 +39,7 @@ ok "薄いファイルは、親のファイルを読み (GetPathOfFileAbove)、�
 ok "親のファイルが見つからないとき (空) は、Import しない (Condition)" "$(grep -q "'\$(_ParentBuildProps)' != ''" "$M/templates/Directory.Build.props" && grep -q "'\$(_ParentBuildTargets)' != ''" "$M/templates/Directory.Build.targets" && echo 1 || echo 0)"
 ok "共通ファイルは、スキルのパスや CLAUDE.md に触れない (別のリポジトリへ、そのまま移せる)" "$(! grep -l -E '\.claude|CLAUDE\.md|skills/' $FILES >/dev/null 2>&1 && echo 1 || echo 0)"
 ok "ClaudeBuildInfo の出力先は、\$(IntDir) が空のとき (SDK 形式の .csproj) \$(IntermediateOutputPath) にする" "$(grep -q "_ClaudeBuildInfoDir Condition=\"'\$(_ClaudeBuildInfoDir)' == ''\">\$(IntermediateOutputPath)" "$M/Common.targets" && echo 1 || echo 0)"
+ok "/new-solution が配る、コピー (skills/new-solution/msbuild-common) が、正本と同じ (違うときは、正本から cp で同期する)" "$(r=1; V="$ROOT/skills/new-solution/msbuild-common"; for f in Common.props Dotnet.props Common.targets VERSION templates/Directory.Build.props templates/Directory.Build.targets; do cmp -s "$M/$f" "$V/$f" || r=0; done; echo $r)"
 
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
