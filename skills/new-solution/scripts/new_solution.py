@@ -956,6 +956,47 @@ def slnx_text(projects, startup=None, platforms=('x64',)):
     return out + '</Solution>\n'
 
 
+MSBUILD_COMMON_DIR = os.path.join(HERE, '..', 'msbuild-common')   # msbuild-common/ (正本) の、配布用のコピー (テストが、同じであることを確かめる)
+MSBUILD_COMMON_FILES = ('Common.props', 'Dotnet.props', 'Common.targets', 'VERSION')
+MSBUILD_COMMON_NOTE_DOTNET = """
+## MSBuild の共通設定
+
+- ソリューション直下の `Directory.Build.props` / `Directory.Build.targets` (薄いファイル) が、`build\\common\\` の共通ファイル (`msbuild-common`。版は `build\\common\\VERSION`) を読む。**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で、差し替える)。
+- 共通の .NET の設定 (`Nullable` / `ImplicitUsings` / `LangVersion`) は、`build\\common\\Dotnet.props`。`TargetFramework` は、各 `.csproj` に置く。
+- ビルドの情報 (構成・Platform・出力ファイル) は、`/p:ClaudeBuildInfo=true` を渡したときだけ、中間出力フォルダの `claude-build-info.txt` に書かれる (既定では、何もしない)。
+"""
+
+MSBUILD_COMMON_NOTE_CPP = """
+## MSBuild の共通設定
+
+- ソリューション直下の `Directory.Build.props` / `Directory.Build.targets` (薄いファイル) が、`build\\common\\` の共通ファイル (`msbuild-common`。版は `build\\common\\VERSION`) を読む。**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で、差し替える)。
+- ビルドの情報 (構成・Platform・出力ファイル) は、`/p:ClaudeBuildInfo=true` を渡したときだけ、中間出力フォルダの `claude-build-info.txt` に書かれる (既定では、何もしない)。
+"""
+
+
+def msbuild_common_files(folder):
+    """薄いファイル 2 つと build/common/ の 4 ファイルを、(相対パス -> bytes) で返す。すでにある薄いファイルは、作らない (note に、理由を返す)。"""
+    files, notes = {}, []
+    for fn in ('Directory.Build.props', 'Directory.Build.targets'):
+        if os.path.exists(os.path.join(folder, fn)):
+            notes.append(f'NOTE: すでに {fn} があるので、薄い版は作らない。build\\common\\ の共通ファイルを使うには、手で Import すること (msbuild-common/README.md)')
+            continue
+        with open(os.path.join(MSBUILD_COMMON_DIR, 'templates', fn), 'rb') as f:
+            files[fn] = f.read()
+    for fn in MSBUILD_COMMON_FILES:
+        with open(os.path.join(MSBUILD_COMMON_DIR, fn), 'rb') as f:
+            files['build/common/' + fn] = f.read()
+    return files, notes
+
+
+def write_bytes(folder, files):
+    for rel, data in files.items():
+        p = os.path.join(folder, *rel.split('/'))
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, 'wb') as f:
+            f.write(data)
+
+
 def write_plain(folder, rel, text, crlf=False):
     p = os.path.join(folder, *rel.split('/'))
     os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -1288,7 +1329,7 @@ def create_wpf(a, folder, name):
         if tests:
             files.update(AP.test_files(nm, lns, tfm, mver, sver, lkind))
             projects.append((nm + '.Tests', AP.new_guid()))
-    files['Directory.Build.props'] = AP.DIRECTORY_BUILD_PROPS
+    common_files, common_notes = msbuild_common_files(folder)
 
     vm_where = 'アプリの ViewModels フォルダ' if vm_in_app else lnames.get('viewmodel')
     layer_desc = ', '.join(f'{nm} ({k})' for k, nm in layers) + f' (クラスライブラリ、{tfm}、{"WinForms" if winforms else "WPF"} 非依存)' if layers else 'なし'
@@ -1309,6 +1350,10 @@ def create_wpf(a, folder, name):
     print(f'  + {name}.slnx ({len(projects)} プロジェクト)')
     for rel in files:
         print(f'  + {rel}')
+    for rel in common_files:
+        print(f'  + {rel}')
+    for n in common_notes:
+        print(n)
     extras = [x for x in ('.editorconfig', 'CLAUDE.md', '.gitignore', '.gitattributes') if not os.path.exists(os.path.join(folder, x))]
     for e in extras:
         print(f'  + {e}')
@@ -1319,13 +1364,14 @@ def create_wpf(a, folder, name):
 
     os.makedirs(folder, exist_ok=True)
     AP.write_files(folder, files)
+    write_bytes(folder, common_files)
     write_plain(folder, f'{name}.slnx', AP.slnx_text(projects, None if dll else name), crlf=True)
     if '.editorconfig' in extras:
         write_plain(folder, '.editorconfig', AP.EDITORCONFIG, crlf=True)
     if 'CLAUDE.md' in extras:
-        write_plain(folder, 'CLAUDE.md', claude_md_csharp_dll(name, layers, tests, tfm, ns) if dll
+        write_plain(folder, 'CLAUDE.md', (claude_md_csharp_dll(name, layers, tests, tfm, ns) if dll
                     else claude_md_winforms(name, layers, tests, tfm, ns) if winforms
-                    else claude_md_wpf(name, layers, tests, tfm, vm_in_app, ns))
+                    else claude_md_wpf(name, layers, tests, tfm, vm_in_app, ns)).rstrip('\n') + '\n' + MSBUILD_COMMON_NOTE_DOTNET)
     if '.gitignore' in extras:
         write_plain(folder, '.gitignore', AP.GITIGNORE)
     if '.gitattributes' in extras:
@@ -1470,8 +1516,11 @@ def create_mode(a, folder, name):
     print(f'名前空間       : {ns}')
     print(f'PlatformToolset: {toolset}')
     print(f'  + {name}.slnx ({len(projects)} プロジェクト)')
-    for rel in list(files) + list(binaries):
+    common_files, common_notes = msbuild_common_files(folder)
+    for rel in list(files) + list(binaries) + list(common_files):
         print(f'  + {rel}')
+    for n in common_notes:
+        print(n)
     extras = [x for x in ('CLAUDE.md', '.gitignore', '.gitattributes') if not os.path.exists(os.path.join(folder, x))]
     for e in extras:
         print(f'  + {e}')
@@ -1492,9 +1541,10 @@ def create_mode(a, folder, name):
         os.makedirs(os.path.dirname(bp), exist_ok=True)
         with open(bp, 'wb') as f:
             f.write(data)
+    write_bytes(folder, common_files)
     write_plain(folder, f'{name}.slnx', slnx_text(projects, name if a.type in EXE_TYPES else None, platforms), crlf=True)
     if 'CLAUDE.md' in extras:
-        write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg', platforms))
+        write_plain(folder, 'CLAUDE.md', claude_md(name, KIND[a.type], layers, tests, lkind, gmode or 'vcpkg', platforms).rstrip('\n') + '\n' + MSBUILD_COMMON_NOTE_CPP)
     if '.gitignore' in extras:
         write_plain(folder, '.gitignore', GITIGNORE)
     if '.gitattributes' in extras:

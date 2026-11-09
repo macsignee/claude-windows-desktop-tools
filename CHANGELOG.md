@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.65.0] 2026-11-09 (`/new-solution` が、薄い `Directory.Build.props` / `.targets` と `build\common\` を作る)
+
+- **`/new-solution` が、新規のソリューション (すべての種類) に、`msbuild-common` (v0.1.1) を置く。** ソリューション直下に、薄い `Directory.Build.props` / `Directory.Build.targets` (親のフォルダのファイルも読む)、`build\common\` に `Common.props`・`Dotnet.props`・`Common.targets`・`VERSION`。承認の案 (`+` の一覧) にも出る。
+- **.NET (`wpf` / `winforms` / `csharp-dll`):** 以前の `Directory.Build.props` (`Nullable` / `ImplicitUsings` / `LangVersion` を直接書く) は、作らない。同じ設定は、`build\common\Dotnet.props` に移った (**効果は同じ**。MB1 で実機確認済み)。C++ は、設定を持たず、`ClaudeBuildInfo` (`/p:ClaudeBuildInfo=true` のときだけ) だけが使える (MB3 で確認済み)。
+- **すでに `Directory.Build.props` / `.targets` があるフォルダでは、上書きしない** (`NOTE:` を出す。`build\common\` は作る)。`CLAUDE.md` に、「`build\common\` はコピー。手で編集しない」の節 (.NET は `Dotnet.props` の説明つき) を足す。
+- **配布:** `install.sh` は `skills/` だけを配るため、正本 `msbuild-common/` のコピーを `skills/new-solution/msbuild-common/` に置いた。`tests/msbuild_common_test.sh` が、同じであることを確かめる (正本を変えたら、同期する)。**`install.sh --skills-only` での配布が要る。**
+- `/add-project` (既存のソリューションへの追加) と `csharp-test-first/add_project.py` の `DIRECTORY_BUILD_PROPS` は、変えていない。
+- テスト: `tests/new_solution_common_test.sh` (新規。10 種類すべて。正本と同じ、案への表示、`CLAUDE.md`、dry-run、既存の上書きなし)、`tests/msbuild_common_test.sh` (13 件)。`new_solution_wpf_test.sh` / `new_solution_csharp_dll_test.sh` は、`Directory.Build.props` の期待を更新。
+- **未確認 (実機):** 生成直後の、各種類のビルドとテスト (TEST-PLAN 2-40)。特に MFC・Win32・DLL・lib (C++ は、`console` だけ MB3 で確認)。
+
 ## [2.64.1] 2026-11-09 (`msbuild-common` v0.1.1: ClaudeBuildInfo の出力先を直す)
 
 - **実機の確認 MB1 で、`ClaudeBuildInfo` の出力先が、想定と違った。** WPF (.NET 10、SDK 形式) のソリューションに、薄いファイルと `build\common\` を置いて、ビルドとテストは `PASSED` (共通ファイルは、エラーなく読まれ、`common_version=0.1.0` が書かれた)。ただし、`claude-build-info.txt` が、`obj\` ではなく、**各プロジェクトのフォルダ直下**にできた。SDK 形式の `.csproj` では、`$(IntDir)` が空だったため。

@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    薄い Directory.Build.props。ソリューション直下に置く。MSBuild は、最も近い Directory.Build.props を 1 つしか
+    読まないので、親のフォルダにあるものも、ここで読む。共通の設定は、build\common\ (msbuild-common のコピー)。
+  -->
+
+  <PropertyGroup>
+    <_ParentBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_ParentBuildProps>
+  </PropertyGroup>
+  <Import Project="$(_ParentBuildProps)" Condition="'$(_ParentBuildProps)' != ''" />
+
+  <Import Project="$(MSBuildThisFileDirectory)build\common\Common.props" />
+</Project>

@@ -22,7 +22,7 @@ ok "full: slnx has 6 projects and no DefaultStartup (no exe)" "$([ "$(grep -c '<
 ok "full: the main is a plain library (no OutputType, no windows tfm, no UseWPF) that references the layers" "$(! grep -q 'OutputType\|windows\|UseWPF' "$D/MyLib/MyLib.csproj" && grep -q 'LogicLayer.csproj' "$D/MyLib/MyLib.csproj" && grep -q 'DataLayer.csproj' "$D/MyLib/MyLib.csproj" && echo 1 || echo 0)"
 ok "full: MyLib.Tests references MyLib and is an MSTest project" "$(grep -q '\.\.\\MyLib\\MyLib.csproj' "$D/MyLib.Tests/MyLib.Tests.csproj" && grep -q 'MSTest.TestFramework' "$D/MyLib.Tests/MyLib.Tests.csproj" && grep -q '\[TestMethod\]' "$D/MyLib.Tests/MyLibInfoTests.cs" && echo 1 || echo 0)"
 ok "full: namespaces MyLib / MyLib.Data / MyLib.Logic" "$(grep -q 'namespace MyLib;' "$D/MyLib/MyLibInfo.cs" && grep -q 'namespace MyLib.Data;' "$D/DataLayer/DataLayerInfo.cs" && grep -q 'namespace MyLib.Logic;' "$D/LogicLayer/LogicLayerInfo.cs" && echo 1 || echo 0)"
-ok "full: .cs / .csproj are BOM + CRLF" "$(for f in MyLib/MyLib.csproj MyLib/MyLibInfo.cs MyLib.Tests/MyLibInfoTests.cs Directory.Build.props; do bom_crlf "$D/$f" || exit 1; done; echo 1)"
+ok "full: .cs / .csproj are BOM + CRLF" "$(for f in MyLib/MyLib.csproj MyLib/MyLibInfo.cs MyLib.Tests/MyLibInfoTests.cs; do bom_crlf "$D/$f" || exit 1; done; echo 1)"
 ok "full: CLAUDE.md records main / layers / tests (3 lines the other commands read)" "$(grep -qx -- '- メイン: MyLib (C# クラスライブラリ)' "$D/CLAUDE.md" && grep -qx -- '- 層: data,logic' "$D/CLAUDE.md" && grep -qx -- '- テスト: あり (MSTest)' "$D/CLAUDE.md" && ! grep -q 'wpf-check\|XAML を編集' "$D/CLAUDE.md" && echo 1 || echo 0)"
 
 # ---------------------------------------------------------------- 層なし + テストあり (メイン自身がテストの対象)
