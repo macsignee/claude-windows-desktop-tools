@@ -10,7 +10,7 @@
 - **配布:** `install.sh` は `skills/` だけを配るため、正本 `msbuild-common/` のコピーを `skills/new-solution/msbuild-common/` に置いた。`tests/msbuild_common_test.sh` が、同じであることを確かめる (正本を変えたら、同期する)。**`install.sh --skills-only` での配布が要る。**
 - `/add-project` (既存のソリューションへの追加) と `csharp-test-first/add_project.py` の `DIRECTORY_BUILD_PROPS` は、変えていない。
 - テスト: `tests/new_solution_common_test.sh` (新規。10 種類すべて。正本と同じ、案への表示、`CLAUDE.md`、dry-run、既存の上書きなし)、`tests/msbuild_common_test.sh` (13 件)。`new_solution_wpf_test.sh` / `new_solution_csharp_dll_test.sh` は、`Directory.Build.props` の期待を更新。
-- **未確認 (実機):** 生成直後の、各種類のビルドとテスト (TEST-PLAN 2-40)。特に MFC・Win32・DLL・lib (C++ は、`console` だけ MB3 で確認)。
+- **実機の確認 (2026-11-09):** 10 種類のうち、`wpf`・`winforms`・`csharp-dll`・`mfc`・`win32`・`dll`・`lib`・`console` (既存の `Directory.Build.props` ありの場合) で、作成直後のベースラインが `PASSED` (TEST-PLAN 2-40 の CM1〜CM6)。`Nullable` の効きも確認。**未確認:** `mfc-mdi`・`mfc-dialog` (生成物は、`mfc` と同じ共通ファイルで、静的テストは通っている)。
 
 ## [2.64.1] 2026-11-09 (`msbuild-common` v0.1.1: ClaudeBuildInfo の出力先を直す)
 
