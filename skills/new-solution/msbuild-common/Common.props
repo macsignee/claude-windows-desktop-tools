@@ -7,7 +7,14 @@
 
   <PropertyGroup>
     <!-- 共通ファイルの版 (VERSION と同じ値。ソリューション側の版が古いことに、気づくため) -->
-    <MsbuildCommonVersion>0.1.1</MsbuildCommonVersion>
+    <MsbuildCommonVersion>0.2.0</MsbuildCommonVersion>
+
+    <!--
+      ClaudeCheck: プロジェクトの設定だけで判定できる検査 (層の向き・層の GUI 依存・MFC の DLL の設定。Common.targets の ClaudeCheckProject)。
+      off = 検査しない / warning (既定) = 警告 / error = LAY001・LAY003・DLL001・DLL002 をエラーにする。
+      各プロジェクトで、同じ名前のプロパティを書いて、上書きできる (層の役割は ClaudeLayerRole)。
+    -->
+    <ClaudeCheck Condition="'$(ClaudeCheck)' == ''">warning</ClaudeCheck>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)Dotnet.props" Condition="'$(MSBuildProjectExtension)' == '.csproj'" />

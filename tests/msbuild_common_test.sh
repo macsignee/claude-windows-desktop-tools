@@ -42,5 +42,62 @@ ok "ClaudeBuildInfo の出力先は、\$(IntDir) が空のとき (SDK 形式の 
 ok "/new-solution が配る、コピー (skills/new-solution/msbuild-common) が、正本と同じ (違うときは、正本から cp で同期する)" "$(r=1; V="$ROOT/skills/new-solution/msbuild-common"; for f in Common.props Dotnet.props Common.targets VERSION templates/Directory.Build.props templates/Directory.Build.targets templates/reference/Directory.Build.props templates/reference/Directory.Build.targets; do cmp -s "$M/$f" "$V/$f" || r=0; done; echo $r)"
 ok "参照型の薄いファイルは、環境変数 MSBUILD_COMMON_DIR を読み、未設定なら、印のついたパスで、Import が失敗する (黙って飛ばさない)。親のファイルも読む" "$(r=1; for f in props targets; do t="$M/templates/reference/Directory.Build.$f"; grep -q '\$(MSBUILD_COMMON_DIR)' "$t" || r=0; grep -q '__MSBUILD_COMMON_DIR_NOT_SET__' "$t" || r=0; grep -q 'GetPathOfFileAbove' "$t" || r=0; done; grep -q 'Import Project="\$(MsbuildCommonDir)\\Common.props" />' "$M/templates/reference/Directory.Build.props" || r=0; grep -q 'Import Project="\$(MsbuildCommonDir)\\Common.targets" />' "$M/templates/reference/Directory.Build.targets" || r=0; ! grep -q 'Import Project="[^"]*" Condition="[^"]*MsbuildCommonDir' "$M/templates/reference/Directory.Build.props" || r=0; echo $r)"
 
+# ---------------------------------------------------------------- ClaudeCheckProject (v0.2.0。mfc-check / wpf-check / winforms-check の、プロジェクト設定だけで判定できる検査)
+ok "Common.props: ClaudeCheck の既定は warning (off / warning / error)" "$(grep -q "<ClaudeCheck Condition=\"'\$(ClaudeCheck)' == ''\">warning</ClaudeCheck>" "$M/Common.props" && echo 1 || echo 0)"
+ok "ClaudeCheckProject は、BeforeTargets=Build で、ClaudeCheck が off のときは何もしない" "$(grep -q '<Target Name="ClaudeCheckProject" BeforeTargets="Build" Condition="'"'"'\$(ClaudeCheck)'"'"' == '"'"'warning'"'"' Or '"'"'\$(ClaudeCheck)'"'"' == '"'"'error'"'"'"' "$M/Common.targets" && echo 1 || echo 0)"
+ok "Warning / Error タスクは、Target の中だけにある (Target の外に置くと、MSBuild が読み込めない)" "$(python3 -I - "$M/Common.targets" <<'E'
+import sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+bad = [e.tag for ch in root if ch.tag != 'Target' for e in ch.iter() if e.tag in ('Warning', 'Error')]
+inside = [e.tag for t in root.iter('Target') for e in t.iter() if e.tag in ('Warning', 'Error')]
+print(1 if not bad and inside else 0)
+E
+)"
+ok "検査のコード (LAY001 LAY003 DLL001 DLL002 DLL003) が、各 check と同じ意味で、揃っている" "$(r=1; for c in LAY001 LAY003 DLL001 DLL002 DLL003; do grep -q "Code=\"$c\"" "$M/Common.targets" || r=0; done
+    for c in LAY001 LAY003; do grep -q "\"$c\"" "$ROOT/skills/wpf-check/scripts/wpf_check.py" || r=0; done
+    for c in DLL001 DLL002 DLL003 LAY003; do grep -q "\"$c\"" "$ROOT/skills/mfc-check/scripts/mfc_check.py" || r=0; done
+    for c in WFL001 WFL003; do grep -q "\"$c\"" "$ROOT/skills/winforms-check/scripts/winforms_check.py" || r=0; done; echo $r)"
+ok "層の役割の判定 (名前 → 役割) が、solution_state.py の role_of_name と同じ (MSBuild の式を、Python に写して比べる)" "$(python3 -I - "$M/Common.targets" "$ROOT/skills/add-project/scripts" <<'E'
+import re, sys
+sys.path.insert(0, sys.argv[2])
+import solution_state as S
+t = open(sys.argv[1], encoding='utf-8').read()
+m = re.search(r"Regex\]::Replace\('\$\(MSBuildProjectName\)', '([^']+)', ' \$0 '\)", t)
+if not m:
+    print(0); raise SystemExit
+pat = m.group(1)
+words_in_ref = re.search(r"Regex\]::Replace\('%\(Identity\)', '([^']+)', ' \$0 '\)", t)
+if not words_in_ref or words_in_ref.group(1) != pat:
+    print(0); raise SystemExit
+def msb(name):
+    words = ' ' + re.sub(pat, lambda x: ' ' + x.group(0) + ' ', name).lower()
+    low = name.lower()
+    if 'viewmodel' in low: return 'viewmodel'
+    if any(f' {w} ' in words for w in ('ui', 'view', 'views', 'dialog', 'dialogs')): return 'ui'
+    if 'logic' in low: return 'logic'
+    if 'data' in low: return 'data'
+    return 'other'
+names = ['LogicLayer', 'DataLayer', 'ViewModels', 'MainViewModel', 'UiLayer', 'UIHost', 'ReportView', 'Views', 'Dialogs', 'OrderDialog',
+         'Build', 'Guide', 'ExtLayer', 'Core', 'AppData', 'ViewModelLogic', 'Quiet', 'Ui', 'UserInterface', 'DataView', 'Database',
+         'BusinessLogic', 'my.view', 'Report_UI', 'MFCApp', 'cmWin32', 'Drops']
+print(1 if all(S.role_of_name(n) == msb(n) for n in names) else 0)
+E
+)"
+ok "層の向きの違反は、solution_state.py の ref_issues と同じ組 (data→logic/viewmodel/ui、logic→viewmodel/ui、viewmodel→ui)" "$(python3 -I - "$M/Common.targets" "$ROOT/skills/add-project/scripts" <<'E'
+import re, sys
+sys.path.insert(0, sys.argv[2])
+import solution_state as S
+t = open(sys.argv[1], encoding='utf-8').read()
+pairs = set()
+for m in re.finditer(r"<_CcViolation Include=\"@\(_CcRef\)\" Condition=\"'\$\(_CcRole\)' == '(\w+)' And (.*?)\" />", t):
+    me, rest = m.group(1), m.group(2)
+    for r in re.findall(r"'%\(Role\)' == '(\w+)'", rest):
+        pairs.add((me, r))
+want = {(a, b) for a in ('main', 'ui', 'viewmodel', 'logic', 'data') for b in ('main', 'ui', 'viewmodel', 'logic', 'data')
+        if S.RANK[a] > S.RANK[b] and b != 'main'}
+print(1 if pairs == want else 0)
+E
+)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

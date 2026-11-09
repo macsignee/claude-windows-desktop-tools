@@ -3,11 +3,25 @@
     共通の targets の入口。ソリューション直下の Directory.Build.targets (薄いもの。templates/ を参照) が、
     このファイルを Import する。targets は、プロジェクトの本体より後に読まれる。
 
-    ClaudeBuildInfo: ビルドの最後に、プロジェクト名・構成・Platform・出力ファイルを、1 行ずつ、
-    中間出力フォルダの claude-build-info.txt に書く (C++ は $(IntDir)、.NET の SDK 形式は $(IntermediateOutputPath)。
-    SDK 形式の .csproj では、この時点で $(IntDir) が空なので、フォルダを、順に探す)。結果に Platform を書く、ウォッチャーの Platform の食い違いを
-    確かめる、などに使える。**既定では、何もしない** (動きを変えない)。有効にするには、
-    ビルドに /p:ClaudeBuildInfo=true を渡す。
+    1. ClaudeBuildInfo: ビルドの最後に、プロジェクト名・構成・Platform・出力ファイル・共通ファイルの版を、
+       中間出力フォルダの claude-build-info.txt に、1 行ずつ書く (C++ は $(IntDir)、.NET の SDK 形式は
+       $(IntermediateOutputPath)。SDK 形式の .csproj では、この時点で $(IntDir) が空なので、順に探す)。
+       結果に Platform を書く、ウォッチャーの Platform の食い違いを確かめる、などに使える。
+       **既定では、何もしない** (動きを変えない)。有効にするには、ビルドに /p:ClaudeBuildInfo=true を渡す。
+
+    2. ClaudeCheckProject: mfc-check / wpf-check / winforms-check の検査のうち、**プロジェクトの設定だけで判定できるもの** を、
+       ビルドの前に確かめる (ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID など) は、MSBuild では
+       できないので、これまでどおり、各 check が行う)。コードと意味は、各 check と同じ。
+         LAY001 / WFL001  ロジック層・データ層が、WPF / WinForms に依存している (UseWPF・UseWindowsForms・-windows の TargetFramework)
+         LAY003 / WFL003  プロジェクト参照の向きが、層 (UI → ViewModel → ロジック → データ) に反する
+         DLL001           MFC の DLL で、_USRDLL と _AFXEXT が、両方定義されている
+         DLL002           MFC 拡張 DLL (_AFXEXT) で、UseOfMfc が Dynamic でない
+         DLL003           MFC の DLL で、UseOfMfc が有効なのに、_USRDLL も _AFXEXT もない (警告のみ)
+       層の役割は、プロジェクトの名前から決める (solution_state.py の role_of_name と同じ規則)。名前で決まらないときは、
+       プロジェクトに <ClaudeLayerRole>data|logic|viewmodel|ui|other</ClaudeLayerRole> と書く。exe は、main (どの層も、参照してよい)。
+       名前が Test / Tests で終わるプロジェクトは、検査しない。
+       **ClaudeCheck** (Common.props が、既定を warning にする): off = 検査しない / warning = 警告を出す / error = LAY・WFL・DLL001・DLL002 を、エラーにする。
+       C++ の検査は、ビルドしている構成だけを見る (mfc-check は、全部の構成を見る)。
   -->
 
   <Target Name="ClaudeBuildInfo" AfterTargets="Build" Condition="'$(ClaudeBuildInfo)' == 'true'">
@@ -19,5 +33,86 @@
       <_ClaudeBuildInfoLines>project=$(MSBuildProjectName);configuration=$(Configuration);platform=$(Platform);output=$(TargetPath);common_version=$(MsbuildCommonVersion)</_ClaudeBuildInfoLines>
     </PropertyGroup>
     <WriteLinesToFile File="$(_ClaudeBuildInfoFile)" Lines="$(_ClaudeBuildInfoLines)" Overwrite="true" />
+  </Target>
+
+  <Target Name="ClaudeCheckProject" BeforeTargets="Build" Condition="'$(ClaudeCheck)' == 'warning' Or '$(ClaudeCheck)' == 'error'">
+
+    <!-- このプロジェクトの役割 -->
+    <PropertyGroup>
+      <_CcWords>$([System.Text.RegularExpressions.Regex]::Replace('$(MSBuildProjectName)', '[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+', ' $0 ').ToLowerInvariant())</_CcWords>
+      <_CcLower>$(MSBuildProjectName.ToLowerInvariant())</_CcLower>
+      <_CcIsTest>$([System.Text.RegularExpressions.Regex]::IsMatch('$(MSBuildProjectName)', 'Tests?$'))</_CcIsTest>
+      <_CcIsExe Condition="'$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe' Or '$(ConfigurationType)' == 'Application'">true</_CcIsExe>
+      <_CcRole>$(ClaudeLayerRole)</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == '' And '$(_CcIsTest)' == 'True'">test</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == '' And '$(_CcIsExe)' == 'true'">main</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == '' And $(_CcLower.Contains('viewmodel'))">viewmodel</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == '' And ($(_CcWords.Contains(' ui ')) Or $(_CcWords.Contains(' view ')) Or $(_CcWords.Contains(' views ')) Or $(_CcWords.Contains(' dialog ')) Or $(_CcWords.Contains(' dialogs ')))">ui</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == '' And $(_CcLower.Contains('logic'))">logic</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == '' And $(_CcLower.Contains('data'))">data</_CcRole>
+      <_CcRole Condition="'$(_CcRole)' == ''">other</_CcRole>
+    </PropertyGroup>
+
+    <!-- 参照しているプロジェクトの役割 (名前から) -->
+    <ItemGroup>
+      <_CcRef Include="@(ProjectReference->'%(Filename)')" />
+    </ItemGroup>
+    <ItemGroup>
+      <_CcRef>
+        <Words>$([System.Text.RegularExpressions.Regex]::Replace('%(Identity)', '[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+', ' $0 ').ToLowerInvariant())</Words>
+        <Lower>$([System.String]::new('%(Identity)').ToLowerInvariant())</Lower>
+      </_CcRef>
+    </ItemGroup>
+    <ItemGroup>
+      <_CcRef>
+        <Role>other</Role>
+        <Role Condition="$([System.String]::new('%(Lower)').Contains('data'))">data</Role>
+        <Role Condition="$([System.String]::new('%(Lower)').Contains('logic'))">logic</Role>
+        <Role Condition="$([System.String]::new('%(Words)').Contains(' ui ')) Or $([System.String]::new('%(Words)').Contains(' view ')) Or $([System.String]::new('%(Words)').Contains(' views ')) Or $([System.String]::new('%(Words)').Contains(' dialog ')) Or $([System.String]::new('%(Words)').Contains(' dialogs '))">ui</Role>
+        <Role Condition="$([System.String]::new('%(Lower)').Contains('viewmodel'))">viewmodel</Role>
+      </_CcRef>
+    </ItemGroup>
+
+    <!-- LAY003 / WFL003: 参照の向き (下の層が、上の層を参照している) -->
+    <ItemGroup>
+      <_CcViolation Include="@(_CcRef)" Condition="'$(_CcRole)' == 'data' And ('%(Role)' == 'logic' Or '%(Role)' == 'viewmodel' Or '%(Role)' == 'ui')" />
+      <_CcViolation Include="@(_CcRef)" Condition="'$(_CcRole)' == 'logic' And ('%(Role)' == 'viewmodel' Or '%(Role)' == 'ui')" />
+      <_CcViolation Include="@(_CcRef)" Condition="'$(_CcRole)' == 'viewmodel' And '%(Role)' == 'ui'" />
+    </ItemGroup>
+    <Warning Condition="'$(ClaudeCheck)' == 'warning'" Code="LAY003" File="$(MSBuildProjectFullPath)"
+             Text="$(MSBuildProjectName) ($(_CcRole)) が、上の層 %(_CcViolation.Identity) (%(_CcViolation.Role)) を参照している (層の向き: メイン → UI → ViewModel → ロジック → データ。WFL003 も同じ)" />
+    <Error Condition="'$(ClaudeCheck)' == 'error'" Code="LAY003" File="$(MSBuildProjectFullPath)"
+           Text="$(MSBuildProjectName) ($(_CcRole)) が、上の層 %(_CcViolation.Identity) (%(_CcViolation.Role)) を参照している (層の向き: メイン → UI → ViewModel → ロジック → データ。WFL003 も同じ)" />
+
+    <!-- LAY001 / WFL001: ロジック層・データ層が、WPF / WinForms に依存している (.NET) -->
+    <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' And ('$(_CcRole)' == 'logic' Or '$(_CcRole)' == 'data')">
+      <_CcGuiWhy Condition="'$(UseWPF)' == 'true'">UseWPF</_CcGuiWhy>
+      <_CcGuiWhy Condition="'$(_CcGuiWhy)' == '' And '$(UseWindowsForms)' == 'true'">UseWindowsForms</_CcGuiWhy>
+      <_CcGuiWhy Condition="'$(_CcGuiWhy)' == '' And '$(TargetFramework)' != '' And $(TargetFramework.Contains('-windows'))">TargetFramework ($(TargetFramework))</_CcGuiWhy>
+    </PropertyGroup>
+    <Warning Condition="'$(ClaudeCheck)' == 'warning' And '$(_CcGuiWhy)' != ''" Code="LAY001" File="$(MSBuildProjectFullPath)"
+             Text="$(MSBuildProjectName) ($(_CcRole)) が、WPF / WinForms に依存している: $(_CcGuiWhy) (ロジック層・データ層は、画面の部品に依存しない。WFL001 も同じ)" />
+    <Error Condition="'$(ClaudeCheck)' == 'error' And '$(_CcGuiWhy)' != ''" Code="LAY001" File="$(MSBuildProjectFullPath)"
+           Text="$(MSBuildProjectName) ($(_CcRole)) が、WPF / WinForms に依存している: $(_CcGuiWhy) (ロジック層・データ層は、画面の部品に依存しない。WFL001 も同じ)" />
+
+    <!-- DLL001 / DLL002 / DLL003: MFC の DLL の設定 (C++) -->
+    <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.vcxproj' And '$(ConfigurationType)' == 'DynamicLibrary' And '$(_CcIsTest)' != 'True'">
+      <_CcDefs>@(ClCompile->'%(PreprocessorDefinitions)', ' ')</_CcDefs>
+      <_CcExt>$([System.String]::new('$(_CcDefs)').Contains('_AFXEXT'))</_CcExt>
+      <_CcUsr>$([System.String]::new('$(_CcDefs)').Contains('_USRDLL'))</_CcUsr>
+      <_CcDll001 Condition="'$(_CcExt)' == 'True' And '$(_CcUsr)' == 'True'">true</_CcDll001>
+      <_CcDll002 Condition="'$(_CcExt)' == 'True' And '$(UseOfMfc)' != 'Dynamic'">true</_CcDll002>
+      <_CcDll003 Condition="'$(_CcExt)' != 'True' And '$(_CcUsr)' != 'True' And ('$(UseOfMfc)' == 'Dynamic' Or '$(UseOfMfc)' == 'Static')">true</_CcDll003>
+    </PropertyGroup>
+    <Warning Condition="'$(ClaudeCheck)' == 'warning' And '$(_CcDll001)' == 'true'" Code="DLL001" File="$(MSBuildProjectFullPath)"
+             Text="$(MSBuildProjectName): _USRDLL と _AFXEXT が、同じ構成で、両方定義されている (標準 DLL と拡張 DLL の、どちらか 1 つにする)" />
+    <Error Condition="'$(ClaudeCheck)' == 'error' And '$(_CcDll001)' == 'true'" Code="DLL001" File="$(MSBuildProjectFullPath)"
+           Text="$(MSBuildProjectName): _USRDLL と _AFXEXT が、同じ構成で、両方定義されている (標準 DLL と拡張 DLL の、どちらか 1 つにする)" />
+    <Warning Condition="'$(ClaudeCheck)' == 'warning' And '$(_CcDll002)' == 'true'" Code="DLL002" File="$(MSBuildProjectFullPath)"
+             Text="$(MSBuildProjectName): MFC 拡張 DLL (_AFXEXT) だが、UseOfMfc が Dynamic でない (拡張 DLL は、共有 MFC が必須)" />
+    <Error Condition="'$(ClaudeCheck)' == 'error' And '$(_CcDll002)' == 'true'" Code="DLL002" File="$(MSBuildProjectFullPath)"
+           Text="$(MSBuildProjectName): MFC 拡張 DLL (_AFXEXT) だが、UseOfMfc が Dynamic でない (拡張 DLL は、共有 MFC が必須)" />
+    <Warning Condition="'$(_CcDll003)' == 'true'" Code="DLL003" File="$(MSBuildProjectFullPath)"
+             Text="$(MSBuildProjectName): UseOfMfc が有効だが、_USRDLL (標準 DLL) も _AFXEXT (拡張 DLL) も定義されていない" />
   </Target>
 </Project>

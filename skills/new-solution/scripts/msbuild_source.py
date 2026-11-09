@@ -143,6 +143,7 @@ def reference_note(src):
 
 
 _NOTE_BODY_DOTNET = "- 共通の .NET の設定 (`Nullable` / `ImplicitUsings` / `LangVersion`) は、共通ファイルの `Dotnet.props`。`TargetFramework` は、各 `.csproj` に置く。\n"
+_NOTE_BODY_CHECK = "- ビルドの前に、プロジェクトの設定だけで判定できる検査 (層の参照の向き LAY003、ロジック層・データ層の WPF / WinForms 依存 LAY001、MFC の DLL の設定 DLL001〜DLL003) を行い、違反は**警告**に出る (`warnings.log`)。層の役割は、プロジェクトの名前から決まる (決まらないときは、`.csproj` / `.vcxproj` に `<ClaudeLayerRole>data|logic|viewmodel|ui|other</ClaudeLayerRole>`)。エラーにするには `/p:ClaudeCheck=error`、止めるには `/p:ClaudeCheck=off` (または `<ClaudeCheck>` を各プロジェクトに書く)。ソースの中身の検査は、種類ごとの check Skill が行う。\n"
 _NOTE_BODY_INFO = "- ビルドの情報 (構成・Platform・出力ファイル) は、`/p:ClaudeBuildInfo=true` を渡したときだけ、中間出力フォルダの `claude-build-info.txt` に書かれる (既定では、何もしない)。\n"
 
 
@@ -160,4 +161,4 @@ def claude_note(dotnet, mode, src=None):
               "**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で、差し替える)。\n")
     if dotnet:
         s += _NOTE_BODY_DOTNET
-    return s + _NOTE_BODY_INFO
+    return s + _NOTE_BODY_CHECK + _NOTE_BODY_INFO
