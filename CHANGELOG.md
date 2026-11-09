@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.67.0] 2026-11-09 (`msbuild-common` 0.2.0: ビルドの前の検査 `ClaudeCheckProject`)
+
+- **`mfc-check` / `wpf-check` / `winforms-check` の検査のうち、プロジェクトの設定だけで判定できるものを、`Common.targets` の `ClaudeCheckProject` に書き出した。** ビルドの前 (`BeforeTargets="Build"`) に確かめる。コードと意味は、各 check と同じ: `LAY003` (参照の向き。wpf-check の LAY003・winforms-check の WFL003・mfc-check の LAY003)、`LAY001` (ロジック層・データ層の WPF / WinForms 依存。`UseWPF`・`UseWindowsForms`・`-windows` の TFM)、`DLL001`・`DLL002` (MFC の DLL の設定)、`DLL003` (警告のみ)。**ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID など) は、MSBuild ではできないので、含めない** (各 check が、これまでどおり行う)。
+- **層の役割は、プロジェクトの名前から決める** (`solution_state.py` の `role_of_name` と同じ規則。語の切り出しは、同じ正規表現)。名前で決まらないときは、`<ClaudeLayerRole>` を書く。exe は main。名前が `Test` / `Tests` で終わるものは、検査しない。
+- **`ClaudeCheck` (`Common.props` の既定は `warning`):** `off` / `warning` / `error`。**既定で、違反は警告になる** (これまでの `Directory.Build.*` の動きは、警告が増えるだけ。ビルドは、止まらない)。`error` にすると、`LAY001`・`LAY003`・`DLL001`・`DLL002` が、エラーになる。
+- 限界: C++ は、ビルドしている構成だけを見る。参照先の役割は、名前だけで決める。`DLL008` (参照先の MFC の設定) は、参照先を評価しないと分からないので、含めない。
+- `msbuild-common` を 0.2.0 にした (配布用のコピーも同期)。生成される `CLAUDE.md` の「MSBuild の共通設定」の節に、検査の説明を足した。**すでにあるソリューションは、`/add-project common` で、新しい版に差し替えられる** (`build\common\` がコピー型のとき)。**参照型は、外の正本を 0.2.0 にすれば、効く。**
+- テスト: `tests/msbuild_common_test.sh` (20 件。既定の `warning`、`Warning` / `Error` が `Target` の中だけにあること、コードが各 check と揃うこと、役割の判定と参照の向きの組が、`solution_state.py` と同じこと)。
+- **未確認 (実機):** MSBuild で、実際に動くこと。**この式 (プロパティ関数・アイテムのメタデータ・バッチ処理) は、WSL に MSBuild がないため、まだ、一度も実行していない** (TEST-PLAN 2-42)。**`install.sh --skills-only` での配布と、`/add-project common` による更新が要る。**
+
 ## [2.66.0] 2026-11-09 (共通の `Directory.Build.*` は、外の正本を読んで置く。参照型と、`/add-project common`)
 
 - **方針:** Claude は、共通の `Directory.Build.props` / `.targets` の中身を決めない。**外の正本 (`msbuild-common`) を読んで、ソリューションに合わせて置く。**

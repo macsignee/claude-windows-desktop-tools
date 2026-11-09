@@ -1,12 +1,12 @@
 # msbuild-common
 
-MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) のたたき台。**v0.1.1。** `/new-solution` が、新規のソリューションに、薄いファイルと `build\common\` を作り (v2.65.0)、`/add-project common` が、すでにあるソリューションに足す (v2.66.0)。将来、別のリポジトリに分けて、共通のベースにする。
+MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) のたたき台。**v0.2.0。** `/new-solution` が、新規のソリューションに、薄いファイルと `build\common\` を作り (v2.65.0)、`/add-project common` が、すでにあるソリューションに足す (v2.66.0)。将来、別のリポジトリに分けて、共通のベースにする。
 
 ## 目的
 
 - **設定を 1 か所に置く。** 層やテストを足すたびに、各プロジェクトへ、同じ設定を複製しない。
 - **MSBuild の標準の仕組みだけを使う。** 独自のファイル形式や、設定ファイルの規則は、作らない。
-- **動きを変えずに、始める。** v0.1.x の中身は、これまで `/new-solution` が作っていた `Directory.Build.props` と、同じ。
+- **動きを変えずに、始める。** v0.1.x の中身は、これまで `/new-solution` が作っていた `Directory.Build.props` と、同じ。v0.2.0 で、検査 (`ClaudeCheckProject`) が足され、**既定で、警告を出す** (止めるには `ClaudeCheck` を `off`)。
 
 ## 構成
 
@@ -16,6 +16,22 @@ MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) �
 - **`templates/reference/Directory.Build.props`・`Directory.Build.targets`**: 参照型の薄いファイル (下の「ソリューションへの置き方」)。環境変数 `MSBUILD_COMMON_DIR` が指す、外の正本を読む。
 - **`templates/Directory.Build.props`・`Directory.Build.targets`**: コピー型の薄いファイル。 ソリューション直下に置く薄いファイル。親のフォルダのファイルを読み (MSBuild は、最も近い 1 つしか読まないため)、そのあと、`build\common\` の共通ファイルを読む。
 - **`VERSION`**: 共通ファイルの版。`Common.props` の `MsbuildCommonVersion` と同じ値にする (テストが確かめる)。
+
+## ビルドの前の検査 (v0.2.0。`ClaudeCheckProject`)
+
+`mfc-check` / `wpf-check` / `winforms-check` の検査のうち、**プロジェクトの設定だけで判定できるもの**を、ビルドの前に確かめる (`Common.targets`)。ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID・`InitializeComponent()` の呼び忘れなど) は、MSBuild ではできないので、これまでどおり、各 check が行う。コードと意味は、各 check と同じ。
+
+| コード | 内容 | 対応する check |
+|---|---|---|
+| `LAY003` | プロジェクト参照の向きが、層 (UI → ViewModel → ロジック → データ) に反する | mfc-check の LAY003、wpf-check の LAY003、winforms-check の WFL003 |
+| `LAY001` | ロジック層・データ層が、WPF / WinForms に依存している (`UseWPF`・`UseWindowsForms`・`-windows` の `TargetFramework`) | wpf-check の LAY001、winforms-check の WFL001 |
+| `DLL001` | MFC の DLL で、`_USRDLL` と `_AFXEXT` が、両方定義されている | mfc-check の DLL001 |
+| `DLL002` | MFC 拡張 DLL (`_AFXEXT`) で、`UseOfMfc` が `Dynamic` でない | mfc-check の DLL002 |
+| `DLL003` | MFC の DLL で、`UseOfMfc` が有効なのに、`_USRDLL` も `_AFXEXT` もない (警告のみ) | mfc-check の DLL003 |
+
+- **層の役割は、プロジェクトの名前から決める** (`solution_state.py` の `role_of_name` と同じ規則。`tests/msbuild_common_test.sh` が、同じ判定になることを確かめる)。決まらないときは、プロジェクトに `<ClaudeLayerRole>data|logic|viewmodel|ui|other</ClaudeLayerRole>`。exe は `main` (どの層も、参照してよい)。名前が `Test` / `Tests` で終わるプロジェクトは、検査しない。
+- **`ClaudeCheck`** (`Common.props` の既定は `warning`): `off` = 検査しない / `warning` = 警告を出す / `error` = `LAY001`・`LAY003`・`DLL001`・`DLL002` を、エラーにする。`/p:ClaudeCheck=error` か、各プロジェクトの `<ClaudeCheck>` で変える。警告は、ウォッチャーの `warnings.log` に出る。
+- **違いと限界:** C++ の検査は、ビルドしている構成だけを見る (mfc-check は、全部の構成)。参照先の役割は、名前だけで決める (参照先の exe は、見分けない)。参照先の MFC の設定 (`DLL008`) は、参照先を評価しないと分からないので、含めない。
 
 ## ソリューションへの置き方
 
