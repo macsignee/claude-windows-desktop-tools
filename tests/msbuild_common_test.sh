@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# msbuild_common_test.sh - msbuild-common (Directory.Build.props / targets のたたき台) の静的検査 (v2.64.0)。
+# msbuild_common_test.sh - 取り込んだ msbuild-common (skills/new-solution/msbuild-common/。正本は macsignee/msbuild-common) の静的検査 (v2.64.0。v2.68.0 で、別リポジトリへ分離)。
 # MSBuild は WSL に無いので、XML の正しさ・版の一致・既存の props との同一性・参照の形だけを見る。実機のビルドは、別に確かめる。
 # Usage: tests/msbuild_common_test.sh      (最後に PASS/FAIL の件数。失敗があれば rc=1)
 export LC_ALL=C.UTF-8
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-M="$ROOT/msbuild-common"
+M="$ROOT/skills/new-solution/msbuild-common"   # 外の正本 (macsignee/msbuild-common) の、取り込んだ版のコピー
 pass=0; fail=0
 ok() { if [ "$2" = 1 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
 
 FILES="$M/Common.props $M/Dotnet.props $M/Common.targets $M/templates/Directory.Build.props $M/templates/Directory.Build.targets $M/templates/reference/Directory.Build.props $M/templates/reference/Directory.Build.targets"
-ok "必要なファイルが、すべてある" "$(r=1; for f in $FILES $M/VERSION $M/README.md; do [ -f "$f" ] || r=0; done; echo $r)"
+ok "必要なファイルが、すべてある" "$(r=1; for f in $FILES $M/VERSION; do [ -f "$f" ] || r=0; done; echo $r)"
 ok "XML として正しい (ルートが <Project>)" "$(python3 -I - $FILES <<'E'
 import sys, xml.etree.ElementTree as ET
 try:
@@ -18,7 +18,7 @@ except Exception:
     print(0)
 E
 )"
-ok "UTF-8、LF、BOM なし" "$(r=1; for f in $FILES $M/VERSION $M/README.md; do grep -q $'\r' "$f" && r=0; [ "$(head -c3 "$f" | xxd -p)" = efbbbf ] && r=0; done; echo $r)"
+ok "UTF-8、LF、BOM なし" "$(r=1; for f in $FILES $M/VERSION; do grep -q $'\r' "$f" && r=0; [ "$(head -c3 "$f" | xxd -p)" = efbbbf ] && r=0; done; echo $r)"
 ok "VERSION と Common.props の MsbuildCommonVersion が、同じ値" "$(v="$(tr -d '[:space:]' < "$M/VERSION")"; grep -q "<MsbuildCommonVersion>$v</MsbuildCommonVersion>" "$M/Common.props" && echo 1 || echo 0)"
 ok "Dotnet.props の設定が、/new-solution が作る Directory.Build.props (add_project.py の DIRECTORY_BUILD_PROPS) と同じ (動きを変えない)" "$(python3 -I - "$ROOT" <<'E'
 import sys, re, xml.etree.ElementTree as ET
@@ -28,7 +28,7 @@ m = re.search(r"DIRECTORY_BUILD_PROPS = '''(.*?)'''", src, re.S)
 def props(xml):
     return {e.tag: (e.text or '').strip() for pg in ET.fromstring(xml).iter('PropertyGroup') for e in pg}
 a = props(m.group(1))
-b = props(open(root + '/msbuild-common/Dotnet.props', encoding='utf-8').read())
+b = props(open(root + '/skills/new-solution/msbuild-common/Dotnet.props', encoding='utf-8').read())
 print(1 if a and a == b else 0)
 E
 )"
@@ -39,7 +39,6 @@ ok "薄いファイルは、親のファイルを読み (GetPathOfFileAbove)、�
 ok "親のファイルが見つからないとき (空) は、Import しない (Condition)" "$(grep -q "'\$(_ParentBuildProps)' != ''" "$M/templates/Directory.Build.props" && grep -q "'\$(_ParentBuildTargets)' != ''" "$M/templates/Directory.Build.targets" && echo 1 || echo 0)"
 ok "共通ファイルは、スキルのパスや CLAUDE.md に触れない (別のリポジトリへ、そのまま移せる)" "$(! grep -l -E '\.claude|CLAUDE\.md|skills/' $FILES >/dev/null 2>&1 && echo 1 || echo 0)"
 ok "ClaudeBuildInfo の出力先は、\$(IntDir) が空のとき (SDK 形式の .csproj) \$(IntermediateOutputPath) にする" "$(grep -q "_ClaudeBuildInfoDir Condition=\"'\$(_ClaudeBuildInfoDir)' == ''\">\$(IntermediateOutputPath)" "$M/Common.targets" && echo 1 || echo 0)"
-ok "/new-solution が配る、コピー (skills/new-solution/msbuild-common) が、正本と同じ (違うときは、正本から cp で同期する)" "$(r=1; V="$ROOT/skills/new-solution/msbuild-common"; for f in Common.props Dotnet.props Common.targets VERSION templates/Directory.Build.props templates/Directory.Build.targets templates/reference/Directory.Build.props templates/reference/Directory.Build.targets; do cmp -s "$M/$f" "$V/$f" || r=0; done; echo $r)"
 ok "参照型の薄いファイルは、環境変数 MSBUILD_COMMON_DIR を読み、未設定なら、印のついたパスで、Import が失敗する (黙って飛ばさない)。親のファイルも読む" "$(r=1; for f in props targets; do t="$M/templates/reference/Directory.Build.$f"; grep -q '\$(MSBUILD_COMMON_DIR)' "$t" || r=0; grep -q '__MSBUILD_COMMON_DIR_NOT_SET__' "$t" || r=0; grep -q 'GetPathOfFileAbove' "$t" || r=0; done; grep -q 'Import Project="\$(MsbuildCommonDir)\\Common.props" />' "$M/templates/reference/Directory.Build.props" || r=0; grep -q 'Import Project="\$(MsbuildCommonDir)\\Common.targets" />' "$M/templates/reference/Directory.Build.targets" || r=0; ! grep -q 'Import Project="[^"]*" Condition="[^"]*MsbuildCommonDir' "$M/templates/reference/Directory.Build.props" || r=0; echo $r)"
 
 # ---------------------------------------------------------------- ClaudeCheckProject (v0.2.0。mfc-check / wpf-check / winforms-check の、プロジェクト設定だけで判定できる検査)

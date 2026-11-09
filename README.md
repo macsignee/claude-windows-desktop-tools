@@ -364,3 +364,7 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 - 対象外: ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET、組み込みの C++ (Windows デスクトップの Visual Studio / MSBuild が対象)。
 - 検証済み: VS 2026 Enterprise、x64 / Debug。
 - 実機の確認の状況 (確認済み・未了) は、[`docs/REMAINING-CHECKS.md`](docs/REMAINING-CHECKS.md) と、[`docs/TEST-PLAN.md`](docs/TEST-PLAN.md) の「状況」列。Skill 側のスクリプトと結果の変換は、疑似ウォッチャーでも検証している。
+
+## 11. ライセンス
+
+[MIT License](LICENSE.md)。共通の MSBuild 設定 (`Directory.Build.props` / `.targets`) は、別のリポジトリ [`macsignee/msbuild-common`](https://github.com/macsignee/msbuild-common) (同じく MIT) で管理している。

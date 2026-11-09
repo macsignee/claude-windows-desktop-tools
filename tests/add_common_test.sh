@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NS="$ROOT/skills/new-solution/scripts/new_solution.py"
 AC="$ROOT/skills/add-project/scripts/add_common.py"
 SS="$ROOT/skills/add-project/scripts/solution_state.py"
-M="$ROOT/msbuild-common"
+M="$ROOT/skills/new-solution/msbuild-common"   # 取り込んだ msbuild-common (正本は macsignee/msbuild-common)
 T="${TMPDIR:-/tmp}/addcommon_$$"
 rm -rf "$T"; mkdir -p "$T"
 trap 'rm -rf "$T"' EXIT

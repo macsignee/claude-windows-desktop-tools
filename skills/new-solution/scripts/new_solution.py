@@ -971,7 +971,7 @@ def plan_common(a, folder):
     for fn in MS.THIN:
         if os.path.exists(os.path.join(folder, fn)):
             del files[fn]
-            notes.append(f'NOTE: すでに {fn} があるので、薄い版は作らない。共通ファイルを使うには、手で Import すること (msbuild-common/README.md)')
+            notes.append(f'NOTE: すでに {fn} があるので、薄い版は作らない。共通ファイルを使うには、手で Import すること (macsignee/msbuild-common の README.md)')
     if mode == 'reference':
         notes.append(MS.reference_note(src))
     return files, notes, mode, src
