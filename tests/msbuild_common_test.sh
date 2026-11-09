@@ -99,5 +99,13 @@ print(1 if pairs == want else 0)
 E
 )"
 
+ok "メタデータで繰り返す Warning / Error (%(_CcViolation.…)) は、違反があるときだけ実行する (空でも 1 回、空の値で、実行されるため。CK1 で見つかった誤り)" "$(python3 -I - "$M/Common.targets" <<'E'
+import sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+tasks = [e for e in root.iter() if e.tag in ('Warning', 'Error') and '%(_CcViolation.' in (e.get('Text') or '')]
+print(1 if tasks and all("'%(_CcViolation.Identity)' != ''" in (e.get('Condition') or '') for e in tasks) else 0)
+E
+)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

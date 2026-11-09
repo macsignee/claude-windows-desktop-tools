@@ -79,9 +79,10 @@
       <_CcViolation Include="@(_CcRef)" Condition="'$(_CcRole)' == 'logic' And ('%(Role)' == 'viewmodel' Or '%(Role)' == 'ui')" />
       <_CcViolation Include="@(_CcRef)" Condition="'$(_CcRole)' == 'viewmodel' And '%(Role)' == 'ui'" />
     </ItemGroup>
-    <Warning Condition="'$(ClaudeCheck)' == 'warning'" Code="LAY003" File="$(MSBuildProjectFullPath)"
+    <!-- メタデータ (%(_CcViolation.Identity)) だけで繰り返すタスクは、アイテムが空でも、1 回、空の値で実行される。違反があるときだけ、実行する -->
+    <Warning Condition="'$(ClaudeCheck)' == 'warning' And '%(_CcViolation.Identity)' != ''" Code="LAY003" File="$(MSBuildProjectFullPath)"
              Text="$(MSBuildProjectName) ($(_CcRole)) が、上の層 %(_CcViolation.Identity) (%(_CcViolation.Role)) を参照している (層の向き: メイン → UI → ViewModel → ロジック → データ。WFL003 も同じ)" />
-    <Error Condition="'$(ClaudeCheck)' == 'error'" Code="LAY003" File="$(MSBuildProjectFullPath)"
+    <Error Condition="'$(ClaudeCheck)' == 'error' And '%(_CcViolation.Identity)' != ''" Code="LAY003" File="$(MSBuildProjectFullPath)"
            Text="$(MSBuildProjectName) ($(_CcRole)) が、上の層 %(_CcViolation.Identity) (%(_CcViolation.Role)) を参照している (層の向き: メイン → UI → ViewModel → ロジック → データ。WFL003 も同じ)" />
 
     <!-- LAY001 / WFL001: ロジック層・データ層が、WPF / WinForms に依存している (.NET) -->
