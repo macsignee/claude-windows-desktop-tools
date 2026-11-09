@@ -8,7 +8,7 @@ M="$ROOT/msbuild-common"
 pass=0; fail=0
 ok() { if [ "$2" = 1 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
 
-FILES="$M/Common.props $M/Dotnet.props $M/Common.targets $M/templates/Directory.Build.props $M/templates/Directory.Build.targets"
+FILES="$M/Common.props $M/Dotnet.props $M/Common.targets $M/templates/Directory.Build.props $M/templates/Directory.Build.targets $M/templates/reference/Directory.Build.props $M/templates/reference/Directory.Build.targets"
 ok "必要なファイルが、すべてある" "$(r=1; for f in $FILES $M/VERSION $M/README.md; do [ -f "$f" ] || r=0; done; echo $r)"
 ok "XML として正しい (ルートが <Project>)" "$(python3 -I - $FILES <<'E'
 import sys, xml.etree.ElementTree as ET
@@ -39,7 +39,8 @@ ok "薄いファイルは、親のファイルを読み (GetPathOfFileAbove)、�
 ok "親のファイルが見つからないとき (空) は、Import しない (Condition)" "$(grep -q "'\$(_ParentBuildProps)' != ''" "$M/templates/Directory.Build.props" && grep -q "'\$(_ParentBuildTargets)' != ''" "$M/templates/Directory.Build.targets" && echo 1 || echo 0)"
 ok "共通ファイルは、スキルのパスや CLAUDE.md に触れない (別のリポジトリへ、そのまま移せる)" "$(! grep -l -E '\.claude|CLAUDE\.md|skills/' $FILES >/dev/null 2>&1 && echo 1 || echo 0)"
 ok "ClaudeBuildInfo の出力先は、\$(IntDir) が空のとき (SDK 形式の .csproj) \$(IntermediateOutputPath) にする" "$(grep -q "_ClaudeBuildInfoDir Condition=\"'\$(_ClaudeBuildInfoDir)' == ''\">\$(IntermediateOutputPath)" "$M/Common.targets" && echo 1 || echo 0)"
-ok "/new-solution が配る、コピー (skills/new-solution/msbuild-common) が、正本と同じ (違うときは、正本から cp で同期する)" "$(r=1; V="$ROOT/skills/new-solution/msbuild-common"; for f in Common.props Dotnet.props Common.targets VERSION templates/Directory.Build.props templates/Directory.Build.targets; do cmp -s "$M/$f" "$V/$f" || r=0; done; echo $r)"
+ok "/new-solution が配る、コピー (skills/new-solution/msbuild-common) が、正本と同じ (違うときは、正本から cp で同期する)" "$(r=1; V="$ROOT/skills/new-solution/msbuild-common"; for f in Common.props Dotnet.props Common.targets VERSION templates/Directory.Build.props templates/Directory.Build.targets templates/reference/Directory.Build.props templates/reference/Directory.Build.targets; do cmp -s "$M/$f" "$V/$f" || r=0; done; echo $r)"
+ok "参照型の薄いファイルは、環境変数 MSBUILD_COMMON_DIR を読み、未設定なら、印のついたパスで、Import が失敗する (黙って飛ばさない)。親のファイルも読む" "$(r=1; for f in props targets; do t="$M/templates/reference/Directory.Build.$f"; grep -q '\$(MSBUILD_COMMON_DIR)' "$t" || r=0; grep -q '__MSBUILD_COMMON_DIR_NOT_SET__' "$t" || r=0; grep -q 'GetPathOfFileAbove' "$t" || r=0; done; grep -q 'Import Project="\$(MsbuildCommonDir)\\Common.props" />' "$M/templates/reference/Directory.Build.props" || r=0; grep -q 'Import Project="\$(MsbuildCommonDir)\\Common.targets" />' "$M/templates/reference/Directory.Build.targets" || r=0; ! grep -q 'Import Project="[^"]*" Condition="[^"]*MsbuildCommonDir' "$M/templates/reference/Directory.Build.props" || r=0; echo $r)"
 
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

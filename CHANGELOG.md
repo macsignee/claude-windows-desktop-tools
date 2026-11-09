@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.66.0] 2026-11-09 (共通の `Directory.Build.*` は、外の正本を読んで置く。参照型と、`/add-project common`)
+
+- **方針:** Claude は、共通の `Directory.Build.props` / `.targets` の中身を決めない。**外の正本 (`msbuild-common`) を読んで、ソリューションに合わせて置く。**
+- **参照型を追加した (`msbuild-common/templates/reference/`)。** ソリューション直下に、外の正本を参照する薄いファイルだけを置く (コピーしない)。MSBuild は、Windows 側の環境変数 `MSBUILD_COMMON_DIR` で、正本を探す。未設定のときは、`__MSBUILD_COMMON_DIR_NOT_SET__\Common.props was not found` で止まる (黙って飛ばさない)。コピー型 (v2.65.0 の形) は、ソリューションだけで完結させたいときのために、残した。
+- **正本の場所:** ソリューションの `CLAUDE.md` の「- MSBuild 共通: <パス>」 → 環境変数 `MSBUILD_COMMON_DIR` (WSL 側のパス。`C:\...` も、`/mnt/c/...` に直す) → 配布用のコピー (`skills/new-solution/msbuild-common/`)。**型 (`auto`):** 場所が、`CLAUDE.md` か環境変数なら参照型、配布用のコピーならコピー型。`--common copy|reference`、`--common-dir <パス>` で指定できる。参照型で場所がなければ、何も書かずに止まる (配布用のコピーは、Windows のビルドから見えない)。
+- **共通の処理:** `skills/new-solution/scripts/msbuild_source.py` (場所の決定、型の決定、ファイルの読み込み、`CLAUDE.md` の節、Windows 側の環境変数の NOTE (`wslpath -w`))。`new_solution.py` は、これを使う。参照型では、`CLAUDE.md` に「- MSBuild 共通: <パス>」の行と、コピーしない旨の節を書き、案に、Windows 側の環境変数の設定の NOTE を出す。
+- **`/add-project common` (`skills/add-project/scripts/add_common.py`) を追加した。** すでにあるソリューションに、同じものを足す。出力は `add_platform.py` と同じ形 (`+` 足す / `~` 書き換える / `=` すでに同じ / `!` 止まる)。`auto` は、すでにある薄いファイルの型を保つ。書き換えてよいのは、以前の `/new-solution` が作った `Directory.Build.props` (`Nullable` などを直接書くもの。効果は同じ)、型を切り替えるときの薄いファイル、古い版の `build\common\`、`CLAUDE.md` の自動生成の節だけ。**手で書いた `Directory.Build.props` / `.targets` は、書き換えず、止まる** (手で足す `Import` の行を示す)。`solution_state.py` の `ADDABLE` に `common` が出る。
+- テスト: `tests/add_common_test.sh` (新規。28 件)、`tests/new_solution_common_test.sh` (77 件。参照型・`--common`・`--common-dir`・環境変数が不正、を足した)、`tests/msbuild_common_test.sh` (14 件。参照型の薄いファイル)。
+- **未確認 (実機):** 参照型で `PASSED` になること、環境変数がないと止まること、Windows 側の環境変数が、ウォッチャーに届くこと、WSL と Windows のパスが同じフォルダを指すこと (TEST-PLAN 2-41)。**`install.sh --skills-only` での配布が要る。**
+
 ## [2.65.0] 2026-11-09 (`/new-solution` が、薄い `Directory.Build.props` / `.targets` と `build\common\` を作る)
 
 - **`/new-solution` が、新規のソリューション (すべての種類) に、`msbuild-common` (v0.1.1) を置く。** ソリューション直下に、薄い `Directory.Build.props` / `Directory.Build.targets` (親のフォルダのファイルも読む)、`build\common\` に `Common.props`・`Dotnet.props`・`Common.targets`・`VERSION`。承認の案 (`+` の一覧) にも出る。
