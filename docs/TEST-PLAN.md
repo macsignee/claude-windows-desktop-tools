@@ -983,14 +983,14 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 ### 2-40. `/new-solution` が作る `msbuild-common` (v2.65.0)
 
-**静的テスト (`tests/new_solution_common_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。新しいフォルダ (名前は test / tests で終わらない) と、新しい Claude Code のセッション。**ウォッチャーを先に起動する** (バナーを確かめる)。**作成直後の `build-test-loop` が `PASSED` になることが、合格 (薄いファイルを、手で足す手順は、もう要らない)。**
+**静的テスト (`tests/new_solution_common_test.sh`) は通っている。実機の確認 CM1〜CM6 は、すべて ✔ (2026-11-09)。** 準備: マージして、`install.sh --skills-only` で配布する。新しいフォルダ (名前は test / tests で終わらない) と、新しい Claude Code のセッション。**ウォッチャーを先に起動する** (バナーを確かめる)。**作成直後の `build-test-loop` が `PASSED` になることが、合格 (薄いファイルを、手で足す手順は、もう要らない)。**
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CM1 | `/new-solution --type wpf --layers logic --tests mstest --tfm net10.0` | 案に `Directory.Build.props`・`.targets`・`build/common/*` が出る。承認 → 作成 → ベースライン `PASSED`。`CLAUDE.md` に「MSBuild の共通設定」の節。`Directory.Build.props` に `Nullable` は直接書かない | 未 |
-| CM2 | CM1 の `LogicLayer` に、`string s = null;` を足してビルド (確認後、消す) | `CS8600` の警告 (`Dotnet.props` が効く) | 未 |
-| CM3 | `/new-solution --type mfc --layers logic,data --tests gtest` (x64) | 案に、同じ 6 ファイル。ベースライン `PASSED`。MFC のビルドが、薄いファイルで壊れない | 未 |
-| CM4 | `--type win32`、`--type dll`、`--type lib` (層は logic、テストは gtest) | それぞれ `PASSED` (`dll` と `lib` は、メインが、DLL・静的ライブラリ) | 未 |
-| CM5 | `--type winforms --layers logic --tests mstest`、`--type csharp-dll --layers data --tests mstest` | それぞれ `PASSED` | 未 |
-| CM6 | 空でなく、`Directory.Build.props` だけがあるフォルダで、`--type console ...` | `NOTE: すでに Directory.Build.props があるので` と出て、その `Directory.Build.props` は、そのまま。ビルドは通る | 未 |
+| CM1 | `/new-solution --type wpf --layers logic --tests mstest --tfm net10.0` | 案に `Directory.Build.props`・`.targets`・`build/common/*` が出る。承認 → 作成 → ベースライン `PASSED`。`CLAUDE.md` に「MSBuild の共通設定」の節。`Directory.Build.props` に `Nullable` は直接書かない | ✔ (2026-11-09) `CM1`。案に `Directory.Build.props/targets`・`build/common/` が出て (UI テストの選択肢なし)、作成直後のベースラインが `PASSED` (MSTest 1 件。手で足す手順なし)。 薄い `Directory.Build.props` / `.targets` と `build\\common\\` の 4 ファイルは、正本と `cmp` で一致。`CLAUDE.md` に「MSBuild の共通設定」の節が 1 つ。`Directory.Build.props` と `.csproj` に `<Nullable>` なし。`CLAUDE.md` に `Dotnet.props` の説明あり |
+| CM2 | CM1 の `LogicLayer` に、`string s = null;` を足してビルド (確認後、消す) | `CS8600` の警告 (`Dotnet.props` が効く) | ✔ (2026-11-09) `CM1` に `NullableProbe.cs` (`string s = null;`) を足してビルド → `SUCCESS`、`warnings.log` に `CS8600` (`CS8603` も)。削除して再ビルド → 警告なし。生成された薄いファイル経由で、`Nullable=enable` が効く |
+| CM3 | `/new-solution --type mfc --layers logic,data --tests gtest` (x64) | 案に、同じ 6 ファイル。ベースライン `PASSED`。MFC のビルドが、薄いファイルで壊れない | ✔ (2026-11-09) `cmMfc` (x64。層は logic・data、gtest)。ベースライン `PASSED` (2 件)。 薄い `Directory.Build.props` / `.targets` と `build\\common\\` の 4 ファイルは、正本と `cmp` で一致。`CLAUDE.md` に「MSBuild の共通設定」の節が 1 つ。`mfc-check` は error 0 / warning 0 (3 プロジェクト)。`Dotnet.props` の説明は、C++ の `CLAUDE.md` にはない |
+| CM4 | `--type win32`、`--type dll`、`--type lib` (層は logic、テストは gtest) | それぞれ `PASSED` (`dll` と `lib` は、メインが、DLL・静的ライブラリ) | ✔ (2026-11-09) `cmWin32` (`PASSED` 1 件。`cmWin32.exe`・`LogicLayer.dll`・`LogicLayerTest.exe`)、`cmDll` (`PASSED` 2 件。`cmDll.dll`・`cmDllTest.exe` ほか)、`cmLib` (`PASSED` 2 件。`cmLib.lib`・`cmLibTest.exe` ほか)。3 つとも x64 のウォッチャー。 薄い `Directory.Build.props` / `.targets` と `build\\common\\` の 4 ファイルは、正本と `cmp` で一致。`CLAUDE.md` に「MSBuild の共通設定」の節が 1 つ。`Dotnet.props` の説明は、なし |
+| CM5 | `--type winforms --layers logic --tests mstest`、`--type csharp-dll --layers data --tests mstest` | それぞれ `PASSED` | ✔ (2026-11-09) `cmWinforms` (`PASSED`。`LogicLayer.Tests` 5 件)、`cmCsLib` (`PASSED`。`cmCsLib.Tests`・`DataLayer.Tests`)。 薄い `Directory.Build.props` / `.targets` と `build\\common\\` の 4 ファイルは、正本と `cmp` で一致。`CLAUDE.md` に「MSBuild の共通設定」の節が 1 つ。`<Nullable>` の直接記述なし。`CLAUDE.md` に `Dotnet.props` の説明あり |
+| CM6 | 空でなく、`Directory.Build.props` だけがあるフォルダで、`--type console ...` | `NOTE: すでに Directory.Build.props があるので` と出て、その `Directory.Build.props` は、そのまま。ビルドは通る | ✔ (2026-11-09) `cmExist` (`<Project><!-- mine --></Project>` だけの `Directory.Build.props` を先に置いた)。作成 → `Directory.Build.props` は `<!-- mine -->` のまま (薄い版は作られない)。`Directory.Build.targets` と `build\\common\\` は作られ、正本と一致。ベースライン `PASSED`。**注:** 承認の案の `NOTE:` の行そのものは、貼られていない (Claude の要約には「注記あり」とある)。この場合も、`CLAUDE.md` の節は、「薄いファイルが読む」と書いてあり、実際とは違う (上書きしなかったため。直すほどのことではない) |
 
