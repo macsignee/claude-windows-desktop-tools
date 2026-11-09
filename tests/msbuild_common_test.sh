@@ -44,7 +44,7 @@ ok "参照型の薄いファイルは、環境変数 MSBUILD_COMMON_DIR を読�
 
 # ---------------------------------------------------------------- ClaudeCheckProject (v0.2.0。mfc-check / wpf-check / winforms-check の、プロジェクト設定だけで判定できる検査)
 ok "Common.props: ClaudeCheck の既定は warning (off / warning / error)" "$(grep -q "<ClaudeCheck Condition=\"'\$(ClaudeCheck)' == ''\">warning</ClaudeCheck>" "$M/Common.props" && echo 1 || echo 0)"
-ok "ClaudeCheckProject は、BeforeTargets=Build で、ClaudeCheck が off のときは何もしない" "$(grep -q '<Target Name="ClaudeCheckProject" BeforeTargets="Build" Condition="'"'"'\$(ClaudeCheck)'"'"' == '"'"'warning'"'"' Or '"'"'\$(ClaudeCheck)'"'"' == '"'"'error'"'"'"' "$M/Common.targets" && echo 1 || echo 0)"
+ok "ClaudeCheckProject は、BeforeTargets=PrepareForBuild (コンパイルより前。Build の前だと、コンパイル・リンクの後になる) で、ClaudeCheck が off のときは何もしない" "$(grep -q '<Target Name="ClaudeCheckProject" BeforeTargets="PrepareForBuild" Condition="'"'"'\$(ClaudeCheck)'"'"' == '"'"'warning'"'"' Or '"'"'\$(ClaudeCheck)'"'"' == '"'"'error'"'"'"' "$M/Common.targets" && echo 1 || echo 0)"
 ok "Warning / Error タスクは、Target の中だけにある (Target の外に置くと、MSBuild が読み込めない)" "$(python3 -I - "$M/Common.targets" <<'E'
 import sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()

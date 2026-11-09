@@ -17,9 +17,9 @@ MSBuild の共通設定 (`Directory.Build.props` / `Directory.Build.targets`) �
 - **`templates/Directory.Build.props`・`Directory.Build.targets`**: コピー型の薄いファイル。 ソリューション直下に置く薄いファイル。親のフォルダのファイルを読み (MSBuild は、最も近い 1 つしか読まないため)、そのあと、`build\common\` の共通ファイルを読む。
 - **`VERSION`**: 共通ファイルの版。`Common.props` の `MsbuildCommonVersion` と同じ値にする (テストが確かめる)。
 
-## ビルドの前の検査 (v0.2.0。`ClaudeCheckProject`)
+## コンパイルの前の検査 (v0.2.0。`ClaudeCheckProject`)
 
-`mfc-check` / `wpf-check` / `winforms-check` の検査のうち、**プロジェクトの設定だけで判定できるもの**を、ビルドの前に確かめる (`Common.targets`)。ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID・`InitializeComponent()` の呼び忘れなど) は、MSBuild ではできないので、これまでどおり、各 check が行う。コードと意味は、各 check と同じ。
+`mfc-check` / `wpf-check` / `winforms-check` の検査のうち、**プロジェクトの設定だけで判定できるもの**を、コンパイルの前 (`PrepareForBuild` の前) に確かめる (`Common.targets`)。コンパイルやリンクが失敗するプロジェクトでも、検査の結果は残る。ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID・`InitializeComponent()` の呼び忘れなど) は、MSBuild ではできないので、これまでどおり、各 check が行う。コードと意味は、各 check と同じ。
 
 | コード | 内容 | 対応する check |
 |---|---|---|

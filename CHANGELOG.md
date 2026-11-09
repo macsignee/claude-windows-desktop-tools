@@ -2,12 +2,19 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.67.2] 2026-11-09 (`msbuild-common` 0.2.2: 検査を、コンパイルより前に実行する)
+
+- **誤り (0.2.0・0.2.1):** `ClaudeCheckProject` を `BeforeTargets="Build"` にしていた。MSBuild は、ターゲットを実行する前に、まず `DependsOnTargets` (`Build` なら `CoreBuild` = コンパイル・リンク) を実行し、**そのあとで** `BeforeTargets` のターゲットを実行する。そのため、検査は、コンパイル・リンクの**後**に動き、**コンパイルやリンクが失敗すると、検査まで届かなかった** (実機の CK4 段階 A・B・D: `UseOfMfc` を `false` にすると `C1189`、`_USRDLL` と `_AFXEXT` の両方で `LNK2005` が先に止め、`DLL002`・`DLL001` が出なかった)。「ビルドの前」という説明も、実際とは違っていた。
+- **直し (0.2.2):** `BeforeTargets="PrepareForBuild"` にした (C++ も .NET も、コンパイル・リンクより前に実行される。`PrepareForBuild` は、どちらの `Build` にもある)。`ClaudeCheck=error` のときは、コンパイルの前に、ビルドが止まる。静的テストの確認も、`PrepareForBuild` に合わせた。
+- **実機で確かめたこと (CK4、0.2.1):** 段階 C (`_AFXEXT` を外して、`UseOfMfc` は `Dynamic` のまま) で、`warning DLL003` が出た (C++ の式が、`_USRDLL` / `_AFXEXT` と `UseOfMfc` を、正しく読めている)。**0.2.2 で、`DLL001`・`DLL002` と `ClaudeCheck=error` を、あらためて確かめる必要がある** (TEST-PLAN 2-42 の CK4)。
+
 ## [2.67.1] 2026-11-09 (`msbuild-common` 0.2.1: 実機の CK1 で見つかった、`LAY003` の誤報を直す)
 
 - **誤り (0.2.0):** `ClaudeCheckProject` の `LAY003` の `Warning` / `Error` タスクは、メタデータ (`%(_CcViolation.Identity)`) だけで繰り返す。**MSBuild は、アイテムが空でも、このタスクを 1 回、空の値で実行する** (「空なら実行されない」と考えたのは、誤り)。そのため、違反がなくても、すべてのプロジェクトに、`warning LAY003: ... が、上の層 () を参照している` が出た (実機の CK1-a: 生成直後の WPF の 5 プロジェクトに、各 1 件)。**ビルドとテストは `PASSED` で、役割の判定 (`DataLayer (data)`、`wpfDB (main)`、`DataLayer.Tests (test)`) は、正しく動いていた。**
 - **直し (0.2.1):** `Warning` / `Error` の `Condition` に `'%(_CcViolation.Identity)' != ''` を足し、違反があるときだけ実行する。静的テストに、「`%(_CcViolation.…)` を使うタスクは、この条件を持つ」を足した (`tests/msbuild_common_test.sh` 21 件)。
 - **教訓:** MSBuild の式は、WSL で実行できないため、静的テストでは、この種の誤りを見つけられない。実機の CK1 (回帰) が、必要だった。
 - 0.2.0 を入れたソリューションは、`build\common\` を 0.2.1 に差し替える (コピー型は `/add-project common`、参照型は外の正本)。
+- **実機の確認 (2026-11-09、`wpfDB`):** 0.2.1 で、`PASSED`・警告 0 件 (CK1-a)。参照の向きを入れ替えると、`LAY003` が 1 件 (`warning`)、`<ClaudeCheck>error</ClaudeCheck>` でビルドが止まる (CK2)、`off` で出ない (CK5)、`<ClaudeLayerRole>other</ClaudeLayerRole>` で出ない (CK6)、`warnings.log` / `errors.log` に残る (CK7)。**気づき:** 逆向きの参照を足しただけだと、MSBuild の循環参照 (`MSB4006`) が先に止める (検査の前。想定どおり)。CK3 (`LAY001`): `LogicLayer` と、それを参照する側の TFM を `net10.0-windows` にすると、`TargetFramework` が原因で、`UseWPF` を足すと `UseWPF` が原因で、1 件出る (`UseWPF` だけ・TFM だけでは、SDK の `NETSDK1136` / `NU1201` が、先に止める)。CK1-b (MFC)・CK1-c (拡張 DLL): `PASSED`、警告なし。**未確認:** CK4 (MFC の DLL の `DLL001`〜`DLL003`。0.2.2 でやり直す)。
 
 ## [2.67.0] 2026-11-09 (`msbuild-common` 0.2.0: ビルドの前の検査 `ClaudeCheckProject`)
 
