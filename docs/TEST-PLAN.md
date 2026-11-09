@@ -1028,3 +1028,46 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | CK6 | `<ClaudeLayerRole>other</ClaudeLayerRole>` を、CK2 の `DataLayer.csproj` に足してビルド | `LAY003` が出ない (役割を明示すると、名前の判定に、勝つ) | ✔ (2026-11-09) CK2 の状態に `<ClaudeLayerRole>other</ClaudeLayerRole>` (`DataLayer.csproj`) → `SUCCESS`、警告なし (役割を明示すると、名前の判定に勝つ) |
 | CK7 | `build-test-loop` / `auto-build` の結果で、警告が `warnings.log` に残ること | `warning LAY003:` の行 (コード `LAY003`) が読める | ✔ (2026-11-09) `warning LAY003:` の行が `warnings.log` に、`error LAY003` が `errors.log` に出た (コード `LAY003` で読める)。ウォッチャーが、MSBuild の警告・エラーを、そのまま拾う |
 
+### 2-43. `ui-test-first` の、ダイアログ・サブウィンドウ (v2.69.0)
+
+**静的テスト (`tests/ui_tests_gen_test.sh`、`tests/ui_test_first_skill_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。**UI テストありのソリューション** (`/new-solution --type wpf --layers logic --tests mstest --tfm net10.0 --ui-tests flaui`、または、`winforms`) を、新しいフォルダで作る。**ウォッチャーを先に起動する** (UI テストを動かす設定。`uitest.settings` の `desktop=` を確かめる)。既存の UI テストありのソリューションは、先に `--refresh-support-files`。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| DG1 | **ひな形:** 作成直後の `MainWindowUiTests` と、`UiTestBase.cs` に `Find(AutomationElement root, string automationId)` がある。`uitest_once.sh` で、既存のサンプルのテストが `PASSED` | 既存のテストが、変わらず通る (`Find("Id")` の動きが、変わっていない) | 未 |
+| DG2 | **計画:** `/ui-test-first` に、「『注文の編集』ダイアログを作る。メインの『編集』ボタンで開く (モーダル)。名前の入力欄・OK・Cancel。OK で閉じて、メインの表示が変わる」と頼む | 計画に、**種類・開き方 (開くボタンの識別の名前)・閉じ方と結果・開くときの前提**の表が出る。開くボタンが、メイン側の部品に含まれる。承認後、`docs/design/<画面>.md` に、「種類」と「開き方と閉じ方」が書かれる | 未 |
+| DG3 | **Red → Green:** DG2 のサイクルを、最後まで | `OpenModal(Find("..."))` でダイアログが開き、`Find(dlg, "OkButton")` で部品を操作し、`WaitModalClosed()` で閉じる。`--separate` (裏) で `Green`。ダイアログの中の部品が、`Find(dlg, "Id")` で見つかる | 未 |
+| DG4 | **プレビュー:** `Preview_<画面>` で、ダイアログを開いた状態を `Snap("名前", dlg)` で撮る | ダイアログが写ったスクリーンショットが、`.claude-logs/ui-screenshots/` に出る | 未 |
+| DG5 | **trace:** `ui-trace.txt` | メインの部品は `find: <Id>`、ダイアログの中は `find: <Id> (in <ウィンドウ名>)` | 未 |
+| DG6 | **見つからないとき:** ダイアログの中に、ない Id を `Find(dlg, "NoSuch")` で探すテストを、一時的に書く | 5 秒後に、`AutomationId 'NoSuch' の要素が、5 秒探しても、見つからない (<ウィンドウ名> の中)` で失敗する (確認後、そのテストは削除) | 未 |
+| DG7 | **WinForms でも、DG2〜DG4** | WPF と同じに動く (WinForms は `ShowDialog` の `Invoke` の問題があり、`UiDialogs.Click` が `BM_CLICK` で押す) | 未 |
+| DG8 | **赤い枠 (`--present`):** DG3 のテストを、`uitest_once.sh --present` で再生 (ユーザーのデスクトップ。実行中は PC に触らない) | メインの部品に加えて、**ダイアログの中の部品・ボタン (`Find(dlg, "Id")`、`UiDialogs.Click`、`PressDialogButton`、`PickFile`、`AnswerMessageBox`) にも、赤い枠が出る**。同じ要素に、続けて 2 回、枠が重ならない。`--present` でないときは、枠が出ない | 未 |
+
+### 2-44. `ui-test-first` の Model の Fake ↔ 本物の切り替え (v2.70.0)
+
+**静的テスト (`tests/ui_tests_gen_test.sh`、`tests/ui_test_first_skill_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。UI テストありの WPF のソリューション (`--ui-tests flaui`) を、新しいフォルダで作る。ウォッチャーを先に起動する。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| MD1 | **回帰:** 作成直後に `uitest_once.sh` | 既存のサンプルのテストが `PASSED`。`ui-trace.txt` の先頭に `model: fake`。`uitest.settings` に `model=fake` | 未 |
+| MD2 | **Fake の準備:** アプリに、Model のインターフェース (例 `IGreetingRepository`)・`InMemory...Repository` (Fake)・本物 (例: 固定の文字列を返す別の実装) を作り、組み立てる場所 (`App.xaml.cs`) で `APP_MODEL` を読んで選ぶ (`#if DEBUG`)。画面は、Model が返す値を表示する | ビルドが通る | 未 |
+| MD3 | **Fake で動く:** `model=fake` で UI テスト (Fake の値が、画面に出る) | `PASSED` | 未 |
+| MD4 | **本物に切り替える:** `uitest.settings` を `model=real` に (UI テストのコードは変えない)。本物の値が、Fake と違う場合は、テストが、そこを区別する形 | `ui-trace.txt` に `model: real`。アプリが、本物の Model を使う (画面の値が、本物の値になる)。UI テストが、結果に応じて `PASSED` / `FAILED` | 未 |
+| MD5 | **環境変数が優先:** `UITEST_MODEL=real` (ウォッチャーを起動したコンソールで設定) で、`uitest.settings` が `fake` でも | `model: real` になる | 未 |
+| MD6 | **Release では読まない:** Release でビルドしたアプリに `APP_MODEL=fake` を渡して起動 | 本物が使われる (Fake にならない) | 未 |
+| MD7 | **既存のソリューションの更新:** UI テストありの旧い形のソリューションに `--refresh-support-files` | `UiTestBase.cs` が更新される。`uitest.settings` に `model=` がなくても、既定 (`fake`) で動く | 未 |
+| MD8 | **`/ui-test-first` で、Fake から結合まで:** 画面を頼む → 計画に「依存する Model」の表が出る → Fake で Red → Green → 本物の Model の単体テスト → 結合 (`model=real`) | 計画・設計の記録に、Model の状態が書かれる。SKILL の手順で、結合まで進める | 未 |
+
+### 2-45. 契約テスト (v2.71.0)
+
+**静的テスト (`tests/ui_test_first_skill_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。**層とテストがある .NET のソリューション** (例 `/new-solution --type wpf --layers data,logic --tests mstest --tfm net10.0`) と、**C++ のソリューション** (`--type console --layers logic --tests gtest`) を、新しいフォルダで作る。ウォッチャーを先に起動する。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| TC1 | **C# の契約テスト + Fake:** `DataLayer` に、リポジトリのインターフェース (例 `IOrderRepository`)・`InMemoryOrderRepository` (Fake)・`DataLayer.Tests` に抽象 `OrderRepositoryContractTests` (テスト 3 件) と具体 `InMemoryOrderRepositoryContractTests` を、`CONTRACT-TESTS.md` どおりに作る。`build-test-loop` | `PASSED`。**抽象クラスの 3 件が、具体クラス (1 つ) で実行される** (件数: 既存のテスト + 3) | 未 |
+| TC2 | **本物の具体クラスを足す (Red → Green):** 本物の実装 (例: スタブ `NotImplementedException`) と、具体クラス `SqlOrderRepositoryContractTests` (または、インメモリの別実装) を足す | Red (契約テストが、本物で落ちる。3 件)。実装して Green。**件数は、契約 3 件 × 具体クラス 2 つ = 6 件** | 未 |
+| TC3 | **ずれの検出:** Fake を、わざと契約に反するように変える (例: 存在しない Id で例外を投げる) | 契約テストが、Fake の具体クラスで Red | 未 |
+| TC4 | **`test_guard`:** (a) 具体クラスを足したあと `test_guard.py check` (b) 抽象クラスの契約テストに `[Ignore]` を足す (c) 契約テストのアサーションを弱める | (a) error なし (b) `TMG002` (c) 検出される (確認後、元に戻す) | 未 |
+| TC5 | **C++ の契約テスト:** `LogicLayer` に、リポジトリのインターフェースと Fake を作り、`LogicLayerTest` に `TYPED_TEST_SUITE` の契約テストを作る (`CONTRACT-TESTS.md`)。`build-test-loop` | `PASSED` (契約のテスト数 × 実装数) | 未 |
+| TC6 | **`/ui-test-first` での、契約テスト → Fake → UI → 本物 → 結合:** 画面を頼む | 計画の「依存する Model」の表に、列「契約テスト」が出る。結合の関門で、契約テストが、両方で `PASSED` であることを、確かめる | 未 |
+

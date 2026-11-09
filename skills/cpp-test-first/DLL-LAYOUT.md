@@ -161,3 +161,8 @@ python3 <このSkillのフォルダ>/scripts/add_ui_host.py "$SLN_DIR" [--name U
 | 実行時にクラッシュ、または `CObject` 派生クラスの型情報がおかしい (MFC 拡張 DLL) | `UseOfMfc` が `Dynamic` でない (静的リンク)、または `_AFXDLL`/`_AFXEXT` 定義や `AFX_MANAGE_STATE` の定型コードが不足 | 「MFC 拡張 DLL のプロジェクト設定」の項目を、すべて満たしているか確認する |
 | `LNK2005: DllMain は既に ... で定義されています` (`mfcs1xx(u)(d).lib`) | `_USRDLL` と `_AFXEXT` を同時に定義している | プリプロセッサ定義から `_USRDLL` を外す |
 | `afxdllx.h` 等、MFC のヘッダ内部で、原因不明の構文エラー (`BOOL`/`WINAPI` が未定義、など) | 2 つのことが考えられる: (1) 新しいファイルが `PrecompiledHeader: NotUsing` のまま `<afxwin.h>` を生で読み込んでいる (2) 新しいファイルが UTF-8 BOM なし・LF で保存されている | (1) `PrecompiledHeader` を `Use` にし、`pch.h` 経由にする (2) ファイルを、既存と同じ UTF-8 BOM + CRLF で保存し直す |
+
+## Model (リポジトリ) の Fake と本物: 契約テスト
+
+画面が使う Model (データベース・API の違いを隠すもの) は、UI テストの段階では Fake で動かし、本物はあとから作る。**Fake と本物を、同じテストで確かめる書き方 (契約テスト。GoogleTest の `TYPED_TEST` / `TEST_P`) は、`CONTRACT-TESTS.md`。**
+
