@@ -7,7 +7,7 @@ Claude は、共通ファイルの中身を決めない。外の正本を読ん�
 正本の場所 (WSL 側のパス。Claude が読む) を決める順:
   1. ソリューションの CLAUDE.md の行  `- MSBuild 共通: /mnt/c/Tools/msbuild-common`
   2. 環境変数 MSBUILD_COMMON_DIR
-  3. 配布用のコピー (new-solution/msbuild-common/。いまの正本の複製)
+  3. 配布用のコピー (new-solution/msbuild-common/。外の正本 macsignee/msbuild-common の、取り込んだ版。tools/sync-msbuild-common.sh で取り込む)
 
 置き方 (モード):
   reference (参照型)  ソリューション直下に、外の正本を参照する薄いファイルだけを置く (templates/reference/)。コピーしない。
