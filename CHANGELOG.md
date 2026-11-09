@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.67.1] 2026-11-09 (`msbuild-common` 0.2.1: 実機の CK1 で見つかった、`LAY003` の誤報を直す)
+
+- **誤り (0.2.0):** `ClaudeCheckProject` の `LAY003` の `Warning` / `Error` タスクは、メタデータ (`%(_CcViolation.Identity)`) だけで繰り返す。**MSBuild は、アイテムが空でも、このタスクを 1 回、空の値で実行する** (「空なら実行されない」と考えたのは、誤り)。そのため、違反がなくても、すべてのプロジェクトに、`warning LAY003: ... が、上の層 () を参照している` が出た (実機の CK1-a: 生成直後の WPF の 5 プロジェクトに、各 1 件)。**ビルドとテストは `PASSED` で、役割の判定 (`DataLayer (data)`、`wpfDB (main)`、`DataLayer.Tests (test)`) は、正しく動いていた。**
+- **直し (0.2.1):** `Warning` / `Error` の `Condition` に `'%(_CcViolation.Identity)' != ''` を足し、違反があるときだけ実行する。静的テストに、「`%(_CcViolation.…)` を使うタスクは、この条件を持つ」を足した (`tests/msbuild_common_test.sh` 21 件)。
+- **教訓:** MSBuild の式は、WSL で実行できないため、静的テストでは、この種の誤りを見つけられない。実機の CK1 (回帰) が、必要だった。
+- 0.2.0 を入れたソリューションは、`build\common\` を 0.2.1 に差し替える (コピー型は `/add-project common`、参照型は外の正本)。
+
 ## [2.67.0] 2026-11-09 (`msbuild-common` 0.2.0: ビルドの前の検査 `ClaudeCheckProject`)
 
 - **`mfc-check` / `wpf-check` / `winforms-check` の検査のうち、プロジェクトの設定だけで判定できるものを、`Common.targets` の `ClaudeCheckProject` に書き出した。** ビルドの前 (`BeforeTargets="Build"`) に確かめる。コードと意味は、各 check と同じ: `LAY003` (参照の向き。wpf-check の LAY003・winforms-check の WFL003・mfc-check の LAY003)、`LAY001` (ロジック層・データ層の WPF / WinForms 依存。`UseWPF`・`UseWindowsForms`・`-windows` の TFM)、`DLL001`・`DLL002` (MFC の DLL の設定)、`DLL003` (警告のみ)。**ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID など) は、MSBuild ではできないので、含めない** (各 check が、これまでどおり行う)。

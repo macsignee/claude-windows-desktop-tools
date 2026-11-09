@@ -1020,7 +1020,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CK1 | **回帰:** 新規の WPF (`--layers data,logic --tests mstest`) と、C++ (`--type mfc --layers logic,data --tests gtest`) を、0.2.0 でビルドとテスト | `PASSED`。`warnings.log` に `LAY001` / `LAY003` / `DLL00x` が出ない (生成物は、検査に通る)。MSBuild の式が、エラー (`MSB4xxx`) を出さない | 未 |
+| CK1 | **回帰:** 新規の WPF (`--layers data,logic --tests mstest`) と、C++ (`--type mfc --layers logic,data --tests gtest`) を、0.2.0 でビルドとテスト | `PASSED`。`warnings.log` に `LAY001` / `LAY003` / `DLL00x` が出ない (生成物は、検査に通る)。MSBuild の式が、エラー (`MSB4xxx`) を出さない |一部 (2026-11-09) **CK1-a (WPF、`wpfDB`、`--layers data,logic --tests mstest --common copy`):** ベースライン `PASSED` (2 件)、`wpf-check` 指摘 0 件、`MSB4xxx` のエラーなし (**式は、MSBuild に読み込まれ、役割の判定も動いた**)。**ただし、`warnings.log` に `LAY003` が 5 件 (各プロジェクトに 1 件。層名が空)** → 誤り (0.2.0): メタデータだけで繰り返すタスクが、空でも 1 回実行される。**0.2.1 で直した (再確認が要る)。** CK1-b (MFC)・CK1-c (拡張 DLL) は、未 |
 | CK2 | CK1 の WPF の `DataLayer.csproj` に、`LogicLayer` への `ProjectReference` を足す (逆向き) してビルド | **警告 `LAY003`** (DataLayer (data) が、上の層 LogicLayer (logic) を参照している)。ビルドは通る。`/p:ClaudeCheck=error` を付けると、**エラーで止まる** | 未 |
 | CK3 | CK1 の WPF の `LogicLayer.csproj` に `<UseWPF>true</UseWPF>` (または、TFM を `net10.0-windows`) を足してビルド | **警告 `LAY001`** (原因が、UseWPF / TargetFramework と出る) | 未 |
 | CK4 | MFC 拡張 DLL の層 (`--layer-kind mfc-ext-dll`) を作り、`LogicLayer.vcxproj` の `UseOfMfc` を `false` にしてビルド (確認後、戻す) | CK1 のとおり、拡張 DLL で、警告なし → 変えると **`DLL002`**。`_AFXEXT` と `_USRDLL` を両方定義すると **`DLL001`** | 未 |
