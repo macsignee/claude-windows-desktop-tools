@@ -7,7 +7,7 @@
 
   <PropertyGroup>
     <!-- 共通ファイルの版 (VERSION と同じ値。ソリューション側の版が古いことに、気づくため) -->
-    <MsbuildCommonVersion>0.1.0</MsbuildCommonVersion>
+    <MsbuildCommonVersion>0.1.1</MsbuildCommonVersion>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)Dotnet.props" Condition="'$(MSBuildProjectExtension)' == '.csproj'" />

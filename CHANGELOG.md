@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.64.1] 2026-11-09 (`msbuild-common` v0.1.1: ClaudeBuildInfo の出力先を直す)
+
+- **実機の確認 MB1 で、`ClaudeBuildInfo` の出力先が、想定と違った。** WPF (.NET 10、SDK 形式) のソリューションに、薄いファイルと `build\common\` を置いて、ビルドとテストは `PASSED` (共通ファイルは、エラーなく読まれ、`common_version=0.1.0` が書かれた)。ただし、`claude-build-info.txt` が、`obj\` ではなく、**各プロジェクトのフォルダ直下**にできた。SDK 形式の `.csproj` では、`$(IntDir)` が空だったため。
+- `Common.targets`: 出力先を、`$(IntDir)` → `$(IntermediateOutputPath)` → `$(MSBuildProjectDirectory)\obj\` の順に探す。C++ は、いままでどおり `$(IntDir)`。`VERSION` と `MsbuildCommonVersion` を 0.1.1 にした。
+- テスト: `tests/msbuild_common_test.sh` に 1 件 (12 件)。
+- **実機の確認 (2026-11-09):** 直したあと、3 つとも `obj\Debug\<TFM>\` にできた (MB1)。無効のときは、できない (MB2)。`Nullable` が効き、`CS8600` が出る (MB1)。C++ (MB3。`DPop3`) でも、薄いファイルでビルドとテストが `PASSED`、`obj\<プロジェクト>\x64\Debug\` に、`common_version=0.1.1` つきで、できた。**未確認:** MB3 の `platform=x64` の行そのもの (報告に含まれない)。MB1 の `.csproj` の `Dotnet.props` を、C++ が読まないことの直接の確認。
+
 ## [2.64.0] 2026-11-08 (`msbuild-common/`: Directory.Build.props / targets の共通設定のたたき台)
 
 - **`msbuild-common/` を追加した (v0.1.0)。** MSBuild の標準の仕組み (`Directory.Build.props` / `Directory.Build.targets`) で、共通の設定を 1 か所に置くためのたたき台。将来、別のリポジトリに分けて、共通のベースにする。**スキルは、まだ、使っていない** (動きは、何も変わらない。配布も、要らない)。

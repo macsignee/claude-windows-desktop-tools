@@ -38,6 +38,7 @@ ok "ClaudeBuildInfo は、既定では何もしない (/p:ClaudeBuildInfo=true �
 ok "薄いファイルは、親のファイルを読み (GetPathOfFileAbove)、そのあと build\\common\\ の共通ファイルを読む" "$(grep -q "GetPathOfFileAbove('Directory.Build.props'" "$M/templates/Directory.Build.props" && grep -q 'build\\common\\Common.props' "$M/templates/Directory.Build.props" && grep -q "GetPathOfFileAbove('Directory.Build.targets'" "$M/templates/Directory.Build.targets" && grep -q 'build\\common\\Common.targets' "$M/templates/Directory.Build.targets" && echo 1 || echo 0)"
 ok "親のファイルが見つからないとき (空) は、Import しない (Condition)" "$(grep -q "'\$(_ParentBuildProps)' != ''" "$M/templates/Directory.Build.props" && grep -q "'\$(_ParentBuildTargets)' != ''" "$M/templates/Directory.Build.targets" && echo 1 || echo 0)"
 ok "共通ファイルは、スキルのパスや CLAUDE.md に触れない (別のリポジトリへ、そのまま移せる)" "$(! grep -l -E '\.claude|CLAUDE\.md|skills/' $FILES >/dev/null 2>&1 && echo 1 || echo 0)"
+ok "ClaudeBuildInfo の出力先は、\$(IntDir) が空のとき (SDK 形式の .csproj) \$(IntermediateOutputPath) にする" "$(grep -q "_ClaudeBuildInfoDir Condition=\"'\$(_ClaudeBuildInfoDir)' == ''\">\$(IntermediateOutputPath)" "$M/Common.targets" && echo 1 || echo 0)"
 
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]
