@@ -10,7 +10,9 @@
        **既定では、何もしない** (動きを変えない)。有効にするには、ビルドに /p:ClaudeBuildInfo=true を渡す。
 
     2. ClaudeCheckProject: mfc-check / wpf-check / winforms-check の検査のうち、**プロジェクトの設定だけで判定できるもの** を、
-       ビルドの前に確かめる (ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID など) は、MSBuild では
+       コンパイルの前に確かめる (`PrepareForBuild` の前。C++ も .NET も、コンパイル・リンクより先に実行される。
+       BeforeTargets="Build" だと、Build の依存ターゲット (CoreBuild = コンパイル・リンク) の後になり、コンパイルやリンクが失敗すると、検査まで届かない)。
+       (ソースの中身を読む検査 (バインディング・メッセージマップ・リソース ID など) は、MSBuild では
        できないので、これまでどおり、各 check が行う)。コードと意味は、各 check と同じ。
          LAY001 / WFL001  ロジック層・データ層が、WPF / WinForms に依存している (UseWPF・UseWindowsForms・-windows の TargetFramework)
          LAY003 / WFL003  プロジェクト参照の向きが、層 (UI → ViewModel → ロジック → データ) に反する
@@ -35,7 +37,7 @@
     <WriteLinesToFile File="$(_ClaudeBuildInfoFile)" Lines="$(_ClaudeBuildInfoLines)" Overwrite="true" />
   </Target>
 
-  <Target Name="ClaudeCheckProject" BeforeTargets="Build" Condition="'$(ClaudeCheck)' == 'warning' Or '$(ClaudeCheck)' == 'error'">
+  <Target Name="ClaudeCheckProject" BeforeTargets="PrepareForBuild" Condition="'$(ClaudeCheck)' == 'warning' Or '$(ClaudeCheck)' == 'error'">
 
     <!-- このプロジェクトの役割 -->
     <PropertyGroup>
