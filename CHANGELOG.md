@@ -6,11 +6,11 @@
 
 - **`msbuild-common/` (正本) を、このリポジトリから外した。** 正本は、別のリポジトリ **`macsignee/msbuild-common`** (履歴は、`git subtree split --prefix=msbuild-common` で引き継ぐ。取り出し元は、v2.67.2 = msbuild-common 0.2.2)。**運用は、`host-tools` と同じ:** 編集・コミット・push は、WSL の clone (`~/src/msbuild-common`) で行い、リポジトリの `install.sh` が、Windows 側の配布先 (`/mnt/c/tools/msbuild-common` = `C:\tools\msbuild-common`。環境変数 `MSBUILD_COMMON_DIR` が指す) へ、**コピー**する (`cmp` で確認)。**配布先は、git のリポジトリにしない (clone しない)** — Windows 側の所有者・アクセス権の問題を、避けるため。
 - **同梱コピー `skills/new-solution/msbuild-common/` は、残した。** 環境変数も `CLAUDE.md` の「- MSBuild 共通:」の行もないとき、`/new-solution` と `/add-project common` が使う (コピー型)。`install.sh` は `skills/` だけを配るため、必要。**このコピーは、外の正本の、取り込んだ版。直接、編集しない** (`SOURCE.md` に書いた)。
-- **取り込みのスクリプト `tools/sync-msbuild-common.sh <正本の clone (~/src/msbuild-common)> [--dry-run]` を追加した。** 正本の必要な 8 ファイルを、同梱コピーに、取り込む (何が変わったかを一覧にする。コミットはしない)。正本に、必要なファイルがないときは、何もコピーせず、終了コード 2。
+- **取り込みのスクリプト `bash tools/sync-msbuild-common.sh <正本の clone (~/src/msbuild-common)> [--dry-run]` を追加した。** 正本の必要な 8 ファイルを、同梱コピーに、取り込む (何が変わったかを一覧にする。コミットはしない)。正本に、必要なファイルがないときは、何もコピーせず、終了コード 2。
 - **テストの参照先を、同梱コピーに直した** (`tests/msbuild_common_test.sh`・`new_solution_common_test.sh`・`add_common_test.sh`)。「同梱コピーが、正本と同じ」の確認 2 件は、正本が外にあるので、外した (`msbuild_common_test.sh` 20 件、`new_solution_common_test.sh` 76 件、`add_common_test.sh` 28 件)。`msbuild-common/README.md` は、新しいリポジトリへ移る。
 - 配布の動きは、変わらない (同梱コピーは、msbuild-common 0.2.2 のまま)。**配布は、要らない** (中身が変わっていない。`install.sh --skills-only` を実行しても、同じ)。
 - **ライセンス:** このリポジトリと、`macsignee/msbuild-common` に、MIT License (`LICENSE.md`。著作権表示は `Copyright (c) 2026 macsignee`) を追加した。README に「ライセンス」の節を足した。
-- 以降の運用: 共通ファイルを直すときは、**`macsignee/msbuild-common` を直して**、版を上げ、`tools/sync-msbuild-common.sh` で、同梱コピーに取り込む。
+- 以降の運用: 共通ファイルを直すときは、**`macsignee/msbuild-common` を直して**、版を上げ、`bash tools/sync-msbuild-common.sh` で、同梱コピーに取り込む。
 
 ## [2.67.2] 2026-11-09 (`msbuild-common` 0.2.2: 検査を、コンパイルより前に実行する)
 

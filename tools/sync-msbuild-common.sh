@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # sync-msbuild-common.sh - 外の正本 (macsignee/msbuild-common の clone) から、skills/new-solution/msbuild-common/ (配布用のコピー) に、取り込む (v2.68.0)。
 #
-# Usage: tools/sync-msbuild-common.sh <msbuild-common の clone のフォルダ> [--dry-run]
+# Usage: bash tools/sync-msbuild-common.sh <msbuild-common の clone のフォルダ> [--dry-run]     (実行権に頼らず、bash で実行する)
 #
 #   正本の、必要な 8 ファイルだけを、コピーする (README.md などは、取り込まない)。何を変えたかを、一覧にする。
 #   コミットは、しない。取り込んだあとは、tests/ を実行して、CHANGELOG.md に、取り込んだ版を書くこと。
