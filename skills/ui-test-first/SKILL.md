@@ -100,7 +100,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
   ```bash
   bash <Skill群>/build-test-loop/scripts/uitest_once.sh "$SLN_DIR" --filter "FullyQualifiedName~<画面>UiTests" --separate --ui-timeout 1200
   ```
-  **`--separate` (裏で実行) が、ループの、既定の指定。** WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) だが、**メニューを開く操作を含まないテスト**は、`--separate` で動く。**メニューを開く操作を含むテストは、別のクラス (`<画面>MenuUiTests`) に分け、WPF では `--visible` で実行する** (別のデスクトップでは、WPF のメニューのポップアップが開かず、「要素がない」という、偽の Red になる)。
+  **`--separate` (裏で実行) が、ループの、既定の指定** (WPF は、`--visible` より、1 件 約 5〜10 秒遅い。数件なら、`--visible` も選べる。`build-test-loop/references/ui-tests.md`)。 WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) だが、**メニューを開く操作を含まないテスト**は、`--separate` で動く。**メニューを開く操作を含むテストは、別のクラス (`<画面>MenuUiTests`) に分け、WPF では `--visible` で実行する** (別のデスクトップでは、WPF のメニューのポップアップが開かず、「要素がない」という、偽の Red になる)。
   `run_in_background: true` で、完了通知を待つ。**Red の確認:** 失敗の理由が、**期待どおり** (要素がない、期待値と違う) であること。**コンパイルエラー、`ENV_ERROR`、フィルターが 0 件 (`ENV_ERROR`、終了コード 4。式の誤り) は、Red ではない** (先に直す)。
   **Red が確認できたら、基準を作る:** `python3 -I <Skill群>/build-test-loop/scripts/test_guard.py snapshot "$SLN_DIR"` (UI テストを、仕様として凍結する。**ユーザーが、テストの変更を承認したときだけ、やり直す**)。
 
