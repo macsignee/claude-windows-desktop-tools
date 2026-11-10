@@ -1104,5 +1104,5 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CW1 | **WinForms (`dg7aWf`):** `--refresh-support-files` のあと、`EditGreetingUiTests` の `EditGreeting_CloseButton_DoesNotChangeMainName` の `dlg.Close()` を `UiDialogs.CloseWindow(dlg)` に直して、`--separate` で実行 | `PASSED`。`find: EditNameTextBox` から `exit` の前まで 約 4〜5 秒 → **約 0.1 秒以内**。メインの名前は、変わらない | 未 |
+| CW1 | **WinForms (`dg7aWf`):** `--refresh-support-files` のあと、`EditGreetingUiTests` の `EditGreeting_CloseButton_DoesNotChangeMainName` の `dlg.Close()` を `UiDialogs.CloseWindow(dlg)` に直して、`--separate` で実行 | `PASSED`。`find: EditNameTextBox` から `exit` の前まで 約 4〜5 秒 → **約 0.1 秒以内**。メインの名前は、変わらない | ✔ (2026-11-10) `dg7aWf` (v2.77.0、`--separate`): 7 件とも `Passed`。`EditGreeting_CloseButton_DoesNotChangeMainName` の `dlg.Close()` を `UiDialogs.CloseWindow(dlg)` に、ダイアログの入力を `SetText` に直した。**`find: EditNameTextBox` から `exit` の開始まで 約 0.06 秒** (v2.77.0 の前は 約 4〜5 秒)。メインの名前は、変わらない (`Assert.AreEqual("太郎", name.Text)`)。残る約 2 秒は、まだ直していない `name.Text = "太郎"` (メインの入力) の分。 |
 | CW2 | **WPF (`dg1Wpf`):** `EditNameDialogUiTests` の `ClosedByCloseBox` も、同じく | `PASSED`。約 4 秒 → 短くなる (`WM_CLOSE` が、WPF の `Window` を閉じる) | 未 |
