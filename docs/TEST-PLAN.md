@@ -1106,3 +1106,13 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 |---|---|---|---|
 | CW1 | **WinForms (`dg7aWf`):** `--refresh-support-files` のあと、`EditGreetingUiTests` の `EditGreeting_CloseButton_DoesNotChangeMainName` の `dlg.Close()` を `UiDialogs.CloseWindow(dlg)` に直して、`--separate` で実行 | `PASSED`。`find: EditNameTextBox` から `exit` の前まで 約 4〜5 秒 → **約 0.1 秒以内**。メインの名前は、変わらない | ✔ (2026-11-10) `dg7aWf` (v2.77.0、`--separate`): 7 件とも `Passed`。`EditGreeting_CloseButton_DoesNotChangeMainName` の `dlg.Close()` を `UiDialogs.CloseWindow(dlg)` に、ダイアログの入力を `SetText` に直した。**`find: EditNameTextBox` から `exit` の開始まで 約 0.06 秒** (v2.77.0 の前は 約 4〜5 秒)。メインの名前は、変わらない (`Assert.AreEqual("太郎", name.Text)`)。残る約 2 秒は、まだ直していない `name.Text = "太郎"` (メインの入力) の分。 |
 | CW2 | **WPF (`dg1Wpf`):** `EditNameDialogUiTests` の `ClosedByCloseBox` も、同じく | `PASSED`。約 4 秒 → 短くなる (`WM_CLOSE` が、WPF の `Window` を閉じる) | ✔ (2026-11-10) `dg1Wpf` (v2.77.0、`--separate`): `EditNameDialogUiTests` 5 件とも `Passed`。`ClosedByCloseBox` の `Text =` 2 回と `dlg.Close()` を、`SetText` と `UiDialogs.CloseWindow(dlg)` に直した。WPF の `Window` も、`WM_CLOSE` で閉じる (`WaitModalClosed` を通り、メインの名前は変わらない)。**`find: NameTextBox` から、最後の `find: NameTextBox` まで 約 0.2 秒** (入力 2 回・ダイアログを開く・閉じる。直す前は、約 8 秒 (2 + 2 + 4))。 |
+
+### 2-49. ダイアログのデータと規則の置き場所 (v2.81.0)
+
+**静的テスト (`tests/ui_test_first_skill_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。ウォッチャーを先に起動する。依頼は、どちらも「入力が空のとき、OK を無効にする」という、ダイアログ専用の規則を含める (規則を、データのクラスに置くことの確認のため)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| DR1 | **WinForms (`drWf`):** `/new-solution --type winforms --layers logic --tests mstest --tfm net10.0 --ui-tests flaui` → `/ui-test-first` で「あいさつの編集」ダイアログ (名前の入力欄・OK・キャンセル。名前が空のとき OK を無効にする) を頼む | 計画に、**「データのクラス名 / 置き場所 (ロジック層) / 規則」の 1 行**。**ダイアログ専用の Presenter は、増えない。** データのクラス (例 `EditGreetingData`、`IsValid()`) が、ロジック層に別のファイルで置かれ、**単体テスト (MSTest) で、規則が Red → Green**。`Form` に、業務の規則がない。UI テストは、煙テスト | 未 |
+| DR2 | **MFC (`drMfc`):** `/new-solution --type mfc-dialog --layers logic --tests gtest --ui-tests flaui` → 同じ依頼 | データのクラス (`EditGreetingData`、`IsValid()`) が、**ロジック DLL** に置かれ、ダイアログが、**コンストラクターの引数**で受け取り、`DoDataExchange` で出し入れする。規則が、**GoogleTest で Red → Green**。`CDialog` 派生クラスに、業務の規則がない。警告 C4275 が出ない (v2.80.0 以降に作った層) | 未 |
+| DR3 | **回帰 (WPF):** 既存の `dg1Wpf` 相当 (または新規) で、ダイアログを頼む | 計画に、データのクラスの 1 行 (ViewModel に持たせてもよい)。既存の動き (DG3) が、変わらない | 未 |
