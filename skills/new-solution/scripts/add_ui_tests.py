@@ -185,13 +185,16 @@ public abstract class UiTestBase
 
         try
         {
+            // FlaUI の App.Close() は、アプリの終了を、自分で、約 5 秒待ってから、強制終了する (別のデスクトップの WPF は、毎回、待ち切る。実測)。
+            // その待ちを避けるため、メインウィンドウを閉じる要求だけを、自分で送り、ExitWaitMs だけ待ってから、強制終了する。
             var exitWatch = System.Diagnostics.Stopwatch.StartNew();
-            App.Close();
+            try { System.Diagnostics.Process.GetProcessById(App.ProcessId).CloseMainWindow(); }
+            catch (Exception) { /* すでに終了している、など。次の WaitExit で、確かめる */ }
             if (WaitExit(ExitWaitMs)) UiTrace.Write($"exit: closed ({exitWatch.ElapsedMilliseconds} ms)");
             else
             {
                 App.Kill();
-                UiTrace.Write($"exit: killed after {exitWatch.ElapsedMilliseconds} ms (App.Close() が、終わらなかった)");
+                UiTrace.Write($"exit: killed after {exitWatch.ElapsedMilliseconds} ms (閉じる要求に、応えなかった)");
             }
         }
         catch (Exception)
@@ -271,7 +274,7 @@ public abstract class UiTestBase
     protected bool WaitWindowClosed(string title) => UiDialogs.WaitWindowClosed(App, Automation, MainWindow, title);
 
     /// <summary>テストのあと、アプリが、自分で終了するのを待つ時間 (ミリ秒)。過ぎたら、強制終了する。
-    /// ユーザーのデスクトップでは、0.2 秒ほどで終了する。**別のデスクトップ (--separate) の WPF は、Close() が終わらず、毎回、待ち切る** (実測: 5 秒) ので、短くしてある。
+    /// ユーザーのデスクトップでは、0.2 秒ほどで終了する。**別のデスクトップ (--separate) の WPF は、閉じる要求に応えず、毎回、待ち切る** (実測: FlaUI の App.Close() で 5 秒) ので、短くしてある。
     /// 終了に時間がかかるアプリ (終了時の確認など) は、テストのクラスで override する。</summary>
     protected virtual int ExitWaitMs => 1500;
 
