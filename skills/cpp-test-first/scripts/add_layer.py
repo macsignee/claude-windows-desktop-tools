@@ -476,6 +476,10 @@ def dll_files(name, ns, uses, toolset, dg, kind='dll'):
 
 // 公開クラスが std:: のメンバを持つことの警告。同じコンパイラ・同じ CRT で、まとめてビルドする前提で、抑止する。
 #pragma warning(disable : 4251)
+
+// 公開クラスが、DLL インターフェースでない基底クラス (純粋仮想のインターフェース。ヘッダだけ) を継承することの警告 (C4275)。
+// インターフェースと Fake を、同じ DLL に置くと、必ず出る。データを持たない基底なので、抑止する。
+#pragma warning(disable : 4275)
 '''
     files[f'{name}/{info_h}'] = f'''#pragma once
 #include "{api}"
@@ -554,6 +558,10 @@ def mfc_ext_files(name, ns, uses, toolset, dg):
 
 // 公開クラスが std:: のメンバを持つことの警告。同じコンパイラ・同じ CRT で、まとめてビルドする前提で、抑止する。
 #pragma warning(disable : 4251)
+
+// 公開クラスが、DLL インターフェースでない基底クラス (純粋仮想のインターフェース。ヘッダだけ) を継承することの警告 (C4275)。
+// インターフェースと Fake を、同じ DLL に置くと、必ず出る。データを持たない基底なので、抑止する。
+#pragma warning(disable : 4275)
 '''
     files[f'{name}/{info_h}'] = f'''#pragma once
 #include "{api}"
@@ -680,6 +688,10 @@ def mfc_std_files(name, ns, uses, toolset, dg):
 
 // 公開クラスが std:: のメンバを持つことの警告。同じコンパイラ・同じ CRT で、まとめてビルドする前提で、抑止する。
 #pragma warning(disable : 4251)
+
+// 公開クラスが、DLL インターフェースでない基底クラス (純粋仮想のインターフェース。ヘッダだけ) を継承することの警告 (C4275)。
+// インターフェースと Fake を、同じ DLL に置くと、必ず出る。データを持たない基底なので、抑止する。
+#pragma warning(disable : 4275)
 '''
     files[f'{name}/{info_h}'] = f'''#pragma once
 #include "{api}"
