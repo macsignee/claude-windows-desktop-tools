@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.75.0] 2026-11-10 (UI テスト: `UiDialogs.SetText` で、別のデスクトップの、約 2 秒の固定費を避ける)
+
+- **調査 (DG10、2026-11-10。`dg1Wpf`・`dg7aWf`・`dg11Mfc`、別のデスクトップ):** UIA のネイティブのパターンの「操作」 (`ValuePattern.SetValue`・`InvokePattern.Invoke`) だけが、**毎回 約 2.0 秒**かかる (WPF・WinForms・MFC で同じ)。FlaUI でも、UIA の `ConnectionTimeout` (200 ms にしても同じ) でも、アプリの UI スレッド (`WM_NULL` の往復は 0 ms) でも、入力待ち (`WaitForInputIdle` は 0 ms) でもない。**`LegacyIAccessible` (MSAA 経由) は、同じ条件で、`SetValue` が WPF 13 ms・WinForms 11 ms・MFC 5 ms、`DoDefaultAction` (ボタン) が 3 / 11 / 2 ms。** `WM_SETTEXT` (Win32 のメッセージ) も 3 ms。なぜ 2 秒かは、特定していない。
+- **`UiDialogs.SetText(element, text)` を足した:** `LegacyIAccessible.SetValue` を先に試し、**設定した値を、読み戻して、一致すれば**、それで済ませる (約 10 ms)。使えない・値が合わないときは、`ValuePattern.SetValue` に戻る (従来どおり)。操作の直前に、赤い枠 (`Target`) も出す。戻り値は、使った方法。
+- **ひな形のサンプルのテスト (WPF・WinForms・MFC) を、`UiDialogs.SetText(name, "太郎")` に切り替えた** (これまでは、`.AsTextBox().Text = "太郎"`)。**WPF・WinForms のサンプルの `ClearButton` も、`UiDialogs.Click(...)` に** (これまでは `.AsButton().Invoke()`。WinForms は `BM_CLICK` で速い。WPF は `Invoke` (別スレッド) で、約 1 秒の待ちは、残る)。ユーザーが、サンプルを真似して、テストを書くため。
+- `build-test-loop/references/ui-tests.md` の、操作の書き方を直した (`SetText` / `Click`。UIA の `ValuePattern` / `InvokePattern` を直接使うと、別のデスクトップで約 2 秒)。
+- **今回は、変えていないもの:** WPF のボタン (`UiDialogs.Click` の経路)。ダイアログを開くボタンで、`DoDefaultAction` が、`ShowDialog` の中で、ブロックするかの確認が要る (別)。
+- テスト: `tests/ui_tests_gen_test.sh` (72 件)。
+- **既存のソリューション (UI テストあり) は、`--refresh-support-files` で `UiTestBase.cs` / `UiDialogs.cs` を更新する。サンプルのテスト (`MainWindowUiTests.cs`) は、更新されない** (ユーザーのテストなので)。必要なら、手で `SetText` に直す。**配布が要る。**
+- **未確認 (実機):** `SetText` を使うサンプルが、3 つのフレームワークで、別のデスクトップで、速く通ること (TEST-PLAN 2-46)。
+
 ## [2.74.2] 2026-11-10 (`--present` の赤い枠: 枠が、開いたダイアログの上に、残らないようにする)
 
 - **実機の DG8 (v2.72.0) で見つかった不具合:** `--present` で、**ダイアログを開く「編集」ボタンの赤い枠が、ダイアログが開いたあとも、その上に、描かれ続けた。**

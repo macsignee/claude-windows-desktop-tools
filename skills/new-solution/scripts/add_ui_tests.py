@@ -524,6 +524,37 @@ internal static partial class UiDialogs
 
     // ---------------------------------------------------------------- ダイアログを開く・検出する
 
+    /// <summary>入力欄に、文字列を設定する。**別のデスクトップでは、UIA の ValuePattern.SetValue に、約 2 秒の固定の待ちが入る** (実測。WPF・WinForms・MFC で同じ)。
+    /// LegacyIAccessible.SetValue (MSAA 経由。同じ条件で、5〜13 ms) を先に試し、**設定した値を、読み戻して、一致すれば**、それで済ませる。
+    /// 使えない (パスワード欄、独自描画の部品など)・値が合わないときは、ValuePattern に戻る (従来どおり)。戻り値: 使った方法。</summary>
+    public static string SetText(AutomationElement element, string text)
+    {
+        Target(element);
+        var tried = new List<string>();
+        if (element.Patterns.LegacyIAccessible.IsSupported)
+        {
+            try
+            {
+                element.Patterns.LegacyIAccessible.Pattern.SetValue(text);
+                if (ReadText(element) == text) return "LegacyIAccessible.SetValue";
+                tried.Add("LegacyIAccessible.SetValue: 読み戻した値が、一致しない");
+            }
+            catch (Exception ex) { tried.Add($"LegacyIAccessible.SetValue: {ex.GetType().Name}: {ex.Message}"); }
+        }
+        if (element.Patterns.Value.IsSupported)
+        {
+            element.Patterns.Value.Pattern.SetValue(text);
+            return "ValuePattern.SetValue" + (tried.Count > 0 ? " (" + string.Join("; ", tried) + ")" : "");
+        }
+        throw new AssertFailedException($"テキストを設定できない (ValuePattern に非対応)。試した方法: {string.Join("; ", tried)}");
+    }
+
+    private static string? ReadText(AutomationElement element)
+    {
+        try { return element.Patterns.Value.IsSupported ? element.Patterns.Value.Pattern.Value.ValueOrDefault : element.Name; }
+        catch (Exception) { return null; }
+    }
+
     /// <summary>ボタンなどを、押す。ウィンドウを持つ要素 (WinForms / MFC のボタン、標準ダイアログのボタン) は、BM_CLICK を PostMessage (非同期)。
     /// ウィンドウを持たない要素 (WPF のボタン、WinForms のメニュー項目) は、UIA の Invoke を、別スレッドで呼ぶ。使った方法を、返す。</summary>
     public static string Click(AutomationElement element)
@@ -1191,8 +1222,8 @@ public class MainWindowUiTests : UiTestBase
     [TestMethod]
     public void Greeting_NameEntered_ShowsGreeting()
     {
-        var name = Find("NameTextBox").AsTextBox();
-        name.Text = "太郎";   // ValuePattern (キー入力を使わない)
+        var name = Find("NameTextBox");
+        UiDialogs.SetText(name, "太郎");   // 別のデスクトップでも速い (LegacyIAccessible。使えなければ ValuePattern)
 
         Assert.IsTrue(WaitFor(() => Find("GreetingText").Name == "こんにちは、太郎 さん"),
             "挨拶が、変わらない: " + Find("GreetingText").Name);
@@ -1201,13 +1232,13 @@ public class MainWindowUiTests : UiTestBase
     [TestMethod]
     public void ClearButton_Invoked_ClearsName()
     {
-        var name = Find("NameTextBox").AsTextBox();
-        name.Text = "太郎";
+        var name = Find("NameTextBox");
+        UiDialogs.SetText(name, "太郎");
         Assert.IsTrue(WaitFor(() => Find("ClearButton").IsEnabled), "クリアボタンが、有効にならない");
 
-        Find("ClearButton").AsButton().Invoke();   // InvokePattern (マウスを使わない)
+        UiDialogs.Click(Find("ClearButton"));   // WinForms は BM_CLICK (速い)、WPF は Invoke (別スレッド)。UIA の Invoke は、別のデスクトップで約 2 秒かかる (マウスは使わない)
 
-        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.Text)), "クリアしても、入力欄が空にならない");
+        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
     }
 }
 '''
@@ -1230,8 +1261,8 @@ public class MainWindowUiTests : UiTestBase
     [TestMethod]
     public void Greeting_NameEntered_ShowsGreeting()
     {
-        var name = Find("NameTextBox").AsTextBox();
-        name.Text = "太郎";   // ValuePattern (キー入力を使わない。TextChanged が起きる)
+        var name = Find("NameTextBox");
+        UiDialogs.SetText(name, "太郎");   // 別のデスクトップでも速い (LegacyIAccessible。使えなければ ValuePattern)
 
         Assert.IsTrue(WaitFor(() => Find("GreetingLabel").Name == "こんにちは、太郎 さん"),
             "挨拶が、変わらない: " + Find("GreetingLabel").Name);
@@ -1240,13 +1271,13 @@ public class MainWindowUiTests : UiTestBase
     [TestMethod]
     public void ClearButton_Invoked_ClearsName()
     {
-        var name = Find("NameTextBox").AsTextBox();
-        name.Text = "太郎";
+        var name = Find("NameTextBox");
+        UiDialogs.SetText(name, "太郎");
         Assert.IsTrue(WaitFor(() => Find("ClearButton").IsEnabled), "クリアボタンが、有効にならない");
 
-        Find("ClearButton").AsButton().Invoke();   // InvokePattern (マウスを使わない)
+        UiDialogs.Click(Find("ClearButton"));   // WinForms は BM_CLICK (速い)、WPF は Invoke (別スレッド)。UIA の Invoke は、別のデスクトップで約 2 秒かかる (マウスは使わない)
 
-        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.Text)), "クリアしても、入力欄が空にならない");
+        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
     }
 }
 '''
@@ -1276,8 +1307,8 @@ public class MainWindowUiTests : UiTestBase
     [TestMethod]
     public void Greeting_NameEntered_ShowsGreeting()
     {
-        var name = Find(NameEdit).AsTextBox();
-        name.Text = "太郎";   // ValuePattern (キー入力を使わない。EN_CHANGE が起きる)
+        var name = Find(NameEdit);
+        UiDialogs.SetText(name, "太郎");   // 別のデスクトップでも速い (LegacyIAccessible。使えなければ ValuePattern)
 
         Assert.IsTrue(WaitFor(() => Find(GreetingText).Name == "こんにちは、太郎 さん"),
             "挨拶が、変わらない: " + Find(GreetingText).Name);
@@ -1286,13 +1317,13 @@ public class MainWindowUiTests : UiTestBase
     [TestMethod]
     public void ClearButton_Invoked_ClearsName()
     {
-        var name = Find(NameEdit).AsTextBox();
-        name.Text = "太郎";
+        var name = Find(NameEdit);
+        UiDialogs.SetText(name, "太郎");
         Assert.IsTrue(WaitFor(() => Find(ClearButton).IsEnabled), "クリアボタンが、有効にならない");
 
         UiDialogs.Click(Find(ClearButton));   // MFC のボタンは、BM_CLICK で押す (UiDialogs)
 
-        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.Text)), "クリアしても、入力欄が空にならない");
+        Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
     }
 }
 '''
@@ -1304,7 +1335,7 @@ namespace __NS__.UITests;
 /// <summary>
 /// ひな形の UI テスト。ウィンドウが開くことだけを、確かめる。画面に合わせて、テストを足す。
 ///  - WPF: 操作したいコントロールに、AutomationProperties.AutomationId を付ける。Find("Id") で探し、
-///    AsTextBox().Text = "..." (ValuePattern) / AsButton().Invoke() (InvokePattern) で操作する。
+///    UiDialogs.SetText(el, "...") / UiDialogs.Click(el) で操作する (別のデスクトップでは、UIA の ValuePattern / InvokePattern は、約 2 秒遅い。SetText は LegacyIAccessible を先に使う)。
 ///  - WinForms: 操作したいコントロールに、Name を付ける (Name が、AutomationId になる)。使い方は、WPF と同じ。
 ///  - MFC: コントロールの ID (リソースの ID の数値。IDOK = "1"、IDCANCEL = "2") が、AutomationId。IDC_STATIC は、ID で探せない (Name = 表示の文字)。
 /// </summary>

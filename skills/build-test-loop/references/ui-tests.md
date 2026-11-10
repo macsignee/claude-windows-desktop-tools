@@ -60,7 +60,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 ## UI テストを書く・足すとき
 - **UI テストのプロジェクトがなければ、ユーザーに、足してよいかを確認する** (`.slnx` / `.sln` が変わる)。足し方: `python3 -I <Skill群>/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --dry-run` (何を作るかを見せる) → 了承 → `--dry-run` なしで実行。(新しいソリューションなら `/new-solution --ui-tests flaui`。)
 - **何を書くか:** 仕様の**主要な操作の流れ** (起動して開く、入力して表示が変わる、ボタンで状態が変わる、ダイアログが開く・閉じる)。**画面あたり数件**。見た目 (レイアウト・色)、細かい計算 (単体テストで確かめる)、独自描画のコントロールは、対象にしない。
-- **要素は AutomationId で探す** (`Find("NameTextBox")`)。**操作は UIA のパターン** (`Find("Id").AsTextBox().Text = "..."` (Value)、`.AsButton().Invoke()` (Invoke))。**マウス・キーボードの入力 (`Click()`、`Keyboard.Type`) は使わない** (別のデスクトップで動かず、ユーザーの作業と干渉する)。**待ちは `WaitFor(() => 条件)`** (固定の `Thread.Sleep` を使わない)。UIA3 を使う (UIA2 は、別のデスクトップで `Invoke` が失敗する)。
+- **要素は AutomationId で探す** (`Find("NameTextBox")`)。**操作は UIA のパターン** (**テキストの入力は `UiDialogs.SetText(Find("Id"), "...")`、ボタンは `UiDialogs.Click(Find("Id"))`** (UIA の `ValuePattern` / `InvokePattern` を、直接使うと、別のデスクトップで約 2 秒かかる。`SetText` は `LegacyIAccessible` を先に使い、約 10 ms))。**マウス・キーボードの入力 (`Click()`、`Keyboard.Type`) は使わない** (別のデスクトップで動かず、ユーザーの作業と干渉する)。**待ちは `WaitFor(() => 条件)`** (固定の `Thread.Sleep` を使わない)。UIA3 を使う (UIA2 は、別のデスクトップで `Invoke` が失敗する)。
 - 操作したいコントロールに AutomationId がなければ、**XAML に付ける** (ユーザーの了承を得てから)。名前は、役割が分かるもの。同じ画面の操作が増えたら、Page Object にまとめる。
 - 名前: `対象_条件_期待`。既存のファイルの文字コード・改行に合わせる (新規は UTF-8 BOM 付き、CRLF)。
 
