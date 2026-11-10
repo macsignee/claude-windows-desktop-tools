@@ -78,3 +78,8 @@ python3 <Skill>/scripts/add_project.py "$SLN_DIR" ViewModels --kind viewmodel --
 | `NU1101` / `NU1301` | パッケージ名の誤り / NuGet に届かない。`add-package` で名前を確かめる / ネットワークを確認する |
 | 変更通知のテストが、`PropertyChanged` が上がらず落ちる (スタブ) | これは、正しい Red。実装で、`SetProperty` を呼ぶ |
 | 画面に値が出ない (テストは通る) | バインディングの綴り、`DataContext`、`InitializeComponent()`。**`wpf-check`** |
+
+## Model (リポジトリ) の Fake と本物: 契約テスト
+
+画面が使う Model (データベース・API の違いを隠すもの) は、UI テストの段階では Fake で動かし、本物はあとから作る。**Fake と本物を、同じテストで確かめる書き方 (契約テスト) は、`CONTRACT-TESTS.md`。**
+

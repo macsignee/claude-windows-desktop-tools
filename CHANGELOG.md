@@ -2,6 +2,47 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.72.0] 2026-11-10 (`--present` の赤い枠: ダイアログ・サブウィンドウの中の操作にも出す)
+
+- **原因:** 赤い枠 (`Highlight`) は、`UiTestBase` の `protected` メソッドで、`Find` と `OpenModal` の 2 か所だけが呼んでいた。`UiDialogs` (別の `static` クラス) は、これを呼べず、**`PressDialogButton`・`AnswerMessageBox`・`PickFile`・`Click`・`SelectComboItem` などの操作は、枠を通らなかった** (ダイアログの中を `dlg.FindFirstDescendant` で直接探した場合も)。ダイアログに、出せない仕組みがあったわけではない。
+- **直し:** `UiDialogs` に、**フック `OnTarget`** (`Action<AutomationElement>?`) を足した。`UiTestBase.StartApp` が `Highlight` を設定し、`StopApp` が外す。`UiDialogs` の、要素を操作する各メソッド (`Click`・`SelectComboItem`・`SelectListItem`・`SetSlider`・`SelectTab` ×2・`SetNumeric`・`PressDialogButton` (押すボタン)・`PickFile` (入力欄) と、`PressDialogButton` を通る `AnswerMessageBox`) が、操作の直前に `Target(...)` を呼ぶ。**プレゼンのモードでないときは、何もしない** (既存のテストの動きは、変わらない)。
+- **`Highlight` に、重複の省略を足した:** 同じ位置の要素を、0.8 秒以内に続けて囲むときは、2 回目を省く (`Find` のあとの `Click`、`OpenModal` のあとの `Click` など)。
+- メニュー (`ExpandMenu` など) は、対象外 (今回は、ダイアログ・サブウィンドウ)。
+- テスト: `tests/ui_tests_gen_test.sh` (67 件)。`build-test-loop/references/ui-tests.md` に、赤い枠の出る範囲を足した。
+- **既存のソリューション (UI テストあり) は、`--refresh-support-files` で `UiTestBase.cs` と `UiDialogs.cs` を更新する。** **配布が要る。**
+- **未確認 (実機):** `--present` で、ダイアログの中の操作 (ボタン・入力欄) に、赤い枠が出ること (TEST-PLAN 2-43 の DG8)。`DrawHighlight` が、ダイアログの上に、実際に見えるかは、実機で確かめる必要がある。
+
+## [2.71.0] 2026-11-09 (契約テスト: Model の Fake と本物を、同じテストで確かめる)
+
+- **契約テスト = Model のインターフェースの、決めた意味を、Fake と本物の両方に、同じテストで通すもの。** Fake が本物とずれないようにする。**契約テストは、本物の Model の仕様書でもある** (本物は、契約テストを Red → Green にして作る)。
+- **`skills/csharp-test-first/CONTRACT-TESTS.md` を追加した (C# / MSTest):** インターフェースと Fake がある層のテストのプロジェクトに、**抽象クラス `<インターフェース名>ContractTests`** (テスト本体。`protected abstract ... Create()`) と、**実装ごとの具体クラス `<実装名>ContractTests`** を置く。MSTest は、抽象クラスの `[TestMethod]` を、具体クラスごとに実行する。何を書くか (インターフェースの決めた意味だけ。実装の内部に触れない)、流れ (契約を決める → 契約テスト + Fake を Green → 本物の具体クラスを足して Red → 実装 → Green → ずれたら契約が正しい)、本物が外部を要するとき (開発用の接続先。本番で実行しない。**`[Ignore]` / `Inconclusive` で飛ばさない**。接続先が整うまで、本物の具体クラスを足さない)、`test_guard` との関係 (具体クラスの追加は問題ない。契約テストを削る・弱める・飛ばすのは検査の対象)。
+- **`skills/cpp-test-first/CONTRACT-TESTS.md` を追加した (C++ / GoogleTest):** `TYPED_TEST` (既定のコンストラクターで作れる実装) と `TEST_P` + `INSTANTIATE_TEST_SUITE_P` (作り方に引数が要るとき)。`GTEST_SKIP()` / `DISABLED_` で飛ばさない。
+- `csharp-test-first/PROJECT-LAYOUT.md`・`cpp-test-first/DLL-LAYOUT.md` に、契約テストへの案内の節を足した (`csharp-test-first/SKILL.md` は、サイズの上限に近いので、変えていない)。
+- **`ui-test-first` の SKILL.md:** 「Model の差し替え」の、「契約テストは保留」を、「契約テストで合わせる」に直した。計画・設計の記録の「依存する Model」の表に、**列「契約テスト (クラス名)」** を足した。**結合の関門に、「契約テスト (Fake と本物の両方) が `PASSED`」を足した。**
+- テスト: `tests/ui_test_first_skill_test.sh` (29 件。契約テストの手順書の中身と、`test_guard.py` の TMG002 が、手順書の禁止事項 (Ignore / Inconclusive / GTEST_SKIP / DISABLED_) を、実際に検出することの確認)。
+- **配布 (`install.sh --skills-only`) が要る。**
+- **未確認 (実機):** 抽象クラスの契約テストが、具体クラスごとに実行されること、本物の具体クラスを足して Red → Green になること、`test_guard` が契約テストの改変を検出すること、C++ の `TYPED_TEST` (TEST-PLAN 2-45)。
+
+## [2.70.0] 2026-11-09 (`ui-test-first`: Model の Fake ↔ 本物の切り替えと、結合の手順)
+
+- **背景:** 画面が使う Model (データベース・API の違いを隠す、リポジトリのようなもの) は、UI テストの段階では、まだ、本物がないことが多い。UI テストは **Fake (メモリ上の実装)** で回し、本物ができてから、**結合** する。その流れを、`ui-test-first` に入れた。
+- **起動の切り替え (環境変数 `APP_MODEL` = `fake` / `real`):** `UiTestBase` (`add_ui_tests.py` のひな形) が、アプリの起動の前に、`APP_MODEL` を設定する (`ModelMode`)。**値は、環境変数 `UITEST_MODEL` > `uitest.settings` の `model=` > `fake` (既定)。** アプリの、組み立てる場所 (`App.xaml.cs` / `Program.cs` / `InitInstance`) が読む。読まないアプリには、影響しない。`ui-trace.txt` の先頭に `model: fake` と出る。`uitest.settings` のひな形に `model=fake` を足した。`AppLocator.SolutionDir()` を足した。**ウォッチャー (`host-tools`) の変更は、要らない** (`uitest.settings` の未知の行は、無視される)。
+- **`ui-test-first` の SKILL.md:** 計画に **「依存する Model」の表** (Model (インターフェース) / 実装 (Fake / 本物) / 状態 (Fake のみ / 本物あり / 結合済み))、設計の記録に同じ節を足した。**新しい節「Model の差し替え (Fake ↔ 本物)」:** インターフェースに依存する、切り替えは組み立てる場所で `APP_MODEL` を読む (C# と C++ の書き方)、**Release のビルドでは読まない** (`#if DEBUG`)、Fake はアプリ (またはデータ層) に置く (`InMemory<名前>Repository`)。**新しい節「結合 (Fake → 本物)」:** (1) 関門 = 本物の単体テストが `PASSED`、(2) `model=real` に切り替える (UI テストのコードは変えない。本番の接続先で実行しない)、(3) 同じ UI テストを再実行、(4) Red の原因を分ける (Fake が違う / 本物の不具合 / データ・時間の違い。アサーションを弱めない)、(5) 結合後も Fake を捨てない (普段は `model=fake`、結合の確認のときだけ `real`)。
+- (契約テストは、この版では保留にした。次の v2.71.0 で追加した。)
+- `build-test-loop/references/ui-tests.md` に `APP_MODEL` を足した。
+- テスト: `tests/ui_tests_gen_test.sh` (66 件)、`tests/ui_test_first_skill_test.sh` (27 件)。
+- **既存のソリューション (UI テストあり) は、`--refresh-support-files` で `UiTestBase.cs` を更新し、`uitest.settings` に `model=fake` の行を足す** (足さなくても、既定は `fake`)。**配布 (`install.sh --skills-only`) が要る。**
+- **未確認 (実機):** Fake でアプリが動き、`model=real` で本物に切り替わること (TEST-PLAN 2-44)。
+
+## [2.69.0] 2026-11-09 (`ui-test-first`: メインウィンドウ以外 (ダイアログ・サブウィンドウ) の画面を、設計・テストできるようにする)
+
+- **`UiTestBase` に `Find(AutomationElement root, string automationId)` を足した** (`add_ui_tests.py` のひな形)。ダイアログ・サブウィンドウの中の部品を、`var dlg = OpenModal(Find("EditButton")); var ok = Find(dlg, "OkButton");` の形で探せる。**`Find("Id")` と同じに、5 秒まで探し直し、操作の記録 (trace) を残し、プレゼンのモードでは赤い枠で囲む** (`Find("Id")` は、`Find(MainWindow, "Id")` の形に、まとめ直した。動きは、同じ。trace は、メインのときは、これまでと同じ文言で、ダイアログのときは、`(in <ウィンドウ名>)` が付く)。
+- **`ui-test-first` の SKILL.md:** 計画に、**「画面の種類 (メインウィンドウか、ダイアログ・サブウィンドウか)」** を足した。メインウィンドウではない画面は、**種類 (モーダル / モードレス)・開き方 (メインの、どのボタン・メニューか。開くボタンも、部品として計画に含め、メイン側の View に足す)・閉じ方と結果・開くときの前提** を、表にして示す。**ダイアログだけを、直接、開く道具は、WPF / WinForms にはない** (MFC の DLL は、`add_ui_host.py` の画面ホストが、ダイアログを、そのまま開く) ことを、明記した。設計の記録 (`docs/design/<画面>.md`) に、「種類」と「開き方と閉じ方」の節を足した。手順 2 に、`Find(window, "Id")` の使い方を足した。
+- `build-test-loop/references/ui-tests.md` に、`Find(window, "Id")` を足した。
+- テスト: `tests/ui_tests_gen_test.sh` (65 件)、`tests/ui_test_first_skill_test.sh` (25 件)。
+- **既存のソリューション (UI テストあり) は、`--refresh-support-files` で、`UiTestBase.cs` を更新する。** **配布 (`install.sh --skills-only`) が要る。**
+- **未確認 (実機):** WPF / WinForms で、ダイアログを開いて、`Find(dlg, "Id")` で操作し、閉じて、Green になること (TEST-PLAN 2-43)。
+
 ## [2.68.0] 2026-11-09 (`msbuild-common` を、別のリポジトリ `macsignee/msbuild-common` に分離する)
 
 - **`msbuild-common/` (正本) を、このリポジトリから外した。** 正本は、別のリポジトリ **`macsignee/msbuild-common`** (履歴は、`git subtree split --prefix=msbuild-common` で引き継ぐ。取り出し元は、v2.67.2 = msbuild-common 0.2.2)。**運用は、`host-tools` と同じ:** 編集・コミット・push は、WSL の clone (`~/src/msbuild-common`) で行い、リポジトリの `install.sh` が、Windows 側の配布先 (`/mnt/c/tools/msbuild-common` = `C:\tools\msbuild-common`。環境変数 `MSBUILD_COMMON_DIR` が指す) へ、**コピー**する (`cmp` で確認)。**配布先は、git のリポジトリにしない (clone しない)** — Windows 側の所有者・アクセス権の問題を、避けるため。

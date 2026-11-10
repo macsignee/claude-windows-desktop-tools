@@ -123,11 +123,41 @@ public abstract class UiTestBase
     /// window を渡すと、そのウィンドウ (OpenModal が返した、ダイアログなど) を撮る。省略すると、メインウィンドウ。</summary>
     protected void Snap(string name, Window? window = null) => Screenshots.Save(window ?? MainWindow, name);
 
+    /// <summary>アプリが使う Model (リポジトリなど。データベース・API の違いを隠すもの) を、Fake (メモリ上の実装) にするか、本物にするか。
+    /// 環境変数 UITEST_MODEL (fake / real) > uitest.settings の model= > fake (既定)。StartApp が、環境変数 APP_MODEL として、アプリに渡す
+    /// (アプリの、組み立てる場所 (App.xaml.cs / Program.cs) が読む。読まないアプリには、影響しない)。</summary>
+    protected string ModelMode => _modelMode ??= ResolveModelMode();
+    private string? _modelMode;
+
+    private string ResolveModelMode()
+    {
+        var v = Environment.GetEnvironmentVariable("UITEST_MODEL");
+        if (string.IsNullOrWhiteSpace(v))
+        {
+            try
+            {
+                var f = Path.Combine(AppLocator.SolutionDir(), AppName + ".UITests", "uitest.settings");
+                if (File.Exists(f))
+                {
+                    foreach (var line in File.ReadLines(f))
+                    {
+                        var t = line.Trim();
+                        if (t.StartsWith("model=", StringComparison.OrdinalIgnoreCase)) { v = t.Substring(6).Trim(); break; }
+                    }
+                }
+            }
+            catch (Exception) { /* 読めなければ、既定 (fake) */ }
+        }
+        return string.Equals((v ?? "").Trim(), "real", StringComparison.OrdinalIgnoreCase) ? "real" : "fake";
+    }
+
     [TestInitialize]
     public void StartApp()
     {
-        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms{(Presenting ? ", present" : "")})");
+        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms, model: {ModelMode}{(Presenting ? ", present" : "")})");
         var exe = AppLocator.Find(AppName);
+        Environment.SetEnvironmentVariable("APP_MODEL", ModelMode);   // 起動するアプリが、受け継ぐ
+        UiDialogs.OnTarget = Highlight;   // UiDialogs の操作 (ダイアログ・サブウィンドウの中も) が、操作する要素を、赤い枠で囲む (プレゼンのモードだけ)
         App = Application.Launch(exe);
         Automation = new UIA3Automation();
         MainWindow = UiDialogs.GetAppWindow(App, Automation, TimeSpan.FromSeconds(15));
@@ -138,6 +168,7 @@ public abstract class UiTestBase
     [TestCleanup]
     public void StopApp()
     {
+        UiDialogs.OnTarget = null;
         var outcome = TestContext.CurrentTestOutcome;
         try
         {
@@ -166,23 +197,30 @@ public abstract class UiTestBase
         UiTrace.Write($"=== {TestContext.TestName}: {outcome}");
     }
 
-    /// <summary>AutomationId で、要素を探す。なければ、テストを失敗にする。(MFC のコントロールは、リソースのコントロール ID が、AutomationId)</summary>
-    protected AutomationElement Find(string automationId)
+    /// <summary>AutomationId で、メインウィンドウの中の要素を探す。なければ、テストを失敗にする。(MFC のコントロールは、リソースのコントロール ID が、AutomationId)
+    /// ダイアログ・サブウィンドウの中は、Find(dlg, "Id") を使う。</summary>
+    protected AutomationElement Find(string automationId) => FindIn(MainWindow, automationId);
+
+    /// <summary>ダイアログ・サブウィンドウの中の要素を、AutomationId で探す (root に、OpenModal / WaitWindow が返した window を渡す)。
+    /// Find と同じに、5 秒まで探し直し、操作の記録 (trace) を残し、プレゼンのモードでは赤い枠で囲む。</summary>
+    protected AutomationElement Find(AutomationElement root, string automationId) => FindIn(root, automationId);
+
+    private AutomationElement FindIn(AutomationElement root, string automationId)
     {
-        UiTrace.Write($"find: {automationId}");
+        UiTrace.Write(ReferenceEquals(root, MainWindow) ? $"find: {automationId}" : $"find: {automationId} (in {root.Name})");
         if (SlowMoMs > 0) Thread.Sleep(SlowMoMs);
         // 起動直後・画面の切り替え直後は、まだ、描画されていない: 5 秒まで、探し直す (偽の Red を、避ける)
         AutomationElement? element = null;
         var sw = System.Diagnostics.Stopwatch.StartNew();
         do
         {
-            try { element = MainWindow.FindFirstDescendant(cf => cf.ByAutomationId(automationId)); }
+            try { element = root.FindFirstDescendant(cf => cf.ByAutomationId(automationId)); }
             catch (Exception) { /* UIA が、一時的に失敗する (開く途中・閉じる途中) */ }
             if (element != null) break;
             Thread.Sleep(150);
         }
         while (sw.ElapsedMilliseconds < 5000);
-        if (element == null) throw new AssertFailedException($"AutomationId '{automationId}' の要素が、5 秒探しても、見つからない");
+        if (element == null) throw new AssertFailedException($"AutomationId '{automationId}' の要素が、5 秒探しても、見つからない" + (ReferenceEquals(root, MainWindow) ? "" : $" ({root.Name} の中)"));
         Highlight(element);
         return element;
     }
@@ -191,13 +229,23 @@ public abstract class UiTestBase
     private static bool Presenting => Environment.GetEnvironmentVariable("UITEST_PRESENT") == "1";
 
     /// <summary>プレゼンのモードのとき、これから操作する要素を、赤い枠で囲む (見ている人に、何を操作するかを、示す)。ふだんは、何もしない。
-    /// Find と OpenModal が、呼ぶ。Find を通さずに、操作する要素は、自分で呼ぶ。</summary>
+    /// Find / OpenModal と、UiDialogs の操作 (Click・PressDialogButton・PickFile・SelectComboItem など。StartApp が、UiDialogs.OnTarget に、これを設定する) が、呼ぶ。
+    /// 同じ要素を、続けて (0.8 秒以内に) 囲むときは、2 回目を省く (Find のあとの Click など)。</summary>
     protected void Highlight(AutomationElement element)
     {
         if (!Presenting) return;
-        try { element.DrawHighlight(false, System.Drawing.Color.Red, TimeSpan.FromMilliseconds(Math.Max(SlowMoMs, 600))); }
+        try
+        {
+            var rect = element.BoundingRectangle;
+            if (rect == _lastHighlightRect && (DateTime.UtcNow - _lastHighlightAt).TotalMilliseconds < 800) return;
+            _lastHighlightRect = rect;
+            _lastHighlightAt = DateTime.UtcNow;
+            element.DrawHighlight(false, System.Drawing.Color.Red, TimeSpan.FromMilliseconds(Math.Max(SlowMoMs, 600)));
+        }
         catch (Exception) { /* 枠が描けなくても、テストを止めない */ }
     }
+    private System.Drawing.Rectangle _lastHighlightRect;
+    private DateTime _lastHighlightAt = DateTime.MinValue;
 
     /// <summary>ダイアログを開くボタン / メニュー項目を押して、モーダルなダイアログが、出るのを待つ (UiDialogs.Click が、フレームワークに合う方法で、押す)。MessageBox・ファイルダイアログも、同じ。</summary>
     protected Window OpenModal(AutomationElement opener)
@@ -298,9 +346,12 @@ LOCATOR_CS = '''namespace __NS__.UITests;
 /// <summary>アプリの exe を探す。ウォッチャー (trigger_uitest.flag) が、環境変数 UITEST_SOLUTION_DIR / UITEST_CONFIGURATION / UITEST_PLATFORM を渡す。</summary>
 internal static class AppLocator
 {
+    /// <summary>ソリューションのフォルダ。環境変数 UITEST_SOLUTION_DIR (ウォッチャーが渡す)。なければ、テストの exe から、上へ探す。</summary>
+    public static string SolutionDir() => Environment.GetEnvironmentVariable("UITEST_SOLUTION_DIR") ?? FindSolutionDir();
+
     public static string Find(string appName)
     {
-        var sol = Environment.GetEnvironmentVariable("UITEST_SOLUTION_DIR") ?? FindSolutionDir();
+        var sol = SolutionDir();
         var cfg = Environment.GetEnvironmentVariable("UITEST_CONFIGURATION") ?? "Debug";
         var platform = Environment.GetEnvironmentVariable("UITEST_PLATFORM");
         var candidates = new List<string>();
@@ -364,6 +415,18 @@ namespace __NS__.UITests;
 /// </summary>
 internal static partial class UiDialogs
 {
+    /// <summary>これから操作する要素を、知らせる先。UiTestBase.StartApp が、Highlight (プレゼンのモードで、赤い枠) を設定する。
+    /// 設定がなければ (UiTestBase を使わないとき) 何もしない。</summary>
+    public static Action<AutomationElement>? OnTarget { get; set; }
+
+    /// <summary>操作の直前に、要素を、OnTarget に知らせる。枠が描けなくても、操作を止めない。</summary>
+    internal static void Target(AutomationElement? element)
+    {
+        if (element == null) return;
+        try { OnTarget?.Invoke(element); }
+        catch (Exception) { /* 枠が描けなくても、操作を止めない */ }
+    }
+
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
     [DllImport("user32.dll")] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string? text);
@@ -450,6 +513,7 @@ internal static partial class UiDialogs
     /// ウィンドウを持たない要素 (WPF のボタン、WinForms のメニュー項目) は、UIA の Invoke を、別スレッドで呼ぶ。使った方法を、返す。</summary>
     public static string Click(AutomationElement element)
     {
+        Target(element);
         var hwnd = Hwnd(element);
         if (hwnd != IntPtr.Zero && element.ControlType != ControlType.MenuItem)
         {
@@ -598,6 +662,7 @@ internal static partial class UiDialogs
     /// WPF: UIA の ComboBox.Select。選べたかは、読み戻して確かめる。使った方法を、返す。</summary>
     public static string SelectComboItem(AutomationElement combo, string text, params string[] knownItems)
     {
+        Target(combo);
         var tried = new List<string>();
         var methods = new List<(string Name, Action Do)>();
         var hwnd = Hwnd(combo);
@@ -630,6 +695,7 @@ internal static partial class UiDialogs
     /// <summary>リストボックスの、index 番目を、選ぶ。ウィンドウを持つリスト: LB_SETCURSEL + 親へ WM_COMMAND(LBN_SELCHANGE) (UIA の Select では、通知が、アプリへ飛ばない)。WPF: UIA の Select。</summary>
     public static string SelectListItem(AutomationElement list, int index)
     {
+        Target(list);
         var hwnd = Hwnd(list);
         if (hwnd != IntPtr.Zero)
         {
@@ -656,6 +722,7 @@ internal static partial class UiDialogs
     /// <summary>スライダーの値を設定する。RangeValue → LegacyIAccessible.SetValue → TBM_SETPOS + WM_HSCROLL の順に試し、読み戻して、確かめる (WinForms の TrackBar は、RangeValue がない)。</summary>
     public static string SetSlider(AutomationElement slider, int value)
     {
+        Target(slider);
         var methods = new (string Name, Action Do)[]
         {
             ("RangeValue.SetValue", () => slider.Patterns.RangeValue.Pattern.SetValue(value)),
@@ -721,6 +788,7 @@ internal static partial class UiDialogs
     /// 選ばれていないタブの中の要素は、UIA のツリーに出ない。</summary>
     public static void SelectTab(AutomationElement tab, string name, params string[] tabNamesInOrder)
     {
+        Target(tab);
         var hwnd = Hwnd(tab);
         if (hwnd == IntPtr.Zero)
         {
@@ -741,6 +809,7 @@ internal static partial class UiDialogs
     /// <summary>タブを、順番 (0 始まり) で選ぶ (ウィンドウを持つ Tab: TCM_GETCURSEL + 矢印キー。WPF: UIA の TabItem の SelectionItem)。</summary>
     public static void SelectTab(AutomationElement tab, int index)
     {
+        Target(tab);
         var hwnd = Hwnd(tab);
         if (hwnd == IntPtr.Zero)
         {
@@ -825,6 +894,7 @@ internal static partial class UiDialogs
     /// → edit の Value.SetValue (MFC / WPF)。**MFC のスピンの上下ボタンの Invoke は、値が変わらず、RangeValue もない** (実機で確認)。範囲外は、アプリの規則に従う (WPF の TextBox は、そのまま)。</summary>
     public static string SetNumeric(AutomationElement edit, int value, AutomationElement? spin = null)
     {
+        Target(edit);
         var methods = new List<(string Name, Action Do)>();
         if (spin != null)
         {
@@ -883,6 +953,7 @@ internal static partial class UiDialogs
     /// MessageBox の ID: はい = 6、いいえ = 7、OK = 1、キャンセル = 2。ファイルダイアログの 開く / 保存 = 1、キャンセル = 2。</summary>
     public static string PressDialogButton(Window main, AutomationElement dialog, int id)
     {
+        try { Target(dialog.FindFirstDescendant(cf => cf.ByAutomationId(id.ToString()))); } catch (Exception) { /* 見つからなくても、操作は、続ける */ }
         var methods = new (string Name, Action Do)[]
         {
             ("BM_CLICK (GetDlgItem)", () =>
@@ -940,7 +1011,7 @@ internal static partial class UiDialogs
     /// <summary>ファイルダイアログに、パスを入れて、開く / 保存 (accept = true) か、キャンセル (false) を押す。</summary>
     public static string PickFile(Window main, AutomationElement dialog, string path, bool accept = true)
     {
-        if (accept) FileNameEdit(dialog).Patterns.Value.Pattern.SetValue(path);
+        if (accept) { var edit = FileNameEdit(dialog); Target(edit); edit.Patterns.Value.Pattern.SetValue(path); }
         Thread.Sleep(300);
         return PressDialogButton(main, dialog, accept ? 1 : 2);
     }
@@ -1317,6 +1388,9 @@ def settings_text(kind):
             f'desktop={desktop}\n'
             f'# slowmo: 操作の間の待ち (ミリ秒)。目で確かめるときだけ (例: 800)\n'
             f'slowmo=0\n'
+            f'# model: アプリが使う Model (リポジトリなど。データベース・API の違いを隠すもの) を、fake (メモリ上の実装。速く、安定) にするか、real (本物) にするか。\n'
+            f'# UI テストが、環境変数 APP_MODEL として、アプリに渡す (アプリの、組み立てる場所が、読む)。結合のときだけ、real。環境変数 UITEST_MODEL が、これより優先される\n'
+            f'model=fake\n'
             f'# timeout: ウォッチャーが、このプロジェクトの UI テストを強制終了するまでの時間 (秒。既定 600)。UI テストが多い、重いときは、書く。1 回だけなら、uitest_once.sh --ui-timeout\n'
             f'# timeout=1800\n')
 
