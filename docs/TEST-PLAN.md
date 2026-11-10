@@ -1073,3 +1073,16 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | TC5 | **C++ の契約テスト:** `LogicLayer` に、リポジトリのインターフェースと Fake を作り、`LogicLayerTest` に `TYPED_TEST_SUITE` の契約テストを作る (`CONTRACT-TESTS.md`)。`build-test-loop` | `PASSED` (契約のテスト数 × 実装数) | 未 |
 | TC6 | **`/ui-test-first` での、契約テスト → Fake → UI → 本物 → 結合:** 画面を頼む | 計画の「依存する Model」の表に、列「契約テスト」が出る。結合の関門で、契約テストが、両方で `PASSED` であることを、確かめる | 未 |
 
+### 2-46. `UiDialogs.SetText` (v2.75.0。別のデスクトップの、約 2 秒の固定費を避ける)
+
+**静的テスト (`tests/ui_tests_gen_test.sh`) は通っている。** 準備: マージして、`install.sh --skills-only` で配布する。**既存の `dg1Wpf`・`dg7aWf`・`dg11Mfc` は、`--refresh-support-files` で `UiTestBase.cs` / `UiDialogs.cs` を更新する** (サンプルの `MainWindowUiTests.cs` は更新されないので、`SetText` を使う形に、手で直すか、新しいソリューションを作る)。DG10 の一時のテスト (`DgTmp*UiTests.cs`) は、削除する。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| ST1 | **WPF (`dg1Wpf`):** `Greeting_NameEntered_ShowsGreeting` が `UiDialogs.SetText` を使う形で、`--separate` で実行 | `PASSED`。`find: NameTextBox` から次の `find` まで **約 0.01 秒** (これまでは 約 2.05 秒)。挨拶が、正しく更新される | 未 |
+| ST2 | **WinForms (`dg7aWf`)** と **MFC (`dg11Mfc`)**: ST1 と同じ | `PASSED`。同じく **約 0.01 秒**。MFC の挨拶 (`こんにちは、太郎 さん`)・WinForms の挨拶が、化けずに更新される | 未 |
+| ST3 | **`ClearButton` (WinForms・WPF の、`UiDialogs.Click` に切り替えたサンプル):** `--separate` で実行 | `PASSED`。WinForms は、`Invoke` の 約 2 秒が、なくなる (`BM_CLICK`)。WPF は、約 1 秒の待ちが残る | 未 |
+| ST4 | **3 件 (`MainWindowUiTests`) の合計時間 (別のデスクトップ):** WPF・WinForms・MFC | v2.74.1 の約 14 秒 (WPF) → **約 8 秒以内** (`Text` の 2 秒 × 2 件と、`Click` の分を、避ける) | 未 |
+| ST5 | **`LegacyIAccessible` で値が合わない部品 (フォールバック):** (任意) パスワード欄など、`LegacyIAccessible.SetValue` の読み戻しが一致しない部品に、`SetText` | `ValuePattern.SetValue` に戻り (約 2 秒)、値が設定される。戻り値に、`LegacyIAccessible.SetValue: 読み戻した値が、一致しない` が付く | 未 |
+| ST6 | **ユーザーのデスクトップ (`--visible`) でも、動く:** ST1 を `--visible` で | `PASSED` (`ValuePattern` でも `LegacyIAccessible` でも速い) | 未 |
+
