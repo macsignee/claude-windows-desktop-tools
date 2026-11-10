@@ -572,6 +572,20 @@ internal static partial class UiDialogs
             throw new InvalidOperationException("Win32 (MFC) のメニュー項目は、UIA の Invoke では、コマンドが動かない。UiDialogs.MenuCommand(MainWindow, コマンド ID) を使う");
         }
 
+        // WPF のボタン: UIA の Invoke は、別のデスクトップで約 2 秒かかる。LegacyIAccessible.DoDefaultAction は、数 ms (実機で計測)。先に試す。
+        // ダイアログを開くボタンで ShowDialog の中から戻らないことがあるので、別スレッドで呼び、1 秒だけ待つ。失敗したら、Invoke に戻る
+        if (Framework(element) == "WPF" && element.Patterns.LegacyIAccessible.IsSupported)
+        {
+            try
+            {
+                var legacy = element.Patterns.LegacyIAccessible.Pattern;
+                var act = Task.Run(() => legacy.DoDefaultAction());
+                act.Wait(TimeSpan.FromSeconds(1));
+                return "LegacyIAccessible.DoDefaultAction";
+            }
+            catch (Exception) { /* Invoke に戻る */ }
+        }
+
         var invoke = element.Patterns.Invoke.PatternOrDefault
             ?? throw new InvalidOperationException($"Invoke パターンがない ({element.ControlType} '{element.Name}')。WPF の、サブメニューを持つ項目は、ExpandMenu で開く");
         var task = Task.Run(() => invoke.Invoke());
@@ -1236,7 +1250,7 @@ public class MainWindowUiTests : UiTestBase
         UiDialogs.SetText(name, "太郎");
         Assert.IsTrue(WaitFor(() => Find("ClearButton").IsEnabled), "クリアボタンが、有効にならない");
 
-        UiDialogs.Click(Find("ClearButton"));   // WinForms は BM_CLICK (速い)、WPF は Invoke (別スレッド)。UIA の Invoke は、別のデスクトップで約 2 秒かかる (マウスは使わない)
+        UiDialogs.Click(Find("ClearButton"));   // WinForms / MFC は BM_CLICK、WPF は DoDefaultAction (どちらも速い。UIA の Invoke は、別のデスクトップで約 2 秒かかる)
 
         Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
     }
@@ -1275,7 +1289,7 @@ public class MainWindowUiTests : UiTestBase
         UiDialogs.SetText(name, "太郎");
         Assert.IsTrue(WaitFor(() => Find("ClearButton").IsEnabled), "クリアボタンが、有効にならない");
 
-        UiDialogs.Click(Find("ClearButton"));   // WinForms は BM_CLICK (速い)、WPF は Invoke (別スレッド)。UIA の Invoke は、別のデスクトップで約 2 秒かかる (マウスは使わない)
+        UiDialogs.Click(Find("ClearButton"));   // WinForms / MFC は BM_CLICK、WPF は DoDefaultAction (どちらも速い。UIA の Invoke は、別のデスクトップで約 2 秒かかる)
 
         Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
     }
@@ -1580,7 +1594,7 @@ def claude_md_section(ui, app):
 - **UI テストは、ビルド → テスト (`build_test_once.sh`) の流れには、含めない** (遅く、制限時間を長く取る必要がある)。**ユーザーが求めたとき**だけ、`uitest_once.sh "$PWD" 900` (`build-test-loop` Skill の `scripts/uitest_once.sh`) で、別に実行する。**画面を、プロンプトで作りながら、UI テストを先に書いて、繰り返し実行するときは、`/ui-test-first`。** 実行を絞るには `--filter "FullyQualifiedName~クラス名"`、制限時間を長くするには `--ui-timeout 1800`、または `uitest.settings` の `timeout=`。
 - **通常のテスト (`build_test_once.sh`) には、含まれない。** 別のデスクトップで実行され (`-UiTestDesktop separate`)、ユーザーの画面を乱さない。「マウスとキーボードに触らないで」と頼む必要は、ない。
 - 要素は、**AutomationId** で探す (WPF: `AutomationProperties.AutomationId`。WinForms: コントロールの `Name`。MFC: コントロールの ID の数値)。失敗したときは、`.claude-logs/ui-screenshots/*.png` を、Read ツールで開いて、画面の状態を見る。仕様変更で、期待値が古くなったなら、画面の実際の状態を確認して、期待値を直す (アサーションを弱めない)。
-- **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `Invoke` を別スレッド。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。
+- **ダイアログ・メニュー・コンボなどを操作するときは、`UiDialogs` (と、`UiTestBase.OpenModal`) を使う。** フレームワークに合う方法に、自動で切り替わる (自分で、`Invoke` / `Select` を、直接呼ばない): ボタンは `BM_CLICK` (WinForms / MFC)、WPF は `LegacyIAccessible.DoDefaultAction` (だめなら `Invoke` を別スレッド)。コンボは `SelectComboItem` (WinForms / MFC は、項目の一覧を渡す)、リストは `SelectListItem`、スライダーは `SetSlider`、スクロールバーは `SetScrollBar`、MessageBox は `AnswerMessageBox`、ファイルダイアログは `PickFile`、モードレスは `WaitWindow`。
 - **目視確認 (プレビュー):** UI テストは、いつもは、裏 (別のデスクトップ) で実行する。**見たいときだけ、その画面を、ユーザーのデスクトップに出す:** `uitest_once.sh "$PWD" --filter "TestCategory=Preview" --preview` (`PreviewUiTests.cs` の、アサーションのないテストが、画面を見せたい状態にして、`HoldForViewing()` で、60 秒、見せる。ウィンドウを閉じると、早く終わる)。画面を足したら、その画面のプレビューを、`PreviewUiTests.cs` に足す。`Snap("名前")` は、裏でも PNG を残す (Claude が、画像として読む)。
 - **リスト・ツリー・スピン・日付・タブも、`UiDialogs` を使う:** `ListItems` / `ClickColumnHeader` (列ヘッダーの並べ替え) / `SetNumeric` (スピン) / `ToggleTreeNode` (ツリーのチェック) / `OpenDropDown` + `FindCalendar` (日付のカレンダー) / `PostKey` + `Vk.*` (キー) / `SelectTab` (**WinForms / MFC は、タブの名前を、並び順で、全部渡す**)。`SendMessage` は、すべて 5 秒のタイムアウトつき。フレームワークごとの違いの表: `build-test-loop` の「コントロール別の、実機の結果の表」。
 - **アプリ側 (View) の注意:** WPF は、リスト・ツリーの項目のデータのクラスに `ToString()` を実装し、チェックは `Checked` / `Unchecked` で受ける (UIA の Toggle は Click を起こさない)。WinForms は、`ListView` のタイル (`View.Tile`) のとき、`CheckBoxes = false` にする (両立しない)。`wpf-check` (UI004) / `winforms-check` (WFD008) が、検出する。

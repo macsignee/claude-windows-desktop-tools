@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.76.0] 2026-11-10 (UI テスト: WPF のボタンの `UiDialogs.Click` を、`DoDefaultAction` で、速くする)
+
+- **`UiDialogs.Click` (WPF のボタン):** UIA の `Invoke` (別のデスクトップで約 2 秒) の前に、`LegacyIAccessible.DoDefaultAction` (数 ms) を、**別スレッドで呼び、1 秒だけ待つ** (ダイアログを開くボタンが、`ShowDialog` の中から戻らなくても、先へ進む)。例外が出たら、従来の `Invoke` (別スレッド) に戻る。戻り値は `"LegacyIAccessible.DoDefaultAction"`。
+- WinForms / MFC (`BM_CLICK`)、WPF のメニュー項目は、変えていない。
+- ひな形のサンプルと `ui-test-first` の、操作の書き方の説明を、合わせた。
+- **実機の確認が、まだ:** TEST-PLAN 2-47 (CL1〜CL3)。`DoDefaultAction` が、WPF のボタンで、本当に `Click` として動くか、ダイアログを開くボタンでも、先へ進むか。
+- テスト: `tests/ui_tests_gen_test.sh` (73 件)。
+
 ## [2.75.0] 2026-11-10 (UI テスト: `UiDialogs.SetText` で、別のデスクトップの、約 2 秒の固定費を避ける)
 
 - **調査 (DG10、2026-11-10。`dg1Wpf`・`dg7aWf`・`dg11Mfc`、別のデスクトップ):** UIA のネイティブのパターンの「操作」 (`ValuePattern.SetValue`・`InvokePattern.Invoke`) だけが、**毎回 約 2.0 秒**かかる (WPF・WinForms・MFC で同じ)。FlaUI でも、UIA の `ConnectionTimeout` (200 ms にしても同じ) でも、アプリの UI スレッド (`WM_NULL` の往復は 0 ms) でも、入力待ち (`WaitForInputIdle` は 0 ms) でもない。**`LegacyIAccessible` (MSAA 経由) は、同じ条件で、`SetValue` が WPF 13 ms・WinForms 11 ms・MFC 5 ms、`DoDefaultAction` (ボタン) が 3 / 11 / 2 ms。** `WM_SETTEXT` (Win32 のメッセージ) も 3 ms。なぜ 2 秒かは、特定していない。
