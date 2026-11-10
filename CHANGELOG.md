@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.77.0] 2026-11-10 (UI テスト: `UiDialogs.CloseWindow`。`ui-test-first` が、`SetText` と `CloseWindow` を、案内する)
+
+- **実機の確認 (DG7、WinForms `dg7aWf`、別のデスクトップ) で分かったこと:** `/ui-test-first` が書いた `EditGreetingUiTests` は、`.AsTextBox().Text = ...` と `dlg.Close()` だった。入力 1 回に 約 2 秒、`dlg.Close()` (FlaUI `Window.Close()`) に 約 4 秒かかった。原因は、`ui-test-first` が、`SetText` を案内しておらず (`build-test-loop/references/ui-tests.md` にだけあった)、既存の古いサンプルを、まねたこと。
+- **`UiDialogs.CloseWindow(window)` を足した:** `WM_CLOSE` を `PostMessage` して、「× で閉じる」操作にする。ハンドルがない要素は、`Window.Close()` に戻る。呼んだあとは、`WaitModalClosed()` で、閉じたことを確かめる。**実機の計測は、まだ** (TEST-PLAN 2-48 CW1・CW2)。
+- **`ui-test-first` (`SKILL.md`・`references/dialogs.md`) と `build-test-loop/references/ui-tests.md`:** 入力欄は `UiDialogs.SetText`、ダイアログの × は `UiDialogs.CloseWindow(dlg)`、と案内した (`.Text =` / `ValuePattern.SetValue` / `.Invoke()` / `dlg.Close()` は、別のデスクトップで遅い)。
+- **気づいた点 (今回は、変えていない):** UI-LAY-006 (ボタンの並び。OK が行頭側) は、`ui_guideline_check.py` の検査に、ない (レビューの手順の領分)。DG7 の `EditGreetingForm` は、「キャンセル」「OK」の順だった。
+- テスト: `tests/ui_tests_gen_test.sh` (74 件)、`tests/ui_test_first_skill_test.sh` (33 件)。
+
 ## [2.76.0] 2026-11-10 (UI テスト: WPF のボタンの `UiDialogs.Click` を、`DoDefaultAction` で、速くする)
 
 - **`UiDialogs.Click` (WPF のボタン):** UIA の `Invoke` (別のデスクトップで約 2 秒) の前に、`LegacyIAccessible.DoDefaultAction` (数 ms) を、**別スレッドで呼び、1 秒だけ待つ** (ダイアログを開くボタンが、`ShowDialog` の中から戻らなくても、先へ進む)。例外が出たら、従来の `Invoke` (別スレッド) に戻る。戻り値は `"LegacyIAccessible.DoDefaultAction"`。

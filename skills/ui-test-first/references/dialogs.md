@@ -9,3 +9,4 @@
 ## テストの書き方 (手順 2)
 
 - **ダイアログ・サブウィンドウの中の部品は、`Find(window, "Id")` で探す。** `var dlg = OpenModal(Find("EditButton")); var ok = Find(dlg, "OkButton"); UiDialogs.Click(ok); Assert.IsTrue(WaitModalClosed());` の形 (`Find("Id")` は、メインウィンドウの中だけ。`Find(window, "Id")` は、同じ探し直し (5 秒)・操作の記録・プレゼンの赤い枠が、働く)。モードレスは、`WaitWindow(title)` が返す window を渡す。ダイアログの外観は、`Snap("名前", dlg)` で撮る。
+- **入力と閉じ方は、遅い書き方を避ける (別のデスクトップの実測):** 入力欄は `UiDialogs.SetText(Find(dlg, "EditNameTextBox"), "次郎")` (`.AsTextBox().Text =` は、1 回に約 2 秒)。ボタンは `UiDialogs.Click`。**× で閉じるテストは `UiDialogs.CloseWindow(dlg)` のあと `WaitModalClosed()`** (`dlg.Close()` は、約 4 秒)。既存のサンプルのテストが、古い書き方でも、まねをしない。
