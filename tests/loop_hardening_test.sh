@@ -136,6 +136,7 @@ done
 
 # ---- 文書 (Skill) の整合: 止めどき・TIMEOUT・禁止リスト・Green の条件・UI のループ
 BTL="$ROOT/skills/build-test-loop/SKILL.md"; AB="$ROOT/skills/auto-build/SKILL.md"; WTF="$ROOT/skills/csharp-test-first/SKILL.md"; CTF="$ROOT/skills/cpp-test-first/SKILL.md"; UTF="$ROOT/skills/ui-test-first/SKILL.md"
+cat "$UTF" "$ROOT/skills/ui-test-first/references/"*.md > "$T/ui-test-first-all.md"; UTF="$T/ui-test-first-all.md"   # v2.74.0: SKILL.md を、references/ に分けた。内容の確認は、まとめて読む
 for f in "$AB" "$BTL"; do
     ok "$(basename "$(dirname "$f")"): TIMEOUT (rc 5) means stop and report, no retry (the old 'retry once' is gone); BAD_ARGS row exists" "$(grep -q '再試行しない' "$f" && ! grep -q '1回だけ再試行可' "$f" && grep -q '`BAD_ARGS`' "$f" && grep -q '`TIMEOUT` | 5 |' "$f" && echo 1 || echo 0)"
 done
