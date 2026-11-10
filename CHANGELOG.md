@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.78.0] 2026-11-10 (仕様: 「Model」はリポジトリ的なものだけ。ダイアログのデータクラスの、置き場所)
+
+- **決めたこと:** **Model = リポジトリ的なもの** (データベース・API の違いを隠す。MVVM の Model と同じ意味)。Fake と本物、契約テスト、計画の「依存する Model」の表は、これだけが対象。**ダイアログ・画面が使うデータのクラス** (入力値のまとめ、ダイアログが返す結果など) は、Model ではない。**基本は、ロジック層に置く。ダイアログの動作と、べったり結びつくとき (UI の型・部品の状態に強く依存するとき) だけ、View 層。データ層には、置かない。** 迷ったら、ロジック層。View 層に置いたときは、設計の記録に、理由を 1 行書く。
+- 書いた場所: `ui-test-first` の `references/model-switching.md` (冒頭に節を足した) と `SKILL.md`、`rules/winforms-csharp.md` (2.2)、`rules/wpf-csharp.md` (7.4)、`cpp-test-first/DLL-LAYOUT.md` (ロジック DLL / UI の置き場所)。
+- コードの形 (Presenter・ViewModel・ひな形) は、変えていない。
+- テスト: `tests/ui_test_first_skill_test.sh` (34 件)。
+
 ## [2.77.0] 2026-11-10 (UI テスト: `UiDialogs.CloseWindow`。`ui-test-first` が、`SetText` と `CloseWindow` を、案内する)
 
 - **実機の確認 (DG7、WinForms `dg7aWf`、別のデスクトップ) で分かったこと:** `/ui-test-first` が書いた `EditGreetingUiTests` は、`.AsTextBox().Text = ...` と `dlg.Close()` だった。入力 1 回に 約 2 秒、`dlg.Close()` (FlaUI `Window.Close()`) に 約 4 秒かかった。原因は、`ui-test-first` が、`SetText` を案内しておらず (`build-test-loop/references/ui-tests.md` にだけあった)、既存の古いサンプルを、まねたこと。

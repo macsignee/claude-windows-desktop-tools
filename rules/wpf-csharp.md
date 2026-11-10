@@ -339,6 +339,8 @@ public Customer? SelectedCustomer { get; set; }
 
 - **ツール群の補足:** ViewModel は、`INotifyPropertyChanged` を実装する (基底クラス `ObservableObject` など)。**値が変わるプロパティは、変更を通知する** (`SetProperty`)。通知しないと、画面が更新されない (エラーも出ない。`wpf-check` の BND004)。計算プロパティは、元の値が変わったときに、`OnPropertyChanged(nameof(...))`。コレクションは、`ObservableCollection<T>` を `{ get; }` (置き換えない) で公開する (`List<T>` は、追加・削除が、画面に反映されない)。
 
+- **ダイアログ・画面が使うデータのクラス** (入力値のまとめ、ダイアログが返す結果など) は、**基本は、ロジック層**に置く。**ダイアログの動作と、べったり結びつくとき (WPF の型・部品の状態に強く依存するとき) だけ、View 層に置く。** データ層 (データベース・API の違いを隠す、リポジトリ的なもの = Model) には、置かない。
+
 ## 8. MVVM ライブラリの選択
 
 ### 8.1 基本原則

@@ -44,6 +44,7 @@ paths:
 - **Form は、`IView` を実装して、イベントを通知するだけ**にする。ボタンの `Click` は、Form が受け取り、`ClearRequested` のようなイベントで Presenter に伝える。
 - **Presenter は、WinForms を知らない。** テストでは、`IView` の偽物 (Fake) を作り、イベントを起こして、表示の結果を確かめる。
 - (`winforms-check` の WFL001 / WFL002 / WFL004 が検査する。)
+- **ダイアログ・画面が使うデータのクラス** (入力値のまとめ、ダイアログが返す結果など) は、**基本は、ロジック層**に置く。**ダイアログの動作と、べったり結びつくとき (WinForms の型・部品の状態に強く依存するとき) だけ、View 層 (Form のプロジェクト) に置く。** データ層 (データベース・API の違いを隠す、リポジトリ的なもの = Model) には、置かない。
 
 ### 2.3 組み立てる場所 (composition root)
 - **Form と Presenter を作って結ぶのは、`Program.cs` の 1 か所**にする。Form の中で、Presenter や Service を `new` しない。
