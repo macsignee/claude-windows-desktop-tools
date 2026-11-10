@@ -1089,3 +1089,13 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | ST5 | **`LegacyIAccessible` で値が合わない部品 (フォールバック):** (任意) パスワード欄など、`LegacyIAccessible.SetValue` の読み戻しが一致しない部品に、`SetText` | `ValuePattern.SetValue` に戻り (約 2 秒)、値が設定される。戻り値に、`LegacyIAccessible.SetValue: 読み戻した値が、一致しない` が付く | 未 |
 | ST6 | **ユーザーのデスクトップ (`--visible`) でも、動く:** ST1 を `--visible` で | `PASSED` (`ValuePattern` でも `LegacyIAccessible` でも速い) | 未 |
 
+
+### 2-47. WPF のボタンの `UiDialogs.Click` (v2.76.0。`DoDefaultAction`)
+
+新しい WPF のソリューション (`cl1Wpf`) を作り、`--separate` で実行する。
+
+| # | 確認 | 期待 |
+|---|---|---|
+| CL1 | **`ClearButton` の `Click`:** `ui-trace.txt` の、`find: NameTextBox` から `find: ClearButton` まで、と、テストの結果 | `PASSED`。`ClearButton_Invoked_ClearsName` が、`Passed` (名前が、本当に、消える)。`Click` が、約 0.01 秒 (v2.75.0 は 約 2 秒)。3 件の合計が、約 8 秒以内 (ST1 は 9.8 秒) |
+| CL2 | **ダイアログを開くボタン:** `dg1Wpf` 相当のソリューション (WPF のダイアログ) を、`--refresh-support-files` で更新して、`DG` の UI テストを実行 | `PASSED`。ダイアログが開き、テストが、先へ進む (固まらない、`OpenModal` が、見つける) |
+| CL3 | **`DoDefaultAction` が、効かない部品 (フォールバック):** (任意) 効かないボタンがあれば、`Invoke` に戻るか | 戻る。または、`Click` が、何も起こさない場合は、報告 (`DoDefaultAction` の結果の読み戻しは、していない) |
