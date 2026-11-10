@@ -247,9 +247,11 @@ public abstract class UiTestBase
         {
             var rect = element.BoundingRectangle;
             if (rect == _lastHighlightRect && (DateTime.UtcNow - _lastHighlightAt).TotalMilliseconds < 800) return;
+            // blocking: true = 枠を出して、時間が来たら、消してから、戻る。操作は、枠が消えたあとに、始まる。
+            // (blocking: false だと、枠が、操作のあとも残る: ダイアログを開くボタンの枠が、開いたダイアログの上に、描かれ続けた。実機の DG8)
+            element.DrawHighlight(true, System.Drawing.Color.Red, TimeSpan.FromMilliseconds(Math.Max(SlowMoMs, 600)));
             _lastHighlightRect = rect;
-            _lastHighlightAt = DateTime.UtcNow;
-            element.DrawHighlight(false, System.Drawing.Color.Red, TimeSpan.FromMilliseconds(Math.Max(SlowMoMs, 600)));
+            _lastHighlightAt = DateTime.UtcNow;   // 枠を消した時刻 (すぐ続く、同じ要素の操作 (Find のあとの Click など) では、省く)
         }
         catch (Exception) { /* 枠が描けなくても、テストを止めない */ }
     }
@@ -259,8 +261,7 @@ public abstract class UiTestBase
     /// <summary>ダイアログを開くボタン / メニュー項目を押して、モーダルなダイアログが、出るのを待つ (UiDialogs.Click が、フレームワークに合う方法で、押す)。MessageBox・ファイルダイアログも、同じ。</summary>
     protected Window OpenModal(AutomationElement opener)
     {
-        Highlight(opener);
-        if (Presenting && SlowMoMs > 0) Thread.Sleep(SlowMoMs);
+        Highlight(opener);   // 枠を出して、消してから、押す (プレゼンのモード。枠が、開いたダイアログの上に、残らない)
         var how = UiDialogs.Click(opener);
         UiTrace.Write($"open modal: {opener.Name} ({how})");
         return UiDialogs.WaitModal(MainWindow) ?? throw new AssertFailedException("モーダルなダイアログが、main.ModalWindows に出ない");
