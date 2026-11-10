@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.73.0] 2026-11-10 (UI テスト: アプリの終了待ちを短くする。別のデスクトップの固定費を、記録する)
+
+- **実測 (`dg1Wpf`、WPF、2026-11-10):** 同じ 5 件のダイアログのテストが、ユーザーのデスクトップ (`--visible`) では約 15 秒、別のデスクトップ (`--separate`) では約 66 秒。メインウィンドウだけのテストでも、別のデスクトップは、**終了に 5.05 秒、`Text` の設定に約 2 秒**かかった (ユーザーのデスクトップは、0.2 秒と 0.06 秒)。**ダイアログのコードが、原因ではない。**
+- **`UiTestBase.StopApp` の、アプリの終了待ちを、5 秒 → 1.5 秒にした** (`protected virtual int ExitWaitMs => 1500`)。`App.Close()` のあと、1.5 秒で終了しなければ、`App.Kill()`。別のデスクトップの WPF は、`Close()` が終わらず、毎回、待ち切って強制終了していたため、**1 件 約 3.5 秒短縮**。ユーザーのデスクトップは、0.2 秒で終了するので、影響しない。終了に時間がかかるアプリ (終了時の確認など) は、テストのクラスで `ExitWaitMs` を override する。**終了の結果を、`ui-trace.txt` に出す** (`exit: closed (N ms)` / `exit: killed after N ms`)。
+- **`build-test-loop/references/ui-tests.md` に、実測の固定費と、使い分けの目安を足した** (ユーザーの PC を使い続けたいとき・件数が多いときは `--separate`。数件の確認・目視確認・`--present` は `--visible`)。`ui-test-first` の SKILL.md から、そこを案内した。
+- **未調査:** 別のデスクトップで、`Text` の設定に約 2 秒かかる原因 (TEST-PLAN 2-43 の DG10)。
+- テスト: `tests/ui_tests_gen_test.sh` (68 件)、`tests/ui_test_first_skill_test.sh` (30 件)。
+- **既存のソリューション (UI テストあり) は、`--refresh-support-files` で `UiTestBase.cs` を更新する。** **配布が要る。**
+- **未確認 (実機):** 別のデスクトップで、1 件の終了が、5 秒 → 1.5 秒以内になること (TEST-PLAN 2-43 の DG9)。
+
 ## [2.72.0] 2026-11-10 (`--present` の赤い枠: ダイアログ・サブウィンドウの中の操作にも出す)
 
 - **原因:** 赤い枠 (`Highlight`) は、`UiTestBase` の `protected` メソッドで、`Find` と `OpenModal` の 2 か所だけが呼んでいた。`UiDialogs` (別の `static` クラス) は、これを呼べず、**`PressDialogButton`・`AnswerMessageBox`・`PickFile`・`Click`・`SelectComboItem` などの操作は、枠を通らなかった** (ダイアログの中を `dlg.FindFirstDescendant` で直接探した場合も)。ダイアログに、出せない仕組みがあったわけではない。

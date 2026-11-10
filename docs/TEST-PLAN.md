@@ -1042,6 +1042,8 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | DG6 | **見つからないとき:** ダイアログの中に、ない Id を `Find(dlg, "NoSuch")` で探すテストを、一時的に書く | 5 秒後に、`AutomationId 'NoSuch' の要素が、5 秒探しても、見つからない (<ウィンドウ名> の中)` で失敗する (確認後、そのテストは削除) | 未 |
 | DG7 | **WinForms でも、DG2〜DG4** | WPF と同じに動く (WinForms は `ShowDialog` の `Invoke` の問題があり、`UiDialogs.Click` が `BM_CLICK` で押す) | 未 |
 | DG8 | **赤い枠 (`--present`):** DG3 のテストを、`uitest_once.sh --present` で再生 (ユーザーのデスクトップ。実行中は PC に触らない) | メインの部品に加えて、**ダイアログの中の部品・ボタン (`Find(dlg, "Id")`、`UiDialogs.Click`、`PressDialogButton`、`PickFile`、`AnswerMessageBox`) にも、赤い枠が出る**。同じ要素に、続けて 2 回、枠が重ならない。`--present` でないときは、枠が出ない | 未 |
+| DG9 | **別のデスクトップで、速くなること (v2.73.0):** UI テストありの WPF (`dg1Wpf`) で、`--refresh-support-files` のあと、`MainWindowUiTests` を `--separate` で実行 (v2.72.0 では、1 件の終了が 5.05 秒、3 件で約 22 秒) | **`ui-trace.txt` に `exit: killed after 15xx ms` (または `exit: closed`)。最後の `find` から `Passed` までが、約 1.5 秒以内。3 件の合計が、約 12 秒以内。** `--visible` では、`exit: closed (2xx ms)` で、変わらない | 未 |
+| DG10 | **(調査) 別のデスクトップで、`Text` の設定に約 2 秒かかる原因:** `NameTextBox` の `Text = "..."` の前後に、秒数を trace に出す小さな確認 (一時的)。`ValuePattern.SetValue` を直接呼ぶ場合と比べる | 原因 (FlaUI の `Text` の設定の中の待ちか、UIA か、アプリか) が分かる。分かれば、設定の方法を直す | 未 |
 
 ### 2-44. `ui-test-first` の Model の Fake ↔ 本物の切り替え (v2.70.0)
 

@@ -185,8 +185,14 @@ public abstract class UiTestBase
 
         try
         {
+            var exitWatch = System.Diagnostics.Stopwatch.StartNew();
             App.Close();
-            if (!WaitExit(5000)) App.Kill();
+            if (WaitExit(ExitWaitMs)) UiTrace.Write($"exit: closed ({exitWatch.ElapsedMilliseconds} ms)");
+            else
+            {
+                App.Kill();
+                UiTrace.Write($"exit: killed after {exitWatch.ElapsedMilliseconds} ms (App.Close() が、終わらなかった)");
+            }
         }
         catch (Exception)
         {
@@ -263,6 +269,11 @@ public abstract class UiTestBase
     protected Window? WaitWindow(string title) => UiDialogs.WaitWindow(App, Automation, MainWindow, title);
 
     protected bool WaitWindowClosed(string title) => UiDialogs.WaitWindowClosed(App, Automation, MainWindow, title);
+
+    /// <summary>テストのあと、アプリが、自分で終了するのを待つ時間 (ミリ秒)。過ぎたら、強制終了する。
+    /// ユーザーのデスクトップでは、0.2 秒ほどで終了する。**別のデスクトップ (--separate) の WPF は、Close() が終わらず、毎回、待ち切る** (実測: 5 秒) ので、短くしてある。
+    /// 終了に時間がかかるアプリ (終了時の確認など) は、テストのクラスで override する。</summary>
+    protected virtual int ExitWaitMs => 1500;
 
     protected bool WaitExit(int timeoutMs)
     {
