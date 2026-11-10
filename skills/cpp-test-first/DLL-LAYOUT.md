@@ -45,9 +45,11 @@ MFC を使わない、純粋な計算・ロジックだけの DLL を作る場�
    #define LOGICLAYER_API __declspec(dllimport)
    #endif
    #pragma warning(disable : 4251)   // 公開クラスの std:: メンバの警告。同じコンパイラ・CRT でビルドする前提で抑止
+   #pragma warning(disable : 4275)   // 公開クラスが、DLL インターフェースでない基底 (純粋仮想のインターフェース) を継承する警告。データを持たない基底なので抑止
    ```
    - DLL のプロジェクトに、プリプロセッサ定義 `LOGICLAYER_EXPORTS` を追加する。**テスト exe や UI には、定義しない** (インポート側になる)。
    - 公開するクラスに、`class LOGICLAYER_API Foo` と書く。
+   - **インターフェース (純粋仮想クラス) には、`LOGICLAYER_API` を付けない** (ヘッダだけで完結する。別の DLL が実装するとき、`dllimport` が絡むのを避ける)。**インターフェースと Fake を同じ DLL に置くと、警告 C4275 が出るが、上の `Api.h` の `#pragma warning(disable : 4275)` で抑止する** (データを持たない基底なので、実害はない)。既存のプロジェクトで出たら、`Api.h` に 1 行足す。
    - **MFC 拡張 DLL の場合:** `CObject` 派生クラス (シリアライズ対象など) は、上記の `__declspec` マクロの代わりに、MFC の拡張 DLL 用マクロ `AFX_EXT_CLASS` を使う (`class AFX_EXT_CLASS Foo : public CObject`)。`CObject` を継承しない、純粋な値クラスや関数には、従来どおり `<Name>_API` を使ってよい (混在可)。
 2.5. **MFC 拡張 DLL のプロジェクト設定 (MFC 型を使う DLL のときだけ):**
    - `<ConfigurationType>DynamicLibrary</ConfigurationType>` のまま、`<UseOfMfc>Dynamic</UseOfMfc>` を追加する (静的リンクではなく、**共有 DLL** にすること。プロジェクトをまたいだ `CObject` のやり取りに必要)。

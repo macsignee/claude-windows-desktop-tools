@@ -93,6 +93,7 @@ assert len(fs) == 4, fs
 [m.parse(f) for f in fs]"
 check ".h が「ヘッダー ファイル」フィルターに入る" grep -q '<ClInclude Include="DataLayerApi.h">' "$S/DataLayer/DataLayer.vcxproj.filters"
 check "「ヘッダー ファイル」のフィルター定義がある" grep -q '<Filter Include="ヘッダー ファイル">' "$S/DataLayer/DataLayer.vcxproj.filters"
+check "Api.h が、C4251 と C4275 の警告を抑止する (インターフェース + Fake を、同じ DLL に置いても、C4275 が出ない) (v2.80.0)" bash -c 'grep -q "disable : 4251" "$1/DataLayer/DataLayerApi.h" && grep -q "disable : 4275" "$1/DataLayer/DataLayerApi.h"' _ "$S"
 check ".cpp が「ソース ファイル」フィルターに入る" grep -q '<ClCompile Include="DataLayerModuleInfo.cpp">' "$S/DataLayer/DataLayer.vcxproj.filters"
 check "「ソース ファイル」のフィルター定義がある" grep -q '<Filter Include="ソース ファイル">' "$S/DataLayer/DataLayer.vcxproj.filters"
 check "main.cpp は、「ソース ファイル」フィルターに入る (vcpkg 方式のテスト)" grep -q '<ClCompile Include="main.cpp">' "$S/DataLayerTest/DataLayerTest.vcxproj.filters"
