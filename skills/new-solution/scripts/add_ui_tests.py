@@ -1046,6 +1046,21 @@ internal static partial class UiDialogs
         throw new AssertFailedException($"ダイアログのボタン {id} で、閉じない。試した方法: " + string.Join(" / ", tried));
     }
 
+    /// <summary>ダイアログ・ウィンドウを、「× で閉じる」操作で、閉じる (WM_CLOSE を PostMessage)。FlaUI の Window.Close() は、閉じるのを待つ間に、約 4 秒かかる (実機で計測) ので、使わない。
+    /// ハンドルがない要素は、Window.Close() に戻る。使った方法を、返す。呼んだあとは、WaitModalClosed で、閉じたことを確かめる。</summary>
+    public static string CloseWindow(AutomationElement window)
+    {
+        Target(window);
+        var hwnd = Hwnd(window);
+        if (hwnd != IntPtr.Zero)
+        {
+            PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            return "WM_CLOSE";
+        }
+        window.AsWindow().Close();
+        return "Window.Close";
+    }
+
     /// <summary>ダイアログを、強制的に閉じる (WM_CLOSE)。ボタンの押下に失敗したとき、開いたまま残らないように。</summary>
     public static void ForceCloseDialog(AutomationElement dialog)
     {

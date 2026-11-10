@@ -51,7 +51,7 @@ UI テストは、**ビルド → テストの流れには、含まれない** (
 
 ### 2. UI テストを、先に書く (Red)
 - `<アプリ>.UITests/<画面>UiTests.cs` に、`UiTestBase` を継承したクラスを、**計画の具体例の、1 件ごとに、1 つのテスト**で書く。**テスト名は、`画面_条件_期待`。**
-- 操作は、`UiDialogs` の道具と、UIA のパターン (`Invoke` / `Value` / `Toggle`) だけ (**マウス・キーボードの入力は、使わない**)。ダイアログは `OpenModal`、ボタンは `UiDialogs.Click`、リスト・ツリー・スピン・日付・タブは、`ListItems` / `ClickColumnHeader` / `SetNumeric` / `ToggleTreeNode` / `OpenDropDown` / `SelectTab` など。**フレームワークごとの違いの表: `build-test-loop` の「コントロール別の、実機の結果の表」。**
+- 操作は、`UiDialogs` の道具と、UIA のパターン (`Invoke` / `Value` / `Toggle`) だけ (**マウス・キーボードの入力は、使わない**)。ダイアログは `OpenModal`、ボタンは `UiDialogs.Click`、**入力欄の文字は `UiDialogs.SetText(要素, "文字")`** (`.Text =` / `ValuePattern.SetValue` / `.Invoke()` は、別のデスクトップで、1 回に約 2 秒かかる)、**ダイアログの × は `UiDialogs.CloseWindow(dlg)`** (`dlg.Close()` は、約 4 秒かかる)、リスト・ツリー・スピン・日付・タブは、`ListItems` / `ClickColumnHeader` / `SetNumeric` / `ToggleTreeNode` / `OpenDropDown` / `SelectTab` など。**フレームワークごとの違いの表: `build-test-loop` の「コントロール別の、実機の結果の表」。**
 - **ダイアログ・サブウィンドウの中の部品は、`Find(window, "Id")` で探す** (`var dlg = OpenModal(Find("EditButton")); Find(dlg, "OkButton")`。`Find("Id")` は、メインウィンドウの中だけ。詳しくは `references/dialogs.md`)。
 - 期待値は、**仕様 (プロンプトの具体例) から、直接、書く** (実装の出力を、写さない)。待ちは `WaitFor` (固定の `Thread.Sleep` を使わない)。
 
