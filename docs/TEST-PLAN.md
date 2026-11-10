@@ -1096,6 +1096,6 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 確認 | 期待 |
 |---|---|---|
-| CL1 | **`ClearButton` の `Click`:** `ui-trace.txt` の、`find: NameTextBox` から `find: ClearButton` まで、と、テストの結果 | `PASSED`。`ClearButton_Invoked_ClearsName` が、`Passed` (名前が、本当に、消える)。`Click` が、約 0.01 秒 (v2.75.0 は 約 2 秒)。3 件の合計が、約 8 秒以内 (ST1 は 9.8 秒) |
+| CL1 | **`ClearButton` の `Click`:** `ui-trace.txt` の、`find: NameTextBox` から `find: ClearButton` まで、と、テストの結果 | `PASSED`。`ClearButton_Invoked_ClearsName` が、`Passed` (名前が、本当に、消える)。`Click` が、約 0.01 秒 (v2.75.0 は 約 2 秒)。3 件の合計が、約 8 秒以内 (ST1 は 9.8 秒) **✔ (2026-11-10)** `cl1Wpf` (v2.76.0): 4 件とも `Passed`。`ClearButton` の `Click`: `find: ClearButton` の後、終了の要求まで 約 0.025 秒 (v2.75.0 は 約 2 秒)。3 件の合計 7.7 秒 (ST1 は 9.8 秒)、4 件 9.9 秒。 |
 | CL2 | **ダイアログを開くボタン:** `dg1Wpf` 相当のソリューション (WPF のダイアログ) を、`--refresh-support-files` で更新して、`DG` の UI テストを実行 | `PASSED`。ダイアログが開き、テストが、先へ進む (固まらない、`OpenModal` が、見つける) |
 | CL3 | **`DoDefaultAction` が、効かない部品 (フォールバック):** (任意) 効かないボタンがあれば、`Invoke` に戻るか | 戻る。または、`Click` が、何も起こさない場合は、報告 (`DoDefaultAction` の結果の読み戻しは、していない) |
