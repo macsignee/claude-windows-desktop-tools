@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.88.0] 2026-11-11 (Visual Studio と WSL の、両方で、Git を操作するときの規約 `rules/git-wsl.md`)
+
+- **ユーザーの質問:** 作業用の Claude (WSL) で、Visual Studio (Windows の Git) で操作しているリポジトリを、Git で操作したい。文字コードと改行が、Ubuntu と違うが、どう操作するか。
+- **`rules/git-wsl.md` を足した** (`paths`: `.gitattributes` / `.sln` / `.slnx`。`install.sh` が `~/.claude/rules/` に配る): (1) **改行・文字コードは、`.gitattributes` が決める** (`* text=auto eol=crlf`。リポジトリの中は LF、作業フォルダは CRLF。どちらの Git でも、同じ結果。`.gitattributes` がなければ、`new_solution.py --add-gitattributes` で足す)。既存のファイルの、BOM と改行は、変えない。(2) **WSL の `git` の設定:** `core.autocrlf false`・`core.fileMode false`・`user.name` / `user.email`・`safe.directory`。(3) **コミットの前の確認:** `git status --short`・`git diff --stat`、全ファイルが変更に見えるときは、`git ls-files --eol`・`git diff --ignore-cr-at-eol --stat` で確かめ、まとめて直さない (`--renormalize` も)。新しく作ったファイルは、規約 (UTF-8 BOM 付き・CRLF) に合わせる。(4) **同時に、触らない:** VS が Git を操作している間は、WSL の `git` を動かさない (`index.lock`)。WSL でブランチを切り替えたら、VS で再読み込み。コミットは、ユーザーが頼んだときだけ。プッシュ・取得・PR・マージは、ユーザー (VS)。
+- **`new_solution.py` が作る `CLAUDE.md` (4 種類) に、案内を 1 行足した** (「Git を、VS と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む」)。既存のプロジェクトの `CLAUDE.md` は、変えていない (規約は、`.sln` などを読むときに、自動で読み込まれる)。
+- **`docs/USAGE.md` の「3. 困ったとき」に、節「Visual Studio と WSL の、両方で、Git を操作するとき」を足した。**
+- **実機の確認は、まだ** (TEST-PLAN 2-54 GW1〜GW3)。
+- テスト: `tests/git_wsl_rule_test.sh` (新規、9 件)。`rules_split_test`・`usage_guide_test`・`new_solution_test`・`new_solution_wpf_test`・`new_solution_winforms_test`・`new_solution_csharp_dll_test`・`new_solutions_test`・`new_solution_common_test`・`win32_platform_test` は、変更なしで通る。
+
 ## [2.87.0] 2026-11-11 (MFC の静的ライブラリ `mfc-lib`。MFC の exe と MFC 標準 DLL から、リンクできる)
 
 - **ユーザーの依頼:** (1) MFC の静的ライブラリを、作れるようにする。(2) MFC の exe (SDI・MDI・ダイアログ) だけでなく、MFC 標準 DLL からも、その静的ライブラリを、リンクできるようにする。(最初は、「exe を静的リンクにする (`UseOfMfc=Static`)」と、取り違えた。実際の依頼は、「MFC を使う静的ライブラリ (.lib) を作り、使う側からリンクする」。)

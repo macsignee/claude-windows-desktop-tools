@@ -1158,3 +1158,13 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | ML-3 | **MFC 標準 DLL から、リンクする:** `add_layer.py <dir> StdLayer --kind mfc-std-dll` → `StdLayer` → `LogicLayer` の参照 → ビルド | ビルドが通る (標準 DLL に、静的ライブラリが取り込まれる) | ✔ (2026-11-11) `mlibMfc` (ディスクで確認): `add_layer.py mlibMfc StdLayer --kind mfc-std-dll --tests none` → `add_reference.py --from StdLayer --to LogicLayer` → `StdLayer` に `StdLayerLogicName()` (先頭で `AFX_MANAGE_STATE`、`LogicLayerModuleName()` を呼ぶ) を足す。**ビルド `SUCCESS`、`build.log` に `LNK` なし、`mfc-check` 0 件 (4 プロジェクト)。`x64/Debug/StdLayer.dll` (17:55、約 174 KB) に、エクスポート `StdLayerLogicName` と、静的ライブラリの文字列 `LogicLayer` がある (静的ライブラリが、標準 DLL に取り込まれた証拠)。** `StdLayer.vcxproj`: `UseOfMfc=Dynamic`・`_USRDLL`・`ProjectReference` (`LogicLayer`)。注: DLL を読み込んで、関数を呼んだ実行は、していない |
 | ML-4 | **断る:** MFC なしの exe (`--type win32`) から、`mfc-lib` を参照する (`add_reference.py`)。`new_solution.py --type console --layer-kind mfc-lib` | どちらも、終了コード 2 で断る (LIB001 の理由つき) | ✔ 静的テスト (`tests/mfc_lib_test.sh`): MFC なしの exe からの参照は、終了コード 2 で断る (LIB001)。`new_solution.py --type console --layer-kind mfc-lib` も断る。(ファイルの生成と検査だけなので、実機は不要) |
 | ML-5 | **`mfc-check` の LIB001:** exe の `UseOfMfc` を、わざと `Static` に変えて、実行 | LIB001 (error)。元に戻して、0 件 | ✔ 静的テスト (`tests/mfc_lib_test.sh`): exe の `UseOfMfc` を `Static` に変えると、`mfc-check` が LIB001 (error)。(実機は不要) |
+
+### 2-54. Visual Studio と WSL の、両方で、Git を操作する (v2.88.0)
+
+準備: マージして、`install/install.sh` (全体。規約 `rules/` を配るため) で配布する。Visual Studio で、Git のリポジトリ (`.gitattributes` あり) を開いておく。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| GW1 | **設定と読み込み:** 操作用の Claude (WSL) に、「このリポジトリで、Git を操作する前の、設定を確認して」と頼む (`.sln` / `.slnx` / `.gitattributes` を読むと、`git-wsl.md` が読み込まれる) | `core.autocrlf` / `core.fileMode` / `user.name` / `user.email` を確認し、足りなければ、ユーザーに確認してから、設定する。`.gitattributes` がなければ、足すか聞く | 未 |
+| GW2 | **コミットの前の確認:** Claude にファイルを編集させ、「コミットして」と頼む | `git status --short` と `git diff --stat` を見る。**全ファイルが変更に見える状態ではない** (`git ls-files --eol` が `i/lf w/crlf`)。新しく作ったファイルは、BOM 付き・CRLF に合わせてある | 未 |
+| GW3 | **VS との往復:** WSL で、コミット (または `git switch`) → VS で、再読み込みして、履歴・ブランチを確認 → VS で、コミット → WSL で、`git log` / `git status` | どちらでも、同じ履歴が見える。**変更なしのファイルが、「変更」に見えない** (改行・モードの差が、出ない)。`index.lock` が残らない | 未 |

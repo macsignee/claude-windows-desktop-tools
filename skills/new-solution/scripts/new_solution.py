@@ -800,6 +800,7 @@ UI / メイン → ロジック → データ (のインターフェース)
 - C++20。ファイルは UTF-8 (BOM 付き)、改行は CRLF。`.rc` は UTF-8 (BOM 付き。`#pragma code_page(65001)`)、言語は日本語 (`LANG_JAPANESE`)。`res\\*.rc2` は ASCII (BOM なし)。
 - C++ の規約: `.claude/rules/cpp-common.md` (`.cpp` / `.h` を扱うときに、自動で読み込まれる)。
 {mfc_rule}- `git commit` / `git push` は、ユーザーの指示があるときだけ。
+- Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
 """
     return out
 
@@ -1120,6 +1121,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
 - 規約は、ユーザー共通の `.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`.claude/rules/wpf-csharp.md` (**WPF プログラミング規約**の、WPF / XAML / MVVM の部分。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs` を扱うときに、読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。機械で判定できる項目は、`wpf-check` が確かめる。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
+- Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
 """
     return out
 
@@ -1188,6 +1190,7 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
 - 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
+- Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
 """
     return out
 
@@ -1241,6 +1244,7 @@ C# のクラスライブラリ (.NET)。ソリューション: `{name}.slnx` (�
 - C# の規約は、ユーザー共通の `.claude/rules/csharp-common.md` (5 C# コーディング規約 / 10 非同期 / 11 依存性注入 / 12 例外 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)。WPF / XAML / MVVM の規約 (`wpf-csharp.md`) は、適用しない。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
+- Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
 """
     return out
 
