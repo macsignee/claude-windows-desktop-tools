@@ -84,6 +84,8 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | DLL007 | warning | **標準 DLL (共有 MFC)** の公開関数 (`<名前>_API` / `__declspec(dllexport)` の関数) が、先頭で `AFX_MANAGE_STATE` を呼んでいない | 関数の先頭 (オブジェクトの宣言よりも前) で、`AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。MFC のリソースやモジュールの状態が、呼び出し元の exe のものになる。 |
 | DLL008 | error | 拡張 DLL を参照する exe / DLL の `UseOfMfc` が `Dynamic` でない (MFC なしの exe も)。**名前が `Test` / `Tests` で終わるプロジェクトは、検査しない** | 参照する側も、`UseOfMfc=Dynamic` にする (MFC のランタイムが、2 つになるのを防ぐ。MFC の状態 (`CString`・ダイアログ・リソースなど) を使う関数を呼ぶと、実行時に壊れる)。テスト exe は、検査の対象外だが、生成されるテストは `Dynamic` にしてある (実機の確認: `Dynamic` でなくても、MFC の状態を使わない関数だけを呼ぶテストは、ビルドも実行も通る) |
 | LIB001 | error | **MFC の静的ライブラリ** (`StaticLibrary` + `UseOfMfc`) を参照する exe / DLL / 静的ライブラリの `UseOfMfc` が、ライブラリと違う (MFC なしの exe も)。**名前が `Test` / `Tests` で終わるプロジェクトは、検査しない** | 参照する側を、同じ `UseOfMfc` (`Dynamic` が既定) にする。MFC の exe か、MFC 標準 DLL (`--kind mfc-std-dll`) から参照する。MFC のランタイムが 2 つになる、または `LNK2005` / `LNK2038` になる。 |
+| NSP001 | warning | **CObject 派生のクラス** (`CDialog` / `CView` / `CDocument` / `CFrameWnd` など、MFC のクラスから派生したもの。プロジェクト内の基底をたどる) が、**名前空間の中**にある | 名前空間から出す (グローバルに置く)。MFC のマクロ (`RUNTIME_CLASS` など) は、名前空間つきの名前を扱えない。実行時のクラス名にも、名前空間が入らない。CObject 派生でないクラスは、名前空間に入れてよい。 |
+| DEC001 | warning | **CObject 派生のクラス**に、`DECLARE_DYNAMIC` / `DECLARE_DYNCREATE` / `DECLARE_SERIAL` がない (**`CWinApp` / `CWinThread` 派生は除く**) | クラスの宣言に、`DECLARE_DYNAMIC(クラス名)` などを書き、`.cpp` に `IMPLEMENT_DYNAMIC(クラス名, 基底クラス名)` などを書く (ウィザードのクラスと同じ)。 |
 
 ## ループのルール
 1. **`.rc` / `resource.h` / メッセージマップ / ライブラリの構成を編集したら、編集のあとで、実行する。** 編集していない状態で再実行しない。

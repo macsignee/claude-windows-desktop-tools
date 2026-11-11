@@ -11,7 +11,7 @@ paths:
 
 ## 改行・文字コードは、`.gitattributes` が決める
 - `.gitattributes` の `* text=auto eol=crlf`: **リポジトリの中は LF、作業フォルダは CRLF** (VS の既定)。`.sh` は LF。WSL の `git` と、Windows の Git の、どちらで操作しても、同じ結果になる (`core.autocrlf` より、`.gitattributes` が優先される)。
-- **`.gitattributes` がなければ、足す:** `python3 ~/.claude/skills/new-solution/scripts/new_solution.py <フォルダ> --add-gitattributes` (最小版。ユーザーに確認してから)。
+- **`.gitattributes` がなければ、足す:** `/new-solution` Skill の `scripts/new_solution.py <フォルダ> --add-gitattributes` (最小版。ユーザーに確認してから)。
 - 文字コード (UTF-8 の BOM など) は、Git は変換しない。**既存のファイルを編集するとき、BOM と改行を変えない。**
 
 ## WSL の `git` の設定 (リポジトリごと。ユーザーに確認してから)

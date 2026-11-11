@@ -55,6 +55,7 @@ MFC を使わない、純粋な計算・ロジックだけの DLL を作る場�
    - 公開するクラスに、`class LOGICLAYER_API Foo` と書く。
    - **インターフェース (純粋仮想クラス) には、`LOGICLAYER_API` を付けない** (ヘッダだけで完結する。別の DLL が実装するとき、`dllimport` が絡むのを避ける)。**インターフェースと Fake を同じ DLL に置くと、警告 C4275 が出るが、上の `Api.h` の `#pragma warning(disable : 4275)` で抑止する** (データを持たない基底なので、実害はない)。既存のプロジェクトで出たら、`Api.h` に 1 行足す。
    - **MFC 拡張 DLL の場合:** `CObject` 派生クラス (シリアライズ対象など) は、上記の `__declspec` マクロの代わりに、MFC の拡張 DLL 用マクロ `AFX_EXT_CLASS` を使う (`class AFX_EXT_CLASS Foo : public CObject`)。`CObject` を継承しない、純粋な値クラスや関数には、従来どおり `<Name>_API` を使ってよい (混在可)。
+   - **CObject 派生のクラスは、名前空間に入れない** (`mfc-cpp.md`。MFC のマクロが、名前空間つきの名前を扱えない)。CObject 派生でないクラス・関数は、名前空間に入れてよい。`DECLARE_DYNAMIC` などを書く (`mfc-check` の NSP001 / DEC001)。
 2.5. **MFC 拡張 DLL のプロジェクト設定 (MFC 型を使う DLL のときだけ):**
    - `<ConfigurationType>DynamicLibrary</ConfigurationType>` のまま、`<UseOfMfc>Dynamic</UseOfMfc>` を追加する (静的リンクではなく、**共有 DLL** にすること。プロジェクトをまたいだ `CObject` のやり取りに必要)。
    - プリプロセッサ定義に `_AFXDLL` と `_AFXEXT` を追加する。**`_USRDLL` は付けない (通常の DLL の印であり、`_AFXEXT` と同時に定義すると、MFC のスタブライブラリ (`mfcs1xx(u)(d).lib`) が提供する既定の `DllMain` と、拡張 DLL 用に書く `DllMain` が衝突し、`LNK2005` (二重定義) になる)。**

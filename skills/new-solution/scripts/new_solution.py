@@ -563,6 +563,8 @@ BOOL CSampleApp::InitInstance()
 
 class CSampleDlg : public CDialog
 {
+    DECLARE_DYNAMIC(CSampleDlg)
+
 public:
     enum { IDD = IDD_SAMPLE_DIALOG };
 
@@ -583,6 +585,8 @@ private:
 ''',
     'SampleDlg.cpp': '''#include "pch.h"
 #include "SampleDlg.h"
+
+IMPLEMENT_DYNAMIC(CSampleDlg, CDialog)
 
 CSampleDlg::CSampleDlg(CWnd* pParent)
     : CDialog(IDD, pParent)

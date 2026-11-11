@@ -226,6 +226,8 @@ DIALOG_H = '''#pragma once
 // DLL が提供する画面 (名前を入れると、挨拶を表示する)。表示する文は、画面に依存しない規則 (MakeGreeting) が決める。
 class @@EXPORT@@GreetingDialog : public CDialog
 {
+    DECLARE_DYNAMIC(GreetingDialog)
+
 public:
     enum { IDD = IDD_GREETING_DIALOG };
 
@@ -247,6 +249,8 @@ private:
 DIALOG_CPP = '''#include "pch.h"
 #include "GreetingDialog.h"
 @@INCLUDES@@
+IMPLEMENT_DYNAMIC(GreetingDialog, CDialog)
+
 GreetingDialog::GreetingDialog(CWnd* parent)
     : CDialog(IDD, parent)
 {

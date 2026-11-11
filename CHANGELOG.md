@@ -2,6 +2,18 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.89.0] 2026-11-11 (MFC: CObject 派生のクラスは、名前空間に入れない。`DECLARE_...` を書く)
+
+- **ユーザーの質問:** 「CObject 派生クラスは、名前空間に入れない」というルールは、あるか。→ なかった。ユーザーの指示: **CObject 派生のすべてに適用する。`DECLARE_...` が、ないのは、正しい宣言ではない。検査は warning。**
+- **根拠 (インストール済みの MFC のヘッダー、VS 2022 / MSVC 14.44 で確認):** `_RUNTIME_CLASS` は `class_name::class##class_name`、`IMPLEMENT_RUNTIMECLASS` は `class##class_name` と `#class_name`、`IMPLEMENT_SERIAL` は `_init_##class_name`。**名前空間つきの名前 (`ns::Foo`) を渡すと、`classns::Foo` になり、コンパイルできない。** 共有 MFC (`_AFXDLL`) の `RUNTIME_CLASS` は `class_name::GetThisClass()` なので通るが、静的 MFC では通らない。実行時のクラス名には、名前空間が入らず、別の名前空間の、同名のクラスと、衝突する。
+- **`rules/mfc-cpp.md` に、節「名前空間と、CObject 派生のクラス」を足した:** (1) CObject 派生は、名前空間に入れない (CObject 派生でないクラス・関数は、入れてよい)。(2) CObject 派生には、`DECLARE_DYNAMIC` / `DECLARE_DYNCREATE` / `DECLARE_SERIAL` を書く (例外: `CWinApp` / `CWinThread` 派生。ウィザードも、書かない)。`cpp-test-first/DLL-LAYOUT.md` にも、1 行。
+- **`mfc-check` に、NSP001 (warning: CObject 派生のクラスが、名前空間の中にある) と、DEC001 (warning: CObject 派生のクラスに、`DECLARE_...` がない) を足した。** プロジェクト内の基底クラスを、たどる (`CDerivedView : CBaseView : CView`)。MFC のクラスの一覧は、主なもの (一部)。CObject 派生のクラスがあれば、リソース・メッセージマップがなくても、検査する。
+- **生成されるコードを、ウィザードに合わせた:** `CSampleDlg` (`new_solution.py` のダイアログのメイン) と、`GreetingDialog` (`add_ui_host.py` の画面ホスト) に、`DECLARE_DYNAMIC` / `IMPLEMENT_DYNAMIC` を足した (これまでは、なかった)。SDI・MDI の `CMainFrame` / `CSampleDoc` / `CSampleView` / `CChildFrame` は、すでにあった。生成した 3 種類のメイン + 画面ホストで、NSP001 / DEC001 は、0 件。
+- **既存のテストの見本を、正しい宣言に直した:** `tests/mfc_check_test.sh` の「正常なプロジェクト」の、CObject 派生のクラス (`AboutDlg` `MainView` `BaseView` `DerivedView` `InnerEdit`) に、`DECLARE_DYNAMIC` / `DECLARE_DYNCREATE` を足した (新しい規則では、なければ、正しくない宣言)。
+- **v2.88.0 の見落としを直した:** `rules/git-wsl.md` に、`~/.claude/skills/new-solution/...` の固定のパスが、あった (`tests/skill_paths_test.sh` が、規約に固定のパスを書かないことを、検査していて、v2.88.0 の時点で失敗していた。実行を、忘れていた)。「`/new-solution` Skill の `scripts/new_solution.py`」に直した。
+- **実機の確認は、まだ** (TEST-PLAN 2-55: 名前空間つきのクラスが、実際に、エラーになるか)。
+- テスト: `tests/mfc_cobject_rules_test.sh` (新規、13 件)。
+
 ## [2.88.0] 2026-11-11 (Visual Studio と WSL の、両方で、Git を操作するときの規約 `rules/git-wsl.md`)
 
 - **ユーザーの質問:** 作業用の Claude (WSL) で、Visual Studio (Windows の Git) で操作しているリポジトリを、Git で操作したい。文字コードと改行が、Ubuntu と違うが、どう操作するか。
