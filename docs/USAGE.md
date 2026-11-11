@@ -100,3 +100,14 @@ OK、この案で足してください
 
 ### それでも解決しないとき
 状況を、そのまま、会話で伝える (「テストが○○で落ちる」「案のここが不安」)。エラーの原文を、貼ると、次の一手を、提案できる。
+
+### Visual Studio と WSL の、両方で、Git を操作するとき
+
+同じリポジトリを、Visual Studio (Windows の Git) と、WSL の Claude (WSL の `git`) の、両方で操作するときの決まりです。詳しくは、`rules/git-wsl.md` (配布すると `~/.claude/rules/git-wsl.md`)。
+
+- **改行は、`.gitattributes` が決めます** (`* text=auto eol=crlf`)。リポジトリの中は LF、作業フォルダは CRLF。どちらの Git で操作しても、同じ結果です。`.gitattributes` がないリポジトリには、`new_solution.py <フォルダ> --add-gitattributes` で足します。
+- **WSL の `git` は、リポジトリごとに、設定します:** `core.autocrlf false`、`core.fileMode false`、`user.name` / `user.email` (VS の設定は、WSL から見えません)。
+- **コミットの前に、`git status --short` と `git diff --stat`。** ほとんど全部のファイルが「変更」に見えるときは、改行かモードの違いです (`git ls-files --eol <ファイル>`、`git diff --ignore-cr-at-eol --stat`)。そのままコミットせず、Claude に、まとめて直させず、確かめてから、決めます。
+- **同時に、触りません。** VS が Git を操作している間は、WSL の `git` を動かさない (`index.lock`)。WSL でブランチを切り替えたら、VS で「すべて再読み込み」します。
+- **プッシュ・取得・PR・マージは、あなたが、VS で行います** (サンドボックスから、GitHub へは、届きません)。Claude が、コミットするのは、頼んだときだけです。
+
