@@ -37,6 +37,7 @@ Usage: mfc_check.py <dir> [--json <out.json>] [--max-lines 40] [--all]
   DLG010 warning 同じメンバーを、複数の DDX_Control に渡している (2 回目以降は、MFC が何もしない)
   LAY001 error   ライブラリ (DLL / lib) で、GUI のクラスを使っている
   LAY002 warning ライブラリで、GUI のヘッダーを include している (pch / framework は info)
+  LIB001 error   MFC の静的ライブラリ (StaticLibrary + UseOfMfc) を参照する exe / DLL / 静的ライブラリの UseOfMfc が、違う (v2.87.0)
   LAY003 error   プロジェクト参照の方向が、層 (UI → ロジック → データ) に反する
 
 終了コード: 0 = error なし / 1 = error あり / 2 = 引数が不正 / 3 = 検査する対象がない。
@@ -925,7 +926,7 @@ def check_layering(projects, logic_names, data_names, ui_names=()):
                     break
                 hdr_src = strip_code(raw, blank_strings=False)
                 for m in GUI_HEADERS.finditer(hdr_src):
-                    sev = "info" if os.path.basename(path).lower() in PCH_NAMES or mfc_dll_kind(pr) else "warning"
+                    sev = "info" if os.path.basename(path).lower() in PCH_NAMES or mfc_dll_kind(pr) or is_mfc_static_lib(pr) else "warning"
                     pr.add("LAY002", sev, f"ライブラリ {pr.name} で GUI のヘッダーを include: {m.group(0).split()[-1]}",
                            pr.rel(path), lineno(hdr_src, m.start()))
                     break
@@ -938,6 +939,11 @@ def mfc_values(pr):
 
 def has_def(pr, name):
     return any(name in c["defs"] for c in pr.cfg.values())
+
+
+def is_mfc_static_lib(pr):
+    """MFC の静的ライブラリ (StaticLibrary + UseOfMfc)。MFC の型 (CString / CObject) を使うため、afxwin.h などの include は、info にとどめる。"""
+    return pr.kind == "StaticLibrary" and any(v in ("Dynamic", "Static") for v in mfc_values(pr))
 
 
 def mfc_dll_kind(pr):
@@ -999,9 +1005,19 @@ def check_mfc_dlls(projects):
                     pr.add("DLL004", "warning", f"{pr.name}: MFC 標準 DLL に、CWinApp 派生のクラス (と、グローバルの theApp) がない (MFC の初期化が行われない)", file)
                 if "Dynamic" in mfc_values(pr):
                     check_export_manage_state(pr, codes)
-        if pr.kind in ("Application", "DynamicLibrary"):
+        if pr.kind in ("Application", "DynamicLibrary", "StaticLibrary"):
             for ref in pr.refs:
                 q = by_name.get(ref)
+                # MFC の静的ライブラリ (StaticLibrary + UseOfMfc) を参照する側は、UseOfMfc が、同じ値 (Dynamic / Static) でなければならない
+                # (違うと、MFC のランタイムが 2 つになったり、LNK2005 / LNK2038 になる)。MFC なしの exe / DLL も、同じ (UseOfMfc がない)。
+                if q is not None and q.kind == "StaticLibrary":
+                    qv = {v for v in mfc_values(q) if v in ("Dynamic", "Static")}
+                    if qv and set(mfc_values(pr)) != qv:
+                        pr.add("LIB001", "error", f"{pr.name}: MFC の静的ライブラリ {q.name} (UseOfMfc={'/'.join(sorted(qv))}) を参照しているが、"
+                               f"UseOfMfc が違う ({'/'.join(sorted(set(mfc_values(pr))))})。参照する側を、同じ UseOfMfc にする (MFC のランタイムが 2 つになる、または LNK2005 / LNK2038)",
+                               pr.name + ".vcxproj")
+                if pr.kind == "StaticLibrary":
+                    continue
                 if q is not None and q.kind == "DynamicLibrary" and has_def(q, "_AFXEXT") and any(v != "Dynamic" for v in mfc_values(pr)):
                     pr.add("DLL008", "error", f"{pr.name}: MFC 拡張 DLL {q.name} を参照しているが、UseOfMfc が Dynamic でない (MFC のランタイムが 2 つになり、実行時に壊れる)",
                            pr.name + ".vcxproj")

@@ -87,7 +87,7 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" CoreLib --k
 
 - **`--tests none|gtest`** (既定 `gtest`): 層とテストは、独立した軸。`none` は、DLL だけ (テスト・GoogleTest は、作らない)。
 - **`--tests-only`**: すでにある DLL (または静的ライブラリ) `<Name>` に、`<Name>Test` だけを足す。名前空間と参照は、既存のファイルから読む。
-- **`--kind dll|lib|mfc-ext-dll|mfc-std-dll`** (既定 `dll`): `mfc-ext-dll` は MFC 拡張 DLL、`mfc-std-dll` は MFC 標準 DLL (下の「MFC 拡張 DLL を作るとき」「MFC 標準 DLL を作るとき」)。`lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
+- **`--kind dll|lib|mfc-lib|mfc-ext-dll|mfc-std-dll`** (既定 `dll`): `mfc-lib` は MFC の静的ライブラリ (下の「MFC の静的ライブラリを作るとき」)、`mfc-ext-dll` は MFC 拡張 DLL、`mfc-std-dll` は MFC 標準 DLL (下の「MFC 拡張 DLL を作るとき」「MFC 標準 DLL を作るとき」)。`lib` は静的ライブラリ。公開マクロ (`<Name>Api.h`) は作らず、`<Link>` の設定も出さない。テスト exe は、`ProjectReference` で、ライブラリを、リンクで取り込む (実行時に、DLL を、exe のそばに置く必要もない)。
 - **GoogleTest:** テストを作るとき、vcpkg 方式なら、`vcpkg.json` に gtest を入れ、`.gitignore` に `vcpkg_installed/` を足す (ネットワークは使わない。出力: `GTEST_VCPKG`)。旧 NuGet 方式は、v2.31.0 で廃止 (`packages\` に旧方式のテストがあるソリューションでも、新しいテストは vcpkg。出力に `NOTE`)。
 - **メインの exe を、保護する:** テストを作るとき、exe で、名前が `Test` / `Tests` で終わるメインのプロジェクト (GoogleTest を使わないもの) に、`<TargetName>$(ProjectName)_Main</TargetName>` を足す。ウォッチャーが、`*Test.exe` を、テストとして実行するため。
 - **`--gtest auto|vcpkg|source|nuget`** (既定 `auto`): GoogleTest の入れ方。`vcpkg`: 上の 4.。`source`: `ThirdParty/googletest` のソースを、ソリューション内の静的ライブラリ `gtest` としてビルドする
@@ -102,6 +102,12 @@ python3 <このSkillのフォルダ>/scripts/add_layer.py "$SLN_DIR" CoreLib --k
 - `--uses <別のプロジェクト>`: そのフォルダを、インクルードパスに足す (ヘッダだけを使う。リンクしない)。ロジック DLL がデータ層のインターフェースを使う場合に付ける。
 - 対応は、x64 の Debug / Release だけ。ソリューションに、x86 などの構成があっても、新しいプロジェクトは、そこには対応付けない。
 - `.vcxproj` を作り直したいときは、フォルダと、ソリューションへの登録を、ユーザーに確認して消してから、やり直す (スクリプトは、既存を上書きしない)。
+- **MFC の静的ライブラリを作るとき: `--kind mfc-lib`** (`new_solution.py` では `--layer-kind mfc-lib`。**メインが MFC のときだけ**。`add_layer.py` は、どのソリューションにも作れるが、使う側が MFC でないと、リンクできない)。MFC の型 (`CString`・`CObject` 派生など) を使う、**DLL にならない** `.lib` (公開マクロ・`dllmain.cpp`・`.def` は、ない)。
+  - ライブラリ: `ConfigurationType=StaticLibrary`、**`UseOfMfc=Dynamic`** (共有 MFC。MSBuild が `_AFXDLL` を定義する)、`_LIB`、プリコンパイル済みヘッダー (`pch.h` を Use、`pch.cpp` を Create)、`framework.h` (`afxwin.h`・`afxext.h`)、`targetver.h`。新しい `.cpp` は、先頭で `#include "pch.h"` する。
+  - **使う側 (MFC の exe (SDI・MDI・ダイアログ)、MFC 標準 DLL、テスト exe) も、`UseOfMfc=Dynamic` にする** (同じ共有 MFC。違うと、MFC のランタイムが 2 つになる、または `LNK2005` / `LNK2038`。`mfc-check` の LIB001)。テスト exe は、`--tests-only` で後から足すときも、既存のライブラリの `UseOfMfc` を見て、同じにする。
+  - **リンクの仕方:** 使う側から、プロジェクト参照 (`/add-project` の `add_reference.py --from <MFC の exe か MFC 標準 DLL> --to <静的ライブラリ>`)。静的ライブラリなので、使う側の exe / DLL に、リンクで取り込まれる (MFC なしの exe からは、断る)。MFC 拡張 DLL (`mfc-ext-dll`) との違い: 拡張 DLL は、別の DLL としてエクスポートする (`AFX_EXT_CLASS`)。`mfc-lib` は、エクスポートせず、使う側に取り込む。
+  - **MFC のオブジェクトの受け渡し:** MFC の exe と、静的に取り込んだ `.lib` は、同じモジュールなので、`CString`・`CObject` を、そのまま受け渡せる。**MFC 標準 DLL に取り込んだ場合、その型を、DLL の境界 (エクスポート関数) で、受け渡さない** (標準 DLL の注意と同じ)。
+  - **実機で未確認 (TEST-PLAN 2-53):** 生成した一式が、Visual Studio / MSBuild でビルドでき、MFC の exe と MFC 標準 DLL にリンクでき、テスト exe が実行できること。
 - **MFC 拡張 DLL を作るとき: `--kind mfc-ext-dll`** (`new_solution.py` では `--layer-kind mfc-ext-dll`。**メインが MFC のときだけ**。MFC のランタイムを持たない exe は、拡張 DLL を使えない)。Visual Studio の「MFC DLL」ウィザード (拡張 DLL) の出力に合わせて、次を作る。
   - DLL: `UseOfMfc=Dynamic`、`_AFXEXT` (`_USRDLL` は付けない)、`<Name>_EXPORTS`、プリコンパイル済みヘッダー (`pch.h` を Use、`pch.cpp` を Create、`dllmain.cpp` は NotUsing)、`framework.h` (`afxwin.h` / `afxext.h`)、`targetver.h`、`dllmain.cpp` (`AFX_EXTENSION_MODULE` / `AfxInitExtensionModule` / `CDynLinkLibrary` / `AfxTermExtensionModule` の定型コード)、ビルド確認用の `<Name>ModuleInfo.h/.cpp` (`.cpp` は先頭で `pch.h`)。
   - テスト exe: `UseOfMfc=Dynamic` (同じ共有 MFC ランタイム)。`_AFXEXT` は付けない。`--tests-only` で後からテストを足すときも、既存の DLL の `_AFXEXT` を見て、同じにする。

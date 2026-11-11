@@ -1,7 +1,7 @@
 ---
 name: new-solution
 description: カレントのフォルダに、フォルダ名と同名の .slnx と、メインのプロジェクト (MFC (SDI / MDI / ダイアログベース) / Win32 / コンソール / DLL / 静的ライブラリ / WPF (MVVM)) を作る。層 (C++ はロジック・データの DLL または静的ライブラリ、WPF は ViewModel・ロジック・データのクラスライブラリ) を作るか、テスト (C++ は GoogleTest、WPF は MSTest) を導入するかを、それぞれ指定できる (引数、仕様書の構成案 --spec、または質問)。GoogleTest は、vcpkg (既定) か、ホスト側で取得したソースのビルド (source)。テストは、あとから後付けもできる (--tests gtest / --tests mstest の再実行)。「新しいプロジェクトを始めたい」「ソリューションを作りたい」「テストを導入したい」という依頼で使う。
-argument-hint: "[--ui-tests none|flaui] [--type wpf|winforms|csharp-dll|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib|mfc-ext-dll|mfc-std-dll] [--gtest auto|vcpkg|source] [--tfm net10.0] [--spec <仕様書>]"
+argument-hint: "[--ui-tests none|flaui] [--type wpf|winforms|csharp-dll|mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib] [--layers none|logic|data|logic,data|viewmodel を含む組み合わせ (wpf)] [--tests none|gtest|mstest] [--layer-kind dll|lib|mfc-lib|mfc-ext-dll|mfc-std-dll] [--gtest auto|vcpkg|source] [--tfm net10.0] [--spec <仕様書>]"
 disable-model-invocation: true
 ---
 
@@ -23,7 +23,7 @@ disable-model-invocation: true
 |---|---|---|
 | メインの種類 | `--type` | **`wpf` (WPF、MVVM。.NET)** / **`winforms` (WinForms、MVP。.NET)** / **`csharp-dll` (C# のクラスライブラリ。.NET。画面なし)** / `mfc` (MFC SDI) / `mfc-mdi` (MFC MDI) / `mfc-dialog` (MFC ダイアログベース) / `win32` (Win32 デスクトップ) / `console` / `dll` / `lib` (静的ライブラリ) |
 | 層 | `--layers` | `none` / `logic` / `data` / `logic,data` (既定の名前: `LogicLayer` / `DataLayer`)。**`wpf` のときは、`viewmodel` (既定の名前 `ViewModels`) も、組み合わせられる** (例: `data,logic,viewmodel`)。名前は、`logic:OrderLogic,data:OrderData` のように指定できる。**`wpf` は、`SampleApp.Domain` のように、`.` を含む名前もよい** (規約 3.2 の `Presentation` / `Application` / `Domain` / `Infrastructure`。`wpf-check` が、標準の依存で検査する) |
-| 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし) / `mfc-ext-dll` (MFC 拡張 DLL。MFC の型・シリアライズを持ち込む層。**メインが MFC のときだけ**) / `mfc-std-dll` (MFC 標準 DLL。共有 MFC。`CWinApp` 派生の `theApp`、エクスポート関数の先頭に `AFX_MANAGE_STATE`。**メインは何でもよい**。どちらも `cpp-test-first` の `DLL-LAYOUT.md`)。全部の層に、同じ種類 |
+| 層の種類 | `--layer-kind` | `dll` (既定) / `lib` (静的ライブラリ。公開マクロなし) / `mfc-lib` (**MFC の静的ライブラリ**。`StaticLibrary`、共有 MFC (`UseOfMfc=Dynamic`)、`pch.h`。公開マクロ・`dllmain` なし。**メインが MFC のときだけ**。使う側の MFC の exe・MFC 標準 DLL・テスト exe も `UseOfMfc=Dynamic`) / `mfc-ext-dll` (MFC 拡張 DLL。MFC の型・シリアライズを持ち込む層。**メインが MFC のときだけ**) / `mfc-std-dll` (MFC 標準 DLL。共有 MFC。`CWinApp` 派生の `theApp`、エクスポート関数の先頭に `AFX_MANAGE_STATE`。**メインは何でもよい**。どちらも `cpp-test-first` の `DLL-LAYOUT.md`)。全部の層に、同じ種類 |
 | テスト | `--tests` | `none` / `gtest` (C++: 作った各 DLL / ライブラリに、`<名前>Test` と GoogleTest) / **`mstest` (WPF: 作った各クラスライブラリに、`<名前>.Tests` と MSTest)** |
 | GoogleTest の入れ方 | `--gtest` | `auto` (既定。**vcpkg**) / `vcpkg` / `source` (旧 NuGet 方式 (`nuget`) は、v2.31.0 で廃止) (下の「GoogleTest」) |
 | UI テスト | `--ui-tests` | `none` (既定) / **`flaui` (WPF / WinForms と、MFC などの C++ の GUI アプリ: `<アプリ名>.UITests` (MSTest + FlaUI) を足す)**。画面を、自動で操作して確かめたいときだけ。**ビルド → テストの流れには、含めず、ユーザーが求めたときだけ、別に実行する** (ウォッチャーの `trigger_uitest.flag`、`build-test-loop` の `uitest_once.sh`。画面をプロンプトで作りながら、UI テストを先に書いて繰り返すときは、`/ui-test-first`)。通常のテストには、含まれない。作成と同時に指定でき、**すでにあるソリューションに、後付けもできる** (`--ui-tests flaui` だけを指定)。書き方は、`build-test-loop` の `references/ui-tests.md` |

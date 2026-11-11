@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """add_layer.py - ソリューションに、「DLL プロジェクト」と、(必要なら) 「対応するテスト exe (GoogleTest)」を追加する。
 
-Usage: python3 add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]
+Usage: python3 add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]
                             [--toolset v145] [--dry-run]
 
   SLN_DIR      .sln または .slnx があるフォルダ (Claude Code を起動したフォルダ)
   Name         DLL のプロジェクト名 (例: DataLayer)。テストは <Name>Test になる
   --tests      gtest (既定): DLL + テスト exe を作る。none: DLL だけを作る (テスト・GoogleTest は作らない)
-  --kind       dll (既定) / lib / mfc-ext-dll: DLL を作るか、静的ライブラリ (公開マクロなし。テスト exe や UI に、リンクで取り込まれる) を作るか、
+  --kind       dll (既定) / lib / mfc-lib / mfc-ext-dll: DLL を作るか、静的ライブラリ (公開マクロなし。テスト exe や UI に、リンクで取り込まれる) を作るか、
+               MFC の静的ライブラリ (mfc-lib。StaticLibrary、UseOfMfc=Dynamic (共有 MFC)、pch.h。公開マクロ・dllmain なし。MFC の型を使う .lib。使う側 (MFC の exe、MFC 標準 DLL、テスト exe) も、UseOfMfc=Dynamic)か、
                MFC 拡張 DLL (UseOfMfc=Dynamic、_AFXEXT、pch.h、dllmain.cpp の定型コード。MFC の型・シリアライズを持ち込む層のとき。メインが MFC のとき)か、
                MFC 標準 DLL (mfc-std-dll。UseOfMfc=Dynamic、_USRDLL、pch.h、CWinApp 派生の theApp。エクスポート関数の先頭に AFX_MANAGE_STATE。どの exe からでも使える)か
   --tests-only すでにある DLL / 静的ライブラリ <Name> に、テスト exe だけを足す (DLL の名前空間・参照は、既存のファイルから読む)
@@ -447,6 +448,8 @@ def dll_files(name, ns, uses, toolset, dg, kind='dll'):
     """DLL (kind='dll') か、静的ライブラリ (kind='lib') の、プロジェクト一式。"""
     if kind == 'lib':
         return lib_files(name, ns, uses, toolset, dg)
+    if kind == 'mfc-lib':
+        return mfc_lib_files(name, ns, uses, toolset, dg)
     if kind == 'mfc-ext-dll':
         return mfc_ext_files(name, ns, uses, toolset, dg)
     if kind == 'mfc-std-dll':
@@ -525,6 +528,63 @@ MFC_EXT_TARGETVER_H = '''#pragma once
 
 #include <SDKDDKVer.h>
 '''
+
+
+def mfc_lib_files(name, ns, uses, toolset, dg):
+    """MFC の静的ライブラリ (MFC を使う .lib) のプロジェクト一式 (v2.87.0)。
+    StaticLibrary、UseOfMfc=Dynamic (共有 MFC。MSBuild が _AFXDLL を定義する。**これを使う exe / MFC 標準 DLL / テスト exe も、UseOfMfc=Dynamic にする**)、
+    pch.h (pch.cpp が Create)。公開マクロ (dllexport / dllimport)・dllmain.cpp・_AFXEXT・_USRDLL は、要らない (リンク時に、使う側に、取り込まれる)。"""
+    use_inc = [f'$(ProjectDir)..\\{u}' for u in uses]
+    info_h = f'{name}ModuleInfo.h'
+    info_cpp = f'{name}ModuleInfo.cpp'
+    func = f'{name}ModuleName'
+    items = [info_h, 'pch.h', 'framework.h', 'targetver.h', info_cpp, 'pch.cpp']
+
+    files = {}
+    files[f'{name}/{name}.vcxproj'] = vcxproj(
+        name, dg, 'StaticLibrary', toolset, items, [], use_inc, '_LIB;', 'Windows', mfc=True, pch=True)
+    files[f'{name}/{name}.vcxproj.filters'] = vcxproj_filters(items)
+    files[f'{name}/{info_h}'] = f'''#pragma once
+
+namespace {ns}
+{{
+    // ビルドの確認用 (MFC の静的ライブラリが、リンクできることを確かめる)。本物の機能を入れたら、削除してよい。
+    // 静的ライブラリなので、公開マクロ (dllexport / dllimport) は、不要。
+    const char* {func}();
+}}
+'''
+    files[f'{name}/{info_cpp}'] = f'''#include "pch.h"
+#include "{info_h}"
+
+namespace {ns}
+{{
+    const char* {func}()
+    {{
+        return "{name}";
+    }}
+}}
+'''
+    files[f'{name}/pch.h'] = f'''// pch.h: プリコンパイル済みヘッダー ファイルです。
+// **このプロジェクトの .cpp は、先頭で #include "pch.h" する** (pch.cpp 以外は、プリコンパイル済みヘッダーを使うため)。
+// MFC の静的ライブラリ ({name}) は、共有 MFC (UseOfMfc=Dynamic) でビルドする。使う側 (MFC の exe、MFC 標準 DLL、テスト exe) も、
+// UseOfMfc=Dynamic にする (MFC のランタイムが 2 つになるのを、避ける。mfc-check の LIB001)。
+
+#ifndef PCH_H
+#define PCH_H
+
+#include "framework.h"
+
+#endif //PCH_H
+'''
+    files[f'{name}/pch.cpp'] = '''// pch.cpp: プリコンパイル済みヘッダーに対応するソース ファイル
+
+#include "pch.h"
+
+// プリコンパイル済みヘッダーを使用している場合、コンパイルを成功させるにはこのソース ファイルが必要です。
+'''
+    files[f'{name}/framework.h'] = MFC_EXT_FRAMEWORK_H
+    files[f'{name}/targetver.h'] = MFC_EXT_TARGETVER_H
+    return files
 
 
 def mfc_ext_files(name, ns, uses, toolset, dg):
@@ -890,7 +950,7 @@ def build_files(name, ns, uses, toolset, tests=True, kind='dll', gtest_mode='vcp
     files = dll_files(name, ns, uses, toolset, dg, kind)
     projects = [(name, dg)]
     if tests:
-        files.update(test_files(name, ns, uses, toolset, dg, tg, gtest_mode=gtest_mode, gtest_guid=gtest_guid, mfc_ext=(kind == 'mfc-ext-dll')))
+        files.update(test_files(name, ns, uses, toolset, dg, tg, gtest_mode=gtest_mode, gtest_guid=gtest_guid, mfc_ext=(kind in ('mfc-ext-dll', 'mfc-lib'))))
         projects.append((name + 'Test', tg))
     return files, projects
 
@@ -1036,7 +1096,7 @@ def read_dll_info(sln_dir, name):
         if mn and f'{name}ModuleName' in ht:
             ns, has_info = mn.group(1), True
     return {'guid': m.group(1).upper(), 'uses': uses, 'ns': ns, 'has_info': has_info,
-            'mfc_ext': '_AFXEXT' in text}   # MFC 拡張 DLL (テスト exe も UseOfMfc=Dynamic にする)
+            'mfc_ext': '_AFXEXT' in text or ('<ConfigurationType>StaticLibrary</ConfigurationType>' in text and '<UseOfMfc>' in text)}   # MFC 拡張 DLL / MFC の静的ライブラリ (テスト exe も UseOfMfc=Dynamic にする)
 
 
 def gstat_for(sln_dir, gmode):
@@ -1104,7 +1164,7 @@ def main():
     ap.add_argument('name')
     ap.add_argument('--tests', choices=['none', 'gtest'], default='gtest')
     ap.add_argument('--tests-only', action='store_true')
-    ap.add_argument('--kind', choices=['dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'], default='dll')
+    ap.add_argument('--kind', choices=['dll', 'lib', 'mfc-lib', 'mfc-ext-dll', 'mfc-std-dll'], default='dll')
     ap.add_argument('--namespace')
     ap.add_argument('--uses', nargs='*', default=None)
     ap.add_argument('--toolset')

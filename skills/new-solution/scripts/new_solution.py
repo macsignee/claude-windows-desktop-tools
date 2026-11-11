@@ -3,7 +3,7 @@
 
 Usage:
   新規:        python3 new_solution.py <FOLDER> --type mfc|mfc-mdi|mfc-dialog|win32|console|dll|lib --layers none|logic|data|logic,data
-                                       --tests none|gtest [--layer-kind dll|lib|mfc-ext-dll|mfc-std-dll] [--namespace NS] [--toolset v145]
+                                       --tests none|gtest [--layer-kind dll|lib|mfc-lib|mfc-ext-dll|mfc-std-dll] [--namespace NS] [--toolset v145]
                                        [--gtest auto|vcpkg|source] [--dry-run]
                WPF (.NET): python3 new_solution.py <FOLDER> --type wpf --layers none|data|logic|viewmodel の組み合わせ --tests none|mstest
                                        [--namespace NS] [--tfm net10.0] [--mstest-version V] [--testsdk-version V] [--dry-run]
@@ -25,7 +25,7 @@ Usage:
            / wpf (WPF、MVVM。.NET。ソリューションは .slnx、各プロジェクトは SDK 形式の .csproj。NuGet の復元は、ウォッチャーのビルドが行う)
   --layers 作る層: logic -> LogicLayer、data -> DataLayer。none は、層を作らない。
            名前を変えるなら logic:OrderLogic,data:OrderData のように指定する (省略時の既定の名前は、作成後に変更もできる)
-  --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ) / mfc-ext-dll (MFC 拡張 DLL。MFC の型・シリアライズを持ち込む層。メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ) / mfc-std-dll (MFC 標準 DLL。共有 MFC。CWinApp 派生の theApp。エクスポート関数の先頭に AFX_MANAGE_STATE。メインは何でもよい)。全部の層に、同じ種類を使う
+  --layer-kind 層の種類: dll (既定) / lib (静的ライブラリ) / mfc-lib (MFC の静的ライブラリ。StaticLibrary、共有 MFC (UseOfMfc=Dynamic)、pch.h。メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ。使う側の MFC の exe・MFC 標準 DLL・テスト exe も、UseOfMfc=Dynamic) / mfc-ext-dll (MFC 拡張 DLL。MFC の型・シリアライズを持ち込む層。メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ) / mfc-std-dll (MFC 標準 DLL。共有 MFC。CWinApp 派生の theApp。エクスポート関数の先頭に AFX_MANAGE_STATE。メインは何でもよい)。全部の層に、同じ種類を使う
   --tests  gtest: 作った DLL / 静的ライブラリ (層と、メインが dll / lib ならメイン) に、<名前>Test (GoogleTest の exe) を作る。none: テストを作らない
   --gtest  GoogleTest の入れ方: auto (既定。vcpkg。すでに gtest プロジェクトがあれば source) /
            vcpkg (vcpkg.json に gtest を入れ、テスト exe に main.cpp を置く。baseline と install は、ウォッチャー経由: package_once.sh) /
@@ -61,7 +61,7 @@ except ImportError:
     sys.exit(2)
 
 die = AL.die
-KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (MVP)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
+KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (MVP)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-lib': 'MFC 静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
 DOTNET_TYPES = ('wpf', 'winforms', 'csharp-dll')
 MFC_TYPES = ('mfc', 'mfc-mdi', 'mfc-dialog')   # MFC の exe (mfc は SDI)
 EXE_TYPES = ('console', 'win32') + MFC_TYPES    # exe の種類 (名前が Test で終わると、出力名を変える)
@@ -719,11 +719,15 @@ def claude_md(name, kind, layers, tests, layer_kind='dll', gtest_mode='vcpkg', p
     layer_txt = ('なし' if not layers else
                  ','.join(k if default else f'{k}:{nm}' for k, nm in layers))
     test_txt = 'あり (GoogleTest)' if tests else 'なし'
-    lk = {'lib': '静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL'}.get(layer_kind, 'DLL')
+    lk = {'lib': '静的ライブラリ', 'mfc-lib': 'MFC の静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL'}.get(layer_kind, 'DLL')
     if layer_kind == 'mfc-std-dll':
         lk_note = ('- ロジック層・データ層は、MFC 標準 DLL (共有 MFC。`UseOfMfc=Dynamic`、`_USRDLL`。`_AFXEXT` は付けない。`CWinApp` 派生の `theApp`)。'
                    '**エクスポートする関数は、先頭で `AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。** MFC のオブジェクト (`CObject` 派生・`CString`) を、DLL の境界で受け渡さない (必要なら拡張 DLL `--layer-kind mfc-ext-dll`)。'
                    '**.cpp は、先頭で `#include "pch.h"` する** (`cpp-test-first` の `DLL-LAYOUT.md`)。')
+    elif layer_kind == 'mfc-lib':
+        lk_note = ('- ロジック層・データ層は、MFC の静的ライブラリ (`StaticLibrary`、共有 MFC `UseOfMfc=Dynamic`。MFC が `_AFXDLL` を定義する)。公開マクロ (dllexport / dllimport)・`dllmain.cpp`・`_AFXEXT`・`_USRDLL` は、ない (リンク時に、使う側に取り込まれる)。'
+                   '**使う側 (MFC の exe、MFC 標準 DLL、テスト exe) も、`UseOfMfc=Dynamic` にする** (違うと、MFC のランタイムが 2 つになる、または `LNK2005` / `LNK2038`。`mfc-check` の LIB001)。'
+                   '使う側からは、プロジェクト参照 (`/add-project` の `add_reference.py`) で、リンクする。**.cpp は、先頭で `#include "pch.h"` する** (`cpp-test-first` の `DLL-LAYOUT.md`)。')
     elif layer_kind == 'mfc-ext-dll':
         lk_note = ('- ロジック層・データ層は、MFC 拡張 DLL (`UseOfMfc=Dynamic`、`_AFXEXT`。`_USRDLL` は付けない)。`CObject` 派生クラスには `AFX_EXT_CLASS`、それ以外の公開には `<名前>_API` を付ける。'
                    'テスト exe も、同じ共有 MFC ランタイム (`UseOfMfc=Dynamic`) を使う。**.cpp は、先頭で `#include "pch.h"` する** (`cpp-test-first` の `DLL-LAYOUT.md`)。')
@@ -788,7 +792,7 @@ UI / メイン → ロジック → データ (のインターフェース)
 - テスト exe は、自前の `main.cpp` (`main()` を書いたもの) を持つ。vcpkg の `gtest_main` は、自動ではリンクされない。出力に「Running main() from ...」の行は出ない。
 - GoogleTest は C++17 以上が必要 (プロジェクトは C++20)。
 """
-    is_mfc = kind in (KIND['mfc'], KIND['mfc-mdi'], KIND['mfc-dialog']) or (bool(layers) and layer_kind in ('mfc-ext-dll', 'mfc-std-dll'))
+    is_mfc = kind in (KIND['mfc'], KIND['mfc-mdi'], KIND['mfc-dialog']) or (bool(layers) and layer_kind in ('mfc-lib', 'mfc-ext-dll', 'mfc-std-dll'))
     mfc_rule = ('- MFC を使うコード (MFC のメイン、MFC の層) は、`.claude/rules/mfc-cpp.md` も読んでから書く (ウィザード生成の `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイルでは、自動では読み込まれない)。\n'
                 if is_mfc else f'- このソリューションは、MFC を使わない{" (Win32 API と C++)" if kind == KIND["win32"] else ""}。MFC の規約 (`mfc-cpp.md`) は、適用しない。MFC のクラス (`CString` `CWnd` など) を、持ち込まない。\n')
     out += f"""
@@ -1456,6 +1460,9 @@ def create_mode(a, folder, name):
     if lkind == 'mfc-ext-dll' and a.type not in MFC_TYPES:
         die('--layer-kind mfc-ext-dll (MFC 拡張 DLL) は、メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ指定できる '
             '(MFC のランタイムを持たない exe は、拡張 DLL を使えない)')
+    if lkind == 'mfc-lib' and a.type not in MFC_TYPES:
+        die('--layer-kind mfc-lib (MFC の静的ライブラリ) は、メインが MFC (mfc / mfc-mdi / mfc-dialog) のときだけ指定できる '
+            '(使う側が、UseOfMfc=Dynamic の exe でないと、リンクできない。MFC なしの exe は、MFC の静的ライブラリを使えない)')
 
     # 事前の確認 (何も書く前に、すべて確かめる)
     layer_names = [nm for _, nm in layers]
@@ -1489,7 +1496,7 @@ def create_mode(a, folder, name):
     if tests:
         for dn, dg, uses, _kind in dll_list:
             tg = AL.new_guid()
-            files.update(AL.test_files(dn, ns, uses, toolset, dg, tg, gtest_mode=gmode, gtest_guid=gguid, mfc_ext=(_kind == 'mfc-ext-dll')))
+            files.update(AL.test_files(dn, ns, uses, toolset, dg, tg, gtest_mode=gmode, gtest_guid=gguid, mfc_ext=(_kind in ('mfc-ext-dll', 'mfc-lib'))))
             projects.append((dn + 'Test', tg))
         files.update(gfiles)
         projects += gprojects
@@ -1603,7 +1610,7 @@ def add_tests_mode(a, folder, name, sln_name):
 
 SPEC_KEYS = {'メインの種類': 'type', '層': 'layers', '層の種類': 'layer_kind', 'テスト': 'tests', '名前空間': 'namespace',
              'UIテスト': 'ui_tests', 'TFM': 'tfm', 'プラットフォーム': 'platforms'}
-SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'),
+SPEC_ALLOWED = {'type': ('wpf', 'winforms', 'csharp-dll', 'mfc', 'mfc-mdi', 'mfc-dialog', 'win32', 'console', 'dll', 'lib'), 'layer_kind': ('dll', 'lib', 'mfc-lib', 'mfc-ext-dll', 'mfc-std-dll'),
                 'tests': ('none', 'gtest', 'mstest'), 'ui_tests': ('none', 'flaui')}
 
 
@@ -1684,7 +1691,7 @@ def main():
     ap.add_argument('--toolset')
     ap.add_argument('--gtest-from')
     ap.add_argument('--gtest', choices=['auto', 'vcpkg', 'source', 'nuget'])
-    ap.add_argument('--layer-kind', choices=['dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll'])
+    ap.add_argument('--layer-kind', choices=['dll', 'lib', 'mfc-lib', 'mfc-ext-dll', 'mfc-std-dll'])
     ap.add_argument('--ui-tests', choices=['none', 'flaui'])
     ap.add_argument('--common', choices=['auto', 'copy', 'reference'], default='auto', help='共通の Directory.Build.* の置き方 (既定 auto: 外の正本の場所が決まれば参照型、なければコピー型)')
     ap.add_argument('--common-dir', help='外の正本 (msbuild-common) のフォルダ (WSL のパス。省略時は、環境変数 MSBUILD_COMMON_DIR)')

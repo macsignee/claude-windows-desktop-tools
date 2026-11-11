@@ -12,7 +12,7 @@ Usage: python3 solution_state.py <SLN_DIR>
   MAIN           メイン (CLAUDE.md の `- メイン:` があればそれ。なければ、最初の exe)
   CLAUDE_MD      present / absent と、読み取った 3 行 (メイン / 層 / テスト)
   PROJECT        名前 | 種類 | 役割 | テスト | プロジェクト参照 | include だけの参照 (C++)
-                 種類: exe / console-exe / dll / lib / mfc-ext-dll / mfc-std-dll / wpf-app / winforms-app / console-app / classlib / test / uitest
+                 種類: exe / console-exe / dll / lib / mfc-lib / mfc-ext-dll / mfc-std-dll / wpf-app / winforms-app / console-app / classlib / test / uitest
                  役割: main / data / logic / viewmodel / ui / test / uitest / other
   MISMATCH       CLAUDE.md と、実際の構成の食い違い (層の記録、テストの有無、「追加した層」の行のテストの有無)
   REF_ISSUES     層の参照の向きの違反 (下の層が、上の層を参照している。メイン → 画面 → ViewModel → ロジック → データ)
@@ -76,7 +76,7 @@ def classify_vcx(name, text):
         elif '_USRDLL' in defs and mfc:
             kind = 'mfc-std-dll'
     elif cfg == 'StaticLibrary':
-        kind = 'lib'
+        kind = 'mfc-lib' if mfc else 'lib'
     else:
         kind = 'other'
     refs = re.findall(r'<ProjectReference Include="\.\.\\([\w.]+)\\', text)
@@ -305,9 +305,9 @@ def addables(sln_dir, projects, kind, main_name):
     sd = '<SLN_DIR>'
     if cpp:
         out.append(('layer', '層 (DLL / 静的ライブラリ / MFC 拡張・標準 DLL) と、そのテストを足す',
-                    f'python3 {SCRIPTS}/cpp-test-first/scripts/add_layer.py "{sd}" <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests gtest|none] [--uses <Other>...] --dry-run'))
+                    f'python3 {SCRIPTS}/cpp-test-first/scripts/add_layer.py "{sd}" <Name> [--kind dll|lib|mfc-lib|mfc-ext-dll|mfc-std-dll] [--tests gtest|none] [--uses <Other>...] --dry-run'))
         for n, p in projects.items():
-            if p['kind'] in ('dll', 'lib', 'mfc-ext-dll', 'mfc-std-dll') and p['role'] != 'ui' and n not in tests:
+            if p['kind'] in ('dll', 'lib', 'mfc-lib', 'mfc-ext-dll', 'mfc-std-dll') and p['role'] != 'ui' and n not in tests:
                 out.append((f'tests-for:{n}', f'{n} に、テスト (GoogleTest) を後付けする',
                             f'python3 {SCRIPTS}/cpp-test-first/scripts/add_layer.py "{sd}" {n} --tests-only --dry-run'))
         out.append(('ui-host', '画面を持つ DLL (UI DLL) と、画面ホストの exe を足す',
