@@ -73,6 +73,8 @@ align_to_launch_case() {
     fi
 }
 DIR="$(align_to_launch_case "$DIR")"
+# 日本語を含む、BOM なしの C++ ソースを、BOM 付きにそろえる (MSVC が ANSI として読んで、ビルドが止まるのを避ける。v2.82.0)
+python3 -I "$(dirname "${BASH_SOURCE[0]}")/fix_cpp_encoding.py" "$DIR" || true
 
 # 終了時 (どの結果のときも): WPF の XAML にメニューがあれば、ユーザーのデスクトップのウォッチャーを使う旨を、知らせる (1 行目と終了コードは、変えない)
 # 続けて、テストの改変の検査の結果 (TEST_GUARD: の行。基準があるときだけ) を、末尾に出す。UI テスト (uitest_once.sh) は、自分の出力の末尾で出す

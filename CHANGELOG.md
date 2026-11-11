@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.82.0] 2026-11-11 (C++ の BOM なしの新規ファイルを、ビルド前に自動で直す。ダイアログは、確定するまで、渡されたデータを変えない)
+
+- **実機の確認 (TC5 `tcCpp`、DR2 `drMfc`) で分かったこと:** `/cpp-test-first` と `/ui-test-first` が作った新しい C++ のファイルが、BOM なし・LF になり、**ビルドが 1 回止まった** (exit 6、`C2447` など。2 回)。MSVC は、BOM なしのファイルを、ANSI (CP932) として読むため、日本語を含む、BOM なしの UTF-8 が、文字化けする。そのたびに、操作用の Claude が、BOM 付き・CRLF に直して、やり直した。
+- **`skills/build-test-loop/scripts/fix_cpp_encoding.py` を足した:** 日本語を含む、BOM なしの UTF-8 の C++ ソース (`.cpp .cxx .c .h .hpp .hxx .inl .rc`) を、**UTF-8 BOM 付き**にする (改行が LF だけのファイルは、CRLF にそろえる。CRLF が 1 つでもあれば、改行は変えない)。ASCII だけ、すでに BOM 付き、C# (`.cs`)、CP932 (UTF-8 として読めない)、`bin` / `obj` / `x64` / `Debug` / `Release` / `vcpkg_installed` / `.git` / `.claude-logs` の下は、触らない。**プロジェクトに `/utf-8` (または `/source-charset:utf-8`) があれば、何もしない。** 直したときは、標準エラーに `ENCODING_FIX: ...` を 1 行出す (標準出力の 1 行目 = 結果、は変えない)。
+- **`build_test_once.sh` と `auto-build/scripts/build_once.sh` が、フラグを送る前に、これを呼ぶ** (`uitest_once.sh` は、`build_test_once.sh` を通る)。
+- **規約: ダイアログは、確定 (OK) するまで、渡されたデータを変更しない** (ユーザーの指摘)。入力中の検査は、一時的なデータ (または生の文字列) で行い、OK のときに、書き戻す。`rules/winforms-csharp.md`・`rules/wpf-csharp.md`・`cpp-test-first/DLL-LAYOUT.md`・`ui-test-first/references/dialogs.md` に書いた。DR1 の WinForms の実装 (`TextChanged` ごとに `_data.Name` を書き換える) は、この原則と、ずれている (実害はない。渡す側が、新しいデータを渡し、キャンセルでは、捨てるため)。DR2 の MFC の実装は、原則どおり (`OnOK` で初めて `SetName`)。
+- テスト: `tests/fix_cpp_encoding_test.sh` (新規、10 件)、`tests/ui_test_first_skill_test.sh` (37 件)。
+
 ## [2.81.0] 2026-11-10 (仕様: ダイアログのデータのクラスが、純粋な規則を持つ。専用の Presenter / ViewModel は、増やさない)
 
 - **決めたこと (v2.78.0 の続き):** ダイアログ・サブウィンドウが扱うデータは、**ロジック層のデータのクラス**に置き、**純粋な規則** (入力の検査 `IsValid()` / `Validate()`、表示用の派生値。UI の型は使わない) を持たせてよい。**ダイアログ専用の Presenter / ViewModel は、増やさない** (規則が複雑になったとき、状態が多い・非同期などのときに、足す)。データのクラスは、Presenter / ViewModel の内側に入れ子にせず、**同じ層に、別のファイルで置く。**
