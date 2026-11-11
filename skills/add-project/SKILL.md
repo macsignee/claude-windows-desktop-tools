@@ -42,7 +42,7 @@ python3 <このSkillのフォルダ>/scripts/solution_state.py "$SLN_DIR"
 
 | 足すもの | 決めること | 使うスクリプト |
 |---|---|---|
-| **層** (`layer`) | 名前、役割 (データ / ロジック / ViewModel / その他)、種類 (C++: `dll` / `lib` / `mfc-ext-dll` / `mfc-std-dll`。.NET: `lib` / `data` / `logic` / `viewmodel`)、テストの有無、**参照する層 (`--uses`)** | C++: `cpp-test-first` の `add_layer.py`。.NET: `csharp-test-first` の `add_project.py` |
+| **層** (`layer`) | 名前、役割 (データ / ロジック / ViewModel / その他)、種類 (C++: `dll` / `lib` / `mfc-lib` / `mfc-ext-dll` / `mfc-std-dll`。.NET: `lib` / `data` / `logic` / `viewmodel`)、テストの有無、**参照する層 (`--uses`)** | C++: `cpp-test-first` の `add_layer.py`。.NET: `csharp-test-first` の `add_project.py` |
 | **テストの後付け** (`tests-for:<名前>`) | どの層か (`ADDABLE` の項目) | 同上の `--tests-only` |
 | **画面を持つ DLL + 画面ホスト** (`ui-host`。C++ だけ) | 名前、種類 (標準 / 拡張)、ロジック層 (`--logic`)、UI テストの有無 | `cpp-test-first` の `add_ui_host.py` |
 | **UI テストの後付け** (`ui-tests:<アプリ>`) | どのアプリか | `new-solution` の `new_solution.py --ui-tests flaui` |
@@ -55,6 +55,7 @@ python3 <このSkillのフォルダ>/scripts/solution_state.py "$SLN_DIR"
 - **層の名前は、既定のままでよい** (`LogicLayer` / `DataLayer` / `ViewModels`。変更は、作成後にもできる。`DLL-LAYOUT.md`)。作るのは、ユーザーが望んだときだけ。
 - **参照の向きを守る:** メイン → 画面 → ViewModel → ロジック → データ。**下の層は、上の層を参照しない。** `--uses` に、上の層を指定する依頼は、その場で指摘する。
 - **MFC 拡張 DLL (`mfc-ext-dll`) は、メインが MFC のときだけ。** MFC の DLL の選び方は、`cpp-test-first` の `DLL-LAYOUT.md`。
+- **MFC の静的ライブラリ (`mfc-lib`) は、MFC の exe (SDI・MDI・ダイアログ) と、MFC 標準 DLL (`mfc-std-dll`) から、参照できる** (`add_reference.py --from <exe か標準 DLL> --to <静的ライブラリ>`)。**参照する側は、`UseOfMfc=Dynamic`** (MFC なしの exe からは、断る。`mfc-check` の LIB001)。
 - **C++ のテスト (`gtest`) の入れ方** (`--gtest auto|vcpkg|source`) は、`new-solution` の「GoogleTest」と同じ。迷ったら `auto`。
 - **UI 層はテストしない** (画面のテストは UI テスト)。UI DLL に、`tests-for` を出さない。
 - **プラットフォームの追加 (`platform`)**: x64 だけのソリューションに Win32 を足す (または、その逆)。**全部の C++ の `.vcxproj` と、`.slnx` (`<Platform Name="x86" />`) / `.sln` が、変わる。** すでにあるプラットフォームは、何もしない。**`.vcxproj` の形が想定と違うものが 1 つでもあれば、何も書かずに止まる** (終了コード 2。「!」の行を、ユーザーに伝える)。.NET (`AnyCPU`) は対象外。

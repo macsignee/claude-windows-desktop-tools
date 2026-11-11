@@ -103,6 +103,9 @@ def check(projects, frm, to, sln_dir, include_only):
     if a['lang'] == 'cpp':
         if include_only is False and b['kind'] == 'mfc-ext-dll' and not a['mfc']:
             die(f'MFC 拡張 DLL {to} を参照する {frm} は、UseOfMfc (Dynamic) が必要 (mfc-check の DLL008)。先に、{frm} の MFC の設定を直す')
+        if include_only is False and b['kind'] == 'mfc-lib' and not a['mfc']:
+            die(f'MFC の静的ライブラリ {to} を参照する {frm} は、UseOfMfc (Dynamic) が必要 (mfc-check の LIB001)。MFC の exe か、MFC 標準 DLL (--kind mfc-std-dll) から参照する。'
+                f'先に、{frm} の MFC の設定を直す')
     elif include_only:
         die('--include-only は、C++ だけ')
 

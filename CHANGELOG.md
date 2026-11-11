@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.87.0] 2026-11-11 (MFC の静的ライブラリ `mfc-lib`。MFC の exe と MFC 標準 DLL から、リンクできる)
+
+- **ユーザーの依頼:** (1) MFC の静的ライブラリを、作れるようにする。(2) MFC の exe (SDI・MDI・ダイアログ) だけでなく、MFC 標準 DLL からも、その静的ライブラリを、リンクできるようにする。(最初は、「exe を静的リンクにする (`UseOfMfc=Static`)」と、取り違えた。実際の依頼は、「MFC を使う静的ライブラリ (.lib) を作り、使う側からリンクする」。)
+- **層の種類 `mfc-lib` を足した** (`add_layer.py --kind mfc-lib` / `new_solution.py --layer-kind mfc-lib` / `/add-project`): `ConfigurationType=StaticLibrary`、**`UseOfMfc=Dynamic`** (共有 MFC。MSBuild が `_AFXDLL` を定義)、`_LIB`、`pch.h` (Use) / `pch.cpp` (Create)、`framework.h`、`targetver.h`。公開マクロ・`dllmain.cpp`・`_AFXEXT`・`_USRDLL` は、ない。**テスト exe も `UseOfMfc=Dynamic`** (`--tests-only` で後から足すときも、既存のライブラリから読む)。`new_solution.py` では、**メインが MFC のときだけ**指定できる。
+- **リンク:** `add_reference.py --from <MFC の exe か MFC 標準 DLL> --to <静的ライブラリ>` (プロジェクト参照 + インクルード)。**MFC なしの exe からは、断る** (終了コード 2、LIB001 の理由つき)。`solution_state.py` は、`StaticLibrary` + `UseOfMfc` を、`mfc-lib` と判定する。
+- **`mfc-check` に LIB001 (error) を足した:** MFC の静的ライブラリを参照する exe / DLL / 静的ライブラリの `UseOfMfc` が、ライブラリと違う (MFC なしの exe も)。MFC のランタイムが 2 つになる、または `LNK2005` / `LNK2038`。名前が `Test` / `Tests` で終わるプロジェクトは、検査しない。`LAY002` (GUI のヘッダーの include) は、MFC の静的ライブラリでは、info にとどめる (`pch.h` / `framework.h` と同じ)。
+- **書いた場所:** `cpp-test-first/DLL-LAYOUT.md` (「MFC の静的ライブラリを作るとき」)、`new-solution/SKILL.md`、`add-project/SKILL.md`、`mfc-check/SKILL.md`、生成される `CLAUDE.md`。
+- **実機の確認は、まだ** (TEST-PLAN 2-53 ML-1〜ML-5)。
+- テスト: `tests/mfc_lib_test.sh` (新規、13 件)。`add_layer_test`・`add_project_skill_test`・`add_project_test`・`add_reference_test`・`mfc_check_test`・`new_solution_test`・`new_solutions_test`・`new_solution_common_test`・`win32_platform_test`・`skill_paths_test` は、変更なしで通る。
+
 ## [2.86.1] 2026-11-11 (`host-tools/README.md` の整理)
 
 - **文書だけの変更** (ホスト側の動作は、変えていない。`HOST_VERSION` は、上げない)。

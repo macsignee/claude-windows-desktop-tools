@@ -83,6 +83,7 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | DLL006 | warning | 拡張 DLL に、`new CDynLinkLibrary` または `AfxTermExtensionModule` がない | `DllMain` に足す (リソース チェーンへの追加と、終了時の後始末)。 |
 | DLL007 | warning | **標準 DLL (共有 MFC)** の公開関数 (`<名前>_API` / `__declspec(dllexport)` の関数) が、先頭で `AFX_MANAGE_STATE` を呼んでいない | 関数の先頭 (オブジェクトの宣言よりも前) で、`AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。MFC のリソースやモジュールの状態が、呼び出し元の exe のものになる。 |
 | DLL008 | error | 拡張 DLL を参照する exe / DLL の `UseOfMfc` が `Dynamic` でない (MFC なしの exe も)。**名前が `Test` / `Tests` で終わるプロジェクトは、検査しない** | 参照する側も、`UseOfMfc=Dynamic` にする (MFC のランタイムが、2 つになるのを防ぐ。MFC の状態 (`CString`・ダイアログ・リソースなど) を使う関数を呼ぶと、実行時に壊れる)。テスト exe は、検査の対象外だが、生成されるテストは `Dynamic` にしてある (実機の確認: `Dynamic` でなくても、MFC の状態を使わない関数だけを呼ぶテストは、ビルドも実行も通る) |
+| LIB001 | error | **MFC の静的ライブラリ** (`StaticLibrary` + `UseOfMfc`) を参照する exe / DLL / 静的ライブラリの `UseOfMfc` が、ライブラリと違う (MFC なしの exe も)。**名前が `Test` / `Tests` で終わるプロジェクトは、検査しない** | 参照する側を、同じ `UseOfMfc` (`Dynamic` が既定) にする。MFC の exe か、MFC 標準 DLL (`--kind mfc-std-dll`) から参照する。MFC のランタイムが 2 つになる、または `LNK2005` / `LNK2038` になる。 |
 
 ## ループのルール
 1. **`.rc` / `resource.h` / メッセージマップ / ライブラリの構成を編集したら、編集のあとで、実行する。** 編集していない状態で再実行しない。
@@ -114,4 +115,4 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 - **`DDX_Control` の型の検査 (DLG003) は、MFC 標準のコントロールクラス** (`CEdit` `CListCtrl` `CComboBox` など) **だけ。** 自作の派生クラスは、判定しない。
 - **DLG004 (ボタンのハンドラ) は、`ON_*_RANGE` があるクラスでは、行わない。** 親ウィンドウがコマンドを受ける設計 (モードレスなど) は、誤検出になりうる。
 - 層の判定は、プロジェクト名 (`Logic` / `Data`) と、`.vcxproj` の種類による。テストプロジェクト (名前が `Test` で終わる) は、対象外。
-- **MFC の DLL の検査 (DLL001〜DLL008):** `.vcxproj` の `UseOfMfc` と `PreprocessorDefinitions` (構成ごと) と、ソースの文字列で判定する。`.def` でエクスポートする関数、`extern "C"` でマクロなしの関数は、DLL007 の対象外 (公開の関数は、`<名前>_API` / `__declspec(dllexport)` のマクロで探す)。クラスのメンバー関数 (`class <名前>_API Foo`) も、DLL007 の対象外 (自由関数だけ)。静的 MFC (`UseOfMfc=Static`) の標準 DLL は、`AFX_MANAGE_STATE` が不要なので、DLL007 を出さない。プロパティシート (`.props`) で定義した `_AFXEXT` などは、読まない。
+- **MFC の DLL・静的ライブラリの検査 (DLL001〜DLL008、LIB001):** `.vcxproj` の `UseOfMfc` と `PreprocessorDefinitions` (構成ごと) と、ソースの文字列で判定する。`.def` でエクスポートする関数、`extern "C"` でマクロなしの関数は、DLL007 の対象外 (公開の関数は、`<名前>_API` / `__declspec(dllexport)` のマクロで探す)。クラスのメンバー関数 (`class <名前>_API Foo`) も、DLL007 の対象外 (自由関数だけ)。静的 MFC (`UseOfMfc=Static`) の標準 DLL は、`AFX_MANAGE_STATE` が不要なので、DLL007 を出さない。プロパティシート (`.props`) で定義した `_AFXEXT` などは、読まない。
