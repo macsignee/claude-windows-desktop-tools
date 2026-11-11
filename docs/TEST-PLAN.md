@@ -1124,3 +1124,14 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
 | BM1 | **`bomCpp` (`--type console --layers logic --tests gtest`):** ベースライン `PASSED` のあと、日本語のコメントを含む、BOM なし・LF の新しいヘッダー `Hello.h` を、`Write` で作る (変換しない) → `LogicLayer.vcxproj` に足す → `build_test_once.sh` | **標準エラーに `ENCODING_FIX: ... 1 件 ... Hello.h`**。`Hello.h` が BOM 付き (先頭 `EF BB BF`)・CRLF になる。`PASSED` (ビルド `SUCCESS`。`C2447` で止まらない) | ✔ (2026-11-11) ディスク: `LogicLayer/Hello.h` の先頭 3 バイトが `ef bb bf`、改行 4 つがすべて CRLF (`\r` 4 個)、日本語のコメントが正しく読める。`build_result.txt` は `SUCCESS`、`test_result.txt` は `PASSED`。`~/.claude/skills/build-test-loop/scripts/build_test_once.sh` に `fix_cpp_encoding.py` の呼び出しあり (配布済み)。**`ENCODING_FIX` の行は、操作用の Claude の報告で確認** (`Write` では BOM なし・LF のまま作り (バイト列を確認)、変換は、`build_test_once.sh` が呼ぶ `fix_cpp_encoding.py` (WSL 側。ウォッチャーではない) が、フラグを送る前に行った。報告の行の文言に、重複があったが、配布済みのスクリプトの文は、正しい: 書き写しの誤りと判断) |
+
+### 2-51. モードレスなサブウィンドウ (v2.83.0。OK がない。データをすぐ更新する)
+
+準備: マージして、`install/install.sh` (全体) で配布する。ウォッチャーを先に起動する。依頼は、「メインの『編集』ボタン (EditButton) で、モードレスの『名前の編集』ウィンドウ (名前の入力欄 EditNameTextBox のみ。OK・キャンセルなし) を開く。入力のたびに、メインの名前が、すぐ変わる。メインで名前を変えると、ウィンドウの入力欄も変わる。名前が空のときは、エラーを示し、反映しない。『編集』を押し直したら、前面に出す」とする。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| ML1 | **WPF (`mlWpf`):** `/new-solution --type wpf --layers logic --tests mstest --tfm net10.0 --ui-tests flaui` → 上の依頼で `/ui-test-first` | 計画の「データ」の行に、**共有するデータと、変更の通知** (`INotifyPropertyChanged`)。**閉じても、変更は、取り消さない。** 操作と期待に、「サブウィンドウで変える → 閉じずに、メインが変わる」「メインで変える → サブウィンドウが変わる」「押し直しても 1 つ」「メインを閉じると閉じる」。UI テストは `WaitWindow`、**開いたまま、メインの値を読む**。Red → Green | 未 |
+| ML2 | **WinForms (`mlWf`):** 同じ (`--type winforms --layers logic`) | ML1 と同じ。`Show(owner)`、イベントの通知。データは、ロジック層の共有するクラス。専用の Presenter は増えない | 未 |
+| ML3 | **MFC (`mlMfc`):** 同じ (`--type mfc-dialog --layers logic --tests gtest`) | ML1 と同じ。`Create()` (モードレス)、`EN_CHANGE` でメインを更新 (`UpdateAllViews` かメッセージ)。データは、ロジック DLL の共有するクラス (`IsValid()` は、GoogleTest) | 未 |
+| ML4 | **回帰 (どれか 1 つ):** 既存のモーダルのテスト (DR1〜DR3 と同じ) が、規約の変更で、変わらない | モーダルのダイアログは、「確定するまで、データを変更しない」のまま | 未 |
