@@ -31,6 +31,7 @@
 | ビルドとテストを通したい | 「テストまで通して」(`build-test-loop`) |
 | MFC / WPF / WinForms の、実行時に壊れる所を、静的に調べたい | 「`mfc-check` して」など (`mfc-check` / `wpf-check` / `winforms-check`) |
 | ライブラリ (NuGet・vcpkg・GitHub のソース) を、足したい | 「○○を追加して」(`add-package`) |
+| Visual Studio で、ソリューションを開く・ブレークポイントを置く・デバッグ実行する | 「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」(`vs-debug`) |
 | 画面を、UI ガイドラインに沿って、設計・レビューしたい | 「画面をレビューして」(`ui-design-review`) |
 
 ### 前提 (ビルドとテストをするとき)

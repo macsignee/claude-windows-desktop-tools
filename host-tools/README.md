@@ -12,6 +12,7 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
   trigger_uitest.flag (UI テスト)
   trigger_gtest.flag (GoogleTest の取得)
   trigger_package.flag (NuGet / vcpkg / ソースの取り込み)
+  trigger_vs.flag (Visual Studio の操作: 開く・前面・ブレークポイント・デバッグ実行)
                                              └─ build-windows.cmd ─▶ MSBuild
                                              └─ (テスト時) xxxTest.exe (GoogleTest)
                                                            dotnet test (MSTest / FlaUI)
@@ -100,6 +101,7 @@ Claude (Skill) が、プロジェクトフォルダに、フラグファイル�
 | `trigger_uitest.flag` | ビルド + UI テスト (下記) | `build-test-loop/scripts/uitest_once.sh` |
 | `trigger_gtest.flag` | GoogleTest のソースの取得 (下記) | `new-solution/scripts/gtest_once.sh` |
 | `trigger_package.flag` | NuGet / vcpkg / ソースの取り込み (4 の表) | `add-package/scripts/package_once.sh` |
+| `trigger_vs.flag` | Visual Studio の操作 (下記) | `vs-debug/scripts/vs_once.sh` |
 
 手動でも、空のフラグ (ファイル) を、プロジェクトフォルダに置けば、動かせます。
 
@@ -152,6 +154,20 @@ Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空�
 #### パッケージの操作 (`trigger_package.flag`)
 各行が 1 つの操作です (4 の表)。上から順に実行し、最初の失敗で止まります。`vcpkg.exe` は、`-VcpkgExe` → 環境変数 `VCPKG_ROOT` → Visual Studio 同梱、の順に探します。見つからなければ `ENV_ERROR` (VS の「vcpkg パッケージ マネージャー」コンポーネントを追加する)。
 
+#### Visual Studio の操作 (`trigger_vs.flag`)
+各行が 1 つの操作です (空行と `#` 行は無視。上から順に実行し、最初の失敗で止まる)。VS は、実行中のプロセスの表 (ROT。`!VisualStudio.DTE.<版>:<pid>`) から、**`Solution.FullName` がこのソリューションのもの**を探します (版に依らない。VS 2022 / 2026)。複数あれば、`MULTIPLE_INSTANCES` で止まります。
+
+| 操作 | 内容 |
+|---|---|
+| `open` | VS で開く。開いていなければ、`vswhere.exe` で `devenv.exe` を探し、ソリューションを引数にして起動 (読み込みを待つ)。開いていれば、前面に出す (最小化は戻す) |
+| `status` | `SOLUTION:` / `OPEN:` / `INSTANCES:` / `DEBUG_MODE:` (design / run / break) / `DIRTY: <パス>` (未保存のドキュメント) / `DIRTY_COUNT:`。読み取りだけ。VS を起動しない |
+| `reload <パス>` | VS で開いていて、未保存の編集がないドキュメントを、閉じて開き直す。未保存なら `RELOAD_SKIP_DIRTY:` |
+| `clear` | このツールが置いたブレークポイント (`Tag` = `claude-vs-debug`) だけを消す |
+| `break <パス>:<行>` | ブレークポイントを置く (同じ場所にあれば `BREAK_EXISTS:`。最大 20 件)。パスは、ソリューションのフォルダの下の相対パス (`..` と絶対パスは断る) |
+| `debug` | デバッグ実行を始める (`DTE.Debugger.Go`)。デザインモードのときだけ。`DEBUG_STARTED` / `DEBUG_MODE:` / break で止まれば `STOPPED:` |
+
+結果は `vs_output.txt` (事実)、失敗時のみ `vs_error.log` (環境の問題は、先頭が `[ENVIRONMENT ERROR - not a source code problem]`)、完了マーカー `vs_result.txt` (`OK` / `FAILED`。最後に書く)。VS が、ダイアログを出して待っていると、COM の呼び出しが拒否され、`TIMEOUT` になることがあります。
+
 #### 実行 ID
 Skill のスクリプト (`gtest_once.sh` / `package_once.sh` / ビルド・テスト) は、フラグに実行 ID を書きます (gtest: 2 行目の `# run=<ID>`、package: 先頭のコメント行 `# run=<ID>`、build / test: `run=<ID>`)。古いウォッチャーは、コメントを、タグや操作と取り違えません。ウォッチャーは、結果のマーカーを書く直前に、同じ ID を `.claude-logs\run_id.txt` に書きます (前回の結果と、取り違えないため)。処理の間は、`.claude-logs\watcher_busy.txt` も置きます。
 
@@ -202,6 +218,7 @@ build-windows.cmd <target> <Platform> [Configuration] [MSBuildTarget] [LogDir] [
 | `trigger_uitest.flag` | Claude | ビルド + UI テストを依頼。中身は、3.3 の「フラグの中身」 |
 | `trigger_gtest.flag` | Claude | GoogleTest のソースの取得を依頼 (3.3) |
 | `trigger_package.flag` | Claude | パッケージの操作を依頼。各行が 1 つの操作 (下の表) |
+| `trigger_vs.flag` | Claude | Visual Studio の操作を依頼。各行が 1 つの操作 (3.3 の「Visual Studio の操作」) |
 | `build_result.txt` | ウォッチャー | ビルド終了時に `SUCCESS` / `FAILED`。**ビルドのみの完了マーカー** |
 | `build_error.log` | ウォッチャー | ビルド失敗時のみ。エラー行 (相対パス) |
 | `test_result.txt` | ウォッチャー | **ビルド + テストの完了マーカー (最後に書かれる)**。下の表 |
@@ -210,6 +227,7 @@ build-windows.cmd <target> <Platform> [Configuration] [MSBuildTarget] [LogDir] [
 | `package_output.txt` | ウォッチャー | 各操作の出力 (`## <操作>` の見出し付き) |
 | `package_error.log` | ウォッチャー | 失敗時のみ。環境の問題 (ネットワーク、`dotnet` / `vcpkg` がない) は、先頭が `[ENVIRONMENT ERROR - not a source code problem]` |
 | `package_result.txt` | ウォッチャー | **パッケージの完了マーカー** (最後に書かれる): `OK` / `FAILED` |
+| `vs_output.txt` / `vs_error.log` / `vs_result.txt` | ウォッチャー | Visual Studio の操作の、事実 / 失敗時のみ (環境の問題は、先頭が `[ENVIRONMENT ERROR ...]`) / **完了マーカー** (最後に書かれる): `OK` / `FAILED` |
 | `.claude-logs\build.log` `errors.log` `warnings.log` `test.log` | ウォッチャー | 詳細ログ (フルパスのまま) |
 | `.claude-logs\test-results\<exe名>.xml` `<プロジェクト名>.trx` | ウォッチャー | テストの、機械可読な結果 (GoogleTest の XML、MSTest の trx)。テストの開始時に、前回分が削除される。WSL 側の `summarize_test_log.py` が読む |
 | `.claude-logs\ui-screenshots\` | テスト | UI テストの、スクリーンショットと、操作の記録 `ui-trace.txt` (実行のたびに、上書き) |

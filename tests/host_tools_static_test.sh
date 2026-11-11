@@ -15,13 +15,13 @@ ps() { for f in "$PS" $LIBS; do tr -d '\r' < "$f" | sed '1s/^\xef\xbb\xbf//'; do
 cnt() { ps | grep -c -- "$1"; }
 
 ok "ps1: UTF-8 BOM + CRLF (main and every lib\\*.ps1)" "$(r=1; for f in "$PS" $LIBS; do [ "$(head -c3 "$f" | xxd -p)" = efbbbf ] && [ "$(grep -vc $'\r$' "$f")" = 0 ] || r=0; done; echo $r)"
-ok "ps1: lib has the 8 function files, and the main script dot-sources each one (exit 2 when one is missing)" "$(r=1; for n in gtest package common build test-results ui-settings uitest-desktop tests; do [ -f "$ROOT/host-tools/lib/$n.ps1" ] && grep -q "\"$n\"" "$PS" || r=0; done; [ "$(ls "$ROOT"/host-tools/lib/*.ps1 | wc -l)" = 8 ] && grep -qF '. $libPath' "$PS" && tr -d '\r' < "$PS" | awk '/library script not found/{f=1} f&&/exit 2/{print "y"; exit}' | grep -q y || r=0; echo $r)"
+ok "ps1: lib has the 9 function files, and the main script dot-sources each one (exit 2 when one is missing)" "$(r=1; for n in gtest package vs-ide common build test-results ui-settings uitest-desktop tests; do [ -f "$ROOT/host-tools/lib/$n.ps1" ] && grep -q "\"$n\"" "$PS" || r=0; done; [ "$(ls "$ROOT"/host-tools/lib/*.ps1 | wc -l)" = 9 ] && grep -qF '. $libPath' "$PS" && tr -d '\r' < "$PS" | awk '/library script not found/{f=1} f&&/exit 2/{print "y"; exit}' | grep -q y || r=0; echo $r)"
 ok "ps1: the main script keeps no feature function (they live in lib)" "$(! tr -d '\r' < "$PS" | grep -E '^function (Invoke-Tests|Invoke-PackageOps|Invoke-GtestFetch|Invoke-BuildScript|Initialize-UiDesktopRunner|Resolve-UiRun)' | grep -q . && echo 1 || echo 0)"
 ok "ps1: -SolutionPath is optional (no Mandatory on it)" "$(ps | awk '/^param\(/,/\[string\]\$Platform/' | grep -B1 '\[string\]\$SolutionPath' | grep -q Mandatory && echo 0 || echo 1)"
 ok "ps1: TargetDir is still mandatory" "$(ps | awk '/^param\(/,/\[string\]\$SolutionPath/' | grep -B1 '\[string\]\$TargetDir' | grep -q 'Mandatory=\$true' && echo 1 || echo 0)"
 ok "ps1: an explicit -SolutionPath that does not exist is still an error (exit 2)" "$(ps | awk '/SolutionExplicit\) \{/,/^}/' | grep -q 'exit 2' && echo 1 || echo 0)"
 ok "ps1: Find-SolutionFile prefers .slnx, then .sln, with an exact extension check" "$(ps | awk '/^function Find-SolutionFile/,/^}/' | grep -q '".slnx", ".sln"' && ps | awk '/^function Find-SolutionFile/,/^}/' | grep -q 'Extension -ieq' && echo 1 || echo 0)"
-ok "ps1: Update-SolutionState is defined, called at startup, and in the gtest / package / build triggers (4 calls)" "$([ "$(cnt '^function Update-SolutionState')" = 1 ] && [ "$(cnt '^ *Update-SolutionState')" = 4 ] && echo 1 || echo 0)"
+ok "ps1: Update-SolutionState is defined, called at startup, and in the gtest / package / vs / build triggers (5 calls)" "$([ "$(cnt '^function Update-SolutionState')" = 1 ] && [ "$(cnt '^ *Update-SolutionState')" = 5 ] && echo 1 || echo 0)"
 ok "ps1: Update-SolutionState assigns script-scope variables (SolutionPath / SolutionDir / ProjectPaths / HasCpp / HasDotnet / Platform / BuildFeatures / SolutionKind)" "$(b="$(ps | awk '/^function Update-SolutionState/,/^}/')"; for v in SolutionPath SolutionDir ProjectPaths HasCpp HasDotnet Platform BuildFeatures SolutionKind; do grep -qE "\\\$script:$v +=" <<<"$b" || exit 1; done; echo 1)"
 ok "ps1: the old one-shot startup assignments are gone (no top-level \$HasCpp / \$BuildFeatures = ...)" "$(! ps | grep -q '^\$HasCpp \|^\$BuildFeatures = \|^\$SolutionKind = \|^\$SolutionDir = ' && echo 1 || echo 0)"
 ok "ps1: the build trigger returns an environment error (exit code 2) when there is no solution, without running the build script" "$(ps | grep -q 'if (-not \$SolutionPath) {' && ps | grep -q 'ERROR: no .sln / .slnx found in' && ps | awk '/if \(-not \$SolutionPath\) \{/,/\$exitCode = 2/' | grep -q 'exitCode = 2' && echo 1 || echo 0)"
@@ -93,7 +93,7 @@ INS="$ROOT/install/install.sh"
 ok "install.sh: the default host folder is claude-watcher" "$(grep -q '^HOST_DIR="/mnt/c/tools/claude-watcher"' "$INS" && echo 1 || echo 0)"
 HT="${TMPDIR:-/tmp}/ht_$$"; mkdir -p "$HT"
 bash "$INS" --host-only --host-dir "$HT/new" >/dev/null 2>&1
-ok "install.sh --host-only copies the 3 watcher files, lib\\*.ps1 (8 files) and VERSION to the given folder" "$([ "$(ls "$HT"/new/lib/*.ps1 2>/dev/null | wc -l)" = 8 ] && [ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
+ok "install.sh --host-only copies the 3 watcher files, lib\\*.ps1 (9 files) and VERSION to the given folder" "$([ "$(ls "$HT"/new/lib/*.ps1 2>/dev/null | wc -l)" = 9 ] && [ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
 rm -rf "$HT" 2>/dev/null
 
 echo "PASS: $pass / FAIL: $fail"

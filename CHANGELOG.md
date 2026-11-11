@@ -2,6 +2,19 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.90.0] 2026-11-11 (Visual Studio の操作 `vs-debug`: 開く・前面・ブレークポイント・デバッグ実行)
+
+- **ユーザーの依頼:** WSL の Claude Code から、操作しているソリューションを、Windows の Visual Studio で操作したい。(1) 開いていなければ、引数に渡して起動 (2) 開いていれば、前面に (3) 追記・変更した部分に、ブレークポイント (4) 「デバッグを実行して」と言われたら、デバッグ実行。**あわせて、「編集の競合は、どう調停するか」** → 提案した調停の規則を、ユーザーが、すべて了承した。
+- **契約 (新規): `trigger_vs.flag` → `vs_output.txt` / `vs_error.log` / `vs_result.txt` (`OK` / `FAILED`。最後に書く)。** 各行が 1 つの操作: `open` / `status` / `reload <パス>` / `clear` / `break <パス>:<行>` / `debug`。ホスト側は `host-tools/lib/vs-ide.ps1` (新規)、ウォッチャーが、フラグを検知。**`HOST_VERSION` 2.52.0 → 2.90.0** (ホスト側が変わった。`install.sh` で、配り直して、ウォッチャーを再起動する)。
+- **VS の見つけ方:** 実行中のプロセスの表 (ROT) の `!VisualStudio.DTE.<版>:<pid>` を、すべて調べ、**`Solution.FullName` が、対象のソリューションのもの**を選ぶ (「最初の VS」でも、`17.0` の固定でもない。VS 2026 でも動く)。同じソリューションを開いた VS が 2 つ以上なら、`MULTIPLE_INSTANCES` で止まる。開いていなければ、`vswhere.exe` の `productPath` (`devenv.exe`) に、ソリューションを引数にして起動し、読み込みを待つ。前面化は、`DTE.MainWindow.Activate()` と Win32 の `SetForegroundWindow` (最小化は戻す。前面のロックは、Alt キーの押下で回避)。COM の拒否 (VS が忙しい) は、再試行する。
+- **ブレークポイント:** `DTE.Debugger.Breakpoints.Add` で置き、**`Tag` = `claude-vs-debug` を付ける**。`clear` は、Tag つきだけを消す (ユーザーが手で置いたものは、残る)。同じ場所には、重ねて置かない。最大 20 件。パスは、ソリューションのフォルダの下の相対パスだけ (`..`・絶対パスは、断る)。
+- **置く場所 (`changed_lines.py` 新規):** `git diff -U0 --relative HEAD` の、追記・変更した**コードの行**。変更のかたまり (hunk) ごとに 1 つ、最大 10。空行・コメント・波かっこだけ・`using` / `namespace` / 宣言だけの行は、飛ばす。削除だけの hunk と、ソース以外のファイルも、飛ばす。**追跡されていない新規ファイルは、行を選ばず、`NEW_FILE:` で知らせ、Claude が `--break` で指定する。** 10 件を超えると、`TRUNCATED:`。
+- **デバッグ実行:** `debug` は、ユーザーが求めたときだけ (Skill の規則。ブレークポイントを置くだけでは、実行しない)。デザインモードのときだけ `DTE.Debugger.Go` で始め、モード (`design` / `run` / `break`) と、break で止まったときの場所 (`STOPPED:`) を返す。すでに実行中なら、断る。
+- **編集の競合の調停 (Skill `vs-debug` の規則):** VS が、そのソリューションを開いているときは、**編集の前に、`vs_once.sh --status`**。`DIRTY:` (未保存) に、これから編集するファイルがあれば、**編集せず、聞く** (VS の編集を、上書きしない。ユーザーの了承なしに、VS を保存しない)。`DEBUG_MODE` が `run` / `break` なら、編集もビルドもしない。`INSTANCES` が 2 以上なら、止まって聞く。編集のあとは、VS の自動の再読み込み (設定は、推奨だけ。勝手に変えない) か、`--reload` (未保存のないドキュメントだけ)。ブレークポイントは、編集の最後に置く。
+- **Skill `vs-debug` (新規):** 依頼文から起動する (「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」)。スクリプト `vs_once.sh <solution_dir> [--status] [--changes] [--break パス:行] [--clear] [--reload] [--debug]`。終了コードは、`package_once.sh` と同じ形 (`OK` 0 / `FAILED` 1 / `BAD_ARGS` 2 / `WATCHER_NOT_RUNNING` 3 / `ENV_ERROR` 4 / `TIMEOUT` 5)。`host-tools/README.md` と `README.md` に、契約を足した。
+- **実機の確認は、まだ** (TEST-PLAN 2-56 VS1〜VS16)。**Windows の VS の動き (ROT・Activate・Breakpoints・Debugger.Go) は、静的には確かめられていない。** 実機で、COM の呼び出しの癖 (VS 2026 の DTE の版、前面化の成否、ダイアログで止まったときの挙動) が、出る可能性がある。
+- テスト: `tests/vs_once_test.sh` (新規、52 件。差分からの行の選び方、フラグの中身、結果の分岐、引数の検査、ホスト側と文書の整合)。
+
 ## [2.89.0] 2026-11-11 (MFC: CObject 派生のクラスは、名前空間に入れない。`DECLARE_...` を書く)
 
 - **ユーザーの質問:** 「CObject 派生クラスは、名前空間に入れない」というルールは、あるか。→ なかった。ユーザーの指示: **CObject 派生のすべてに適用する。`DECLARE_...` が、ないのは、正しい宣言ではない。検査は warning。**

@@ -64,6 +64,16 @@
       完了マーカー <TargetDir>\package_result.txt (OK / FAILED。最後に書く)
     - 環境の問題 (ネットワーク・vcpkg / dotnet が見つからない) の失敗は、package_error.log の先頭が [ENVIRONMENT ERROR ...]
 
+  [Visual Studio の操作]  <TargetDir>\trigger_vs.flag  (ビルド・テストとは独立。WSL からは、Windows の Visual Studio を操作できないため)
+    - フラグの各行が、1 つの操作 (空行と # 行は無視)。上から順に実行し、最初の失敗で止まる。許可する形:
+        open                      ソリューションを VS で開く (開いていれば、前面に出す)。VS は、Running Object Table から、ソリューションのパスで探す
+        status                    SOLUTION / OPEN / INSTANCES / DEBUG_MODE / DIRTY (未保存のファイル) を返す。読み取りだけ (VS を起動しない)
+        reload <パス>             VS で開いていて、未保存の編集がないドキュメントを、閉じて開き直す (パスは、ソリューションのフォルダからの相対)
+        clear                     このツールが置いたブレークポイント (Tag = claude-vs-debug) を、消す
+        break <パス>:<行>         ブレークポイントを置く (同じ場所にあれば、何もしない。最大 20 件)
+        debug                     デバッグ実行を始める (デザインモードのときだけ)。モードと、停止した場所を返す
+    - 結果は <TargetDir>\vs_output.txt (事実)、失敗時のみ vs_error.log、完了マーカー <TargetDir>\vs_result.txt (OK / FAILED。最後に書く)
+
   ソリューション (.sln / .slnx):
     - -SolutionPath を省略すると、<TargetDir> の .slnx、なければ .sln を、**トリガーが来るたびに**探す。
       そのため、**ソリューションができる前に、ウォッチャーを起動しておける** (new_solution.py で作ってから、ビルドのトリガーを置けばよい)。
@@ -331,10 +341,14 @@ $PackageResultFile  = Join-Path $TargetDir "package_result.txt"
 $PackageErrorLog    = Join-Path $TargetDir "package_error.log"
 $PackageOutputFile  = Join-Path $TargetDir "package_output.txt"
 $PackageLog         = Join-Path $LogDir "package.log"
+$VsTriggerFile = Join-Path $TargetDir "trigger_vs.flag"
+$VsResultFile  = Join-Path $TargetDir "vs_result.txt"
+$VsErrorLog    = Join-Path $TargetDir "vs_error.log"
+$VsOutputFile  = Join-Path $TargetDir "vs_output.txt"
 
 # ---------- 機能ごとの関数 (lib\*.ps1。同じスコープに読み込む) ----------
 $LibDir = Join-Path $PSScriptRoot "lib"
-foreach ($libName in @("gtest", "package", "common", "build", "test-results", "ui-settings", "uitest-desktop", "tests")) {
+foreach ($libName in @("gtest", "package", "vs-ide", "common", "build", "test-results", "ui-settings", "uitest-desktop", "tests")) {
     $libPath = Join-Path $LibDir "$libName.ps1"
     if (-not (Test-Path -LiteralPath $libPath)) {
         Write-Host "ERROR: library script not found: $libPath (copy the whole host-tools folder, including lib\)" -ForegroundColor Red
@@ -374,7 +388,7 @@ Write-Host " Solution     : $SolutionKind  (build features: $BuildFeatures)" -Fo
 Write-Host " Build        : $Configuration|$Platform  /t:$MSBuildTarget" -ForegroundColor Cyan
 Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
 Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
-Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch)" -ForegroundColor Cyan
+Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch) / trigger_vs.flag (Visual Studio)" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (GoogleTest, timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
 Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop [auto = uitest.settings of the UI test project, else separate; override per run with desktop=visible|separate in the flag], timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
 Write-Host " Proxy        : $(if ($proxyUrl) { $proxyUrl + ' (from the HTTPS_PROXY / HTTP_PROXY environment variable)' } else { '(none: the system proxy settings are used)' })" -ForegroundColor Cyan
@@ -430,6 +444,24 @@ while ($true) {
             @("[ENVIRONMENT ERROR - not a source code problem]", "ERROR: package operation failed: $($_.Exception.Message)") | Out-File $PackageErrorLog -Encoding utf8
             Write-PackageMarker "FAILED"
         }
+        Clear-WatcherBusy
+        Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
+    }
+
+    # Visual Studio の操作 (開く・前面・ブレークポイント・デバッグ実行)。ビルド・テストとは独立
+    if (Test-Path -LiteralPath $VsTriggerFile) {
+        Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (Visual Studio)!" -ForegroundColor Yellow
+        Set-WatcherBusy "vs"
+        Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
+        Update-SolutionState
+        $vsLines = @()
+        $script:CurrentRunId = Get-RunIdFromFlag $VsTriggerFile
+        $script:CurrentKind = "vs"
+        Set-WatcherBusy "vs run=$($script:CurrentRunId)"
+        try { $vsLines = @(Get-Content -LiteralPath $VsTriggerFile -ErrorAction Stop) } catch { }
+        Remove-Item -LiteralPath $VsTriggerFile, $VsResultFile, $VsErrorLog, $VsOutputFile -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+        Invoke-VsFlag $vsLines
         Clear-WatcherBusy
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }
