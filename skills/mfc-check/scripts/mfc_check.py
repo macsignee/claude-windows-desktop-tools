@@ -35,6 +35,8 @@ Usage: mfc_check.py <dir> [--json <out.json>] [--max-lines 40] [--all]
   DLG008 info    同じダイアログに、同じニーモニック (&X) が重複
   DLG009 info    AFX_DIALOG_LAYOUT が、存在しないダイアログのもの (VS が残した、不要な定義)
   DLG010 warning 同じメンバーを、複数の DDX_Control に渡している (2 回目以降は、MFC が何もしない)
+  NSP001 warning CObject 派生のクラス (CDialog / CView / CDocument / CFrameWnd などを含む) が、名前空間の中にある (v2.89.0)
+  DEC001 warning CObject 派生のクラスに、DECLARE_DYNAMIC / DECLARE_DYNCREATE / DECLARE_SERIAL がない (CWinApp / CWinThread 派生は除く)
   LAY001 error   ライブラリ (DLL / lib) で、GUI のクラスを使っている
   LAY002 warning ライブラリで、GUI のヘッダーを include している (pch / framework は info)
   LIB001 error   MFC の静的ライブラリ (StaticLibrary + UseOfMfc) を参照する exe / DLL / 静的ライブラリの UseOfMfc が、違う (v2.87.0)
@@ -977,6 +979,77 @@ def check_export_manage_state(pr, codes):
                            pr.rel(path), lineno(c, m.start()))
 
 
+# CObject を、基底に持つ、MFC のクラス (一部。これらから派生すれば、CObject 派生)。CWinApp / CWinThread は、DEC001 の対象外 (ウィザードも、マクロを書かない)。
+MFC_OBJECT_BASES = {
+    "CObject", "CCmdTarget", "CWnd", "CDialog", "CDialogEx", "CFormView", "CView", "CScrollView", "CCtrlView", "CEditView",
+    "CListView", "CTreeView", "CRichEditView", "CHtmlView", "CDocument", "COleDocument", "CFrameWnd", "CMDIFrameWnd",
+    "CMDIChildWnd", "CMiniFrameWnd", "CPropertySheet", "CPropertyPage", "CDialogBar", "CControlBar", "CToolBar", "CStatusBar",
+    "CReBar", "CButton", "CEdit", "CComboBox", "CListBox", "CListCtrl", "CTreeCtrl", "CTabCtrl", "CSliderCtrl", "CSpinButtonCtrl",
+    "CProgressCtrl", "CStatic", "CScrollBar", "CSplitterWnd", "CHeaderCtrl", "CRichEditCtrl", "CToolTipCtrl", "CDateTimeCtrl",
+    "CMonthCalCtrl", "CIPAddressCtrl", "CDocTemplate", "CSingleDocTemplate", "CMultiDocTemplate", "CException", "CFile", "CMemFile",
+    "CGdiObject", "CBitmap", "CBrush", "CFont", "CPen", "CPalette", "CRgn", "CDC", "CMenu", "CImageList", "CMFCPropertyPage",
+    "CDHtmlDialog", "CWinThread", "CWinApp",
+}
+MFC_NO_DECLARE_BASES = {"CWinApp", "CWinThread"}   # アプリケーション・スレッドのクラス (ウィザードは、DECLARE_DYNAMIC を、書かない)
+DECLARE_RE = re.compile(r"\bDECLARE_(?:DYNAMIC|DYNCREATE|SERIAL)\s*\(")
+
+
+def namespace_spans(code):
+    """コードの中の、namespace { ... } の範囲の一覧 (開き括弧の位置, 閉じ括弧の位置)。"""
+    out = []
+    for m in re.finditer(r"\bnamespace\b[^;{=]*\{", code):
+        o = m.end() - 1
+        out.append((o, match_brace(code, o)))
+    return out
+
+
+def is_cobject_derived(name, classes, seen=None):
+    """(CObject 派生か, CWinApp / CWinThread 派生か)。プロジェクトの中の基底クラスも、たどる。"""
+    seen = seen if seen is not None else set()
+    if name in seen or name not in classes:
+        return False, False
+    seen.add(name)
+    obj = app = False
+    for b in re.findall(r"\b\w+\b", classes[name][0]["bases"]):
+        if b in ("public", "protected", "private", "virtual"):
+            continue
+        if b in MFC_OBJECT_BASES:
+            obj = True
+            app = app or b in MFC_NO_DECLARE_BASES
+        else:
+            o, a = is_cobject_derived(b, classes, seen)
+            obj, app = obj or o, app or a
+    return obj, app
+
+
+def check_class_decls(pr, codes):
+    """NSP001: CObject 派生のクラスは、名前空間に入れない (MFC のマクロは、クラス名を ## / # で扱うので、名前空間つきの名前を渡せない)。
+    DEC001: CObject 派生のクラスには、DECLARE_DYNAMIC / DECLARE_DYNCREATE / DECLARE_SERIAL を書く (CWinApp / CWinThread 派生は除く)。"""
+    classes = defaultdict(list)
+    spans = {}
+    for path, code in codes:
+        spans[path] = namespace_spans(code)
+        for c in find_classes(code, path):
+            classes[c["name"]].append(c)
+    found = 0
+    for name, defs in classes.items():
+        obj, app = is_cobject_derived(name, classes)
+        if not obj:
+            continue
+        c = defs[0]
+        if not c["bases"]:
+            continue
+        found += 1
+        in_ns = any(o < c["span"][0] and c["span"][1] < e for o, e in spans.get(c["file"], []))
+        if in_ns:
+            pr.add("NSP001", "warning", f"{pr.name}: CObject 派生のクラス {name} が、名前空間の中にある (MFC のマクロ (RUNTIME_CLASS・IMPLEMENT_*) は、名前空間つきの名前を扱えない。名前空間に入れない)",
+                   pr.rel(c["file"]), c["line"])
+        if not app and not DECLARE_RE.search(c["own"]):
+            pr.add("DEC001", "warning", f"{pr.name}: CObject 派生のクラス {name} に、DECLARE_DYNAMIC / DECLARE_DYNCREATE / DECLARE_SERIAL がない (実行時のクラス情報が、基底クラスのものになる)",
+                   pr.rel(c["file"]), c["line"])
+    return found
+
+
 def check_mfc_dlls(projects):
     by_name = {pr.name: pr for pr in projects}
     for pr in projects:
@@ -1067,6 +1140,10 @@ def run(root, logic_names, data_names, ui_names=()):
             classes = build_classes(codes)
             handled = check_dialogs(pr, codes, rcinfo, classes, make_used_outside_maps(pr, codes))
             check_maps(pr, codes, rcinfo, classes, handled)
+    for pr in projects:      # CObject 派生のクラスの宣言 (NSP001 / DEC001)。MFC を使うコードがあるプロジェクトだけ (テストの exe などは、対象になるクラスがない)
+        codes = [(f, strip_code(t)) for f, t in pr.files if f.lower().endswith(CODE_EXT)]
+        if codes and check_class_decls(pr, codes):
+            pr.checked = True    # CObject 派生のクラスがある (リソースも、メッセージマップも、なくても、検査した)
     if has_ui_tests(root):   # UI テストのプロジェクトがあるときだけ (UI004)
         for pr in projects:
             if pr.checked:

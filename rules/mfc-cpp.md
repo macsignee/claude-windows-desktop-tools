@@ -63,3 +63,10 @@ paths:
 
 ## 名前 (MFC)
 - クラスウィザードで作るクラスの名前は、ウィザードの「クラス名」を、`C` なしに直してから作る (`cpp-common.md` の命名)。MFC のクラスから派生しても、自分のクラスなら `C` を付けない (例: `CObject` 派生の `Shape`)。
+
+## 名前空間と、CObject 派生のクラス
+- **CObject 派生のクラスは、名前空間に入れない (グローバルに置く)。** `CDialog`・`CView`・`CDocument`・`CFrameWnd`・`CWinApp`・`CCmdTarget` など、MFC のクラスから派生したクラスは、すべて CObject 派生。
+  - **理由:** MFC の実行時のクラス情報のマクロ (`DECLARE_DYNAMIC` / `IMPLEMENT_DYNAMIC` / `IMPLEMENT_SERIAL` / `RUNTIME_CLASS`) は、クラス名を、`class##class_name` や `_init_##class_name` のように、**トークンを連結**し、`#class_name` で**文字列にする**。名前空間つきの名前 (`ns::Foo`) を渡すと、`classns::Foo` になり、コンパイルできない。共有 MFC (`_AFXDLL`) の `RUNTIME_CLASS` は、たまたま通るが、静的 MFC では通らない。また、実行時のクラス名 (`CRuntimeClass::m_lpszClassName`) には、名前空間が入らないので、**別の名前空間の、同名のクラスと、衝突する** (シリアライズは、クラス名の文字列で、クラスを復元する)。
+  - **CObject 派生でないクラス** (ロジックのクラス、値のクラス、自由関数) は、名前空間に入れてよい。
+- **CObject 派生のクラスには、`DECLARE_DYNAMIC` / `DECLARE_DYNCREATE` / `DECLARE_SERIAL` のどれかを書く** (宣言に、マクロがないクラスは、実行時のクラス情報が、基底クラスのものになり、正しい宣言ではない)。`.cpp` に、対応する `IMPLEMENT_DYNAMIC` / `IMPLEMENT_DYNCREATE` / `IMPLEMENT_SERIAL` を書く。**例外: `CWinApp` / `CWinThread` 派生** (アプリケーション・スレッドのクラス。ウィザードも、マクロを書かない)。
+- (`mfc-check` の NSP001 / DEC001 が検査する。どちらも warning。)

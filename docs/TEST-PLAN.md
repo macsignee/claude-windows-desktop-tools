@@ -1168,3 +1168,13 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | GW1 | **設定と読み込み:** 操作用の Claude (WSL) に、「このリポジトリで、Git を操作する前の、設定を確認して」と頼む (`.sln` / `.slnx` / `.gitattributes` を読むと、`git-wsl.md` が読み込まれる) | `core.autocrlf` / `core.fileMode` / `user.name` / `user.email` を確認し、足りなければ、ユーザーに確認してから、設定する。`.gitattributes` がなければ、足すか聞く | 未 |
 | GW2 | **コミットの前の確認:** Claude にファイルを編集させ、「コミットして」と頼む | `git status --short` と `git diff --stat` を見る。**全ファイルが変更に見える状態ではない** (`git ls-files --eol` が `i/lf w/crlf`)。新しく作ったファイルは、BOM 付き・CRLF に合わせてある | 未 |
 | GW3 | **VS との往復:** WSL で、コミット (または `git switch`) → VS で、再読み込みして、履歴・ブランチを確認 → VS で、コミット → WSL で、`git log` / `git status` | どちらでも、同じ履歴が見える。**変更なしのファイルが、「変更」に見えない** (改行・モードの差が、出ない)。`index.lock` が残らない | 未 |
+
+### 2-55. CObject 派生のクラスと名前空間 (v2.89.0。NSP001 / DEC001)
+
+準備: マージして、`install/install.sh` (全体。規約 `rules/` を配るため) で配布する。MFC のソリューション (`--type mfc-dialog`、共有 MFC) を、1 つ作る。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| NS-1 | **名前空間つきの `RUNTIME_CLASS` が、実際に、エラーになるか (共有 MFC):** `CSampleDlg` を `namespace app { ... }` の中に入れ、`IMPLEMENT_DYNAMIC(app::CSampleDlg, CDialog)` (名前空間の外) と書いてビルド | `IMPLEMENT_DYNAMIC` の行で、コンパイルエラー (`classapp` などのトークン連結の誤り)。名前空間の中に、`IMPLEMENT_DYNAMIC(CSampleDlg, CDialog)` を書けば、通る。(元に戻す) | 未 |
+| NS-2 | **`mfc-check`:** 上の `CSampleDlg` が、名前空間の中のとき | **NSP001 (warning)** が出る。`DECLARE_DYNAMIC` を消すと、**DEC001 (warning)** が出る。元に戻して、0 件 | 未 (静的テストでは ✔) |
+| NS-3 | **生成物:** 新しい MFC のソリューション (SDI・MDI・ダイアログ) と、画面ホスト (`add_ui_host.py`) で、`mfc-check` | NSP001 / DEC001 が 0 件 (静的テストでは ✔)。`CSampleDlg` に `DECLARE_DYNAMIC` / `IMPLEMENT_DYNAMIC` があり、ビルドが通る | 未 (ビルドは) |

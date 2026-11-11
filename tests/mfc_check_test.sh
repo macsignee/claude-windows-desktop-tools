@@ -78,6 +78,7 @@ END
 w("good/App/MainView.h", '''#pragma once
 class MainView : public CView
 {
+    DECLARE_DYNCREATE(MainView)
     DECLARE_MESSAGE_MAP()
 public:
     afx_msg void OnToolsRun();
@@ -104,6 +105,7 @@ void MainView::OnSize(UINT nType, int cx, int cy) {}
 w("good/App/AboutDlg.h", '''#pragma once
 class AboutDlg : public CDialogEx
 {
+    DECLARE_DYNAMIC(AboutDlg)
 public:
     AboutDlg();
     enum { IDD = IDD_ABOUT };
@@ -144,6 +146,7 @@ void AboutDlg::OnBnClickedRunBtn() {}
 w("good/App/Derived.h", '''#pragma once
 class BaseView : public CView
 {
+    DECLARE_DYNCREATE(BaseView)
     DECLARE_MESSAGE_MAP()
 public:
     afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
@@ -151,12 +154,14 @@ public:
 };
 class DerivedView : public BaseView
 {
+    DECLARE_DYNCREATE(DerivedView)
     DECLARE_MESSAGE_MAP()
 };
 class Outer
 {
     class InnerEdit : public CEdit
     {
+        DECLARE_DYNAMIC(InnerEdit)
         DECLARE_MESSAGE_MAP()
     public:
         afx_msg HBRUSH CtlColor(CDC* pDC, UINT nCtlColor);
