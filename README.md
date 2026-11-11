@@ -64,6 +64,7 @@ Skill は 13 個ある。**スラッシュで打って起動するもの**と、
 - **`winforms-check`** (依頼文): WinForms の、実行時に壊れる所を、静的に検査する。
 - **`ui-design-review`** (依頼文 / スラッシュ): 画面を、UI ガイドラインに沿って、設計・レビューする。
 - **`add-package`** (依頼文): NuGet・vcpkg・GitHub のソースで、ライブラリを足す。
+- **`vs-debug`** (依頼文): Visual Studio で、ソリューションを開く・前面に出す・ブレークポイントを置く・デバッグ実行する。
 
 ### 2-2. 起動のしかた
 
@@ -184,6 +185,13 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
 - **`ui-design-review`**: WPF / WinForms / MFC の画面を、UI デザインガイドライン (v2.10。規則 ID `UI-XXX-nnn`) に沿って、設計・レビューする。
   - ガイドライン本体は `references/`。
   - スクリプト: `ui_guideline_check.py PROJECT_DIR [--all] [--json FILE] [--fail-on-warning]` (一部の規則を静的に検査)。
+
+### 2-8-1. Visual Studio の操作 (開く・ブレークポイント・デバッグ実行)
+
+- **`vs-debug`**: WSL の Claude が、Windows の Visual Studio を操作する。ソリューションが開いていなければ、引数に渡して起動 / 開いていれば、前面に出す。追記・変更したコードの行 (git の差分) に、ブレークポイントを置く。**「デバッグを実行して」と言ったときだけ**、デバッグ実行を始める。
+  - 頼み方: 「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」。
+  - **編集の競合:** VS で未保存の編集があるファイルは、Claude は、編集しない (確認して、聞く)。デバッグ中は、編集もビルドもしない。
+  - スクリプト: `vs_once.sh <solution_dir> [--status] [--changes] [--break 相対パス:行] [--clear] [--reload] [--debug]`。
 
 ### 2-8. パッケージの追加
 
