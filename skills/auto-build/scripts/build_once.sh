@@ -69,6 +69,8 @@ align_to_launch_case() {
     fi
 }
 DIR="$(align_to_launch_case "$DIR")"
+# 日本語を含む、BOM なしの C++ ソースを、BOM 付きにそろえる (MSVC が ANSI として読んで、ビルドが止まるのを避ける。v2.82.0)
+python3 -I "$(dirname "${BASH_SOURCE[0]}")/../../build-test-loop/scripts/fix_cpp_encoding.py" "$DIR" || true
 
 # 終了時 (どの結果のときも): WPF の XAML にメニューがあれば、ユーザーのデスクトップのウォッチャーを使う旨を、知らせる (1 行目と終了コードは、変えない)
 # 終了時 (どの結果のときも): 結果の自己記述 (RESULT_INFO) と、Skill・ウォッチャーの版の不一致 (NOTE。警告だけ) を、出力の末尾に出す (1 行目と終了コードは、変えない)
