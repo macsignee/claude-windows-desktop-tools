@@ -178,6 +178,7 @@ check "出力に GTEST_SOURCE: to-fetch" grep -q 'GTEST_SOURCE: to-fetch' "$WORK
 check "CLAUDE.md に、ソース方式の説明" grep -q 'ThirdParty' "$D/CLAUDE.md"
 check ".gitignore に ThirdParty/googletest/" grep -q 'ThirdParty/googletest/' "$D/.gitignore"
 check ".gitignore に、ウォッチャーの一時ファイル (.claude-logs/ と *_result.txt など)" bash -c "grep -q '^\.claude-logs/$' '$D/.gitignore' && grep -q '^test_result.txt$' '$D/.gitignore' && grep -q '^trigger_\*.flag$' '$D/.gitignore'"
+check ".gitignore に、package_* と vs_* の結果ファイル (v2.90.3。コミットに入れない)" bash -c "for f in package_result.txt package_error.log package_output.txt vs_result.txt vs_error.log vs_output.txt; do grep -qx \"\$f\" '$D/.gitignore' || exit 1; done"
 check "XML が正しい" xml_ok "$D"
 D="$WORK/Q/SrcLate"; mkdir -p "$D"
 python3 "$NEW" "$D" --type console --layers logic --tests none >/dev/null 2>&1
