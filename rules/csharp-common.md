@@ -11,7 +11,7 @@ WPF (`wpf-csharp.md`) と WinForms (`winforms-csharp.md`) の規約のうち、*
 **適用の順序:**
 1. プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、それが最優先。
 2. 詳細な書式は、プロジェクトの `.editorconfig` が正 (なければ、`.claude/templates/dotnet/` のひな形)。
-3. **例に、WPF の用語 (ViewModel、`wpf-check`、`Window` など) が出てくる。WinForms では、ViewModel を Presenter に、`wpf-check` を `winforms-check` に、読み替える** (対応は、`csharp-test-first` の SKILL.md の「読み替え」の表)。
+3. **例に、WPF の用語 (ViewModel、`wpf-check`、`Window` など) が出てくる。WinForms でも、ViewModel (画面モデル) はそのまま使う。WinForms の型がないと書けないもの (ダイアログを開く、画面遷移の実行、フォーカス) だけが、Presenter に入る。`wpf-check` は `winforms-check` に、読み替える** (対応は、`csharp-test-first` の SKILL.md の「読み替え」の表)。
 4. 「**ツール群の補足**」は、このリポジトリのツール (`new-solution` / `csharp-test-first` / `wpf-check` / `winforms-check` / `add-package`) との対応や、規約を補う決まり。どの規則を、どのツールが確かめるかは、`wpf-csharp.md` / `winforms-csharp.md` の付録。
 
 ## 5. C# コーディング規約
