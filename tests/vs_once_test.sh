@@ -147,6 +147,7 @@ ok "vs-ide.ps1: finds VS by the Running Object Table and the solution path (not 
 ok "vs-ide.ps1: breakpoints are tagged, and clear deletes only the tagged ones" "$(grep -q 'claude-vs-debug' "$PS1" && grep -q '\$b.Tag' "$PS1" && grep -q '\.Delete()' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: debug starts only from design mode (DTE.Debugger.Go)" "$(grep -q "Debugger.Go" "$PS1" && grep -q "mode -ne 'design'" "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: debug waits for the breakpoint hit (run -> break), and status reports STOPPED at break" "$(grep -q 'VsBreakWaitSec' "$PS1" && grep -q "while ((Get-VsModeName \$dte) -eq 'run'" "$PS1" && grep -q "if (\$mode -eq 'break') { \$lines += (Get-VsLocation" "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: dbgDebugMode mapping is 1=design 2=break 3=run (v2.90.2: it was swapped)" "$(grep -q '1 { "design" } 2 { "break" } 3 { "run" }' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: the path is validated (no .., stays under the solution folder)" "$(grep -q 'StartsWith(\$SolutionDir' "$PS1" && grep -q '\\\.\\\.' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: the VS version is not hard-coded (no 'VisualStudio.DTE.17.0')" "$(grep -q 'VisualStudio.DTE.17' "$PS1" && echo 0 || echo 1)"
 ok "watch_and_build.ps1: loads vs-ide and handles trigger_vs.flag" "$(grep -q '"vs-ide"' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'VsTriggerFile' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'Invoke-VsFlag' "$ROOT/host-tools/watch_and_build.ps1" && echo 1 || echo 0)"

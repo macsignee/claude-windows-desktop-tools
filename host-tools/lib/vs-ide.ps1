@@ -116,8 +116,9 @@ function Get-VsDevenv {
     return $null
 }
 
+# EnvDTE.dbgDebugMode: dbgDesignMode = 1, dbgBreakMode = 2, dbgRunMode = 3 (break is 2, NOT 3)
 function Get-VsModeName($dte) {
-    switch ([int](Invoke-VsRetry { $dte.Debugger.CurrentMode })) { 1 { "design" } 2 { "run" } 3 { "break" } default { "unknown" } }
+    switch ([int](Invoke-VsRetry { $dte.Debugger.CurrentMode })) { 1 { "design" } 2 { "break" } 3 { "run" } default { "unknown" } }
 }
 
 function Get-VsStatusLines {
