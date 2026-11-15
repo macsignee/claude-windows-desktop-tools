@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.90.3] 2026-11-15 (`.gitignore` の雛形に、VS の操作の結果ファイルを足す)
+
+- 実機 (nsMfc) で、`git add -A` に、`vs_output.txt` / `vs_result.txt` が入った (`.gitignore` に、なかった)。**`new_solution.py` (C++) と `add_project.py` (.NET) の `.gitignore` の雛形に、`vs_result.txt` / `vs_error.log` / `vs_output.txt` を足した。** C++ の雛形に、なかった `package_result.txt` / `package_error.log` / `package_output.txt` も、あわせて足した (.NET の雛形には、あった)。
+- **既存のソリューションの `.gitignore` は、変えない** (新規作成のときだけ作る)。すでにあるものには、手で足す: `vs_result.txt` / `vs_error.log` / `vs_output.txt`。
+- テスト: `tests/new_solution_test.sh` に 1 件、`tests/new_solution_wpf_test.sh` の既存の 1 件に条件を足した。
+
 ## [2.90.2] 2026-11-15 (vs-debug: モードの番号の取り違えを直す。v2.90.1 の原因の説明も訂正)
 
 - **v2.90.1 の「原因」は、誤りだった。** 実機 (nsMfc、VS 2026) で、v2.90.1 でも `DEBUG_MODE: run` + 「20 秒、着かなかった」と出た。VS は、20 行目で止まっていた。**本当の原因は、`Debugger.CurrentMode` の値の取り違え:** `EnvDTE.dbgDebugMode` は、`dbgDesignMode = 1` / **`dbgBreakMode = 2`** / **`dbgRunMode = 3`** だが、`lib/vs-ide.ps1` は、2 を `run`、3 を `break` と読んでいた (`HOST_VERSION` 2.90.2)。止まっているのに `run` と報告し、`STOPPED:` も出なかった。静的テストは、この取り違えを、見つけられなかった (番号の対応を、確かめるテストがなかった)。**今回、対応を確かめる静的テストを足した。**

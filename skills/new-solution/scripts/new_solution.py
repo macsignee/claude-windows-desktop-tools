@@ -699,6 +699,12 @@ test_result.txt
 test_error.log
 gtest_result.txt
 gtest_error.log
+package_result.txt
+package_error.log
+package_output.txt
+vs_result.txt
+vs_error.log
+vs_output.txt
 '''
 
 
