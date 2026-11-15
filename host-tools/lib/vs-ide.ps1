@@ -14,6 +14,7 @@
 $VsTag = "claude-vs-debug"
 $VsMaxBreakpoints = 20
 $VsOpenWaitSec = 180
+$VsBreakWaitSec = 20   # after the app starts, wait this long for a breakpoint hit before reporting "run"
 $ReVsPath = '^[^\x00-\x1f"<>|*?:]+$'
 
 if (-not ([System.Management.Automation.PSTypeName]'VsNative').Type) {
@@ -126,7 +127,9 @@ function Get-VsStatusLines {
     $lines += "OPEN: yes"
     $lines += "INSTANCES: $($targets.Count)"
     $dte = $targets[0].Dte
-    $lines += "DEBUG_MODE: $(Get-VsModeName $dte)"
+    $mode = Get-VsModeName $dte
+    $lines += "DEBUG_MODE: $mode"
+    if ($mode -eq 'break') { $lines += (Get-VsLocation $dte) }
     $dirty = 0
     foreach ($d in @(Invoke-VsRetry { @($dte.Documents) })) {
         try { if (-not $d.Saved) { $lines += "DIRTY: $($d.FullName)"; $dirty++ } } catch { }
@@ -235,12 +238,16 @@ function Invoke-VsOps([string[]]$flagLines) {
                         Invoke-VsRetry { $dte.Debugger.Go($false) } | Out-Null
                         $deadline = (Get-Date).AddSeconds(30)
                         while ((Get-VsModeName $dte) -eq 'design' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
-                        Start-Sleep -Milliseconds 1500   # a breakpoint hit right after start
+                        # "run" begins when the app is launched, before it reaches the first breakpoint. Wait for break (or for the app to end).
+                        $deadline = (Get-Date).AddSeconds($VsBreakWaitSec)
+                        while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                        Start-Sleep -Milliseconds 500
                         $mode = Get-VsModeName $dte
                         $out.Add("DEBUG_STARTED")
                         $out.Add("DEBUG_MODE: $mode")
                         if ($mode -eq 'break') { $out.Add((Get-VsLocation $dte)) }
-                        if ($mode -eq 'design') { $out.Add("NOTE: the mode is still design. The build may have failed or a dialog may be open in Visual Studio.") }
+                        if ($mode -eq 'run') { $out.Add("NOTE: no breakpoint was hit within ${VsBreakWaitSec}s. The app is running (it may be waiting for the user, or the breakpoints may not be bound). Use status to check the mode again.") }
+                        if ($mode -eq 'design') { $out.Add("NOTE: the mode is design (the app ended, or never started). The build may have failed or a dialog may be open in Visual Studio.") }
                     }
                 }
             }

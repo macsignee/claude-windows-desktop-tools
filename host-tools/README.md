@@ -160,11 +160,11 @@ Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空�
 | 操作 | 内容 |
 |---|---|
 | `open` | VS で開く。開いていなければ、`vswhere.exe` で `devenv.exe` を探し、ソリューションを引数にして起動 (読み込みを待つ)。開いていれば、前面に出す (最小化は戻す) |
-| `status` | `SOLUTION:` / `OPEN:` / `INSTANCES:` / `DEBUG_MODE:` (design / run / break) / `DIRTY: <パス>` (未保存のドキュメント) / `DIRTY_COUNT:`。読み取りだけ。VS を起動しない |
+| `status` | `SOLUTION:` / `OPEN:` / `INSTANCES:` / `DEBUG_MODE:` (design / run / break。break のときは `STOPPED:` も) / `DIRTY: <パス>` (未保存のドキュメント) / `DIRTY_COUNT:`。読み取りだけ。VS を起動しない |
 | `reload <パス>` | VS で開いていて、未保存の編集がないドキュメントを、閉じて開き直す。未保存なら `RELOAD_SKIP_DIRTY:` |
 | `clear` | このツールが置いたブレークポイント (`Tag` = `claude-vs-debug`) だけを消す |
 | `break <パス>:<行>` | ブレークポイントを置く (同じ場所にあれば `BREAK_EXISTS:`。最大 20 件)。パスは、ソリューションのフォルダの下の相対パス (`..` と絶対パスは断る) |
-| `debug` | デバッグ実行を始める (`DTE.Debugger.Go`)。デザインモードのときだけ。`DEBUG_STARTED` / `DEBUG_MODE:` / break で止まれば `STOPPED:` |
+| `debug` | デバッグ実行を始める (`DTE.Debugger.Go`)。デザインモードのときだけ。アプリの起動後、ブレークポイントに着くのを最大 20 秒待つ。`DEBUG_STARTED` / `DEBUG_MODE:` / break で止まれば `STOPPED:`。20 秒でも `run` なら `NOTE:` (`status` で、もう一度確かめる) |
 
 結果は `vs_output.txt` (事実)、失敗時のみ `vs_error.log` (環境の問題は、先頭が `[ENVIRONMENT ERROR - not a source code problem]`)、完了マーカー `vs_result.txt` (`OK` / `FAILED`。最後に書く)。VS が、ダイアログを出して待っていると、COM の呼び出しが拒否され、`TIMEOUT` になることがあります。
 
