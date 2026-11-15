@@ -70,3 +70,26 @@ paths:
   - **CObject 派生でないクラス** (ロジックのクラス、値のクラス、自由関数) は、名前空間に入れてよい。
 - **CObject 派生のクラスには、`DECLARE_DYNAMIC` / `DECLARE_DYNCREATE` / `DECLARE_SERIAL` のどれかを書く** (宣言に、マクロがないクラスは、実行時のクラス情報が、基底クラスのものになり、正しい宣言ではない)。`.cpp` に、対応する `IMPLEMENT_DYNAMIC` / `IMPLEMENT_DYNCREATE` / `IMPLEMENT_SERIAL` を書く。**例外: `CWinApp` / `CWinThread` 派生** (アプリケーション・スレッドのクラス。ウィザードも、マクロを書かない)。
 - (`mfc-check` の NSP001 / DEC001 が検査する。どちらも warning。)
+
+## 画面モデルと MFC のダイアログ
+画面モデルの考え方は、WPF (ViewModel)・WinForms と共通 (契約は、`winforms-csharp.md` の 2.4)。**この節が決めているのは、操作の受け方と、更新の経路 (標準と例外) だけ。** 通知の細部、ダイアログの構造は、未整理 (決まったものから、足す)。Document/View は、対象外 (ただし、`CFormView` は、例外的に Document/View なので、更新の経路の表に載せる)。
+
+### 操作の受け方
+- ID ごとにハンドラを置き、ハンドラは画面モデルのメソッドを呼ぶ数行だけにする。
+- 中で `switch (nID)` する 1 つのハンドラにはしない。メッセージマップとの対応が見えなくなり、`mfc-check` の整合の検査も効かなくなるため。
+- まとめてよいのは、同じ意味の ID の並び (ラジオ群、数字キー) だけ。`ON_COMMAND_RANGE` 系で受け、`nID - ID_FIRST` を操作の引数にする。
+- 画面モデルはリソース ID を知らない。ID と操作の対応は、ダイアログ側が持つ。
+- 計画には、ハンドラの表 (ID / 通知 / ハンドラ / 画面モデルの操作 / 実行可否 / 更新の方法) を書く。
+- `WM_NOTIFY` や `WM_HSCROLL` も同じ扱い。
+
+### 更新の経路 (標準)
+| 画面 | 画面 → 画面モデル | 画面モデル → 画面 |
+|---|---|---|
+| モーダルなダイアログ | OK のとき `UpdateData(TRUE)`、続けて `Commit()` | `OnInitDialog` と通知のとき `UpdateData(FALSE)` |
+| `CFormView` | DDX。操作は ID ごとのハンドラ | 通知 → `UpdateAllViews` → `OnUpdate` |
+
+### 更新の経路 (例外: 個別更新)
+モードレスの即時反映、部分更新、DDX で書けないものは、次の 3 つを守れば許す。
+1. 更新を `OnModelChanged(PropertyId)` の 1 か所に集める。通知は、変わったプロパティの識別を持つ。
+2. 経路は、コントロール → 画面モデル → 通知 → コントロールにする。ハンドラが別のコントロールを直接書き換えない。
+3. `SetWindowText` が `EN_CHANGE` を起こす再入を、更新中のフラグで防ぐ。
