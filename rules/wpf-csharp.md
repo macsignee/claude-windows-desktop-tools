@@ -169,7 +169,7 @@ boolean 型には、状態や判定であることが分かる名前を付ける
 
 ```csharp
 public bool IsEnabled { get; }
-public bool HasErrors { get; }
+public bool IsValid { get; }
 public bool CanSave { get; }
 ```
 
@@ -339,7 +339,7 @@ public Customer? SelectedCustomer { get; set; }
 
 - **ツール群の補足:** ViewModel は、`INotifyPropertyChanged` を実装する (基底クラス `ObservableObject` など)。**値が変わるプロパティは、変更を通知する** (`SetProperty`)。通知しないと、画面が更新されない (エラーも出ない。`wpf-check` の BND004)。計算プロパティは、元の値が変わったときに、`OnPropertyChanged(nameof(...))`。コレクションは、`ObservableCollection<T>` を `{ get; }` (置き換えない) で公開する (`List<T>` は、追加・削除が、画面に反映されない)。
 
-- **画面モデルの契約 (WPF・WinForms・MFC で共通):** ViewModel は、**状態・操作 (と実行可否 `CanExecute`)・検査・変更の通知・結果**の五つを公開する (`winforms-view-model.md` の 2 章)。ダイアログにも ViewModel を置き、編集中の値は ViewModel が持ち、確定 (OK) で書く。**画面モデルに足りないものが見つかったら、View のコードビハインドで補わず、ロジック層に戻り、単体テストを先に書いて、ViewModel に足す** (戻りの規則。`winforms-view-model.md` の 4 章)。画面モデルの Fake / 本物と、リポジトリの Fake は、`ui-test-first` の `references/model-switching.md` に従う。
+- **画面モデルの契約 (WPF・WinForms・MFC で共通。詳細は `winforms-view-model.md`。WinForms と MFC では `ScreenModel` と呼ぶ):** ViewModel は、状態・操作 (`CanExecute`)・検査・変更の通知・結果を公開し、**すべての画面・ダイアログに置く (例外なし)。** 検査は `Validate()` (`ValidationResult`) と `IsValid`、`Commit()` は `bool`、失敗は `Failure`。文章は `IMessageFormatter` で作る。**WPF の表示:** 基底クラスが `ErrorTexts` (欄の名前 → 文章) と `ScreenErrorTexts` を公開し、XAML は `{Binding ErrorTexts[Name]}` だけ (`INotifyDataErrorInfo`・変換器は使わない。細部は試作で確認が要る)。足りないものは、View で補わず、ロジック層に戻って ViewModel に足す (戻りの規則)。共通部品は、実装の段階で、ひな形が生成する。
 
 - **ダイアログ・画面が使うデータのクラス** (入力値のまとめ、ダイアログが返す結果など) は、**基本は、ロジック層**に置く (ダイアログの動作と、べったり結びつくときだけ View 層。データ層には置かない。Model (リポジトリ) ではない)。純粋な規則 (入力の検査、表示用の派生値) を持ってよい (UI の型は使わない)。ViewModel の内側に入れ子にせず、**同じ層に、別のファイルで置く**。**モーダルなダイアログは、確定 (OK) するまで、渡されたデータを変更しない。** **モードレスなウィンドウは、OK がないので、持っているデータ (コピーでなく、共有するデータそのもの) を、入力のたびに、すぐ更新する。** 変更の通知、入力の途中の検査、単一インスタンスなど、ダイアログ・サブウィンドウの詳しい規則は、`ui-test-first` の `references/dialogs.md`。
 

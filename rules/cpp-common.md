@@ -39,6 +39,8 @@ paths:
 
 ## 命名
 - 型・関数・名前空間: PascalCase。
+- **インターフェース (純粋仮想クラス) の名前:** **`I` 接頭辞は付けない。** 基本は `XXXInterface`、1 つの能力を表す小さなもの (`Observable` など) は `XXXable`。**本物の実装は、役割の名前そのまま** (`GreetingScreenModel`)、インターフェースは `GreetingScreenModelInterface`、Fake は `FakeGreetingScreenModel`。リポジトリも同じ (`GreetingRepositoryInterface`、Fake は `InMemoryGreetingRepository`、本物は技術名の `SqlGreetingRepository`)。`Base` は、実装を持つ基底クラスのための接尾辞。`〜Contract` は、契約テストの名前 (`<インターフェース名>Contract`) に使うので、インターフェースには使わない。COM のインターフェース (`IStream` など) は、既存の名前のまま。
+- **取得する関数には `Get`、述語には `Is` / `Can` / `Has` を付ける** (`GetErrors()`、`IsValid()`、`CanSave()`。MFC の `GetSize` / `IsEmpty` と同じ)。
 - **ファイル名は、クラス名と一致させる** (例: クラス `ImageLoader` は、`ImageLoader.h` / `ImageLoader.cpp`)。
 - **`C` で始めてよいのは、MFC / ATL の既存のクラスだけ** (`CWnd` `CString` `CDialog` `CArray`、ATL の `CComPtr` `CImage` `CHandle` など)。
   - 自分で作るクラスには、`C` 接頭辞を付けない。**クラスウィザードで作るクラスも同じ** (ウィザードの「クラス名」を、`C` なしの名前に直してから作る。例: `CMyDialog` ではなく `MyDialog`)。
