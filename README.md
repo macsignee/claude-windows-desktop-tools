@@ -217,10 +217,13 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
   - 読み込まれるファイル: `*.cs`。章の番号は、WPF 規約のまま。
 - **`wpf-csharp.md`** (28KB): WPF / XAML / MVVM 固有。
   - 読み込まれるファイル: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
-- **`winforms-csharp.md`** (24KB): WinForms / MVP 固有。
+- **`winforms-csharp.md`** (26KB): WinForms 固有 (Form・Designer・スレッド・テストなど)。
   - 読み込まれるファイル: `*.Designer.cs` `Forms/` `Presenters/` `*Presenter*.cs` `I*View.cs`。
+- **`winforms-view-model.md`** (10KB): WinForms の画面モデルと Presenter。画面モデルの契約、ダイアログのデータ、戻りの規則。
+  - 読み込まれるファイル: `Presenters/` `*Presenter*.cs` `I*View.cs` (`ViewModels/` は、WPF の規約と名前が同じなので、対象外。画面モデルを編集するときは、自分で読む)。
 - **読み込みの大きさの目安**:
-  - WinForms の Presenter = `csharp-common.md` + `winforms-csharp.md`。
+  - WinForms の Presenter = `csharp-common.md` + `winforms-csharp.md` + `winforms-view-model.md`。
+  - WinForms の Form = `csharp-common.md` + `winforms-csharp.md`。
   - WPF の ViewModel = `csharp-common.md` + `wpf-csharp.md`。
   - 画面と無関係の `.cs` = `csharp-common.md` だけ。
 - **優先**: プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらが、優先される。書式の詳細は、プロジェクトの `.editorconfig` (C++ は `.clang-format`) が正。
