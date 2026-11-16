@@ -25,7 +25,7 @@ C# は、軽い字句解析 (コメントと文字列を除いて、正規表現
   WFL002 warning Presenter / 画面モデル (Presenters / ScreenModels フォルダ、または名前が Presenter / ScreenModel で終わる型) が、WinForms の型を使っている (MessageBox / Form / Control / Application など。テストしにくい)
   WFL003 error   プロジェクト参照の向きが、層 (アプリ → ロジック → データ) に反する
   WFL004 warning Form のコードで、Service / Repository などを new している (コンストラクターで受け取る。組み立ては、Program.cs)
-  WFL005 warning Form / Presenter が、リポジトリ (型名が Repository で終わる) を直接参照している (画面モデルを通す。new は WFL004。組み立ての Program.cs は対象外)
+  WFL005 warning Form / Presenter が、リポジトリ (型名が Repository で終わる) を直接参照している (画面モデルを通す。new は WFL004。組み立ての Program.cs と、リポジトリを呼んでよい画面モデルは対象外)
   ASY001 warning .Result / .Wait() / GetAwaiter().GetResult() による、非同期処理の同期待機 (UI スレッドのデッドロック)
   ASY002 warning イベントハンドラ以外の async void
   EXC001 warning 空の catch (例外の握りつぶし)
@@ -354,6 +354,13 @@ def is_presenter_file(pr, path, code):
             or re.search(r"\bclass\s+\w+(?:Presenter|ScreenModel)\b", code) is not None)
 
 
+def is_presenter_only(path, code):
+    """Presenter のファイル (画面モデルは含めない。画面モデルは、リポジトリを呼んでよい)。"""
+    parts = path.replace("\\", "/").split("/")
+    return ("Presenters" in parts or re.search(r"\bclass\s+\w+Presenter\b", code) is not None) and "ScreenModels" not in parts \
+        and re.search(r"\bclass\s+\w+ScreenModel\b", code) is None
+
+
 REPO_REF = re.compile(r"(?<!\bnew )\b[A-Z]\w*Repository\b")
 FORM_CLASS = re.compile(r":\s*(?:[\w.]+\s*,\s*)*(?:Form|UserControl)\b")
 
@@ -381,7 +388,7 @@ def check_layering(projects, names):
                 m = WF_USING.search(code) or WF_USAGE.search(code)
                 if m:
                     pr.add("WFL002", "warning", f"Presenter / 画面モデル (ScreenModel) が、WinForms の型を使っている: {m.group(0).strip()} (テストしにくい。IDialogService などに分ける)", pr.rel(path), lineno(code, m.start()))
-            if L == "ui" and not des and (is_presenter_file(pr, path, code) or FORM_CLASS.search(code)):
+            if L == "ui" and not des and (is_presenter_only(path, code) or FORM_CLASS.search(code)):
                 m = REPO_REF.search(code)
                 if m:
                     pr.add("WFL005", "warning", f"Form / Presenter が、リポジトリ ({m.group(0)}) を直接参照している (画面モデルを通す。Form・Presenter は、データ層を直接使わない)", pr.rel(path), lineno(code, m.start()))

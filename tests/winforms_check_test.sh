@@ -83,24 +83,24 @@ out="$(chk "$T/m7b")"
 ok "WFD008 is not reported when CheckBoxes is switched off in the code" "$([ "$(has "$out" WFD008)" = 0 ] && echo 1 || echo 0)"
 
 # ---------------------------------------------------------------- スレッド・UI
-mut m8 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private void Busy() { Application.DoEvents(); }\n\n    public event EventHandler? NameChanged;")'
+mut m8 WfApp "$FRM" 's = s.replace("    public void Bind(IMainScreenModel model)", "    private void Busy() { Application.DoEvents(); }\n\n    public void Bind(IMainScreenModel model)")'
 expect m8 WFT001 0 "Application.DoEvents"
-mut m9 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private void Busy() { Thread.Sleep(1000); }\n\n    public event EventHandler? NameChanged;")'
+mut m9 WfApp "$FRM" 's = s.replace("    public void Bind(IMainScreenModel model)", "    private void Busy() { Thread.Sleep(1000); }\n\n    public void Bind(IMainScreenModel model)")'
 expect m9 WFT002 0 "Thread.Sleep in a Form"
 mut m10 WfApp "WfApp/Program.cs" 's = s.replace("        ApplicationConfiguration.Initialize();", "        Control.CheckForIllegalCrossThreadCalls = false;\n        ApplicationConfiguration.Initialize();")'
 expect m10 WFT003 1 "CheckForIllegalCrossThreadCalls = false"
-mut m11 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private void Make() { var s = new CustomerService(); }\n\n    public event EventHandler? NameChanged;")'
+mut m11 WfApp "$FRM" 's = s.replace("    public void Bind(IMainScreenModel model)", "    private void Make() { var s = new CustomerService(); }\n\n    public void Bind(IMainScreenModel model)")'
 expect m11 WFL004 0 "new Service in a Form"
 
 # ---------------------------------------------------------------- 層
-mut m12 WfApp "LogicLayer/MainPresenter.cs" 's = s.replace("        Refresh();\n    }\n\n    private void OnNameChanged", "        MessageBox.Show(\"x\");\n        Refresh();\n    }\n\n    private void OnNameChanged", 1)'
+mut m12 WfApp "LogicLayer/ScreenModels/MainScreenModel.cs" 's = s.replace("        Name = \"\";\n    }", "        MessageBox.Show(\"x\");\n        Name = \"\";\n    }", 1)'
 expect m12 WFL001 1 "WinForms type (MessageBox) in the logic layer"
 mut m13 WfApp "LogicLayer/LogicLayer.csproj" 's = s.replace("<TargetFramework>net10.0</TargetFramework>", "<TargetFramework>net10.0-windows</TargetFramework>\n    <UseWindowsForms>true</UseWindowsForms>")'
 expect m13 WFL001 1 "logic layer csproj depends on WinForms"
 mut m14 WfApp "LogicLayer/LogicLayer.csproj" 's = s.replace("</Project>", "  <ItemGroup>\n    <ProjectReference Include=\"..\\WfApp\\WfApp.csproj\" />\n  </ItemGroup>\n</Project>")'
 expect m14 WFL003 1 "logic layer references the app"
-mut m15 NoLogic "NoLogic/Presenters/MainPresenter.cs" 's = s.replace("        Refresh();\n    }\n\n    private void OnNameChanged", "        MessageBox.Show(\"x\");\n        Refresh();\n    }\n\n    private void OnNameChanged", 1)'
-expect m15 WFL002 0 "MessageBox in the Presenter inside the app"
+mut m15 NoLogic "NoLogic/ScreenModels/MainScreenModel.cs" 's = s.replace("        Name = \"\";\n    }", "        MessageBox.Show(\"x\");\n        Name = \"\";\n    }", 1)'
+expect m15 WFL002 0 "MessageBox in the ScreenModel inside the app"
 
 # ---------------------------------------------------------------- 画面モデル (ScreenModel) とリポジトリ (WFL002 の拡張 / WFL005)
 rm -rf "$T/m19"; cp -r "$T/NoLogic" "$T/m19"; mkdir -p "$T/m19/NoLogic/ScreenModels"
@@ -109,19 +109,23 @@ expect m19 WFL002 0 "MessageBox in a ScreenModel inside the app (ScreenModels/ f
 rm -rf "$T/m19b"; cp -r "$T/NoLogic" "$T/m19b"
 printf 'namespace NoLogic;\n\npublic sealed class ReportScreenModel\n{\n    public object Make() { return new Form(); }\n}\n' > "$T/m19b/NoLogic/Report.cs"
 expect m19b WFL002 0 "a WinForms type in a class named *ScreenModel (any folder)"
-mut m20 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private IGreetingRepository? _repo;\n\n    public event EventHandler? NameChanged;")'
+mut m20 WfApp "$FRM" 's = s.replace("    public void Bind(IMainScreenModel model)", "    private IGreetingRepository? _repo;\n\n    public void Bind(IMainScreenModel model)")'
 expect m20 WFL005 0 "a Form refers to a Repository type directly"
-mut m21 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private void Make() { var r = new SqlGreetingRepository(); }\n\n    public event EventHandler? NameChanged;")'
+mut m21 WfApp "$FRM" 's = s.replace("    public void Bind(IMainScreenModel model)", "    private void Make() { var r = new SqlGreetingRepository(); }\n\n    public void Bind(IMainScreenModel model)")'
 out="$(chk "$T/m21")"
 ok "new XxxRepository() in a Form is WFL004 only (not reported twice as WFL005)" "$([ "$(has "$out" ' WFL004 ')" = 1 ] && [ "$(has "$out" ' WFL005 ')" = 0 ] && echo 1 || echo 0)"
-mut m22 NoLogic "NoLogic/Presenters/MainPresenter.cs" 's = s.replace("    private void OnNameChanged", "    private IGreetingRepository? _repo;\n\n    private void OnNameChanged", 1)'
+rm -rf "$T/m22"; cp -r "$T/NoLogic" "$T/m22"; mkdir -p "$T/m22/NoLogic/Presenters"
+printf 'namespace NoLogic.Presenters;\n\npublic sealed class GreetingPresenter\n{\n    private IGreetingRepository? _repo;\n}\n' > "$T/m22/NoLogic/Presenters/GreetingPresenter.cs"
 expect m22 WFL005 0 "a Presenter refers to a Repository type directly"
+mut m22b NoLogic "NoLogic/ScreenModels/MainScreenModel.cs" 's = s.replace("    private void OnPropertyChanged", "    private IGreetingRepository? _repo;\n\n    private void OnPropertyChanged", 1)'
+out="$(chk "$T/m22b")"
+ok "a ScreenModel may refer to a Repository (it wraps the repository): no WFL005" "$([ "$(has "$out" ' WFL005 ')" = 0 ] && echo 1 || echo 0)"
 mut m23 WfApp "WfApp/Program.cs" 's = s.replace("        ApplicationConfiguration.Initialize();", "        var repo = new InMemoryGreetingRepository();\n        ApplicationConfiguration.Initialize();")'
 out="$(chk "$T/m23")"
 ok "Program.cs (composition root) may use a Repository: no WFL005" "$([ "$(has "$out" ' WFL005 ')" = 0 ] && echo 1 || echo 0)"
 
 # ---------------------------------------------------------------- 共通の規則
-mut m16 AppOnly "AppOnly/Forms/MainForm.cs" 's = s.replace("    public event EventHandler? NameChanged;", """    private bool flag;
+mut m16 AppOnly "AppOnly/Forms/MainForm.cs" 's = s.replace("    public void Bind(IMainScreenModel model)", """    private bool flag;
 
     private async void Load() { await Task.Delay(1); }
 
@@ -133,10 +137,10 @@ mut m16 AppOnly "AppOnly/Forms/MainForm.cs" 's = s.replace("    public event Eve
         try { Wait(); } catch (Exception ex) { throw ex; }
     }
 
-    public event EventHandler? NameChanged;""")'
+    public void Bind(IMainScreenModel model)""")'
 out="$(chk "$T/m16")"
 ok "common rules: ASY001 / ASY002 / EXC001 / EXC002 / NAM001 are reported" "$([ "$(has "$out" ' ASY001 ')$(has "$out" ' ASY002 ')$(has "$out" ' EXC001 ')$(has "$out" ' EXC002 ')$(has "$out" ' NAM001 ')" = 11111 ] && echo 1 || echo 0)"
-mut m17 AppOnly "AppOnly/Forms/MainForm.cs" 's = s.replace("    public event EventHandler? NameChanged;", "    private async void Button_Click(object? sender, EventArgs e) { await Task.Delay(1); }\n\n    public event EventHandler? NameChanged;")'
+mut m17 AppOnly "AppOnly/Forms/MainForm.cs" 's = s.replace("    public void Bind(IMainScreenModel model)", "    private async void Button_Click(object? sender, EventArgs e) { await Task.Delay(1); }\n\n    public void Bind(IMainScreenModel model)")'
 out="$(chk "$T/m17")"
 ok "async void event handler (sender, EventArgs) is not ASY002" "$([ "$(has "$out" ASY002)" = 0 ] && echo 1 || echo 0)"
 ok "test projects are not checked by the common rules" "$(cp -r "$T/WfApp" "$T/m18" && printf 'namespace X;\nclass T { void M() { try { } catch { } } }\n' > "$T/m18/LogicLayer.Tests/Extra.cs" && [ "$(has "$(chk "$T/m18")" EXC001)" = 0 ] && echo 1 || echo 0)"

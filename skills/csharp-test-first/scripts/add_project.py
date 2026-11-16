@@ -41,7 +41,7 @@ MSTEST_VER = '3.6.4'
 TESTSDK_VER = '17.12.0'
 IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 PROJ_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$')   # SampleApp.Domain のように、. で区切ってよい
-SHORT_NS = {'data': 'Data', 'logic': 'Logic', 'viewmodel': 'ViewModels', 'presenter': 'Logic'}
+SHORT_NS = {'data': 'Data', 'logic': 'Logic', 'viewmodel': 'ViewModels', 'presenter': 'Logic', 'screenmodel': 'Logic'}
 
 
 def die(msg, code=2):
@@ -603,143 +603,245 @@ public partial class MainWindow : Window
 '''
 
 
-# ------------------------------------------------------------------ WinForms のソース (MVP: Form は IMainView を実装し、MainPresenter が振る舞いを持つ)
-def main_view_cs(ns):
-    return f'''namespace {ns};
+# ------------------------------------------------------------------ WinForms のソース (画面モデル: Form は IMainScreenModel を表示して操作を呼ぶだけ。状態と規則は MainScreenModel に置く)
+def main_screen_model_interface_cs(ns):
+    return f'''using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 
-/// <summary>メイン画面の、Presenter から見た姿。WinForms の型 (Form や MessageBox) を、持ち込まない。</summary>
-public interface IMainView
+namespace {ns};
+
+/// <summary>メイン画面の、Form から見た姿 (画面モデル)。WinForms の型 (Form や MessageBox) を、持ち込まない。</summary>
+public interface IMainScreenModel : INotifyPropertyChanged
 {{
     /// <summary>入力された名前。</summary>
-    string PersonName {{ get; set; }}
+    string Name {{ get; set; }}
 
     /// <summary>表示する挨拶。</summary>
-    string Greeting {{ set; }}
+    string Greeting {{ get; }}
 
     /// <summary>クリアを、押せるか。</summary>
-    bool CanClear {{ set; }}
+    bool CanClear {{ get; }}
 
-    /// <summary>名前が、変わった。</summary>
-    event EventHandler? NameChanged;
+    /// <summary>入力が正しいか (Validate() の結果が空)。</summary>
+    bool IsValid {{ get; }}
 
-    /// <summary>クリアが、求められた。</summary>
-    event EventHandler? ClearRequested;
+    /// <summary>入力を検査する。誤りがなければ、空の一覧。MemberNames は、欄 (プロパティ) の名前。</summary>
+    IReadOnlyList<ValidationResult> Validate();
+
+    /// <summary>名前を、クリアする。</summary>
+    void Clear();
 }}
 '''
 
 
-def main_presenter_cs(ns):
+def main_screen_model_cs(ns):
+    return f'''using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
+namespace {ns};
+
+/// <summary>メイン画面の振る舞い。WinForms の型を使わない。状態は、ここだけが持つ。</summary>
+public sealed class MainScreenModel : IMainScreenModel
+{{
+    private const int MaxNameLength = 20;
+
+    private string _name = "";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Name
+    {{
+        get => _name;
+        set
+        {{
+            if (_name == value)
+            {{
+                return;
+            }}
+
+            _name = value;
+            OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(Greeting));
+            OnPropertyChanged(nameof(CanClear));
+            OnPropertyChanged(nameof(IsValid));
+        }}
+    }}
+
+    public string Greeting => _name.Length == 0 ? MainMessages.AskName : MainMessages.Hello(_name);
+
+    public bool CanClear => _name.Length > 0;
+
+    public bool IsValid => Validate().Count == 0;
+
+    public IReadOnlyList<ValidationResult> Validate()
+    {{
+        var errors = new List<ValidationResult>();
+        if (_name.Length > MaxNameLength)
+        {{
+            errors.Add(new ValidationResult(MainMessages.NameTooLong(MaxNameLength), new[] {{ nameof(Name) }}));
+        }}
+
+        return errors;
+    }}
+
+    public void Clear()
+    {{
+        Name = "";
+    }}
+
+    private void OnPropertyChanged(string propertyName)
+    {{
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }}
+}}
+'''
+
+
+def main_messages_cs(ns):
     return f'''namespace {ns};
 
-/// <summary>メイン画面の振る舞い。WinForms の型を使わない (View は IMainView 越しに触る)。</summary>
-public sealed class MainPresenter
+/// <summary>メイン画面の文章。文章を作る処理は、ここに 1 か所にまとめる (国際化が必要になったとき、ここを、リソースを引く実装に置き換える)。</summary>
+internal static class MainMessages
 {{
-    private readonly IMainView _view;
+    public const string AskName = "名前を入力してください";
 
-    public MainPresenter(IMainView view)
-    {{
-        _view = view;
-        _view.NameChanged += OnNameChanged;
-        _view.ClearRequested += OnClearRequested;
-        Refresh();
-    }}
+    public static string Hello(string name) => $"こんにちは、{{name}} さん";
 
-    private void OnNameChanged(object? sender, EventArgs e)
-    {{
-        Refresh();
-    }}
-
-    private void OnClearRequested(object? sender, EventArgs e)
-    {{
-        _view.PersonName = "";
-        Refresh();
-    }}
-
-    private void Refresh()
-    {{
-        var name = _view.PersonName;
-        _view.Greeting = name.Length == 0 ? "名前を入力してください" : $"こんにちは、{{name}} さん";
-        _view.CanClear = name.Length > 0;
-    }}
+    public static string NameTooLong(int max) => $"名前は {{max}} 文字以内で入力してください";
 }}
 '''
 
 
-def main_presenter_tests_cs(ns):
+def main_screen_model_tests_cs(ns):
     return f'''using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace {ns}.Tests;
 
 [TestClass]
-public class MainPresenterTests
+public class MainScreenModelTests
 {{
-    private sealed class FakeMainView : IMainView
-    {{
-        public event EventHandler? NameChanged;
-
-        public event EventHandler? ClearRequested;
-
-        public string PersonName {{ get; set; }} = "";
-
-        public string Greeting {{ get; set; }} = "";
-
-        public bool CanClear {{ get; set; }}
-
-        public void RaiseNameChanged(string name)
-        {{
-            PersonName = name;
-            NameChanged?.Invoke(this, EventArgs.Empty);
-        }}
-
-        public void RaiseClearRequested()
-        {{
-            ClearRequested?.Invoke(this, EventArgs.Empty);
-        }}
-    }}
-
     [TestMethod]
     public void Constructor_NameEmpty_AsksForNameAndDisablesClear()
     {{
-        var view = new FakeMainView();
+        var model = new MainScreenModel();
 
-        _ = new MainPresenter(view);
-
-        Assert.AreEqual("名前を入力してください", view.Greeting);
-        Assert.IsFalse(view.CanClear);
+        Assert.AreEqual("名前を入力してください", model.Greeting);
+        Assert.IsFalse(model.CanClear);
     }}
 
     [TestMethod]
-    public void NameChanged_NameSet_GreetsByName()
+    public void Name_Set_GreetsByName()
     {{
-        var view = new FakeMainView();
-        _ = new MainPresenter(view);
+        var model = new MainScreenModel();
 
-        view.RaiseNameChanged("太郎");
+        model.Name = "太郎";
 
-        Assert.AreEqual("こんにちは、太郎 さん", view.Greeting);
+        Assert.AreEqual("こんにちは、太郎 さん", model.Greeting);
     }}
 
     [TestMethod]
-    public void NameChanged_NameSet_EnablesClear()
+    public void Name_Set_EnablesClear()
     {{
-        var view = new FakeMainView();
-        _ = new MainPresenter(view);
+        var model = new MainScreenModel();
 
-        view.RaiseNameChanged("太郎");
+        model.Name = "太郎";
 
-        Assert.IsTrue(view.CanClear);
+        Assert.IsTrue(model.CanClear);
     }}
 
     [TestMethod]
-    public void ClearRequested_NameSet_ClearsName()
+    public void Clear_NameSet_ClearsNameAndDisablesClear()
     {{
-        var view = new FakeMainView {{ PersonName = "太郎" }};
-        _ = new MainPresenter(view);
+        var model = new MainScreenModel {{ Name = "太郎" }};
 
-        view.RaiseClearRequested();
+        model.Clear();
 
-        Assert.AreEqual("", view.PersonName);
-        Assert.IsFalse(view.CanClear);
+        Assert.AreEqual("", model.Name);
+        Assert.IsFalse(model.CanClear);
+    }}
+
+    [TestMethod]
+    public void Name_Set_RaisesPropertyChangedForNameGreetingAndCanClear()
+    {{
+        var model = new MainScreenModel();
+        var names = new List<string?>();
+        model.PropertyChanged += (_, e) => names.Add(e.PropertyName);
+
+        model.Name = "太郎";
+
+        CollectionAssert.IsSubsetOf(new[] {{ "Name", "Greeting", "CanClear" }}, names);
+    }}
+
+    [TestMethod]
+    public void Validate_NameTooLong_ReturnsAnErrorForName()
+    {{
+        var model = new MainScreenModel {{ Name = new string('あ', 21) }};
+
+        var errors = model.Validate();
+
+        Assert.AreEqual(1, errors.Count);
+        CollectionAssert.AreEqual(new[] {{ "Name" }}, errors[0].MemberNames.ToArray());
+        Assert.AreEqual("名前は 20 文字以内で入力してください", errors[0].ErrorMessage);
+        Assert.IsFalse(model.IsValid);
+    }}
+
+    [TestMethod]
+    public void Validate_NameWithinLimit_IsValid()
+    {{
+        var model = new MainScreenModel {{ Name = "太郎" }};
+
+        Assert.AreEqual(0, model.Validate().Count);
+        Assert.IsTrue(model.IsValid);
+    }}
+}}
+'''
+
+
+def repository_exception_cs(ns):
+    return f'''namespace {ns};
+
+/// <summary>リポジトリの失敗。Message は、ユーザー向けの文章。本物のリポジトリが、データベース固有の例外を、これに変換して投げる。
+/// 画面モデルは、この例外だけを、Failure にする (それ以外の例外は、握りつぶさず、そのまま伝える)。</summary>
+public class RepositoryException : Exception
+{{
+    public RepositoryException(string message)
+        : base(message)
+    {{
+    }}
+
+    public RepositoryException(string message, Exception innerException)
+        : base(message, innerException)
+    {{
+    }}
+}}
+'''
+
+
+def repository_exception_tests_cs(ns):
+    return f'''using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace {ns}.Tests;
+
+[TestClass]
+public class RepositoryExceptionTests
+{{
+    [TestMethod]
+    public void Constructor_Message_KeepsTheUserFacingMessage()
+    {{
+        var ex = new RepositoryException("保存できませんでした");
+
+        Assert.AreEqual("保存できませんでした", ex.Message);
+        Assert.IsNull(ex.InnerException);
+    }}
+
+    [TestMethod]
+    public void Constructor_WithInner_KeepsTheInnerException()
+    {{
+        var inner = new InvalidOperationException("db");
+
+        var ex = new RepositoryException("保存できませんでした", inner);
+
+        Assert.AreSame(inner, ex.InnerException);
     }}
 }}
 '''
@@ -759,65 +861,68 @@ internal static class Program
     {{
         ApplicationConfiguration.Initialize();
 
-        // 画面と Presenter を組み立てる場所 (composition root)。DI コンテナを導入するときは、ここで構成する。
+        // 画面と画面モデルを組み立てる場所 (composition root)。DI コンテナを導入するときは、ここで構成する。
+        var model = new MainScreenModel();
         var form = new MainForm();
-        _ = new MainPresenter(form);
+        form.Bind(model);
         Application.Run(form);
     }}
 }}
 '''
 
 
-def main_form_cs(ns, presenter_ns):
+def main_form_cs(ns, model_ns):
     # using System.Windows.Forms を、明示する (ImplicitUsings に頼ると、VS が Form と認識しなかった。実機で確認)。System が先、残りは名前の順
-    usings = "\n".join(f"using {u};" for u in ["System.ComponentModel", "System.Windows.Forms"] + sorted({presenter_ns}))
+    usings = "\n".join(f"using {u};" for u in ["System.Windows.Forms"] + sorted({model_ns}))
     return f'''{usings}
 
 namespace {ns}.Forms;
 
-/// <summary>メイン画面。View 固有の処理だけを書く (業務ロジックは、Presenter に置く)。
-/// IMainView のプロパティは、デザイナーが保存しない値なので、[DesignerSerializationVisibility(Hidden)] を付ける (.NET 9 以降の WinForms 解析 WFO1000 が、ビルドエラーにする)。</summary>
-public partial class MainForm : Form, IMainView
+/// <summary>メイン画面。View 固有の処理だけを書く (状態と規則は、画面モデルに置く)。
+/// デザイナーが開けるよう、コンストラクターは引数なしにし、画面モデルは Bind で結ぶ (組み立てる場所 Program.cs が呼ぶ)。</summary>
+public partial class MainForm : Form
 {{
+    private IMainScreenModel? _model;
+
     public MainForm()
     {{
         InitializeComponent();
     }}
 
-    public event EventHandler? NameChanged;
-
-    public event EventHandler? ClearRequested;
-
-    [Browsable(false)]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public string PersonName
+    public void Bind(IMainScreenModel model)
     {{
-        get => NameTextBox.Text;
-        set => NameTextBox.Text = value;
+        _model = model;
+        _model.PropertyChanged += (_, _) => Render();
+        Render();
     }}
 
-    [Browsable(false)]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public string Greeting
+    private void Render()
     {{
-        set => GreetingLabel.Text = value;
-    }}
+        if (_model is null)
+        {{
+            return;
+        }}
 
-    [Browsable(false)]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public bool CanClear
-    {{
-        set => ClearButton.Enabled = value;
+        if (NameTextBox.Text != _model.Name)
+        {{
+            NameTextBox.Text = _model.Name;
+        }}
+
+        GreetingLabel.Text = _model.Greeting;
+        ClearButton.Enabled = _model.CanClear;
     }}
 
     private void NameTextBox_TextChanged(object? sender, EventArgs e)
     {{
-        NameChanged?.Invoke(this, EventArgs.Empty);
+        if (_model is not null)
+        {{
+            _model.Name = NameTextBox.Text;
+        }}
     }}
 
     private void ClearButton_Click(object? sender, EventArgs e)
     {{
-        ClearRequested?.Invoke(this, EventArgs.Empty);
+        _model?.Clear();
     }}
 }}
 '''
@@ -935,15 +1040,18 @@ def lib_files(name, ns, uses, tfm, kind='lib'):
     }
     if kind == 'viewmodel':
         files.update(viewmodel_files(f'{name}', ns))
-    if kind == 'presenter':
-        files.update(presenter_files(f'{name}', ns))
+    if kind in ('presenter', 'screenmodel'):
+        files.update(screen_model_files(f'{name}/ScreenModels', ns))
+    if kind == 'data':
+        files[f'{name}/RepositoryException.cs'] = repository_exception_cs(ns)
     return files
 
 
-def presenter_files(folder, ns):
+def screen_model_files(folder, ns):
     return {
-        f'{folder}/IMainView.cs': main_view_cs(ns),
-        f'{folder}/MainPresenter.cs': main_presenter_cs(ns),
+        f'{folder}/IMainScreenModel.cs': main_screen_model_interface_cs(ns),
+        f'{folder}/MainScreenModel.cs': main_screen_model_cs(ns),
+        f'{folder}/MainMessages.cs': main_messages_cs(ns),
     }
 
 
@@ -958,12 +1066,12 @@ def viewmodel_files(folder, ns):
 def test_files(name, ns, tfm, mstest_ver, sdk_ver, kind='lib', extra_refs=()):
     """<Name>.Tests のファイル一式。"""
     tn = f'{name}.Tests'
-    if kind == 'app-presenter':
-        # ロジック層のない WinForms: アプリ (WinExe) の Presenters/ を、テストする。Info クラスがないので、ベースラインは Presenter のテスト。
+    if kind in ('app-presenter', 'app-screenmodel'):
+        # ロジック層のない WinForms: アプリ (WinExe) の ScreenModels/ を、テストする。Info クラスがないので、ベースラインは画面モデルのテスト。
         # アプリが <TFM>-windows なので、テストも同じ TFM (違うと NU1201)
         return {
             f'{tn}/{tn}.csproj': csproj_test(windows_tfm(tfm), ns, name, mstest_ver, sdk_ver, extra_refs),
-            f'{tn}/MainPresenterTests.cs': main_presenter_tests_cs(ns),
+            f'{tn}/MainScreenModelTests.cs': main_screen_model_tests_cs(ns),
         }
     files = {
         f'{tn}/{tn}.csproj': csproj_test(tfm, ns, name, mstest_ver, sdk_ver, extra_refs),
@@ -971,14 +1079,16 @@ def test_files(name, ns, tfm, mstest_ver, sdk_ver, kind='lib', extra_refs=()):
     }
     if kind == 'viewmodel':
         files[f'{tn}/MainViewModelTests.cs'] = main_viewmodel_tests_cs(ns)
-    if kind == 'presenter':
-        files[f'{tn}/MainPresenterTests.cs'] = main_presenter_tests_cs(ns)
+    if kind in ('presenter', 'screenmodel'):
+        files[f'{tn}/MainScreenModelTests.cs'] = main_screen_model_tests_cs(ns)
+    if kind == 'data':
+        files[f'{tn}/RepositoryExceptionTests.cs'] = repository_exception_tests_cs(ns)
     return files
 
 
 def winforms_app_files(name, ns, tfm, uses, presenter_ns, presenter_in_app):
-    """WinForms のメイン (View)。presenter_in_app なら、IMainView / MainPresenter を、アプリの Presenters フォルダに置く。
-    構成: Program.cs (composition root) / Forms/ (Form と Designer) / Presenters/ (ロジック層がないとき)。"""
+    """WinForms のメイン (View)。presenter_in_app (画面モデルをアプリの中に置く) なら、IMainScreenModel / MainScreenModel を、アプリの ScreenModels フォルダに置く。
+    構成: Program.cs (composition root) / Forms/ (Form と Designer) / ScreenModels/ (ロジック層がないとき)。"""
     files = {
         f'{name}/{name}.csproj': csproj_winforms(tfm, ns, uses),
         f'{name}/Program.cs': program_cs(ns, [f'{ns}.Forms', presenter_ns]),
@@ -986,7 +1096,7 @@ def winforms_app_files(name, ns, tfm, uses, presenter_ns, presenter_in_app):
         f'{name}/Forms/MainForm.Designer.cs': main_form_designer_cs(ns, name),
     }
     if presenter_in_app:
-        files.update(presenter_files(f'{name}/Presenters', presenter_ns))
+        files.update(screen_model_files(f'{name}/ScreenModels', presenter_ns))
     return files
 
 
@@ -1101,8 +1211,8 @@ def read_lib_info(sln_dir, name):
             for m in re.findall(r'<ProjectReference\s+Include="([^"]+)"', text)]
     return {'ns': ns.group(1) if ns else None, 'tfm': tfm.group(1) if tfm else DEFAULT_TFM, 'uses': uses,
             'is_vm': os.path.isfile(os.path.join(sln_dir, name, 'MainViewModel.cs')),
-            'is_presenter': os.path.isfile(os.path.join(sln_dir, name, 'MainPresenter.cs')),
-            'is_app_presenter': os.path.isfile(os.path.join(sln_dir, name, 'Presenters', 'MainPresenter.cs')),
+            'is_presenter': os.path.isfile(os.path.join(sln_dir, name, 'ScreenModels', 'MainScreenModel.cs')),   # 画面モデルを持つライブラリ (名前は旧称のまま)
+            'is_app_presenter': os.path.isfile(os.path.join(sln_dir, name, 'ScreenModels', 'MainScreenModel.cs')) and bool(re.search(r'<OutputType>\s*(Win)?Exe\s*</OutputType>', text)),
             'is_exe': bool(re.search(r'<OutputType>\s*(Win)?Exe\s*</OutputType>', text)),
             'is_test': 'Microsoft.NET.Test.Sdk' in text}
 
@@ -1127,7 +1237,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('sln_dir')
     ap.add_argument('name')
-    ap.add_argument('--kind', choices=['lib', 'data', 'logic', 'viewmodel', 'presenter'], default='lib')
+    ap.add_argument('--kind', choices=['lib', 'data', 'logic', 'viewmodel', 'screenmodel', 'presenter'], default='lib')
     ap.add_argument('--tests', choices=['none', 'mstest'], default='mstest')
     ap.add_argument('--tests-only', action='store_true')
     ap.add_argument('--namespace')

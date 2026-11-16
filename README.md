@@ -139,7 +139,7 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
 - **`cpp-test-first`**: Windows デスクトップの C++ (MFC・Win32・DLL) で、GoogleTest のテストを先に書き、スタブで Red を確認する。Red のあと、`test_guard.py` で、テストの改変を検出する。
   - 頼み方: 「先にテストを書いて」「TDD で」など。
   - スクリプト: `add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]` (層と、そのテストを足す)。
-- **`csharp-test-first`**: WPF (MVVM) または WinForms (MVP) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は Presenter と `IView` の Fake でテストする。
+- **`csharp-test-first`**: WPF (MVVM) または WinForms (ScreenModel) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は ScreenModel (画面モデル) を直接呼んでテストする (Presenter は任意)。
   - ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
   - 守る手順: Red のあとの確認。Green の前の `test_guard.py snapshot`、実装のあとの `check`。`wpf-check` / `winforms-check`。報告の先頭にテストファイル。
   - 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
