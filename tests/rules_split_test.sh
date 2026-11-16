@@ -24,6 +24,10 @@ bytes() { wc -c < "$1" | tr -d ' '; }
 bc=$(bytes "$C"); bw=$(bytes "$W"); bf=$(bytes "$F")
 ok "WinForms: common + winforms <= 40000 bytes (was 62524 before the split; ${bc}+${bf})" "$([ $((bc+bf)) -le 40000 ] && echo 1 || echo 0)"
 ok "WPF: common + wpf <= 44000 bytes (was 62524 before the split; ${bc}+${bw})" "$([ $((bc+bw)) -le 44000 ] && echo 1 || echo 0)"
+V="$ROOT/rules/winforms-view-model.md"
+bv=$(bytes "$V")
+ok "winforms-view-model.md exists and is loaded only for Presenters / IView files (not ViewModels/, which would also load the WPF rule)" "$([ -f "$V" ] && grep -q -F '"**/Presenters/**/*.cs"' "$V" && grep -q -F '"**/I*View.cs"' "$V" && ! grep -q -F 'ViewModel*.cs"' "$V" && echo 1 || echo 0)"
+ok "WinForms Presenter read: common + winforms + view-model <= 50000 bytes (${bc}+${bf}+${bv})" "$([ $((bc+bf+bv)) -le 50000 ] && echo 1 || echo 0)"
 ok "a plain .cs read (common only) <= 15000 bytes (${bc})" "$([ "$bc" -le 15000 ] && echo 1 || echo 0)"
 
 # 配布: install.sh --rules-only が、3 つとも対象にする

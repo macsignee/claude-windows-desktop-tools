@@ -72,7 +72,7 @@ paths:
 - (`mfc-check` の NSP001 / DEC001 が検査する。どちらも warning。)
 
 ## 画面モデルと MFC のダイアログ
-画面モデルの考え方は、WPF (ViewModel)・WinForms と共通 (契約は、`winforms-csharp.md` の 2.4)。**この節が決めているのは、操作の受け方と、更新の経路 (標準と例外) だけ。** 通知の細部、ダイアログの構造は、未整理 (決まったものから、足す)。Document/View は、対象外 (ただし、`CFormView` は、例外的に Document/View なので、更新の経路の表に載せる)。
+画面モデルの考え方は、WPF (ViewModel)・WinForms と共通 (契約は、`winforms-view-model.md` の 2 章)。**この節が決めているのは、操作の受け方と、更新の経路 (標準と例外) だけ。** 通知の細部、ダイアログの構造は、未整理 (決まったものから、足す)。Document/View は、対象外 (ただし、`CFormView` は、例外的に Document/View なので、更新の経路の表に載せる)。
 
 ### 操作の受け方
 - ID ごとにハンドラを置き、ハンドラは画面モデルのメソッドを呼ぶ数行だけにする。
