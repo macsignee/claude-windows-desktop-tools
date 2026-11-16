@@ -1312,3 +1312,9 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **未確認 (実機):** MFC の言語切り替え (`SetThreadUILanguage`)、WPF の `ErrorTexts` の通知 (`Item[]`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。国際化 (リソースへの移行、擬似ローカライズ) は、優先度が低い。
 - **見送り:** `mfciterators` (MFC のコレクションのイテレーター) の配布は、取り下げ。コレクション操作の拡張が要るときは、別途。
 
+### 4.85 画面モデルの検査 (`*-check`) (v2.91.0。4.84 の実装 PR A)
+- **きっかけ:** 4.84 の決定のうち、機械で確かめられる項目 (画面モデルへの GUI の混入、Form・ダイアログのリポジトリの直接参照) の実装。
+- **実装:** `winforms-check` WFL002 (画面モデルを含める) と WFL005、`wpf-check` LAY004、`mfc-check` SCM001 / SCM002 / LAY004。すべて warning。
+- **判断:** (1) 検出は、名前による推定 (`Repository` で終わる型名、`ScreenModel` を含む名前) にとどめた (データ層の型の解決は、軽い字句解析では確実でない)。(2) 組み立てる場所 (`Program.cs`・`App.xaml.cs`・`InitInstance`) は、リポジトリを使ってよいので、対象外。(3) MFC の画面モデルでは、`CString`・コレクション・データやモデルの CObject 派生は許し、ウィンドウのラッパー・`HWND`・Document/View・リソース ID だけを検査する (4.84 の線引き)。(4) `switch (nID)` のハンドラへのまとめ込みの検査は、誤検出が多そうなので、見送った。
+- **未実装:** ひな形・生成スクリプト・共通部品・`APP_FAKE_SCREENS` (実装の PR B・C)。
+

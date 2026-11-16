@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.91.0] 2026-11-16 (`*-check`: 画面モデル (ScreenModel / ViewModel) の検査を足す。実装の PR A)
+
+- 仕様 (PR #190。`docs/UI-MODEL-GUIDE.md`、`docs/DESIGN.md` 4.84) の「検査 (`*-check`)」の実装。**すべて warning で、終了コードの意味は変えない** (error の新設なし)。
+- **`winforms-check`:** **WFL002 を拡張** (Presenter に加えて、画面モデル (`Presenters/`・`ScreenModels/` フォルダ、または名前が `Presenter` / `ScreenModel` で終わる型) が、WinForms の型を使っている)。**WFL005 を新設** (Form / Presenter が、リポジトリ (型名が `Repository` で終わる) を直接参照している。`new` は WFL004。`Program.cs` は対象外)。
+- **`wpf-check`:** **LAY004 を新設** (View の code-behind (`*.xaml.cs`。`App.xaml.cs` は対象外) が、リポジトリを直接参照している)。
+- **`mfc-check`:** **SCM001 を新設** (画面モデル (ファイル名・クラス名に `ScreenModel` を含む) が、ウィンドウのラッパー・`HWND`・Document/View・`AfxMessageBox` を使っている。`CString`・コレクション・データやモデルの CObject 派生は、許す)、**SCM002** (画面モデルが、リソース ID を使っている)、**LAY004** (ダイアログ・FormView が、リポジトリを直接参照している。`InitInstance` は対象外)。
+- **検出は、名前による推定** (`Repository` で終わる型名、`ScreenModel` を含む名前)。データ層の型を、名前によらず参照する検査は、していない。
+- 規約 (`winforms-csharp.md`・`winforms-view-model.md`・`wpf-csharp.md`・`mfc-cpp.md`) の、検査の記述を、実装に合わせた。
+- テスト: `tests/winforms_check_test.sh` に 6 件 (m19〜m23)、`tests/wpf_check_test.sh` に 2 件、`tests/mfc_screen_model_test.sh` を新設 (9 件。WSL だけで動く)。**実機の確認は、不要** (静的検査)。
+- **この版では、まだ:** ひな形・生成スクリプト・共通部品・`APP_FAKE_SCREENS` の実装 (実装の PR B・C)。現状のひな形は、旧構成 (Presenter 中心)。
+
 ## [2.90.3] 2026-11-15 (`.gitignore` の雛形に、VS の操作の結果ファイルを足す)
 
 - 実機 (nsMfc) で、`git add -A` に、`vs_output.txt` / `vs_result.txt` が入った (`.gitignore` に、なかった)。**`new_solution.py` (C++) と `add_project.py` (.NET) の `.gitignore` の雛形に、`vs_result.txt` / `vs_error.log` / `vs_output.txt` を足した。** C++ の雛形に、なかった `package_result.txt` / `package_error.log` / `package_output.txt` も、あわせて足した (.NET の雛形には、あった)。

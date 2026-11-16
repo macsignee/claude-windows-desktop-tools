@@ -57,9 +57,10 @@ winforms-check: error 1 / warning 1 (3 projects: WfApp, LogicLayer, DataLayer)
 | WFT002 | warning | Form / UserControl のコードで、`Thread.Sleep()` を呼んでいる | `await Task.Delay` にする (UI が固まる)。 |
 | WFT003 | error | `Control.CheckForIllegalCrossThreadCalls = false` | 外す。別スレッドからは、`Invoke` / `BeginInvoke`、または `async` / `await`。 |
 | WFL001 | error | ロジック層・データ層が、WinForms に依存している (`UseWindowsForms` / `-windows` / `System.Windows.Forms` / `System.Drawing` / `MessageBox` など) | UI の処理を、Form / `IView` の実装に移す。ロジックは、`net8.0` などの、Windows 非依存にする。 |
-| WFL002 | warning | Presenter (`Presenters/` フォルダ、または名前が `Presenter` で終わる型) が、WinForms の型を使っている (`MessageBox` / `Form` / `Control` / `Application` など) | `IDialogService` などの、インターフェースに分ける (テストしにくい)。 |
+| WFL002 | warning | Presenter / 画面モデル (`Presenters/`・`ScreenModels/` フォルダ、または名前が `Presenter` / `ScreenModel` で終わる型) が、WinForms の型を使っている (`MessageBox` / `Form` / `Control` / `Application` など) | `IDialogService` などの、インターフェースに分ける (テストしにくい)。 |
 | WFL003 | error | プロジェクト参照の向きが、層 (アプリ → ロジック → データ) に反する | 参照を逆にするか、共通部分を下の層に移す。 |
 | WFL004 | warning | Form のコードで、`new XxxService()` / `Repository` / `Client` / `Provider` / `Gateway` を生成している | コンストラクターで、インターフェースを受け取る (組み立ては、`Program.cs`)。 |
+| WFL005 | warning | **Form / Presenter** が、リポジトリ (型名が `Repository` で終わる) を、直接参照している (`new` は WFL004。`Program.cs` は、対象外) | 画面モデルを通す (Form・Presenter は、データ層を直接使わない)。`rules/winforms-view-model.md` の 4 章。 |
 | ASY001 | warning | `.Result` / `.Wait()` / `GetAwaiter().GetResult()` で、非同期処理を同期的に待っている | `await` にする (UI スレッドのデッドロック)。 |
 | ASY002 | warning | イベントハンドラー (引数に `sender` または `EventArgs`) 以外の `async void` | `Task` を返す。 |
 | EXC001 | warning | 空の `catch` | ログを書くか、再スローする。 |
