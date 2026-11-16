@@ -1,6 +1,6 @@
 ---
 name: csharp-test-first
-description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または WinForms (MVP) の、メイン (View) + ViewModel または Presenter / ロジック / データのクラスライブラリ + ライブラリごとの MSTest (xxx.Tests) のソリューション (`CLAUDE.md` が「テスト: あり (MSTest)」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。対象は、Visual Studio / MSBuild の Windows デスクトップ (WPF・WinForms) のソリューションだけ。ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、対象外。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。ソリューションが、まだない (空の) フォルダで頼まれたときも、まず、このスキルを使う (前提で止まり、`/new-solution` の実行を案内する)。Red の確認後の実装 (Green) は build-test-loop で行う。C++ のソリューションは cpp-test-first。既存のテストを通すだけなら、このスキルは使わない。
+description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または WinForms (ScreenModel) の、メイン (View) + ViewModel または ScreenModel / ロジック / データのクラスライブラリ + ライブラリごとの MSTest (xxx.Tests) のソリューション (`CLAUDE.md` が「テスト: あり (MSTest)」) で、実装の前にテストを先に書き、スタブで「アサーションで失敗する (Red)」ことを Windows ホスト側のウォッチャー経由で確認する手順。対象は、Visual Studio / MSBuild の Windows デスクトップ (WPF・WinForms) のソリューションだけ。ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET は、対象外。新機能の追加や、バグ修正を、TDD (テストファースト) で進めたい依頼で使う。「先にテストを書いて」「TDD で」「テストファーストで」といった依頼が対象。ソリューションが、まだない (空の) フォルダで頼まれたときも、まず、このスキルを使う (前提で止まり、`/new-solution` の実行を案内する)。Red の確認後の実装 (Green) は build-test-loop で行う。C++ のソリューションは cpp-test-first。既存のテストを通すだけなら、このスキルは使わない。
 ---
 
 # C# (WPF / WinForms) テストファースト (Red を作る)
@@ -16,13 +16,13 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 | 本文の用語 (WPF) | WinForms での読み替え |
 |---|---|
 | View (`Window` / XAML / code-behind) | `Form` / `*.Designer.cs`。**テストしない** |
-| ViewModel と ViewModel 層 (`ViewModels`) | **Presenter** と `IView` (`IMainView` など)。置き場所は、**ロジック層があればそこ** (`LogicLayer`)、なければアプリの `Presenters/` (アプリを参照する `<アプリ名>.Tests` が、テストする)。**WinForms に、ViewModel 層は、ない** (`--kind viewmodel` は、使わない) |
-| `PropertyChanged` の通知、コマンドの `CanExecute` / `Execute` | `IView` の **イベント** (`NameChanged` / `ClearRequested` など) を起こして、`IView` の **プロパティ** (表示の結果) と、サービスの Fake が受け取った値を確かめる |
-| ViewModel のテストでの、ロジック層のフェイク | Presenter のテストでの、`IView` の **Fake** (イベントを起こす `RaiseXxx()` を持つ) と、`IDialogService` などの Fake |
+| ViewModel と ViewModel 層 (`ViewModels`) | **`ScreenModel`** (必須。`ScreenModels/`。ロジック層、なければアプリ)。Presenter は、任意。**WinForms に、ViewModel 層は、ない** (`--kind viewmodel` は、使わない) |
+| `PropertyChanged` の通知、コマンドの `CanExecute` / `Execute` | `ScreenModel` を直接呼んで確かめる (`CanXxx`・`Validate()`・`Commit()` など)。Presenter は、`IView` の **イベント**を起こして、`IView` の呼び出しと、サービスの Fake が受け取った値を確かめる |
+| ViewModel のテストでの、ロジック層のフェイク | `ScreenModel` は、リポジトリの Fake。Presenter は、`IView` の **Fake** (イベントを起こす `RaiseXxx()` を持つ) と、`IDialogService` などの Fake |
 | WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) | WinForms の型 (`Control` / `Form` / `MessageBox` / `Application` / `Timer` / `Clipboard`)。Presenter では、使わない (`IDialogService` などに分ける) |
-| 組み立てる場所 (`App.xaml.cs` の `OnStartup`) | `Program.cs` (`Form` と Presenter を作って結ぶ。`IDialogService` の実装 (`MessageBox.Show` を呼ぶ) も、ここで渡す) |
+| 組み立てる場所 (`App.xaml.cs` の `OnStartup`) | `Program.cs` (`Form` と Presenter を作って結ぶ。`ScreenModel` も渡す。`IDialogService` の実装 (`MessageBox.Show` を呼ぶ) も、ここで渡す) |
 | `wpf-check` | `winforms-check` |
-| 規約 `.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `.claude/rules/winforms-csharp.md` (WinForms 固有。`Forms/` `Presenters/` `*Presenter*.cs` などを読むときに、読み込まれる)。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
+| 規約 `.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `.claude/rules/winforms-csharp.md` (WinForms 固有。`Forms/` `Presenters/` などを読むときに、読み込まれる) と `winforms-view-model.md`。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
 
 - **`IView` にイベントや、Presenter に依存 (`IDialogService` など) を足すと、既存のテストが、コンパイルで落ちる** (`IView` の Fake が、新しいメンバーを実装していない / `MainPresenter` のコンストラクターの引数が変わる)。**Fake と、既存のテストの呼び出し箇所 (`new MainPresenter(...)` の引数) だけを、機械的に直す。期待値とアサーションは、変えない。** 直した箇所は、Red の報告 (5.) に、書く。
 
@@ -47,11 +47,11 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
   | ロジック | `LogicLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
   | データ | `DataLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
 
-  (WinForms のとき: View = メインの WinForms アプリ (`net10.0-windows`)。Presenter / `IView` = `LogicLayer` (WinForms 非依存)。ViewModel の行は、ない。データ層は、同じ。)
+  (WinForms のとき: View = メインの WinForms アプリ (`net10.0-windows`)。`ScreenModel`・Presenter / `IView` = `LogicLayer` (WinForms 非依存)。ViewModel の行は、ない。データ層は、同じ。現状のひな形は旧構成。)
 
 - **テストは、ライブラリ単位で作る。** ViewModel のテストは `ViewModels.Tests` に、ロジックのテストは `LogicLayer.Tests` に。テストプロジェクトは、対応するライブラリをプロジェクト参照している。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
-- **テスト対象は、ViewModel (WinForms は Presenter)・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind (WinForms は `Form`・`UserControl`・`*.Designer.cs`) は、対象にしない。
-  - 対象が View (XAML / code-behind。WinForms は `Form` のイベントハンドラー) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (WinForms は Presenter。またはロジック層) の、WPF (WinForms) 非依存のクラスに切り出す案を、ユーザーに示す。
+- **テスト対象は、ViewModel (WinForms は ScreenModel・Presenter)・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind (WinForms は `Form`・`UserControl`・`*.Designer.cs`) は、対象にしない。
+  - 対象が View (XAML / code-behind。WinForms は `Form` のイベントハンドラー) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (WinForms は ScreenModel。またはロジック層) の、WPF (WinForms) 非依存のクラスに切り出す案を、ユーザーに示す。
   - **ViewModel 層がなく、ViewModel がアプリの中 (`ViewModels/` フォルダ) にある場合も、同じ。** そのままでは、テストできない (アプリは、WPF の exe)。ViewModel 層 (クラスライブラリ) を作って、ViewModel を移す案を示す (`references/setup.md`)。
   - 切り出し・移動の変更は、ユーザーの了承を得てから、行う。
 - **ViewModel が、WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) を使っている場合も、そのままではテストできない** (MSTest は、STA スレッドも `Application` も、ない)。インターフェース (`IDialogService` など) に分けて、フェイクに差し替えられるようにする案を示す。
