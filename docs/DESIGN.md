@@ -1298,3 +1298,17 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **注意:** (1) Win32 のビルドは、**ウォッチャーを `run_watcher.cmd <フォルダ> "" Win32` で起動した場合だけ** (引数なしは x64)。Win32 のまま、x64 だけのソリューションをビルドすると、`MSB4126` になる (実機で起きた)。(2) 手で直した `.vcxproj` (インデントが違う、条件の書き方が違う) は、`add_platform.py` が、断ることがある。(3) .NET (`AnyCPU`) は、対象外。(4) ARM64 は、扱わない。
 - **未確認 (実機):** TEST-PLAN 2-38 (W1〜W7)。特に、vcpkg の x86 の gtest (`x86-windows-static-md`) の取得と、Win32 のテストの実行。
 
+### 4.84 画面モデルの採用と、規約・Skill への反映 (2026-11-16。仕様の PR。未リリース)
+- **きっかけ:** UI テストファーストで作るフォームと、ロジック層のモデルの関係を、WinForms・WPF・MFC で、そろえたい。設計の議論と決定の記録は、`docs/UI-MODEL-GUIDE.md`。
+- **決定 (利用者):**
+  - **フォームは、画面モデルを通して操作する。すべての画面・ダイアログで必須 (例外なし)。** 名前は、WPF が `ViewModel`、WinForms と MFC が `ScreenModel` (バインディングを連想させないため)。WinForms の Presenter は、WinForms 固有のものだけを持つ任意の層。
+  - **契約:** 状態・操作と実行可否 (`CanXxx`)・検査・変更の通知・結果。検査は `Validate()` (`ValidationResult`。純粋) と `IsValid`。誤りは、種別 (列挙)・対象の欄の一覧・引数 (文章を持たない)。`Commit()` は `bool` で、失敗は状態 `Failure` (リポジトリは、種別つきの `RepositoryException`)。
+  - **文章:** `MessageFormatter` に集約 (現状は日本語の表。リソースへの移行は、必要になったとき)。案内文と業務の生成文は、「文章が画面の外に出るか。言語を決めるのは、操作者か、業務か」で分ける。Form の固定文字列は、リソースにしない。
+  - **MFC:** ロジック層・データ層は、ウィンドウのラッパーと Document/View を除く MFC のクラスを許容。ID ごとのハンドラ。更新の経路 (標準と例外)。`Observable<PropertyId>` と `ChangeScope`。UI スレッドからだけ呼ぶ。`UWM_SCREEN_MODEL_CHANGED = WM_APP + 256`。
+  - **Fake:** リポジトリの Fake と、画面モデルの Fake (つなぎ・状態の再現。本物へ切り替えて同じ UI テストが通ったら役目を終える)。画面ごとの切り替えは `APP_FAKE_SCREENS` (Debug のみ)。失敗の再現は `APP_MODEL=fake:<シナリオ>`。
+  - **命名 (C++):** インターフェースは `XXXInterface`、軽いものは `XXXable` (`I` 接頭辞なし)。取得は `Get`、述語は `Is` / `Can`。
+- **実装 (この PR は文書だけ):** `rules/` (`winforms-csharp.md` を `winforms-view-model.md` に分割、`wpf-csharp.md`・`mfc-cpp.md`・`cpp-common.md`)、`ui-test-first`・`csharp-test-first`・`cpp-test-first` の文書、テスト。規約サイズの上限テストに、WinForms の Presenter / ScreenModel 読み込み時の上限 (60000 バイト) を設けた。
+- **未実装 (実装の PR):** `*-check`、ひな形と生成スクリプト、共通部品 (`Observable`・`ValidationResult`・`Failure`・`MessageFormatter` など)、`APP_FAKE_SCREENS` ほかの実装、完全性のテスト。`Observable` は「リリースまで検証を繰り返す」。現状のひな形 (生成されるサンプル) は、旧構成 (Presenter 中心)。
+- **未確認 (実機):** MFC の言語切り替え (`SetThreadUILanguage`)、WPF の `ErrorTexts` の通知 (`Item[]`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。国際化 (リソースへの移行、擬似ローカライズ) は、優先度が低い。
+- **見送り:** `mfciterators` (MFC のコレクションのイテレーター) の配布は、取り下げ。コレクション操作の拡張が要るときは、別途。
+
