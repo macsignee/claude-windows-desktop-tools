@@ -1318,3 +1318,17 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **判断:** (1) 検出は、名前による推定 (`Repository` で終わる型名、`ScreenModel` を含む名前) にとどめた (データ層の型の解決は、軽い字句解析では確実でない)。(2) 組み立てる場所 (`Program.cs`・`App.xaml.cs`・`InitInstance`) は、リポジトリを使ってよいので、対象外。(3) MFC の画面モデルでは、`CString`・コレクション・データやモデルの CObject 派生は許し、ウィンドウのラッパー・`HWND`・Document/View・リソース ID だけを検査する (4.84 の線引き)。(4) `switch (nID)` のハンドラへのまとめ込みの検査は、誤検出が多そうなので、見送った。
 - **未実装:** ひな形・生成スクリプト・共通部品・`APP_FAKE_SCREENS` (実装の PR B・C)。
 
+### 4.86 画面モデルの共通部品の簡略化 (2026-11-16 夜。4.84 の見直し。未リリース)
+- **きっかけ:** 実装の PR B に入る前に、共通部品 (`ValidationResult`・`Failure`・`RepositoryException`・`IMessageFormatter`・`Observable`・`ChangeScope`・`ValidationArg`) が複雑で、実装・検証が重すぎるという指摘。複雑さの大半は、国際化の準備 (種別の列挙、引数の型、formatter、通知のまとめ) から来ていた。国際化の優先度は低い。
+- **決定 (利用者):**
+  - **削除:** 種別の列挙、`ValidationArg`、`MessageFormatter`、`ChangeScope`、`ModelSubscription`、`PostMessage` の保険 (`UWM_SCREEN_MODEL_CHANGED`)、`IsInputField`、独自の `ValidationResult<,>` / `Failure`。
+  - **C#:** .NET 標準の `System.ComponentModel.DataAnnotations.ValidationResult` (`ErrorMessage`・`MemberNames`) を使う。`MemberNames` が空 = 画面全体の誤り。名前の衝突の問題も、なくなる。共通部品は、`RepositoryException` だけ。
+  - **C++:** `struct ValidationError { std::vector<int> properties; std::wstring message; }`、`Observable` (テンプレートなし。`AddHandler` / `RemoveHandler` / `Raise`)。複数の値を変える操作は、最後に `All` を 1 回通知する。
+  - **失敗:** 文章だけ (`Failure`)。`RepositoryException` は、ユーザー向けの文章を持つ。
+  - **文章:** 画面モデルが、日本語で作る (C++ は `std::format`)。文章を作る処理は、画面モデルごとに 1 か所へまとめ、国際化への移行の準備とする。リソースへの移行は、必要になったとき。
+  - **C++ の文字列:** 契約は `std::wstring`。`CString` を契約に出さない (MFC を使わないロジック層でも使える)。MFC 側の境界で、`ToCString` / `ToWString` が、`CString` の揺らぎ (Unicode の `CStringW`、MBCS の `CStringA`) を吸収する。**既定は Unicode、MBCS も許容** (ANSI に表せない文字は `?`)。
+  - **スレッド:** 画面モデルは、UI スレッドからだけ呼ぶ。別スレッドの通知は、規約違反 (バグ)。
+- **失うもの:** 誤りの種別が、型として残らない (テストは、文章で検査する)。国際化のとき、文章を作る 1 か所を、書き直す作業が増える。操作の途中の通知が、そのつど出る (ハンドラーが、最後に全 `CanXxx` を再適用するので、実害は小さい)。
+- **実装 (この PR は文書だけ):** `docs/UI-MODEL-GUIDE.md`、`rules/` (`winforms-view-model.md`・`mfc-cpp.md`・`wpf-csharp.md`・`winforms-csharp.md`)、Skill の文書 (契約テスト、`model-switching.md`)。
+- **未確認 (実機):** MBCS のビルドでの `CStringA` と `CStringW` の相互変換、`std::format` (ワイド文字列) を使える Visual Studio の版。
+
