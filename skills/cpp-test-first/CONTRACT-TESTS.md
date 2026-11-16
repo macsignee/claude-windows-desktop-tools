@@ -47,7 +47,6 @@ C# 版と同じ: **インターフェースの、決めた意味だけ** (正常
 
 ## 画面モデルの契約テスト (`<画面名>ScreenModelInterface`)
 画面モデルにも、同じ形で契約テストを書く (名前は `<画面名>ScreenModelInterfaceContract`)。実装は、**本物の画面モデル (Fake リポジトリを渡す)** と、**Fake 画面モデル** (あるとき)。**ロジック先は、契約テストを先に書き、本物で Green にしてから、Fake 画面モデルを作る。**
-- **書く内容:** C# 版と同じ (`csharp-test-first/CONTRACT-TESTS.md` の「画面モデルの契約テスト」)。C++ では、`GetErrors()` / `GetFailure()`、`Validate()` / `IsValid()`、`Commit()` (`bool`)、通知 (購読したハンドラーが、どの識別を、いつ受け取るか。スコープ (`BeginChange()`) の終わりにまとめて、識別ごとに 1 回、列挙の宣言順)。
-- **失敗の契約:** `RepositoryException` を投げるリポジトリで、`Commit()` が `false`、`GetFailure()` が、その種別、状態は不変。`Duplicate` / `NotFound` は、本物と Fake の両方。`Unavailable` は、Fake だけ (`FailNext(種別)`)。
-- 文章は、契約テストの対象外 (`MessageFormatterInterface` のテストで、列挙の全値に、日本語の表の行があることを確かめる)。
-
+- **書く内容:** C# 版と同じ (`csharp-test-first/CONTRACT-TESTS.md` の「画面モデルの契約テスト」)。C++ では、`Validate()` (`std::vector<ValidationError>`) / `IsValid()`、`Commit()` (`bool`)、`GetFailure()` (`std::wstring`。空 = 失敗なし)、通知 (`AddHandler` したハンドラーが、どの識別 (`int`) を、いつ受け取るか。複数の値を変える操作は、最後に `All` を 1 回)。
+- **失敗の契約:** `RepositoryException` を投げるリポジトリで、`Commit()` が `false`、`GetFailure()` が、その文章、状態は不変。重複・見つからないは、本物と Fake の両方。接続できないは、Fake だけ (`FailNext(...)`)。
+- 文章は、`properties` と `message` (`std::wstring`) で検査する (文言を直したら、テストも直す)。
