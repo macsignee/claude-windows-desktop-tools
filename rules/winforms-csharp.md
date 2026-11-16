@@ -207,9 +207,9 @@ Solution/
 | 規則 | 確かめるもの |
 |---|---|
 | 3.1 参照方向、ロジック・データ層が WinForms に依存しない | `winforms-check` WFL001 / WFL003 |
-| `winforms-view-model.md` 1・5 章 / 6.3 Presenter が WinForms の型を使わない | `winforms-check` WFL002 |
+| `winforms-view-model.md` 1・5 章 / 6.3 Presenter・画面モデルが WinForms の型を使わない | `winforms-check` WFL002 (アプリの中の画面モデル)、WFL001 (ロジック層) |
 | `winforms-view-model.md` 1・5.1 画面モデルが WinForms の型を使わない | ロジック層に置く限り `winforms-check` WFL001。**`ViewModels/`・名前による検査は未実装 (予定)** |
-| `winforms-view-model.md` 4 章: Form が、データアクセスを `new` しない、層の参照の向き | `winforms-check` WFL004 / WFL003。**Form のデータ層の直接参照の検査は、未実装 (予定)。** それ以外の戻りの規則は、レビュー |
+| `winforms-view-model.md` 4 章: Form・Presenter が、データアクセスを `new` しない・リポジトリを直接参照しない、層の参照の向き | `winforms-check` WFL004 / WFL005 / WFL003。それ以外の戻りの規則は、レビュー |
 | 2.3 / 11 Form で Service を `new` しない | `winforms-check` WFL004 |
 | 4.2 コントロールの `Name` (空・重複・変数名との違い) | `winforms-check` WFD002 / WFD003 / WFD005 |
 | 4.3 bool の名前 | `winforms-check` NAM001 |

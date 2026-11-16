@@ -86,6 +86,9 @@ mfc-check: error 1 / warning 1 (1 projects: GDiGraphicsSample)
 | LIB001 | error | **MFC の静的ライブラリ** (`StaticLibrary` + `UseOfMfc`) を参照する exe / DLL / 静的ライブラリの `UseOfMfc` が、ライブラリと違う (MFC なしの exe も)。**名前が `Test` / `Tests` で終わるプロジェクトは、検査しない** | 参照する側を、同じ `UseOfMfc` (`Dynamic` が既定) にする。MFC の exe か、MFC 標準 DLL (`--kind mfc-std-dll`) から参照する。MFC のランタイムが 2 つになる、または `LNK2005` / `LNK2038` になる。 |
 | NSP001 | warning | **CObject 派生のクラス** (`CDialog` / `CView` / `CDocument` / `CFrameWnd` など、MFC のクラスから派生したもの。プロジェクト内の基底をたどる) が、**名前空間の中**にある | 名前空間から出す (グローバルに置く)。MFC のマクロ (`RUNTIME_CLASS` など) は、名前空間つきの名前を扱えない。実行時のクラス名にも、名前空間が入らない。CObject 派生でないクラスは、名前空間に入れてよい。 |
 | DEC001 | warning | **CObject 派生のクラス**に、`DECLARE_DYNAMIC` / `DECLARE_DYNCREATE` / `DECLARE_SERIAL` がない (**`CWinApp` / `CWinThread` 派生は除く**) | クラスの宣言に、`DECLARE_DYNAMIC(クラス名)` などを書き、`.cpp` に `IMPLEMENT_DYNAMIC(クラス名, 基底クラス名)` などを書く (ウィザードのクラスと同じ)。 |
+| SCM001 | warning | **画面モデル** (ファイル名、またはクラス名に `ScreenModel` を含む。インターフェースも含む) が、ウィンドウのラッパー (`CWnd` / `CDialog` / `CEdit` など)・`HWND`・Document/View・`AfxMessageBox` を使っている (`CString`・コレクション・データやモデルの CObject 派生は、使ってよい) | 画面モデルから、画面に触れる部分を、ダイアログ側へ移す。単体テストが、画面なしで回ることが、画面モデルの条件 (`rules/mfc-cpp.md`)。 |
+| SCM002 | warning | 画面モデルが、**リソース ID** (`IDC_` / `IDS_` / `ID_` など) を使っている | 画面モデルは、リソース ID を知らない。ID と操作の対応は、ダイアログのメッセージマップが持つ。 |
+| LAY004 | warning | **ダイアログ・FormView** (ファイル名が `Dlg` / `Dialog` / `FormView` で終わる、または `CDialog` / `CFormView` 派生のクラス) が、**リポジトリ** (型名が `Repository` / `RepositoryInterface` で終わる) を、直接参照している | 画面モデル (`<画面名>ScreenModelInterface`) を通す。リポジトリを組み立てる `InitInstance` は、対象外。 |
 
 ## ループのルール
 1. **`.rc` / `resource.h` / メッセージマップ / ライブラリの構成を編集したら、編集のあとで、実行する。** 編集していない状態で再実行しない。

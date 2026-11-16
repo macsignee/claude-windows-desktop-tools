@@ -426,6 +426,23 @@ mutate l3; edit "$T/l3" MyApp.ViewModels/MainViewModel.cs '    [RelayCommand]
 out="$(check "$T/l3")"; rc=$?
 ok "LAY002: ViewModel using MessageBox -> warning only" "$([ $rc = 0 ] && [ "$(has "$out" 'warning LAY002')" = 1 ] && echo 1 || echo 0)"
 
+mutate l5; edit "$T/l5" WpfApp/MainWindow.xaml.cs '    public MainWindow()
+    {' '    private IGreetingRepository? _repo;
+
+    public MainWindow()
+    {'
+out="$(check "$T/l5")"; rc=$?
+ok "LAY004: View code-behind refers to a Repository -> warning only" "$([ $rc = 0 ] && [ "$(has "$out" 'warning LAY004')" = 1 ] && [ "$(has "$out" 'MainWindow.xaml.cs')" = 1 ] && echo 1 || echo 0)"
+
+mutate l6; edit "$T/l6" WpfApp/App.xaml.cs 'public partial class App : Application
+{
+}' 'public partial class App : Application
+{
+    private readonly object _repo = new InMemoryGreetingRepository();
+}'
+out="$(check "$T/l6")"; rc=$?
+ok "LAY004: App.xaml.cs (composition root) may use a Repository -> no finding" "$([ "$(has "$out" LAY004)" = 0 ] && echo 1 || echo 0)"
+
 mutate l4; edit "$T/l4" MyApp.Logic/MyApp.Logic.csproj '<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>' '<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="..\MyApp.ViewModels\MyApp.ViewModels.csproj" /></ItemGroup>'
 out="$(check "$T/l4")"; rc=$?
 ok "LAY003: logic -> viewmodel reference (wrong direction) -> error" "$([ $rc = 1 ] && [ "$(has "$out" 'error   LAY003')" = 1 ] && [ "$(has "$out" 'MyApp.Logic (logic) が MyApp.ViewModels (vm)')" = 1 ] && echo 1 || echo 0)"

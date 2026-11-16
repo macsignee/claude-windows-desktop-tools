@@ -41,6 +41,10 @@ Usage: mfc_check.py <dir> [--json <out.json>] [--max-lines 40] [--all]
   LAY002 warning ライブラリで、GUI のヘッダーを include している (pch / framework は info)
   LIB001 error   MFC の静的ライブラリ (StaticLibrary + UseOfMfc) を参照する exe / DLL / 静的ライブラリの UseOfMfc が、違う (v2.87.0)
   LAY003 error   プロジェクト参照の方向が、層 (UI → ロジック → データ) に反する
+  SCM001 warning 画面モデル (ScreenModel。ファイル名、またはクラス名に ScreenModel を含む) が、ウィンドウのラッパー (CWnd / CDialog / CEdit など)・HWND・Document/View・AfxMessageBox を使っている
+                 (CString・コレクション・データやモデルの CObject 派生は、使ってよい。単体テストが、画面なしで回る条件)
+  SCM002 warning 画面モデルが、リソース ID (IDC_ / IDS_ / ID_ など) を使っている (画面モデルは、リソース ID を知らない。ID と操作の対応は、ダイアログ側)
+  LAY004 warning ダイアログ・FormView (Dlg / Dialog / FormView の名前、または CDialog / CFormView 派生のクラス) が、リポジトリ (型名が Repository / RepositoryInterface で終わる) を直接参照している (画面モデルを通す。組み立ての InitInstance は、対象外)
 
 終了コード: 0 = error なし / 1 = error あり / 2 = 引数が不正 / 3 = 検査する対象がない。
 """
@@ -1050,6 +1054,42 @@ def check_class_decls(pr, codes):
     return found
 
 
+# 画面モデル (ScreenModel) の検査 (SCM001 / SCM002) と、ダイアログのリポジトリの直接参照 (LAY004)
+SCREEN_WRAPPERS = re.compile(r"\b(?:CWnd|CDialog|CDialogEx|CEdit|CButton|CComboBox|CListBox|CListCtrl|CTreeCtrl|CStatic|CSliderCtrl|"
+                             r"CSpinButtonCtrl|CProgressCtrl|CTabCtrl|CView|CFormView|CScrollView|CDocument|CFrameWnd|CMDIFrameWnd|"
+                             r"CMDIChildWnd|CPropertyPage|CPropertySheet|HWND|AfxMessageBox|AfxGetMainWnd)\b")
+SCREEN_MODEL_CLASS = re.compile(r"\b(?:class|struct)\s+\w*ScreenModel\w*")
+DIALOG_CLASS = re.compile(r"\bclass\s+\w+\s*:\s*(?:public\s+)?(?:CDialog|CDialogEx|CFormView|CPropertyPage)\b")
+REPO_REF = re.compile(r"\b[A-Z]\w*Repository(?:Interface)?\b")
+
+
+def check_screen_models(pr, codes):
+    """SCM001 / SCM002: 画面モデルのファイルが、ウィンドウのラッパー・HWND・Document/View・リソース ID を使っていないか。
+    LAY004: ダイアログ・FormView のファイルが、リポジトリを直接参照していないか (画面モデルを通す)。見つけたファイルの数を返す。"""
+    found = 0
+    for path, code in codes:
+        base = os.path.basename(path)
+        stem = os.path.splitext(base)[0]
+        is_sm = "ScreenModel" in base or SCREEN_MODEL_CLASS.search(code) is not None
+        if is_sm:
+            found += 1
+            m = SCREEN_WRAPPERS.search(code)
+            if m:
+                pr.add("SCM001", "warning", f"{pr.name}: 画面モデル (ScreenModel) が、{m.group(0)} を使っている (ウィンドウのラッパー・HWND・Document/View は使わない。単体テストが、画面なしで回る条件)",
+                       pr.rel(path), lineno(code, m.start()))
+            m = ID_TOKEN.search(code)
+            if m:
+                pr.add("SCM002", "warning", f"{pr.name}: 画面モデル (ScreenModel) が、リソース ID {m.group(0)} を使っている (画面モデルは、リソース ID を知らない。ID と操作の対応は、ダイアログ側)",
+                       pr.rel(path), lineno(code, m.start()))
+        elif re.search(r"(?:Dlg|Dialog|FormView)$", stem) or DIALOG_CLASS.search(code):
+            found += 1
+            m = REPO_REF.search(code)
+            if m:
+                pr.add("LAY004", "warning", f"{pr.name}: ダイアログ・FormView が、リポジトリ ({m.group(0)}) を直接参照している (画面モデルを通す。組み立ては InitInstance)",
+                       pr.rel(path), lineno(code, m.start()))
+    return found
+
+
 def check_mfc_dlls(projects):
     by_name = {pr.name: pr for pr in projects}
     for pr in projects:
@@ -1144,6 +1184,8 @@ def run(root, logic_names, data_names, ui_names=()):
         codes = [(f, strip_code(t)) for f, t in pr.files if f.lower().endswith(CODE_EXT)]
         if codes and check_class_decls(pr, codes):
             pr.checked = True    # CObject 派生のクラスがある (リソースも、メッセージマップも、なくても、検査した)
+        if codes and check_screen_models(pr, codes):
+            pr.checked = True    # 画面モデル・ダイアログがある
     if has_ui_tests(root):   # UI テストのプロジェクトがあるときだけ (UI004)
         for pr in projects:
             if pr.checked:

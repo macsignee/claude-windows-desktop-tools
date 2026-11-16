@@ -102,6 +102,24 @@ expect m14 WFL003 1 "logic layer references the app"
 mut m15 NoLogic "NoLogic/Presenters/MainPresenter.cs" 's = s.replace("        Refresh();\n    }\n\n    private void OnNameChanged", "        MessageBox.Show(\"x\");\n        Refresh();\n    }\n\n    private void OnNameChanged", 1)'
 expect m15 WFL002 0 "MessageBox in the Presenter inside the app"
 
+# ---------------------------------------------------------------- 画面モデル (ScreenModel) とリポジトリ (WFL002 の拡張 / WFL005)
+rm -rf "$T/m19"; cp -r "$T/NoLogic" "$T/m19"; mkdir -p "$T/m19/NoLogic/ScreenModels"
+printf 'namespace NoLogic;\n\npublic sealed class GreetingScreenModel\n{\n    public void Save() { MessageBox.Show("x"); }\n}\n' > "$T/m19/NoLogic/ScreenModels/GreetingScreenModel.cs"
+expect m19 WFL002 0 "MessageBox in a ScreenModel inside the app (ScreenModels/ folder)"
+rm -rf "$T/m19b"; cp -r "$T/NoLogic" "$T/m19b"
+printf 'namespace NoLogic;\n\npublic sealed class ReportScreenModel\n{\n    public object Make() { return new Form(); }\n}\n' > "$T/m19b/NoLogic/Report.cs"
+expect m19b WFL002 0 "a WinForms type in a class named *ScreenModel (any folder)"
+mut m20 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private IGreetingRepository? _repo;\n\n    public event EventHandler? NameChanged;")'
+expect m20 WFL005 0 "a Form refers to a Repository type directly"
+mut m21 WfApp "$FRM" 's = s.replace("    public event EventHandler? NameChanged;", "    private void Make() { var r = new SqlGreetingRepository(); }\n\n    public event EventHandler? NameChanged;")'
+out="$(chk "$T/m21")"
+ok "new XxxRepository() in a Form is WFL004 only (not reported twice as WFL005)" "$([ "$(has "$out" ' WFL004 ')" = 1 ] && [ "$(has "$out" ' WFL005 ')" = 0 ] && echo 1 || echo 0)"
+mut m22 NoLogic "NoLogic/Presenters/MainPresenter.cs" 's = s.replace("    private void OnNameChanged", "    private IGreetingRepository? _repo;\n\n    private void OnNameChanged", 1)'
+expect m22 WFL005 0 "a Presenter refers to a Repository type directly"
+mut m23 WfApp "WfApp/Program.cs" 's = s.replace("        ApplicationConfiguration.Initialize();", "        var repo = new InMemoryGreetingRepository();\n        ApplicationConfiguration.Initialize();")'
+out="$(chk "$T/m23")"
+ok "Program.cs (composition root) may use a Repository: no WFL005" "$([ "$(has "$out" ' WFL005 ')" = 0 ] && echo 1 || echo 0)"
+
 # ---------------------------------------------------------------- 共通の規則
 mut m16 AppOnly "AppOnly/Forms/MainForm.cs" 's = s.replace("    public event EventHandler? NameChanged;", """    private bool flag;
 

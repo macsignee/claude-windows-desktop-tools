@@ -28,6 +28,7 @@ XAML は、XML として読む。C# は、軽い字句解析で、型・プロ�
   LAY003 error   プロジェクト参照の方向が、層 (View → ViewModel → ロジック → データ) に反する。
                  Presentation / Application / Domain / Infrastructure の名前のプロジェクトは、標準の依存
                  (Presentation → Application → Domain、Infrastructure → Application / Domain。Domain は何も参照しない) で検査する
+  LAY004 warning View (code-behind。App.xaml.cs は、組み立てる場所なので、対象外) が、リポジトリ (型名が Repository で終わる) を直接参照している (ViewModel を通す)
   DI001  warning ViewModel 内で、Service / Repository などを new している (コンストラクターインジェクションにする)。
                  DI コンテナへの登録 (IContainerRegistry / IServiceCollection / RegisterTypes / ConfigureServices などを書いたファイル) は、
                  依存を組み立てる場所 (composition root) なので、対象外 (名前に ViewModel を含むファイルでも、誤検出しない)
@@ -1193,6 +1194,9 @@ def std_layer(name):
     return m.group(1).lower() if m else None
 
 
+REPO_REF = re.compile(r"\b[A-Z]\w*Repository\b")
+
+
 def is_vm_file(world, L, path):
     return L == "vm" or re.search(r"ViewModel", os.path.basename(path)) or any(
         t.name.endswith("ViewModel") for t in world.types.values() if any(pl[0] == path for pl in t.places))
@@ -1281,6 +1285,10 @@ def check_layering(world, projects, names):
                     pr.add("LAY001", "error", f"{L} 層で、WPF の型を使っている: {m.group(0).strip()}", pr.rel(path), lineno(code, m.start()))
             elif is_vm_file(world, L, path):
                 check_vm_file(pr, path, code)
+            elif L == "ui" and path.endswith(".xaml.cs") and os.path.basename(path) != "App.xaml.cs":
+                m = REPO_REF.search(code)
+                if m:
+                    pr.add("LAY004", "warning", f"View (code-behind) が、リポジトリ ({m.group(0)}) を直接参照している (ViewModel を通す。組み立ては App.xaml.cs)", pr.rel(path), lineno(code, m.start()))
 
 
 # UI テスト (FlaUI) で操作するコントロール。AutomationProperties.AutomationId か x:Name (= AutomationId になる) が要る。

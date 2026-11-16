@@ -66,6 +66,7 @@ wpf-check: error 2 / warning 1 (3 projects: WpfApp, MyApp.ViewModels, MyApp.Logi
 | LAY001 | error | ロジック層・データ層が、WPF に依存している (**プロジェクトの `UseWPF` / `-windows` は、ViewModel 層も対象**。ViewModel のソースの WPF の型は LAY002) (`UseWPF`、`-windows` の TargetFramework、`System.Windows` の名前空間、`MessageBox` など) | UI の処理を、ViewModel / View に移す。ロジックは、`net8.0` などの、Windows 非依存にする。 |
 | LAY002 | warning | ViewModel が、View の型を使っている (`MessageBox.Show` / `OpenFileDialog` / `SaveFileDialog` / `Clipboard` / `.ShowDialog()` / `Application.Current` / `new XxxWindow(...)` / `System.Windows.Controls` / `...Views` の名前空間など) | `IDialogService` などの、抽象に分ける (テストしにくい。MSTest は、STA スレッドも `Application` もない)。 |
 | LAY003 | error | プロジェクト参照の向きが、層 (View → ViewModel → ロジック → データ) に反する。**`Presentation` / `Application` / `Domain` / `Infrastructure` の名前のプロジェクトは、標準の依存** (Presentation → Application → Domain、Infrastructure → Application / Domain。Domain は、何も参照しない) | 参照を逆にするか、共通部分を下の層に移す。 |
+| LAY004 | warning | **View (code-behind。`*.xaml.cs`。`App.xaml.cs` は対象外)** が、リポジトリ (型名が `Repository` で終わる) を、直接参照している | ViewModel を通す (組み立ては、`App.xaml.cs`)。 |
 | DI001 | warning | ViewModel 内で、`new XxxService()` / `new XxxRepository()` (`Client` `Provider` `Gateway` も) を生成している | コンストラクターで、インターフェースを受け取る (組み立ては、`App.xaml.cs`)。 |
 | ASY001 | warning | `.Result` / `.Wait()` / `GetAwaiter().GetResult()` で、非同期処理を同期的に待っている | `await` にする (UI スレッドのデッドロックの恐れ)。 |
 | ASY002 | warning | イベントハンドラ (引数に `sender` または `EventArgs`) 以外の `async void` | `Task` を返す。 |
