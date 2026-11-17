@@ -6,7 +6,7 @@
 
 ## 0. 画面モデルの仕上げ (2026-11-17)
 
-- **未実装・未整備:** Fake リポジトリの `FailNext` / `FailWhen` と `APP_MODEL=fake:<シナリオ>` (サンプルにリポジトリがない。リポジトリを持つ画面ができたときに)、画面モデルの契約テストとリポジトリの契約テストの生成 (文書 `CONTRACT-TESTS.md` だけ)、旧 Presenter 構成のソリューションの移行手順。
+- **未実装・未整備:** 画面モデルの契約テストとリポジトリの契約テストの生成 (文書 `CONTRACT-TESTS.md` だけ)、旧 Presenter 構成のソリューションの移行手順。
 - **方針の再確認:** MFC の SDI・MDI のひな形は、旧形のまま (Document/View なので対象外と決めた)。
 - **実機で未確認 (DESIGN 4.85):** MFC の言語切り替え (`SetThreadUILanguage`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。SM11 (新規 MFC の `framework.h` 変更後の実機ビルド)。
 - **確認:** `UI-Design-Guidelines.md` の `#ifdef UNICODE` の記述と v2.95.0 の整合、`claude-spec-workflow` の追随、規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。

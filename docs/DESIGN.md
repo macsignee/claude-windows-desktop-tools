@@ -1370,5 +1370,5 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **アプリ側 (組み立てる場所):** `ScreenModelSelector` (WinForms・WPF: `ScreenModelSelector.cs`、MFC: `ScreenModelSelector.h`) が、`APP_FAKE_SCREENS` を、**Debug のときだけ** 読む (Release では、常に空)。組み立てる場所 (`Program.cs` / `App.xaml.cs` / `InitInstance`) が、本物の画面モデルを作り、シナリオの初期状態を当てる (`ApplyMain`。MFC は `SampleApp.cpp` の `ApplyMainScenario`)。一覧にあるのにアプリにない画面と、知らないシナリオは、黙って無視せず、**起動時にエラーで止める** (C# は例外、MFC はメッセージボックスと `FALSE`)。
 - **サンプルのシナリオ:** 空 (そのまま)・`NameEntered` (名前が入力ずみ)・`InvalidName` (名前が長すぎる)。UI テストは、WPF と MFC が `InvalidName` で誤りの文章を、WinForms が `NameEntered` で挨拶とクリアの有効を確かめる (WinForms のフォームには、誤りの表示欄がない)。
 - **Fake の画面モデルが要るとき (つなぎ):** 本物の画面モデルがまだない画面。設計の先行で、インターフェースが先にあるので、Fake (インターフェースの実装) を、その画面のぶんだけ書き、同じ `ScreenModelSelector` の仕組み (画面名とシナリオ) で選ぶ。ひな形には、置かない。
-- **未実装:** Fake リポジトリの `FailNext` / `FailWhen` と `APP_MODEL=fake:<シナリオ>` (サンプルにリポジトリがないので、足す場所がない。リポジトリを持つ画面ができたとき)。画面名から実装を選ぶ関数は、画面が 1 つなので、組み立てる場所に直接書いた (画面が増えたら、関数に切り出す)。
+- **ひな形には入れない (決定 2026-11-17):** Fake リポジトリの `FailNext` / `FailWhen` と `APP_MODEL=fake:<シナリオ>`。サンプルにリポジトリがなく、リポジトリのインターフェースは、アプリごとに違うため。リポジトリを持つ画面を作るとき、書き方 (`csharp-test-first/CONTRACT-TESTS.md`) に沿って、Fake に足す。画面名から実装を選ぶ関数は、画面が 1 つなので、組み立てる場所に直接書いた (画面が増えたら、関数に切り出す)。
 - **未確認 (実機):** 生成物 (WinForms・WPF・MFC) のビルドと、シナリオの UI テストの実行。
