@@ -13,7 +13,7 @@ paths:
 
 **適用の順序:**
 1. プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、それが最優先。
-2. **WinForms のソリューション (`CLAUDE.md` が「WinForms (MVP)」。表記は、生成スクリプトの改訂まで、このまま) では、本規約を適用する。** 共通規約 (`csharp-common.md`。`.cs` を読むときに、自動で読み込まれる) の **C# の部分 (5 C# コーディング規約 / 10 非同期処理 / 11 依存性注入 / 12 例外処理 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)** は、そのまま共通で使う。**WPF / XAML / MVVM に固有の節 (6 View / 7 ViewModel / 8 MVVM ライブラリ / 9 データバインディング / 14 XAML) は、適用しない。**
+2. **WinForms のソリューション (`CLAUDE.md` が「WinForms (ScreenModel)」。古いソリューションは「WinForms (MVP)」) では、本規約を適用する。** 共通規約 (`csharp-common.md`。`.cs` を読むときに、自動で読み込まれる) の **C# の部分 (5 C# コーディング規約 / 10 非同期処理 / 11 依存性注入 / 12 例外処理 / 13 ログ / 15 コメント / 16 テスト / 17 禁止事項)** は、そのまま共通で使う。**WPF / XAML / MVVM に固有の節 (6 View / 7 ViewModel / 8 MVVM ライブラリ / 9 データバインディング / 14 XAML) は、適用しない。**
 3. C# のクラスライブラリ (`CLAUDE.md` が「C# クラスライブラリ」) は、本規約の「3 層」と「6 テスト」と、`csharp-common.md` を使う。
 
 **この文書は、`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を読むときに、読み込まれる** (WPF の規約は、読み込まれない)。**画面モデル・Presenter の章は、`winforms-view-model.md` に分けた。** 画面モデル (`ScreenModels/`、`*ScreenModel*.cs`) を読むときは、`winforms-view-model.md` が読み込まれる (`ViewModel` ではなく `ScreenModel` という名前にしたのは、WPF の規約が読み込まれるファイル名と、区別するため)。

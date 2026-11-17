@@ -1332,3 +1332,11 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **実装 (この PR は文書だけ):** `docs/UI-MODEL-GUIDE.md`、`rules/` (`winforms-view-model.md`・`mfc-cpp.md`・`wpf-csharp.md`・`winforms-csharp.md`)、Skill の文書 (契約テスト、`model-switching.md`)。
 - **未確認 (実機):** MBCS のビルドでの `CStringA` と `CStringW` の相互変換、`std::format` (ワイド文字列) を使える Visual Studio の版。
 
+### 4.87 WinForms のひな形を、画面モデルにする (v2.92.0。4.84・4.86 の実装 PR B-1・B-2)
+- **決定の実装:** 生成する WinForms のサンプルを、Presenter 中心 (`IMainView` / `MainPresenter`) から、画面モデル (`IMainScreenModel` / `MainScreenModel` / `MainMessages`) に変えた。`Form` は、画面モデルの状態を表示し、操作を呼ぶだけ (`Bind`。デザイナーが開けるよう、コンストラクターは引数なし)。**Presenter は、必要なときだけ置く規則なので、サンプルには生成しない。**
+- **画面モデル:** 状態 `Name` / `Greeting` / `CanClear` / `IsValid`、`Validate()` (.NET 標準の `ValidationResult`。`MemberNames` は欄の名前)、`Clear()`、`INotifyPropertyChanged`。文章は `MainMessages` に 1 か所 (国際化への移行の準備)。既存の UI テストが見る画面の文言は、変えていない。
+- **B-1:** データ層に `RepositoryException` (ユーザー向けの文章を持つ例外。C# の共通部品は、これだけ) と `RepositoryExceptionTests` を生成する (WPF のソリューションの、データ層にも付く)。**Python のテンプレートで生成した** (名前空間が変わるため。実物のファイルをコピーする案は、`Observable` (C++) だけに残す)。
+- **名前・配置:** ロジック層があれば `<ロジック層>/ScreenModels/`、なければアプリの `ScreenModels/` (名前空間 `<ルート>.ScreenModels`)。`CLAUDE.md` の表記は `WinForms (ScreenModel)` (古い `WinForms (MVP)` は、そのまま通用)。`--kind` に `screenmodel` を足した (`presenter` は別名として残す)。
+- **`winforms-check`:** WFL005 は、Presenter と Form が対象で、画面モデルは対象外 (画面モデルは、リポジトリを呼んでよい)。
+- **未実装:** WPF の `ViewModel` の基底 (B-3)、MFC (B-4)、PR C。**未確認 (実機):** 生成した WinForms ソリューションのビルド・単体テスト・UI テスト。
+

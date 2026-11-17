@@ -20,7 +20,7 @@ Usage:
   FOLDER   ソリューションを作るフォルダ。**フォルダ名が、ソリューション名・メインのプロジェクト名になる**
            (例: .../MFCTDDTest -> MFCTDDTest.slnx と、MFCTDDTest/MFCTDDTest.vcxproj)
   --type   メインの種類: mfc (MFC SDI) / mfc-mdi (MFC MDI) / mfc-dialog (MFC ダイアログベース) / win32 (Win32 デスクトップ) / console / dll / lib (静的ライブラリ)
-           / winforms (WinForms、MVP。.NET。Form は IMainView を実装し、MainPresenter が振る舞いを持つ。層は data / logic だけ)
+           / winforms (WinForms、画面モデル。.NET。Form は IMainScreenModel を表示して操作を呼び、MainScreenModel が状態と規則を持つ。層は data / logic だけ)
            / csharp-dll (C# のクラスライブラリ。.NET。メイン自身が、テスト (MSTest) の対象。層は data / logic だけ)
            / wpf (WPF、MVVM。.NET。ソリューションは .slnx、各プロジェクトは SDK 形式の .csproj。NuGet の復元は、ウォッチャーのビルドが行う)
   --layers 作る層: logic -> LogicLayer、data -> DataLayer。none は、層を作らない。
@@ -61,7 +61,7 @@ except ImportError:
     sys.exit(2)
 
 die = AL.die
-KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (MVP)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-lib': 'MFC 静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
+KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (ScreenModel)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-lib': 'MFC 静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
 DOTNET_TYPES = ('wpf', 'winforms', 'csharp-dll')
 MFC_TYPES = ('mfc', 'mfc-mdi', 'mfc-dialog')   # MFC の exe (mfc は SDI)
 EXE_TYPES = ('console', 'win32') + MFC_TYPES    # exe の種類 (名前が Test で終わると、出力名を変える)
@@ -1144,10 +1144,10 @@ def claude_md_winforms(name, layers, tests, tfm, ns):
     lnames = dict(layers)
     out = f"""# CLAUDE.md ({name})
 
-WinForms (.NET、MVP) のプロトタイプ。ソリューション: `{name}.slnx` (フォルダ名と同名)。
+WinForms (.NET、画面モデル) のプロトタイプ。ソリューション: `{name}.slnx` (フォルダ名と同名)。
 
 ## このソリューションの設定
-- メイン: {name} (WinForms (MVP))
+- メイン: {name} (WinForms (ScreenModel))
 - 層: {layer_txt}
 - テスト: {test_txt}
 
@@ -1159,10 +1159,10 @@ WinForms (.NET、MVP) のプロトタイプ。ソリューション: `{name}.sln
 3. `/add-feature <仕様書>`: 計画 → 承認 → 実装 (テストありなら、テスト先行の Red → Green) → 検証 (任意。使わず、通常の依頼で、実装してもよい。)
 
 ## 層と依存の向き
-View (WinForms アプリ) → Presenter (ロジック) → データ (のインターフェース)。逆向きの参照は禁止。
+View (WinForms アプリ) → 画面モデル (ロジック) → データ (のインターフェース)。逆向きの参照は禁止。
 """
     if layers:
-        labels = {'logic': 'ロジック (Presenter)', 'data': 'データ'}
+        labels = {'logic': 'ロジック (画面モデル)', 'data': 'データ'}
         out += "\n| 層 | プロジェクト | 種類 | テスト |\n|---|---|---|---|\n"
         out += f"| View | `{name}` | WinForms アプリ (`{tfm}-windows`) | しない (画面。ビルドと、目視) |\n"
         for k, nm in reversed(layers):
@@ -1170,21 +1170,21 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
             out += f"| {labels[k]} | `{nm}` | クラスライブラリ (`{tfm}`。**WinForms 非依存**) | {tcell} |\n"
     out += f"""
 - 名前空間: `{ns}` (ライブラリは `{ns}.<Data|Logic>`。名前が `SampleApp.Domain` のように `.` を含むときは、その名前)。
-- アプリの構成: `Program.cs` (**組み立てる場所 = composition root**。`Form` と `Presenter` を作って結ぶ) / `Forms/` (`Form` と `*.Designer.cs`){'' if 'logic' in lnames else ' / `Presenters/` (ロジック層がないとき)'}。
-- **画面の振る舞い (入力の検査、表示する文字、ボタンの有効・無効) は、Presenter に置く。** `Form` は `IMainView` (インターフェース) を実装して、**値の出し入れとイベントの通知だけ**をする。Presenter は、WinForms の型 (`Form` / `Control` / `MessageBox` / `Application`) を使わない。ダイアログなども、インターフェース (`IDialogService` など) に分ける。
+- アプリの構成: `Program.cs` (**組み立てる場所 = composition root**。`Form` と画面モデルを作って結ぶ) / `Forms/` (`Form` と `*.Designer.cs`){'' if 'logic' in lnames else ' / `ScreenModels/` (ロジック層がないとき)'}。
+- **画面の状態と規則 (入力の検査、表示する文字、ボタンの有効・無効) は、画面モデル (`<画面名>ScreenModel`。すべての画面で必須) に置く。** `Form` は、画面モデルの状態を表示し、操作を呼ぶ**だけ** (`Bind` で結ぶ)。画面モデルは、WinForms の型 (`Form` / `Control` / `MessageBox` / `Application`) を使わず、UI スレッドからだけ呼ぶ。検査は `Validate()` (.NET 標準の `ValidationResult`) と `IsValid`。文章を作る処理は、`MainMessages` のように、1 か所にまとめる。ダイアログなどが要るときは、インターフェース (`IDialogService` など) に分け、**Presenter (任意)** が呼ぶ。詳細は、規約 `winforms-view-model.md`。
 - **操作する (UI テストで探す) コントロールには、`Name` を付ける** (`NameTextBox` / `ClearButton` のように、役割が分かる名前。UI Automation の `AutomationId` になる)。
 """
     if 'logic' not in lnames:
         if tests:
-            out += f"- ロジック層を作っていないので、`IMainView` / `MainPresenter` は、アプリの `Presenters/` フォルダにある。**テストは、`{name}.Tests` (アプリを参照する。TFM は、アプリと同じ `{tfm}-windows`) が、`Presenters/` を対象にする。** `Form` (`Forms/`) は、テストしない。業務ロジックが増えたら、ロジック層 (クラスライブラリ) に切り出す。\n"
+            out += f"- ロジック層を作っていないので、`IMainScreenModel` / `MainScreenModel` は、アプリの `ScreenModels/` フォルダにある。**テストは、`{name}.Tests` (アプリを参照する。TFM は、アプリと同じ `{tfm}-windows`) が、`ScreenModels/` を対象にする。** `Form` (`Forms/`) は、テストしない。業務ロジックが増えたら、ロジック層 (クラスライブラリ) に切り出す。\n"
         else:
-            out += "- ロジック層を作っていないので、`IMainView` / `MainPresenter` は、アプリの `Presenters/` フォルダにある。テストするなら、`--tests mstest` (後付けもできる。`<アプリ名>.Tests` が、`Presenters/` を対象にする)、または、ロジック層に切り出す。\n"
+            out += "- ロジック層を作っていないので、`IMainScreenModel` / `MainScreenModel` は、アプリの `ScreenModels/` フォルダにある。テストするなら、`--tests mstest` (後付けもできる。`<アプリ名>.Tests` が、`ScreenModels/` を対象にする)、または、ロジック層に切り出す。\n"
     out += f"""
 ## ビルドとテスト
 - Windows 側のウォッチャー (`run_watcher.cmd`) 経由で、Skill (`auto-build` / `build-test-loop`) が行う。NuGet の復元は、ビルドが行う (`/restore`)。
 - **パッケージの追加は、`add-package` Skill** (`.csproj` を、手で書き換えない)。
 - 新しい `.cs` は、SDK 形式なので、`.csproj` に追加しなくてよい (自動で含まれる)。
-- **Form / `*.Designer.cs` / Presenter を編集したら、`winforms-check`** (画面が空になる、UI テストが要素を探せない、Presenter に WinForms が混ざる、などの、コンパイルでは見つからない不具合の静的検査。`winforms-check` Skill の `scripts/winforms_check.py "$PWD"`)。
+- **Form / `*.Designer.cs` / 画面モデル / Presenter を編集したら、`winforms-check`** (画面が空になる、UI テストが要素を探せない、画面モデルや Presenter に WinForms が混ざる、などの、コンパイルでは見つからない不具合の静的検査。`winforms-check` Skill の `scripts/winforms_check.py "$PWD"`)。
 - **`*.Designer.cs` は、Visual Studio のデザイナーが書き直す。** 手で編集するときは、`InitializeComponent` の形 (`// コントロール名` のコメント、プロパティの代入、`Controls.Add`) を保つ。イベントは、Designer の `+=` と、`Form` のハンドラーの名前を、そろえる。
 - Visual Studio で実行 (F5) するときは、`{name}` が、スタートアッププロジェクト (`{name}.slnx` の `DefaultStartup="true"`)。ただし、`.vs/` の個人の設定が、すでにあれば、そちらが優先される。
 """
@@ -1192,12 +1192,12 @@ View (WinForms アプリ) → Presenter (ロジック) → データ (のイン�
         out += """
 ## テスト (MSTest)
 - ライブラリごとに、`<名前>.Tests` (MSTest v3、`Microsoft.NET.Test.Sdk`)。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
-- Presenter のテストは、`IMainView` の偽物 (Fake) を作って、イベントを起こし、表示の結果を確かめる (`MainPresenterTests`)。
+- 画面モデルのテストは、画面モデルを直接呼んで、状態・実行可否・検査・通知を確かめる (`MainScreenModelTests`。Form も、`IView` の偽物も要らない)。リポジトリは、Fake を渡す。
 - テストファイルは、`<クラス名>Tests.cs`。テスト名は、`メソッド_条件_期待` の形。テスト先行は、`csharp-test-first` Skill (WPF 以外の .NET のソリューションでも、同じ手順)。
 """
     out += """
 ## 規約
-- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
+- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる) と `winforms-view-model.md` (画面モデル。`ScreenModels/`、`*ScreenModel*.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 - Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
@@ -1279,7 +1279,7 @@ def create_wpf(a, folder, name):
     else:
         layers = parse_layers(a.layers, WPF_LAYER_NAMES, WPF_LAYER_ORDER, AP.PROJ_NAME)
     tests = a.tests == 'mstest'
-    # アプリ (View) は、テストしない。ただし WinForms でロジック層がないときは、アプリの Presenters/ が、テストの対象 (<名前>.Tests)
+    # アプリ (View) は、テストしない。ただし WinForms でロジック層がないときは、アプリの ScreenModels/ が、テストの対象 (<名前>.Tests)
     app_tested = winforms and 'logic' not in dict(layers)
     if tests and not layers and not dll and not winforms:
         die('--tests mstest は、テスト対象 (層) が必要。WPF のアプリ (View) は、テストしない。--layers を指定するか、--tests none にする')
@@ -1311,7 +1311,7 @@ def create_wpf(a, folder, name):
         below = [lnames[x] for x in ('logic', 'data') if x in lnames and WPF_LAYER_ORDER.index(x) < WPF_LAYER_ORDER.index(k)]
         uses_of[k] = below[:1]
     vm_in_app = 'viewmodel' not in lnames
-    presenter_ns = AP.layer_namespace(ns, 'logic', lnames['logic']) if 'logic' in lnames else f'{ns}.Presenters'
+    presenter_ns = AP.layer_namespace(ns, 'logic', lnames['logic']) if 'logic' in lnames else f'{ns}.ScreenModels'   # 画面モデルの名前空間
     app_uses = [nm for _, nm in reversed(layers)]
     files = {}
     projects = [(name, AP.new_guid())]
@@ -1323,13 +1323,13 @@ def create_wpf(a, folder, name):
     elif winforms:
         files.update(AP.winforms_app_files(name, ns, tfm, app_uses, presenter_ns, 'logic' not in lnames))
         if app_tested and tests:
-            files.update(AP.test_files(name, presenter_ns, tfm, mver, sver, 'app-presenter'))
+            files.update(AP.test_files(name, presenter_ns, tfm, mver, sver, 'app-screenmodel'))
             projects.append((name + '.Tests', AP.new_guid()))
     else:
         files.update(AP.wpf_app_files(name, ns, tfm, app_uses, vm_in_app, lnames.get('viewmodel')))
     for k, nm in layers:
         lns = AP.layer_namespace(ns, k, nm)
-        lkind = 'viewmodel' if k == 'viewmodel' else ('presenter' if winforms and k == 'logic' else 'lib')
+        lkind = 'viewmodel' if k == 'viewmodel' else ('screenmodel' if winforms and k == 'logic' else ('data' if k == 'data' else 'lib'))
         files.update(AP.lib_files(nm, lns, uses_of[k], tfm, lkind))
         projects.append((nm, AP.new_guid()))
         if tests:
@@ -1344,7 +1344,7 @@ def create_wpf(a, folder, name):
     if dll:
         print(f'メイン         : {name} ({kind_label}、{tfm}。テストの対象)')
     elif winforms:
-        print(f'メイン         : {name} ({kind_label}、{AP.windows_tfm(tfm)}。Presenter は、{lnames["logic"] if "logic" in lnames else "アプリの Presenters フォルダ"})')
+        print(f'メイン         : {name} ({kind_label}、{AP.windows_tfm(tfm)}。画面モデルは、{lnames["logic"] if "logic" in lnames else "アプリの ScreenModels フォルダ"})')
     else:
         print(f'メイン         : {name} ({kind_label}、{AP.windows_tfm(tfm)}。ViewModel は、{vm_where})')
         print('MVVM の基底    : 自前の最小実装 (ObservableObject / RelayCommand。NuGet 不要)。推奨の CommunityToolkit.Mvvm に替えるときは、あとから、add-package で置き換える')
@@ -1420,17 +1420,17 @@ def add_tests_wpf(a, folder, name, sln_name):
     todo = AP.libraries_without_tests(folder)
     if not todo:
         die('テストを足せるクラスライブラリがない (ないか、すべてに、すでに <名前>.Tests がある)。'
-            'WPF のアプリ (View) は、テストしない (WinForms は、ロジック層がなければ、アプリの Presenters/ をテストする)。先に、層 (クラスライブラリ) を作ること')
+            'WPF のアプリ (View) は、テストしない (WinForms は、ロジック層がなければ、アプリの ScreenModels/ をテストする)。先に、層 (クラスライブラリ) を作ること')
     mver = a.mstest_version or AP.MSTEST_VER
     sver = a.testsdk_version or AP.TESTSDK_VER
     files, projects = {}, []
     for ln in todo:
         info = AP.read_lib_info(folder, ln)
         lns = a.namespace or info['ns'] or AP.default_namespace(sln_name)
-        if info['is_exe']:   # ロジック層のない WinForms のアプリ (Presenters/ が、テストの対象)
-            files.update(AP.test_files(ln, (info['ns'] or AP.default_namespace(sln_name)) + '.Presenters', info['tfm'], mver, sver, 'app-presenter'))
+        if info['is_exe']:   # ロジック層のない WinForms のアプリ (ScreenModels/ が、テストの対象)
+            files.update(AP.test_files(ln, (info['ns'] or AP.default_namespace(sln_name)) + '.ScreenModels', info['tfm'], mver, sver, 'app-screenmodel'))
         else:
-            files.update(AP.test_files(ln, lns, info['tfm'], mver, sver, 'viewmodel' if info['is_vm'] else ('presenter' if info['is_presenter'] else 'lib')))
+            files.update(AP.test_files(ln, lns, info['tfm'], mver, sver, 'viewmodel' if info['is_vm'] else ('screenmodel' if info['is_presenter'] else 'lib')))
         projects.append((ln + '.Tests', AP.new_guid()))
     print(f'ソリューション : {sln_name} (すでにある)')
     print(f'テストの後付け : {", ".join(todo)} に、<名前>.Tests を足す (MSTest {mver})')

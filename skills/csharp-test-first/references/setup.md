@@ -17,7 +17,7 @@
    python3 <このSkillのフォルダ>/scripts/add_project.py "$SLN_DIR" ViewModels --kind viewmodel --uses LogicLayer
    ```
    - `--tests mstest` (既定): ライブラリと、`<名前>.Tests` を足す。`--tests none`: ライブラリだけ。`--tests-only`: すでにあるライブラリに、テストだけを足す。
-   - **WinForms は、`--kind viewmodel` を使わない** (層は `data` / `logic` だけ。Presenter と `IView` は、ロジック層に置く)。
+   - **WinForms は、`--kind viewmodel` を使わない** (層は `data` / `logic` だけ。`ScreenModel` (と、任意の Presenter / `IView`) は、ロジック層の `ScreenModels/` に置く)。
    - `--kind viewmodel`: `ObservableObject` / `RelayCommand` / `MainViewModel` も作る (ViewModel 層を、アプリの中から切り出すときは、**既存の ViewModel を、移す。上書きしない**。名前が重なるものは、先に、ユーザーと決める)。
    - 名前の既定は `DataLayer` / `LogicLayer` / `ViewModels`。終了コード 3 (すでに存在する) は、何も書かれていない。**既存のプロジェクトを、上書きしない。**
    - 層を足したら、`CLAUDE.md` の `- 層:` の行も、実際の構成に合わせる。

@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.92.0] 2026-11-17 (WinForms のひな形を画面モデルにする。C# の共通部品 `RepositoryException`。実装の PR B-1・B-2)
+
+- **`new_solution.py` / `add_project.py` (WinForms):** 生成するサンプルを、**画面モデル中心**に変えた。`IMainView` / `MainPresenter` / `MainPresenterTests` をやめ、**`IMainScreenModel` / `MainScreenModel` / `MainMessages` / `MainScreenModelTests` (7 件)** を生成する (ロジック層の `ScreenModels/`、なければアプリの `ScreenModels/`。後者の名前空間は `<ルート>.ScreenModels`)。`MainForm` は、`Bind(IMainScreenModel)` で画面モデルを結び、状態の表示と操作の呼び出しだけをする (コンストラクターは引数なし)。`Program.cs` が、画面モデルと Form を組み立てる。画面の文言と、コントロールの `Name` は、変えていない (既存の UI テストは、そのまま)。
+- **契約を変えた点:** (1) 生成物のファイル名・フォルダ: `Presenters/` → `ScreenModels/`、`MainPresenter.cs` / `IMainView.cs` → `ScreenModels/MainScreenModel.cs` ほか。(2) `CLAUDE.md` の `- メイン:` の表記: `WinForms (MVP)` → **`WinForms (ScreenModel)`** (古いソリューションは、そのまま通用する)。(3) `add_project.py --kind` に `screenmodel` を追加 (`presenter` は、別名として、残す)。
+- **B-1: `RepositoryException`:** データ層に、ユーザー向けの文章を持つ例外 `RepositoryException` と、`RepositoryExceptionTests` (2 件) を生成する (**WPF のソリューションの、データ層にも付く**)。画面モデルは、この例外だけを `Failure` にする (規約 `winforms-view-model.md`)。
+- **`winforms-check`:** WFL005 の対象から、画面モデルを外した (画面モデルは、リポジトリを呼んでよい)。
+- 規約・`SKILL.md`・README・手引き・`DESIGN.md` (4.87) の、生成物の記述を、実装に合わせた。
+- テスト: `tests/new_solution_winforms_test.sh` を新しい構成に更新 (+3 件)、`tests/winforms_check_test.sh` の壊した複製を、画面モデルに合わせた (+1 件)。**実機の確認は、これから** (生成した WinForms ソリューションのビルド・単体テスト・UI テスト)。
+- **この版では、まだ:** WPF の `ViewModel` の基底 (B-3)、MFC (B-4)、`APP_FAKE_SCREENS` ほか (PR C)。
+
 ## [2.91.0] 2026-11-16 (`*-check`: 画面モデル (ScreenModel / ViewModel) の検査を足す。実装の PR A)
 
 - 仕様 (PR #190。`docs/UI-MODEL-GUIDE.md`、`docs/DESIGN.md` 4.84) の「検査 (`*-check`)」の実装。**すべて warning で、終了コードの意味は変えない** (error の新設なし)。

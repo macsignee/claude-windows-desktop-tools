@@ -256,8 +256,8 @@ Fake と本物のずれは、**同じテストを両方に通す契約テスト*
 1. **規約 (`rules/`):** 反映済み (仕様の PR)。`winforms-csharp.md` を、`winforms-view-model.md` に分割し、`wpf-csharp.md`・`mfc-cpp.md`・`cpp-common.md` に、決定を反映した。
 2. **`ui-test-first`:** 反映済み (仕様の PR)。画面モデルの Fake の仕様、Fake 画面モデルの切り替え (`APP_FAKE_SCREENS`。**実装は未**)、文言のテストの方針。
 3. **契約テストの文書:** 反映済み (仕様の PR)。`csharp-test-first` / `cpp-test-first` の `CONTRACT-TESTS.md`。`DLL-LAYOUT.md` と `csharp-test-first` の読み替えの表も、あわせて更新した。
-4. **検査 (`*-check`):** 未着手 (実装の PR)。WinForms・MFC・WPF の層の依存の検査 (画面モデルの混入、Form のデータ層の直接参照、ウィンドウのラッパーと Document/View の混入)。
-5. **ひな形 (`templates/`) と生成スクリプト:** 未着手 (実装の PR)。画面モデル入りの構成、`ScreenModel` の骨格、列挙と日本語の表 (`MessageFormatter`)、共通部品 (`Observable`、`ValidationResult`、`Failure` など)、`APP_FAKE_SCREENS` / `UITEST_FAKE_SCREENS`、`APP_MODEL=fake:<シナリオ>`、完全性のテスト。実機の確認が要るので、最後にする。
+4. **検査 (`*-check`):** 実装済み (v2.91.0。PR A)。WFL002 の拡張・WFL005 / LAY004 / SCM001 / SCM002。
+5. **ひな形 (`templates/`) と生成スクリプト:** 一部実装済み (v2.92.0。PR B-1・B-2)。**WinForms:** 画面モデル入りの構成 (`IMainScreenModel` / `MainScreenModel` / `MainMessages` / `MainScreenModelTests`。Form は `Bind` で結ぶ。Presenter は生成しない)、データ層の `RepositoryException` (WPF のソリューションにも付く)。**未着手:** WPF の `ViewModel` の基底 (`ErrorTexts` など。B-3)、MFC の共通部品とひな形 (`Observable`・`ValidationError`・`ToCString` / `ToWString` など。B-4)、`APP_FAKE_SCREENS` / `UITEST_FAKE_SCREENS` / `APP_MODEL=fake:<シナリオ>` (PR C)。実機の確認が要る。
 
 ### 決定した名前と命名 (補足)
 - **名前 (決定 2026-11-16): WinForms と MFC の画面モデルは `<画面名>ScreenModel`。** 理由: `ViewModel` は、宣言的なデータバインディング (WPF、ASP.NET Core MVC) を連想させるが、WinForms と MFC は、更新を明示的に書く (`OnModelChanged`、`UpdateData`) ため。`Model` (リポジトリ)・`ViewModel`・`Presenter` のどれとも、名前が衝突しない。「データモデル」は、データベースの設計を指す言葉と衝突し、操作・検査・通知を持つ中身も言い表さないため、採らない。副次の利点: `ScreenModels/` と `*ScreenModel*.cs` を、WinForms 規約の読み込み条件に入れられる (`ViewModel` は WPF の規約の読み込み条件と同じ名前で、入れられなかった)。日本語の概念名は「画面モデル」。**WPF は、`ViewModel` のまま** (既存の WPF 規約・`wpf-check`・`ViewModels/` の読み込み条件が、`ViewModel` の名前に依存するため)。手引き・規約・ひな形では、「画面モデルという役割を、WPF では `ViewModel`、WinForms と MFC では `ScreenModel` と呼ぶ」と、一度書く。

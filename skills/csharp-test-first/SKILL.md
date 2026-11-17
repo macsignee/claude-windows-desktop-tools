@@ -11,7 +11,7 @@ description: Windows デスクトップの C# (.NET) の、WPF (MVVM) または 
 実装して通す (Green) 工程は、`build-test-loop` が行う。実行の仕組み (ウォッチャー、フラグ、結果の読み方) は、そちらと同じ (MSTest の失敗も、GoogleTest と同じ形の要約で返る)。
 C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じで、C# (.NET) 固有の部分 (層、スタブ、MSTest の書き方) が違う。**
 
-**WPF と WinForms の読み替え (以降の本文は、WPF の用語で書く。WinForms のときは、次の表で読み替える):** 種類は、`CLAUDE.md` の `- メイン:` の行 (`WPF (MVVM)` / `WinForms (MVP)`) で決める。
+**WPF と WinForms の読み替え (以降の本文は、WPF の用語で書く。WinForms のときは、次の表で読み替える):** 種類は、`CLAUDE.md` の `- メイン:` の行 (`WPF (MVVM)` / `WinForms (ScreenModel)`) で決める。
 
 | 本文の用語 (WPF) | WinForms での読み替え |
 |---|---|
@@ -47,7 +47,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
   | ロジック | `LogicLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
   | データ | `DataLayer` 等 | クラスライブラリ (WPF 非依存) | `<名前>.Tests` (MSTest) |
 
-  (WinForms のとき: View = メインの WinForms アプリ (`net10.0-windows`)。`ScreenModel`・Presenter / `IView` = `LogicLayer` (WinForms 非依存)。ViewModel の行は、ない。データ層は、同じ。現状のひな形は旧構成。)
+  (WinForms のとき: View = メインの WinForms アプリ (`net10.0-windows`)。`ScreenModel`・Presenter / `IView` = `LogicLayer` (WinForms 非依存)。ViewModel の行は、ない。データ層は、同じ。)
 
 - **テストは、ライブラリ単位で作る。** ViewModel のテストは `ViewModels.Tests` に、ロジックのテストは `LogicLayer.Tests` に。テストプロジェクトは、対応するライブラリをプロジェクト参照している。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
 - **テスト対象は、ViewModel (WinForms は ScreenModel・Presenter)・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind (WinForms は `Form`・`UserControl`・`*.Designer.cs`) は、対象にしない。
