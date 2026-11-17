@@ -56,7 +56,7 @@ ok "std: UI テストは、画面ホストを起動する (AppName)" "$(yes_if b
 ok "std: .slnx に、UI DLL・ホスト・UI テストが登録された" "$(yes_if bash -c "grep -q 'UiLayer/UiLayer.vcxproj' '$D/UiHostChk.slnx' 2>/dev/null || grep -q 'UiLayer/UiLayer.vcxproj' '$D'/*.slnx; grep -q 'UiLayerHost/UiLayerHost.vcxproj' '$D'/*.slnx && grep -q 'UiLayerHost.UITests' '$D'/*.slnx")"
 ok "std: XML として読める (slnx / vcxproj / filters)" "$(yes_if xml_ok "$D")"
 ok "std: CLAUDE.md に、UI DLL と画面ホストの節" "$(yes_if bash -c "grep -q '画面を持つ DLL (UI DLL)' '$D/CLAUDE.md' && grep -q 'AFX_MANAGE_STATE' '$D/CLAUDE.md'")"
-ok "std: C++ は BOM 付き + CRLF、.rc は ASCII (BOM なし) + CRLF" "$(yes_if bash -c "[ \"\$(head -c3 '$D/UiLayer/GreetingDialog.cpp' | xxd -p)\" = efbbbf ] && grep -q \$'\\r' '$D/UiLayer/GreetingDialog.cpp' && [ \"\$(head -c3 '$D/UiLayer/UiLayer.rc' | xxd -p)\" != efbbbf ] && grep -q \$'\\r' '$D/UiLayer/UiLayer.rc' && ! grep -qP '[^\\x00-\\x7F]' '$D/UiLayer/UiLayer.rc'")"
+ok "std: C++ は BOM 付き + CRLF、.rc は UTF-8 (BOM 付き) + CRLF + code_page(65001) + 日本語" "$(yes_if bash -c "[ \"\$(head -c3 '$D/UiLayer/GreetingDialog.cpp' | xxd -p)\" = efbbbf ] && grep -q \$'\\r' '$D/UiLayer/GreetingDialog.cpp' && [ \"\$(head -c3 '$D/UiLayer/UiLayer.rc' | xxd -p)\" = efbbbf ] && grep -q \$'\\r' '$D/UiLayer/UiLayer.rc' && grep -q 'code_page(65001)' '$D/UiLayer/UiLayer.rc' && grep -q 'LANG_JAPANESE' '$D/UiLayer/UiLayer.rc' && grep -q 'キャンセル' '$D/UiLayer/UiLayer.rc'")"
 out="$(python3 -I "$MCK" "$D" --all 2>&1)"; rc=$?
 ok "std: mfc-check は、error 0 / warning 0 (画面を持つ層で LAY001 を出さない。DLL007 も出ない)" "$([ $rc = 0 ] && [ "$(has "$out" 'error 0 / warning 0')" = 1 ] && echo 1 || echo 0)"
 before="$(snapshot "$D")"

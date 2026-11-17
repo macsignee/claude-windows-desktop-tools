@@ -25,12 +25,12 @@
 ## 2. 判断待ち・任意の機能
 
 - **A: 既存コードから、仕様を逆生成する新 Skill。** 既存の MFC・WPF のプロジェクトを、仕様駆動 (`claude-spec-workflow`) へ移す予定があるかで、決める。作るなら大きい作業。
-- **`ExtLayerApi.h` の注意書き:** 「公開ヘッダーは、自分で `<afxwin.h>` を include する」を足す (MX の確認で、プリコンパイル済みヘッダーのないテスト exe で、`BUILD_FAILED` になった。TEST-PLAN 2-25)。ひな形 (`new_solution.py` の生成部分) の変更と、テストが要る (配布が要る版)。
+- **済み (v2.97.0。実機の確認は未):** `ExtLayerApi.h` (MFC 拡張 DLL の公開ヘッダーのひな形) に「公開ヘッダーは、自分で `<afxwin.h>` を include する」の注意書きを足した。
 - **MFC の生成物の、残り (v2.60.x):**
   - **C++ のプラットフォーム (Win32 / x64) (v2.62.0。実機の確認 ✔、TEST-PLAN 2-38 の W1〜W8)。** `/new-solution --platforms` と `/add-project platform`。W3 (MFC 拡張・標準 DLL の層) は、ビルドだけの確認で、Win32 でのテストの実行は、確認していない (任意)。
-  - **メニューとダイアログの文言を日本語にした (v2.60.4。決定済み。実機の確認 ✔、TEST-PLAN 2-37)。** **`/add-project ui-host` の画面ホストの `.rc` は、英語のまま** (直す候補)。
+  - **メニューとダイアログの文言を日本語にした (v2.60.4。決定済み。実機の確認 ✔、TEST-PLAN 2-37)。** **`/add-project ui-host` の `.rc` も、日本語にした (v2.97.0。UTF-8 BOM 付き、`#pragma code_page(65001)`、`LANG_JAPANESE`。メインの `.rc` と同じ書き方。実機の確認 (ビルドと表示) は未)。**
   - **`mfc-check` の MDI の静的検査:** `OnCreateClient` の上書きと、`IDR_MAINFRAME` のメニューの数 (v2.60.1 の不具合を、起動せずに見つける)。任意。
-  - **`auto-build` / `build-test-loop` の SKILL:** 「`MSB4126` で、構成に `Win32` と出たら、ウォッチャーの Platform 引数を疑う」「結果に、ビルドログの `ソリューション構成` の行から Platform を書く」。任意 (W7 では、SKILL になくても、Claude が正しく診断した)。同じ版に、「ウォッチャーが起動済みかを、質問ツールで尋ねない (`WATCHER_NOT_RUNNING` のときだけ依頼する)」を入れるかは、再び出たら決める (W5 の `console` で 1 回)。
+  - **`auto-build` / `build-test-loop` の SKILL:** `MSB4126` の注記を足した (v2.97.0。ウォッチャーの Platform 引数を疑う)。「ウォッチャーが起動済みかを、質問ツールで尋ねない (`WATCHER_NOT_RUNNING` のときだけ依頼する)」を入れるかは、再び出たら決める (W5 の `console` で 1 回)。
 - **UI ガイドライン (v2.26.0〜v2.27.0) の、残り:**
   - **「既知の指摘」の質問を、指摘ごとにする** (`ui-test-first`)。運用して、不都合が出たときに行う。
   - **`/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す** (任意)。

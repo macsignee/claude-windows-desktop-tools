@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.97.0] 2026-11-17 (D の小さな改善 3 件)
+
+- **`ExtLayerApi.h` (MFC 拡張 DLL の公開ヘッダーのひな形) の注意書き:** 「公開ヘッダー (`CObject`・`CString` などを使うもの) は、自分で `<afxwin.h>` を include する」を足した (プリコンパイル済みヘッダーのないテスト exe で `BUILD_FAILED` になるのを防ぐ。TEST-PLAN 2-25 の MX の確認で発見)。`add_layer.py` と `add_layer_test.sh`。
+- **`/add-project ui-host` の `.rc` を日本語にした:** ダイアログの見出し「あいさつ」、「名前(&N):」「クリア(&C)」「キャンセル」。メインの `.rc` と同じく、UTF-8 (BOM 付き)・`#pragma code_page(65001)`・`LANGUAGE LANG_JAPANESE`。UI テストは、コントロールの ID で探すので、影響しない。`add_ui_host.py` と `add_ui_host_test.sh`。**実機 (ビルドと表示) は未確認。**
+- **`auto-build` / `build-test-loop` の SKILL:** `MSB4126` (無効な構成) は、ウォッチャーの Platform 引数と、ソリューションの Platform の食い違いを疑う、の注記を足した (TEST-PLAN 2-38 の W7 の診断を、明記)。
+- 契約の変更なし (ひな形の文言と注意書き、SKILL の文章)。
+
 ## [2.96.9] 2026-11-17 (未確認の挙動の整理。残作業 A8。文書だけ)
 
 - **SM11 を ✔ にした:** SM10 (v2.96.0 の生成物) の `framework.h` に `#ifdef UNICODE` がなく、ビルドが `SUCCESS` だった (TEST-PLAN 2-57)。
