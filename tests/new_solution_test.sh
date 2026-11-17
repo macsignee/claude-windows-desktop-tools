@@ -346,6 +346,13 @@ check "層がない exe: 注意は書かない" bash -c "! grep -q 'スタート
 D="$WORK/R/V_dlgtests"; mkdir -p "$D"
 python3 "$NEW" "$D" --type mfc-dialog --layers logic --tests gtest --gtest vcpkg >/dev/null 2>&1
 check "mfc-dialog + テスト: テストのプロジェクトができる" test -f "$D/LogicLayerTest/LogicLayerTest.vcxproj"
+check "mfc-dialog (画面モデル): ロジック層にヘッダーだけの画面モデルと共通部品がある" bash -c "for f in SampleScreenModel.h SampleScreenModelInterface.h SampleMessages.h Observable.h ScreenModelSupport.h; do test -f '$D/LogicLayer/'\$f || exit 1; done"
+check "mfc-dialog (画面モデル): ロジック層の vcxproj と、テストの vcxproj に、登録される" bash -c "grep -q 'SampleScreenModel.h' '$D/LogicLayer/LogicLayer.vcxproj' && grep -q 'TestSampleScreenModel.cpp' '$D/LogicLayerTest/LogicLayerTest.vcxproj' && test -f '$D/LogicLayerTest/TestSampleScreenModel.cpp'"
+check "mfc-dialog (画面モデル): メインは、ロジック層を include のパスに持ち、画面モデルのヘッダーは持たない" bash -c "grep -q 'LogicLayer;' '$D/V_dlgtests/V_dlgtests.vcxproj' && test ! -e '$D/V_dlgtests/SampleScreenModel.h' && test -f '$D/V_dlgtests/ScreenModelUi.h'"
+check "mfc-dialog (画面モデル): ダイアログは、画面モデルを受け取り、AddHandler / RemoveHandler / ToWString を使う" bash -c "d='$D/V_dlgtests'; grep -q 'SampleScreenModelInterface&' \"\$d/SampleDlg.h\" && grep -q 'AddHandler' \"\$d/SampleDlg.cpp\" && grep -q 'RemoveHandler' \"\$d/SampleDlg.cpp\" && grep -q 'ToWString' \"\$d/SampleDlg.cpp\" && grep -q 'ON_WM_DESTROY' \"\$d/SampleDlg.cpp\" && ! grep -q 'Refresh' \"\$d/SampleDlg.cpp\""
+D2="$WORK/R/V_dlgnolayer"; mkdir -p "$D2"; python3 "$NEW" "$D2" --type mfc-dialog --layers none --tests none >/dev/null 2>&1
+check "mfc-dialog (画面モデル): ロジック層がない (--layers none) ときは、メインに置く" bash -c "d='$D2/V_dlgnolayer'; test -f \"\$d/SampleScreenModel.h\" && grep -q 'SampleScreenModel.h' \"\$d/V_dlgnolayer.vcxproj\" && grep -q 'IDC_ERROR_TEXT' \"\$d/V_dlgnolayer.rc\" && python3 '$MFC_CHK' '$D2' --all | grep -q 'error 0 / warning 0'"
+check "mfc-dialog (画面モデル): 画面モデルは MFC の型を使わない (コメントを除く)" bash -c "! grep -hv '^ *//' '$D/LogicLayer/SampleScreenModel.h' '$D/LogicLayer/SampleScreenModelInterface.h' '$D/LogicLayer/SampleMessages.h' | grep -E 'afx|CString|CWnd|HWND|IDC_'"
 
 echo "== 11. MFC 拡張 DLL (--layer-kind mfc-ext-dll)"
 D="$WORK/Q/MfcExt"; mkdir -p "$D"

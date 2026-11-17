@@ -60,6 +60,8 @@ except ImportError:
     print('ERROR: cpp-test-first/scripts/add_layer.py が見つからない (cpp-test-first Skill も、配布されている必要がある)')
     sys.exit(2)
 
+import add_ui_host as AUH   # noqa: E402  (画面モデルのひな形。mfc-dialog のメインにも使う)
+
 die = AL.die
 KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (ScreenModel)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-lib': 'MFC 静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
 DOTNET_TYPES = ('wpf', 'winforms', 'csharp-dll')
@@ -536,11 +538,13 @@ MFC_DIALOG_FILES = {
 #define IDC_NAME_EDIT           1001
 #define IDC_GREETING_TEXT       1002
 #define IDC_CLEAR_BUTTON        1003
+#define IDC_ERROR_TEXT          1004
 ''',
     'SampleApp.h': MFC_FILES['SampleApp.h'],
     'SampleApp.cpp': '''#include "pch.h"
 #include "SampleApp.h"
 #include "SampleDlg.h"
+#include "SampleScreenModel.h"
 
 CSampleApp theApp;
 
@@ -549,7 +553,9 @@ BOOL CSampleApp::InitInstance()
     // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
-    CSampleDlg dlg;
+    // 画面の状態と規則は、画面モデルが持つ。ダイアログは、画面モデルを受け取って、表示と操作だけをする。
+    @@NS@@::SampleScreenModel model;
+    CSampleDlg dlg(model);
     m_pMainWnd = &dlg;
     dlg.DoModal();
 
@@ -560,7 +566,9 @@ BOOL CSampleApp::InitInstance()
     'SampleDlg.h': '''#pragma once
 #include "pch.h"
 #include "Resource.h"
+#include "SampleScreenModelInterface.h"
 
+// 状態と規則は、画面モデル (SampleScreenModelInterface) が持つ。ダイアログは、状態を表示し、操作 (SetName / Clear) を呼ぶだけ。
 class CSampleDlg : public CDialog
 {
     DECLARE_DYNAMIC(CSampleDlg)
@@ -568,28 +576,38 @@ class CSampleDlg : public CDialog
 public:
     enum { IDD = IDD_SAMPLE_DIALOG };
 
-    explicit CSampleDlg(CWnd* pParent = nullptr);
+    explicit CSampleDlg(@@NS@@::SampleScreenModelInterface& model, CWnd* pParent = nullptr);
 
 protected:
     void DoDataExchange(CDataExchange* pDX) override;
     BOOL OnInitDialog() override;
 
+    afx_msg void OnDestroy();
     afx_msg void OnNameChanged();
     afx_msg void OnClear();
     DECLARE_MESSAGE_MAP()
 
 private:
-    // 入力欄の内容から、挨拶の表示と、クリアボタンの有効・無効を更新する。
-    void Refresh();
+    // 画面モデルの通知を受けたとき。更新は、ここ (ApplyControls) に集める。
+    void OnModelChanged(int property);
+
+    // 画面モデルの状態を、コントロールへ反映する (名前、挨拶、誤りの文章、クリアの有効・無効)。
+    void ApplyControls();
+
+    @@NS@@::SampleScreenModelInterface& m_model;
+    int m_handlerId = 0;
+    bool m_updating = false;   // コントロールを更新している間は、EN_CHANGE を、画面モデルへ戻さない
 };
 ''',
     'SampleDlg.cpp': '''#include "pch.h"
 #include "SampleDlg.h"
+#include "ScreenModelUi.h"
 
 IMPLEMENT_DYNAMIC(CSampleDlg, CDialog)
 
-CSampleDlg::CSampleDlg(CWnd* pParent)
+CSampleDlg::CSampleDlg(@@NS@@::SampleScreenModelInterface& model, CWnd* pParent)
     : CDialog(IDD, pParent)
+    , m_model(model)
 {
 }
 
@@ -608,42 +626,71 @@ BOOL CSampleDlg::OnInitDialog()
     SetIcon(icon, TRUE);     // 大きいアイコン (タスクバー、Alt+Tab)
     SetIcon(icon, FALSE);    // 小さいアイコン (タイトルバー)
 
-    Refresh();
+    m_handlerId = m_model.AddHandler([this](int property) { OnModelChanged(property); });
+    ApplyControls();
     return TRUE;
+}
+
+void CSampleDlg::OnDestroy()
+{
+    // 通知の登録は、閉じるときに、必ず解除する (しないと、閉じたあとの通知で、壊れたダイアログを呼ぶ)。
+    m_model.RemoveHandler(m_handlerId);
+    CDialog::OnDestroy();
 }
 
 void CSampleDlg::OnNameChanged()
 {
-    Refresh();
+    if (m_updating)
+    {
+        return;
+    }
+    CString name;
+    GetDlgItemText(IDC_NAME_EDIT, name);
+    m_model.SetName(ToWString(name));
 }
 
 void CSampleDlg::OnClear()
 {
-    // 入力欄を空にすると、EN_CHANGE で Refresh() が呼ばれる。
-    SetDlgItemText(IDC_NAME_EDIT, L"");
+    m_model.Clear();
     // クリアボタンが無効になるので、フォーカスを入力欄へ戻す。
     GetDlgItem(IDC_NAME_EDIT)->SetFocus();
 }
 
-void CSampleDlg::Refresh()
+void CSampleDlg::OnModelChanged(int /*property*/)
 {
-    CString name;
-    GetDlgItemText(IDC_NAME_EDIT, name);
+    ApplyControls();
+}
 
-    CString greeting;
-    if (name.IsEmpty())
+void CSampleDlg::ApplyControls()
+{
+    m_updating = true;
+
+    CString current;
+    GetDlgItemText(IDC_NAME_EDIT, current);
+    const CString name = ToCString(m_model.GetName());
+    if (current != name)
     {
-        greeting = L"名前を入力してください";
+        SetDlgItemText(IDC_NAME_EDIT, name);
     }
-    else
+    SetDlgItemText(IDC_GREETING_TEXT, ToCString(m_model.GetGreeting()));
+
+    // 検査の誤り: 最初の 1 件の文章を表示する (欄ごとの表示は、誤りの対象の欄 (properties) で振り分ける)。
+    CString error;
+    for (const auto& e : m_model.Validate())
     {
-        greeting.Format(L"こんにちは、%s さん", static_cast<LPCWSTR>(name));
+        error = ToCString(e.message);
+        break;
     }
-    SetDlgItemText(IDC_GREETING_TEXT, greeting);
-    GetDlgItem(IDC_CLEAR_BUTTON)->EnableWindow(!name.IsEmpty());
+    SetDlgItemText(IDC_ERROR_TEXT, error);
+
+    // 有効・無効は、最後に、まとめて適用する (CanXxx は、複数の値に依存するので、更新漏れを防ぐ)。
+    GetDlgItem(IDC_CLEAR_BUTTON)->EnableWindow(m_model.CanClear());
+
+    m_updating = false;
 }
 
 BEGIN_MESSAGE_MAP(CSampleDlg, CDialog)
+    ON_WM_DESTROY()
     ON_EN_CHANGE(IDC_NAME_EDIT, &CSampleDlg::OnNameChanged)
     ON_BN_CLICKED(IDC_CLEAR_BUTTON, &CSampleDlg::OnClear)
 END_MESSAGE_MAP()
@@ -668,6 +715,7 @@ BEGIN
     LTEXT           "名前(&N):",IDC_STATIC,7,9,30,8
     EDITTEXT        IDC_NAME_EDIT,40,7,193,14,ES_AUTOHSCROLL
     LTEXT           "",IDC_GREETING_TEXT,7,30,226,8
+    LTEXT           "",IDC_ERROR_TEXT,7,45,226,8
     PUSHBUTTON      "クリア(&C)",IDC_CLEAR_BUTTON,7,79,50,14
     DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
     PUSHBUTTON      "キャンセル",IDCANCEL,183,79,50,14
@@ -805,11 +853,14 @@ UI / メイン → ロジック → データ (のインターフェース)
     is_mfc = kind in (KIND['mfc'], KIND['mfc-mdi'], KIND['mfc-dialog']) or (bool(layers) and layer_kind in ('mfc-lib', 'mfc-ext-dll', 'mfc-std-dll'))
     mfc_rule = ('- MFC を使うコード (MFC のメイン、MFC の層) は、`.claude/rules/mfc-cpp.md` も読んでから書く (ウィザード生成の `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイルでは、自動では読み込まれない)。\n'
                 if is_mfc else f'- このソリューションは、MFC を使わない{" (Win32 API と C++)" if kind == KIND["win32"] else ""}。MFC の規約 (`mfc-cpp.md`) は、適用しない。MFC のクラス (`CString` `CWnd` など) を、持ち込まない。\n')
+    where = f'ロジック層 `{dict(layers)["logic"]}`' if 'logic' in dict(layers) else f'メイン `{name}`'
+    sm_rule = (f'- **画面の状態と規則 (挨拶の文、入力の検査、クリアの有効・無効) は、画面モデル (`SampleScreenModel`。すべての画面で必須) に置く。** {where} の `SampleScreenModel.h` / `SampleScreenModelInterface.h` / `SampleMessages.h` (ヘッダーだけ。MFC の型を使わない)。ダイアログ (`CSampleDlg`) は、`SampleScreenModelInterface&` を受け取り、状態を表示して操作を呼ぶだけ (通知は `Observable.h`。`OnInitDialog` で `AddHandler`、`OnDestroy` で `RemoveHandler`)。文字列は `std::wstring` で、MFC 側の境界で `ScreenModelUi.h` の `ToCString` / `ToWString` が変換する。規則は、単体テストで確かめ、UI テストは、つながりと主要な操作だけを確かめる。詳細は、規約 `mfc-cpp.md`。\n'
+               if kind == KIND['mfc-dialog'] else '')
     out += f"""
 ## 規約
 - C++20。ファイルは UTF-8 (BOM 付き)、改行は CRLF。`.rc` は UTF-8 (BOM 付き。`#pragma code_page(65001)`)、言語は日本語 (`LANG_JAPANESE`)。`res\\*.rc2` は ASCII (BOM なし)。
 - C++ の規約: `.claude/rules/cpp-common.md` (`.cpp` / `.h` を扱うときに、自動で読み込まれる)。
-{mfc_rule}- `git commit` / `git push` は、ユーザーの指示があるときだけ。
+{mfc_rule}{sm_rule}- `git commit` / `git push` は、ユーザーの指示があるときだけ。
 - Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
 """
     return out
@@ -1010,7 +1061,24 @@ def write_plain(folder, rel, text, crlf=False):
         f.write(text.encode('utf-8'))
 
 
-def main_files(name, mtype, ns, toolset, guid):
+def sample_screen_model(ns):
+    """mfc-dialog のメインの画面モデル (ヘッダーだけ) と、その単体テストと、共通部品。add_ui_host.py (UI DLL のサンプル) の
+    ひな形を、Greeting -> Sample に読み替えて使う。返す: (画面モデルのファイル, 単体テスト)"""
+    def ren(t):
+        t = AUH.fill(t, SNS=ns, EMPTY=AUH.EMPTY_TEXT)
+        return re.sub(r'Greeting(ScreenModel|Messages|Property)', r'Sample\1', t)
+    sm = {
+        'SampleScreenModelInterface.h': ren(AUH.SM_INTERFACE_H),
+        'SampleMessages.h': ren(AUH.SM_MESSAGES_H),
+        'SampleScreenModel.h': ren(AUH.SM_MODEL_H),
+    }
+    for fn in ('Observable.h', 'ScreenModelSupport.h'):
+        with open(os.path.join(HERE, '..', '..', 'cpp-test-first', 'assets', fn), encoding='utf-8') as f:
+            sm[fn] = f.read()
+    return sm, ren(AUH.GREETING_TEST)
+
+
+def main_files(name, mtype, ns, toolset, guid, sm_in_main=True, incs=()):
     """メインのプロジェクトのファイル一式を返す: (files, BOM なしで書く相対パス, バイナリ (相対パス -> bytes))"""
     files, plain, binaries = {}, set(), {}
     if mtype in LIBRARY_TYPES:
@@ -1026,7 +1094,17 @@ def main_files(name, mtype, ns, toolset, guid):
     else:
         mfc_files, mfc_rc = MFC_VARIANTS[mtype]
         for fn, body in mfc_files.items():
-            files[f'{name}/{fn}'] = body.replace('@@NAME@@', name)
+            files[f'{name}/{fn}'] = body.replace('@@NAME@@', name).replace('@@NS@@', ns)
+        extra = []
+        if mtype == 'mfc-dialog':
+            # 画面モデル (ヘッダーだけ)。ロジック層があれば、そちらに置く (create_mode)。ここには、UI の境界の変換だけ置く
+            files[f'{name}/ScreenModelUi.h'] = AUH.SM_UI_H
+            extra.append('ScreenModelUi.h')
+            if sm_in_main:
+                sm, _t = sample_screen_model(ns)
+                for fn, text in sm.items():
+                    files[f'{name}/{fn}'] = text
+                    extra.append(fn)
         rc = f'{name}.rc'
         files[f'{name}/{rc}'] = mfc_rc.replace('@@NAME@@', name)   # UTF-8 (BOM 付き)・CRLF。日本語の文言を含むため、#pragma code_page(65001)
         # res\ フォルダ (ウィザードの構成): rc2 (テキスト)、アプリのアイコン。SDI・MDI は、文書のアイコンも。
@@ -1038,8 +1116,8 @@ def main_files(name, mtype, ns, toolset, guid):
             binaries[f'{name}/res/{name}Doc.ico'] = make_ico((0x3A, 0x8F, 0x4E))
             res_items.append(f'res\\{name}Doc.ico')
         res_items.append(f'res\\{name}.rc2')
-        items = list(mfc_files) + [rc] + res_items
-        files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, items, [], [], '_WINDOWS;', 'Windows', mfc=True, wizard=True)
+        items = list(mfc_files) + extra + [rc] + res_items
+        files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, items, [], list(incs), '_WINDOWS;', 'Windows', mfc=True, wizard=True)
         files[f'{name}/{name}.vcxproj.filters'] = AL.vcxproj_filters(items)
     return files, plain, binaries
 
@@ -1497,7 +1575,10 @@ def create_mode(a, folder, name):
         gfiles, gprojects, gguid = AL.plan_gtest(folder, gmode, toolset)
 
     mg = AL.new_guid()
-    files, plain, binaries = main_files(name, a.type, ns, toolset, mg)
+    logic_name = dict(layers).get('logic')
+    sm_layer = a.type == 'mfc-dialog' and logic_name is not None   # 画面モデルを、ロジック層に置く
+    files, plain, binaries = main_files(name, a.type, ns, toolset, mg, sm_in_main=not sm_layer,
+                                        incs=[f'$(ProjectDir)..\\{logic_name}'] if sm_layer else [])
     projects = [(name, mg)]
     dll_list = [(name, mg, [], a.type)] if a.type in LIBRARY_TYPES else []
     data_name = dict(layers).get('data')
@@ -1514,6 +1595,19 @@ def create_mode(a, folder, name):
             projects.append((dn + 'Test', tg))
         files.update(gfiles)
         projects += gprojects
+    if sm_layer:
+        # 画面モデルは、ロジック層に置く (ヘッダーだけ。メインは、インクルードのパスで読む)。単体テストは、ロジック層のテストへ
+        sm, sm_test = sample_screen_model(ns)
+
+        def add_items(vpath, items):
+            files[vpath] = AUH.add_to_vcxproj(files[vpath], items)
+            files[vpath + '.filters'] = AUH.add_to_filters(files[vpath + '.filters'], items)
+        for fn, text in sm.items():
+            files[f'{logic_name}/{fn}'] = text
+        add_items(f'{logic_name}/{logic_name}.vcxproj', list(sm))
+        if tests:
+            files[f'{logic_name}Test/TestSampleScreenModel.cpp'] = sm_test
+            add_items(f'{logic_name}Test/{logic_name}Test.vcxproj', ['TestSampleScreenModel.cpp'])
 
     print(f'フォルダ       : {folder}')
     print(f'ソリューション : {name}.slnx (フォルダ名と同名)')

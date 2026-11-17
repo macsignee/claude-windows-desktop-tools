@@ -1354,3 +1354,10 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **未実装:** MFC のメイン (`mfc-dialog` の `CSampleDlg`・SDI・MDI。B-4b)、`APP_FAKE_SCREENS` ほか (PR C)。
 - **未確認 (実機):** 生成した MFC ソリューションの、MSVC でのビルド (C++20、`std::format`)、GoogleTest、UI テスト、MBCS でのビルドと `ToCString` / `ToWString`。**WSL には C++ のコンパイラがなく、コンパイルは、まだ一度もしていない。**
 
+### 4.90 MFC のダイアログ ベースのメインを、画面モデルにする (v2.95.0。4.84・4.89 の実装 PR B-4b)
+- **対象:** `new_solution.py --type mfc-dialog` のサンプル `CSampleDlg`。`Refresh()` に書いてあった挨拶の文・クリアの有効・無効を、画面モデル `SampleScreenModel` (ヘッダーだけ。`SampleScreenModelInterface.h` / `SampleMessages.h`) に移した。ひな形は、4.89 の UI DLL のサンプル (`add_ui_host.py`) と同じものを、`Greeting` → `Sample` に読み替えて使う (名前以外の違いは作らない)。
+- **置き場所:** `--layers` にロジック層があれば、そこにヘッダーを置き (`.vcxproj` に登録)、メインは、ロジック層のフォルダを include のパスに足すだけ (ヘッダーだけなので、リンクは要らない)。`--tests gtest` なら、ロジック層のテストに `TestSampleScreenModel.cpp` (8 件) を足す。ロジック層がなければ、メインに置く (単体テストは、なし)。`ScreenModelUi.h` (`ToCString` / `ToWString`) は、常にメインに置く。
+- **ダイアログ:** `CSampleDlg(SampleScreenModelInterface&)`。`App` の `InitInstance` が、画面モデルを作って渡す。`OnInitDialog` で `AddHandler`、`OnDestroy` で `RemoveHandler`。誤りの表示用に `IDC_ERROR_TEXT` (1004) を足した。既存の ID (1001〜1003) と UI テストの検出 (`add_ui_tests.py`) は、変えていない。
+- **対象外:** `mfc` (SDI)・`mfc-mdi` (MDI) は、Document/View なので、画面モデルの対象外 (4.84 の決定)。変更なし。
+- **未確認 (実機):** 生成した MFC ソリューションの MSVC でのビルド、GoogleTest、UI テスト、MBCS。**WSL では、C++ をコンパイルしていない。**
+
