@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.95.0] 2026-11-17 (MFC のダイアログ ベースのメインを画面モデルにする。実装の PR B-4b)
+
+- **`new_solution.py --type mfc-dialog`:** サンプル `CSampleDlg` を画面モデル中心に変えた。`SampleScreenModel` / `SampleScreenModelInterface.h` / `SampleMessages.h` (ヘッダーだけ) と、共通部品 `Observable.h` / `ScreenModelSupport.h`、メインの `ScreenModelUi.h` (`ToCString` / `ToWString`) を生成する。ロジック層があればそこに置き、`--tests gtest` なら、ロジック層のテストに `TestSampleScreenModel.cpp` (8 件) を足す。ロジック層がなければ、メインに置く。
+- **ダイアログ:** `CSampleDlg(SampleScreenModelInterface&)` (引数が増えた)。`AddHandler` / `RemoveHandler`。誤りの表示用に `IDC_ERROR_TEXT` (1004) を足し、赤字にする (`OnCtlColor`。UI DLL の `GreetingDialog` も同じ)。既存のコントロール ID (1001〜1003) と UI テストの内容は、変えていない。`Refresh()` は、なくなった。
+- `framework.h` の Common Controls 6.0 の指令から `#ifdef UNICODE` を外した (MBCS でも、ビジュアルスタイルが効く。実機で確認)。
+- 生成する `CLAUDE.md` に、画面モデルの節を足した。SDI・MDI (Document/View) は、対象外で、変更なし。
+- テスト: `tests/new_solution_test.sh` に 6 件 (配置・登録・include のパス・ダイアログ・層なしの配置・MFC の型の不使用)。**WSL には C++ のコンパイラがなく、まだコンパイルしていない。実機の確認は、これから。**
+- **この版では、まだ:** `APP_FAKE_SCREENS` ほか (PR C)。
+
 ## [2.94.0] 2026-11-17 (MFC の UI DLL のサンプルを画面モデルにする。実装の PR B-4)
 
 - **`add_ui_host.py`:** サンプル `GreetingDialog` を、**画面モデル中心**に変えた。`Greeting.h` / `Greeting.cpp` (`MakeGreeting`) と `TestGreeting.cpp` をやめ、**ヘッダーだけの画面モデル** (`GreetingScreenModelInterface.h`・`GreetingScreenModel.h`・`GreetingMessages.h`) と、`TestGreetingScreenModel.cpp` (8 件) を生成する。ロジック層があればそこに、なければ UI DLL に置く。

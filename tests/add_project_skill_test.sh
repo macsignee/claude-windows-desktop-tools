@@ -18,13 +18,13 @@ has() { grep -qF -- "$2" <<<"$1" && echo 1 || echo 0; }
 lines() { grep -c -- "$2" <<<"$1"; }
 snapshot() { (cd "$1" && find . -type f | sort | xargs md5sum | md5sum); }
 
-# ---- C++ (MFC ダイアログ + ロジック + データ + テスト)
+# ---- C++ (MFC SDI + ロジック + データ + テスト)
 D="$T/Cpp"; mkdir -p "$D"
-python3 "$NEW" "$D" --type mfc-dialog --layers logic,data --tests gtest --gtest vcpkg >/dev/null 2>&1
+python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest vcpkg >/dev/null 2>&1
 before="$(snapshot "$D")"
 out="$(python3 "$SS" "$D" 2>&1)"; rc=$?
 ok "cpp: rc=0、何も書かない (読み取りだけ)" "$([ $rc = 0 ] && [ "$(snapshot "$D")" = "$before" ] && echo 1 || echo 0)"
-ok "cpp: KIND=cpp、メインは CLAUDE.md の記述 (MFC ダイアログ)" "$([ "$(has "$out" 'KIND: cpp')" = 1 ] && [ "$(has "$out" 'MAIN: Cpp (MFC ダイアログ)')" = 1 ] && echo 1 || echo 0)"
+ok "cpp: KIND=cpp、メインは CLAUDE.md の記述 (MFC SDI)" "$([ "$(has "$out" 'KIND: cpp')" = 1 ] && [ "$(has "$out" 'MAIN: Cpp (MFC SDI)')" = 1 ] && echo 1 || echo 0)"
 ok "cpp: 層の役割とテストの対応 (DataLayer=data/DataLayerTest、LogicLayer=logic/LogicLayerTest)" "$([ "$(has "$out" 'PROJECT: DataLayer | dll | data | DataLayerTest')" = 1 ] && [ "$(has "$out" 'PROJECT: LogicLayer | dll | logic | LogicLayerTest')" = 1 ] && echo 1 || echo 0)"
 ok "cpp: テスト exe は役割 test、参照 (ProjectReference) と include だけの参照を、分けて出す" "$([ "$(has "$out" 'PROJECT: LogicLayerTest | test | test | - | LogicLayer | LogicLayer,DataLayer')" = 1 ] && [ "$(has "$out" 'PROJECT: LogicLayer | dll | logic | LogicLayerTest | - | DataLayer')" = 1 ] && echo 1 || echo 0)"
 ok "cpp: 食い違いなし (MISMATCH なし)、向きの違反なし" "$([ "$(lines "$out" '^MISMATCH')" = 0 ] && [ "$(lines "$out" '^REF_ISSUES')" = 0 ] && echo 1 || echo 0)"

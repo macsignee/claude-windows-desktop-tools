@@ -25,7 +25,7 @@ guid() { grep -o '<ProjectGuid>{[^}]*}' "$1" | sed 's/<ProjectGuid>//'; }
 
 # ---- C++: メイン (MFC) → ロジック層
 D="$T/Cpp"; mkdir -p "$D"
-python3 "$NEW" "$D" --type mfc-dialog --layers logic,data --tests gtest --gtest vcpkg >/dev/null 2>&1
+python3 "$NEW" "$D" --type mfc --layers logic,data --tests gtest --gtest vcpkg >/dev/null 2>&1
 cp "$D/Cpp/Cpp.vcxproj" "$T/Cpp.vcxproj.before"; filesums "$D" > "$T/Cpp.sums.before"; before="$(snapshot "$D")"
 out="$(python3 "$AR" "$D" --from Cpp --to LogicLayer --dry-run 2>&1)"; rc=$?
 ok "cpp dry-run: rc=0、何も書かない、行う内容を表示 (ProjectReference と、推移的な include)" "$([ $rc = 0 ] && [ "$(snapshot "$D")" = "$before" ] && [ "$(has "$out" 'REF: Cpp -> LogicLayer (ProjectReference)')" = 1 ] && [ "$(has "$out" '$(ProjectDir)..\LogicLayer;$(ProjectDir)..\DataLayer')" = 1 ] && [ "$(has "$out" 'dry-run')" = 1 ] && echo 1 || echo 0)"
