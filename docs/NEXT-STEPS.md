@@ -8,7 +8,7 @@
 
 - **方針の再確認:** MFC の SDI・MDI のひな形は、旧形のまま (Document/View なので対象外と決めた)。
 - **実機で未確認 (DESIGN 4.85):** MFC の言語切り替え (`SetThreadUILanguage`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。SM11 (新規 MFC の `framework.h` 変更後の実機ビルド)。
-- **確認:** `UI-Design-Guidelines.md` の `#ifdef UNICODE` の記述と v2.95.0 の整合、`claude-spec-workflow` の追随、規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。
+- **確認:** `claude-spec-workflow` の追随、規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。
 - **低優先・保留:** 国際化 (リソースへの移行、`APP_CULTURE`、Satellite DLL)、非同期 `Commit()`、`switch (nID)` の `mfc-check` の検査、C# で複数プロパティの変更をまとめる必要、MFC の `Observable` の継続的な検証。
 
 ## 1. 任意の確認
