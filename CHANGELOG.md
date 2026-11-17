@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.4] 2026-11-17 (旧 Presenter 構成の移行手順。文書だけ)
+
+- `docs/MIGRATION-SCREEN-MODEL.md` を新設: WinForms の旧 Presenter 構成 (`IMainView` + `MainPresenter`) から画面モデルへ移す手順 (対応表、テスト先行の 9 手順、Presenter に残すもの、検査)。WPF・MFC は、生成物の差分から書いた短い節 (旧構成の実際のソリューションでは未確認)。自動の移行は、ない。
+- `docs/UI-MODEL-GUIDE.md` から案内し、`docs/NEXT-STEPS.md` の未整備の一覧から外した。
+- 契約の変更なし。
+
 ## [2.96.3] 2026-11-17 (契約テストの生成は、ひな形に入れない。文書だけ)
 
 - **決定:** 画面モデルの契約テストとリポジトリの契約テストは、生成しない。ひな形の画面モデルの実装は 1 つだけで、リポジトリもないため。書き方は、`csharp-test-first` / `cpp-test-first` の `CONTRACT-TESTS.md`。`docs/DESIGN.md` に記録し、`docs/NEXT-STEPS.md` の未実装の一覧から外した。
