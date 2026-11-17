@@ -96,6 +96,7 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 |---|---|---|---|---|
 | UIG-KEY006 | UI-KEY-006 | WPF / WinForms / MFC | warning | アクセスキーが、同じ画面 (ダイアログ) で重複している (メニューは、メニューごとの範囲) |
 | UIG-CTL091 | UI-CTL-091 | WPF / WinForms / MFC | warning | 破壊的な操作 (削除・消去・破棄・初期化・上書など) と思われるボタンが、既定のボタン (`IsDefault` / `AcceptButton` / `DEFPUSHBUTTON`) になっている |
+| UIG-CTL024 | UI-CTL-024 | WPF / WinForms / MFC | warning | パスワードなどの機密値の入力欄と思われるもの (名前に `password` / `passwd` / `pwd` / `passcode` / `パスワード` / `暗証` を含む) が、伏せ字になっていない (WPF: `TextBox` → `PasswordBox`、WinForms: `UseSystemPasswordChar` / `PasswordChar` がない、MFC: `EDITTEXT` に `ES_PASSWORD` がない) |
 | UIG-LAY007 | UI-LAY-007 | WPF / MFC | info | 既定のボタンが、1 つの画面に複数ある |
 | UIG-CTL003 / UIG-CTL003T | UI-CTL-003 | WPF / WinForms | warning | アイコンだけのボタンに、アクセシブル名 (UIG-CTL003)・ツールチップ (UIG-CTL003T。WPF のみ) がない |
 | UIG-ACC001 | UI-ACC-001 | WPF | warning | `TextBox` / `PasswordBox` / `ComboBox` / `DatePicker` に、`AutomationProperties.Name` / `LabeledBy` がない (`Label` の `Target` と `TextBlock` は、アクセシブル名にならない。実機の Narrator で確認済み) |
@@ -126,6 +127,7 @@ sed -n '<開始>,<終了>p' "$G"       # その範囲だけを読む
 
 ## 誤検出と限界
 - **静的解析 (字面と構造の推測)。** 実行はしない。**通ったことは、規則を満たすことを意味しない。**
+- UIG-CTL024 は、**コントロールの名前だけ**で、機密値の入力欄かを推測する (名前が違う機密値 (暗証番号の `PinBox` など) は、検出できない。ラベルの文字は、見ない)。
 - UIG-CTL091 は、ラベル・名前・コマンドの語 (削除、Delete など) で、破壊的かを推測する。**取り消せる削除は、破壊的操作ではない** (ガイドライン §2.6)。誤検出は、理由つきで報告する。
 - UIG-ACC001 は、`AutomationProperties.Name` / `LabeledBy` だけを見る (`Label` の `Target` は、アクセスキー用で、名前を与えない)。スタイルやカスタムコントロールが名前を与える場合は、誤検出になる (`DataTemplate` / `ControlTemplate` / `Style` の中は、対象外)。
 - UIG-DPI002 は、宣言の**有無**だけを見る (どのモードにするかは、人が決める。UI-DPI-002 は、DPI 非対応にしないことを求める)。**WPF は、宣言がなくても、既定で、システム DPI 対応** (DPI 非対応ではない)。モニターごとの DPI には、マニフェストでの宣言が要る (dotnet/wpf Issue #859。Microsoft の WPF-Samples の PerMonitorDPI)。**「既定で PerMonitorV2 相当」と書かない。**

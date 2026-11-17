@@ -40,6 +40,7 @@ check "メインのプロジェクト名も、フォルダ名そのまま (App �
 check "プロジェクトは 1 つだけ" bash -c "[ $(nprojects "$D/ConsoleOnly.slnx") -eq 1 ]"
 check "テストのフォルダも、packages も、ない" bash -c "! ls '$D' | grep -q Test && [ ! -e '$D/packages' ]"
 check "CLAUDE.md: テスト: なし / 層: なし" bash -c "grep -q '^- テスト: なし' '$D/CLAUDE.md' && grep -q '^- 層: なし' '$D/CLAUDE.md'"
+check "CLAUDE.md: /ui-design-review の案内 (v2.97.2)" grep -q '/ui-design-review' "$D/CLAUDE.md"
 check "CLAUDE.md に、テストの節がない" bash -c "! grep -q 'GoogleTest)\$' '$D/CLAUDE.md' || ! grep -q '^## テスト' '$D/CLAUDE.md'"
 check "XML が正しい" xml_ok "$D"
 rc_is 3 "すでにソリューションがある (--tests なし) -> rc 3" python3 "$NEW" "$D" --type console --layers none --tests none

@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.97.2] 2026-11-17 (UI ガイドラインの残り。D)
+
+- **UIG-CTL024 (warning。UI-CTL-024: パスワードなどの機密値は、画面上で伏せ字にする):** 名前 (`password` / `passwd` / `pwd` / `passcode` / `パスワード` / `暗証`) で、機密値の入力欄と推測し、伏せ字になっていないものを指摘する。WPF: `TextBox` (→ `PasswordBox`)。WinForms: `TextBox` / `MaskedTextBox` に `UseSystemPasswordChar = true` か `PasswordChar` がない。MFC: `EDITTEXT` に `ES_PASSWORD` がない。**名前だけで推測するので、名前が違う機密値は検出できない** (`SKILL.md` に明記)。
+- **`/new-solution` が作る `CLAUDE.md` に、`/ui-design-review` の案内を 1 行足した** (MFC・WPF・WinForms)。
+- **足さなかったもの:** UI-KEY-003 (タブ停止) の検出 (誤検出が増えやすい)、「既知の指摘」の質問を指摘ごとにする (運用で不都合が出てから)、ガイドラインの新版への置き換え (新版がない)。
+- テスト: `ui_guideline_check_test.sh` に 8 件 (WPF 2、WinForms 3、MFC 2、SKILL.md)、`new_solution*_test.sh` に各 1 件。
+- 契約の変更なし (新しい検査 ID の追加と、`CLAUDE.md` の案内の追記)。
+
 ## [2.97.1] 2026-11-17 (mfc-check に MDI001 を足す。D の残り)
 
 - **MDI001 (warning):** `CMDIFrameWnd` 派生のフレームが、`OnCreateClient` を上書きしておらず、`.rc` の `IDR_MAINFRAME` のメニューが 2 項目未満のとき。MFC の既定の `OnCreateClient` は、メニューバーの右から 2 番目を Window メニューと推測して、項目が 2 つ未満だと、起動時に `ASSERT` (`winmdi.cpp`) で止まる。**v2.60.1 の不具合 (ビルドと `mfc-check` が通るのに、起動しない) を、起動せずに見つける。** プロジェクトの中の基底クラスの上書きもたどる。SDI (`CFrameWnd` 派生) は対象外。メニューをコードで差し替えているときは誤検出になりうるので、warning。

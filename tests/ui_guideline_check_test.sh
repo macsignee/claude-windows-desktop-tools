@@ -330,6 +330,52 @@ ok "SKILL.md: following the OS (theme / text size) cannot be judged from color s
 for f in skills/ui-test-first/SKILL.md skills/wpf-check/SKILL.md skills/winforms-check/SKILL.md skills/mfc-check/SKILL.md; do
     ok "$f: points to /ui-design-review" "$(grep -q 'ui-design-review' "$ROOT/$f" && echo 1 || echo 0)"
 done
+# ---------------------------------------------------------------- UI-CTL-024: 機密値の入力欄の伏せ字 (v2.97.2。名前による推測)
+wpf p1 <<'X'
+<TextBox x:Name="PasswordTextBox" AutomationProperties.Name="パスワード" />
+X
+expect p1 UIG-CTL024 "WPF: a TextBox named like a password field is flagged (use PasswordBox)"
+wpf p2 <<'X'
+<PasswordBox x:Name="PasswordBox" AutomationProperties.Name="パスワード" /><TextBox x:Name="UserNameTextBox" AutomationProperties.Name="ユーザー名" />
+X
+absent p2 UIG-CTL024 "WPF: PasswordBox and an ordinary TextBox are not flagged"
+wf p3 <<'X'
+        PasswordTextBox = new TextBox();
+        UserNameTextBox = new TextBox();
+        AutoScaleMode = AutoScaleMode.Font;
+X
+expect p3 UIG-CTL024 "WinForms: a TextBox named like a password field without UseSystemPasswordChar is flagged"
+wf p4 <<'X'
+        PasswordTextBox = new TextBox();
+        PasswordTextBox.UseSystemPasswordChar = true;
+        AutoScaleMode = AutoScaleMode.Font;
+X
+absent p4 UIG-CTL024 "WinForms: UseSystemPasswordChar = true is not flagged"
+wf p5 <<'X'
+        PwdTextBox = new TextBox();
+        PwdTextBox.PasswordChar = '*';
+        AutoScaleMode = AutoScaleMode.Font;
+X
+absent p5 UIG-CTL024 "WinForms: PasswordChar = '*' is not flagged"
+mfc p6 <<'X'
+IDD_LOGIN DIALOGEX 0, 0, 240, 100
+BEGIN
+    DEFPUSHBUTTON   "&Login",IDOK,129,79,50,14
+    EDITTEXT        IDC_PASSWORD_EDIT,40,7,193,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_NAME_EDIT,40,27,193,14,ES_AUTOHSCROLL
+END
+X
+expect p6 UIG-CTL024 "MFC: an EDITTEXT named like a password field without ES_PASSWORD is flagged"
+mfc p7 <<'X'
+IDD_LOGIN DIALOGEX 0, 0, 240, 100
+BEGIN
+    DEFPUSHBUTTON   "&Login",IDOK,129,79,50,14
+    EDITTEXT        IDC_PASSWORD_EDIT,40,7,193,14,ES_PASSWORD | ES_AUTOHSCROLL
+END
+X
+absent p7 UIG-CTL024 "MFC: ES_PASSWORD is not flagged"
+ok "UIG-CTL024 is documented in SKILL.md" "$(grep -q 'UIG-CTL024' "$ROOT/skills/ui-design-review/SKILL.md" && echo 1 || echo 0)"
+
 out="$(bash "$ROOT/install/install.sh" --skills-only --dry-run --skills-dir "$T/skills_dst" 2>&1)"
 ok "install.sh --dry-run lists skills/ui-design-review" "$(echo "$out" | grep -q 'ui-design-review' && echo 1 || echo 0)"
 

@@ -33,8 +33,8 @@
   - **`auto-build` / `build-test-loop` の SKILL:** `MSB4126` の注記を足した (v2.97.0。ウォッチャーの Platform 引数を疑う)。「ウォッチャーが起動済みかを、質問ツールで尋ねない (`WATCHER_NOT_RUNNING` のときだけ依頼する)」を入れるかは、再び出たら決める (W5 の `console` で 1 回)。
 - **UI ガイドライン (v2.26.0〜v2.27.0) の、残り:**
   - **「既知の指摘」の質問を、指摘ごとにする** (`ui-test-first`)。運用して、不都合が出たときに行う。
-  - **`/new-solution` が作る `CLAUDE.md` に、ガイドラインの案内を 1 行足す** (任意)。
-  - **見た目に近い規則の、静的な検出** (任意。例: UI-KEY-003 のタブ停止、UI-CTL-024 のパスワードの伏せ字)。
+  - **済み (v2.97.2):** `/new-solution` が作る `CLAUDE.md` (MFC・WPF・WinForms) に、`/ui-design-review` の案内を 1 行足した。
+  - **見た目に近い規則の、静的な検出:** UI-CTL-024 (パスワードの伏せ字) は、済み (v2.97.2。`UIG-CTL024`。コントロールの名前による推測)。**UI-KEY-003 (タブ停止) は、足していない** (WPF の `Focusable` / `IsTabStop`、WinForms の `TabStop` の組み合わせが多く、誤検出が増えやすい。必要になったとき)。
   - **ガイドラインの更新:** 新しい版が出たら、`skills/ui-design-review/references/UI-Design-Guidelines.md` を置き換え、`GUIDELINE_VERSION` (`ui_guideline_check.py`) を合わせる。規則 ID の対応は、テストが確かめる。
 
 ## 3. 完了したもの (要約。詳細は DESIGN と CHANGELOG)

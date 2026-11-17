@@ -31,6 +31,7 @@ SKIP_DIRS = {
 RULES = {
     "UIG-KEY006": ("UI-KEY-006", "warning", "アクセスキーが、同じ画面で重複している"),
     "UIG-CTL091": ("UI-CTL-091", "warning", "破壊的な操作のボタンが、既定のボタンになっている"),
+    "UIG-CTL024": ("UI-CTL-024", "warning", "パスワードなどの機密値の入力欄と思われるものが、伏せ字になっていない"),
     "UIG-LAY007": ("UI-LAY-007", "info", "既定のボタンが、1 つの画面に複数ある"),
     "UIG-CTL003": ("UI-CTL-003", "warning", "アイコンだけのボタンに、アクセシブル名がない"),
     "UIG-CTL003T": ("UI-CTL-003", "warning", "アイコンだけのボタンに、ツールチップがない"),
@@ -46,6 +47,8 @@ RULES = {
     "UIG-CTL101": ("UI-CTL-101", "info", "MFC の DLL に、ダイアログがある (ユーザー DLL のマニフェストは、静的に確認できない)"),
 }
 
+# 機密値 (UI-CTL-024) の入力欄と推測する名前。名前による推測なので、誤検出・検出漏れがありうる
+SECRET_NAME = re.compile(r"password|passwd|pwd|passcode|パスワード|暗証", re.I)
 DESTRUCTIVE = re.compile(r"削除|消去|破棄|初期化|上書|リセット|Delete|Remove|Discard|Overwrite|Erase|Format\b|Reset\b", re.I)
 ICON_FONT = re.compile(r"^(Segoe (MDL2|Fluent)|Marlett|Webdings|Wingdings)", re.I)
 SAFE_FONT = re.compile(r"^(Segoe UI|Yu Gothic|Meiryo|MS UI Gothic|Consolas|Cascadia|Courier New|Lucida Console)", re.I)
@@ -256,6 +259,10 @@ def check_xaml(path, rel, loc):
             if not has_tooltip(n):
                 add("UIG-CTL003T", rel, n.line, "アイコンだけのボタン (%s) に、ToolTip がない" % (name_of(n) or lt),
                     "ToolTip を付ける (UI-CTL-003)")
+        if lt == "TextBox" and SECRET_NAME.search(" ".join([name_of(n), n.attrs.get("AutomationProperties.Name", ""),
+                                                           n.attrs.get("AutomationProperties.AutomationId", "")])):
+            add("UIG-CTL024", rel, n.line, "パスワードの入力欄と思われる TextBox (%s) が、伏せ字になっていない" % (name_of(n) or "x:Name なし"),
+                "PasswordBox にする (UI-CTL-024)")
         if lt in INPUT_TAGS and not has_acc_name(n):
             add("UIG-ACC001", rel, n.line, "%s (%s) に、アクセシブル名がない" % (lt, name_of(n) or "x:Name なし"),
                 "AutomationProperties.Name / LabeledBy を付ける。Label の Target は、アクセスキー用で、名前にならない。TextBlock も、名前にならない (UI-ACC-001)")
@@ -302,11 +309,16 @@ def check_designer(path, rel):
         return
     stats["designer"] += 1
     types, texts, images, accnames = {}, {}, {}, set()
+    newline, masked = {}, set()          # 生成の行 (UIG-CTL024)、伏せ字にしているコントロール
     accept, accept_line = None, 0
     for i, line in enumerate(text.split("\n"), 1):
         m = re.search(r"^\s*(?:this\.)?(\w+)\s*=\s*new\s+(?:System\.Windows\.Forms\.)?(\w+)\s*\(", line)
         if m:
             types[m.group(1)] = m.group(2)
+            newline.setdefault(m.group(1), i)
+        m = re.search(r"^\s*(?:this\.)?(\w+)\.(?:UseSystemPasswordChar\s*=\s*true|PasswordChar\s*=\s*'(?!\\0))", line)
+        if m:
+            masked.add(m.group(1))
         m = re.search(r"^\s*(?:this\.)?(\w+)\.Text\s*=\s*\"((?:[^\"\\]|\\.)*)\"\s*;", line)
         if m:
             texts[m.group(1)] = (m.group(2), i)
@@ -336,6 +348,10 @@ def check_designer(path, rel):
     if accept and accept in texts and DESTRUCTIVE.search(texts[accept][0] + " " + accept):
         add("UIG-CTL091", rel, accept_line, "破壊的な操作と思われるボタン (%s) が、AcceptButton になっている" % accept,
             "AcceptButton を、安全な側にする (UI-CTL-091)")
+    for var, t in types.items():
+        if t in ("TextBox", "MaskedTextBox") and SECRET_NAME.search(var) and var not in masked:
+            add("UIG-CTL024", rel, newline.get(var, 0), "パスワードの入力欄と思われる %s (%s) が、伏せ字になっていない" % (t, var),
+                "UseSystemPasswordChar = true にする (UI-CTL-024)")
     for var, ln in images.items():
         if types.get(var) in ("Button", "ToolStripButton") and not texts.get(var, ("", 0))[0].strip() and var not in accnames:
             add("UIG-CTL003", rel, ln, "アイコンだけのボタン (%s) に、AccessibleName がない" % var, "AccessibleName を付ける (UI-CTL-003)")
@@ -349,11 +365,11 @@ DLG_RE = re.compile(r"^\s*(\w+)\s+DIALOG(?:EX)?\b")
 def check_rc(path, rel):
     text = read_text(path)
     dialogs = 0
-    state, name, controls = 0, "", []
+    state, name, controls, edits = 0, "", [], []
     for i, line in enumerate(text.split("\n"), 1):
         m = DLG_RE.match(line)
         if m and state == 0:
-            state, name, controls = 1, m.group(1), []
+            state, name, controls, edits = 1, m.group(1), [], []
             continue
         if state == 1 and line.strip() == "BEGIN":
             state = 2
@@ -371,6 +387,10 @@ def check_rc(path, rel):
                 if len(lns) > 1:
                     add("UIG-KEY006", rel, lns[1], "ダイアログ %s: アクセスキー &%s が、%d 回使われている (行 %s)" % (name, k.upper(), len(lns), ", ".join(map(str, lns))),
                         "別の文字にする (UI-KEY-006)")
+            for eid, eln, style in edits:
+                if SECRET_NAME.search(eid) and "ES_PASSWORD" not in style:
+                    add("UIG-CTL024", rel, eln, "ダイアログ %s: パスワードの入力欄と思われる EDITTEXT (%s) に、ES_PASSWORD がない" % (name, eid),
+                        "ES_PASSWORD スタイルを付ける (UI-CTL-024)")
             for s, ln in defs:
                 if DESTRUCTIVE.search(s):
                     add("UIG-CTL091", rel, ln, "ダイアログ %s: 破壊的な操作と思われるボタン (%s) が、DEFPUSHBUTTON になっている" % (name, s),
@@ -383,6 +403,9 @@ def check_rc(path, rel):
             m = CTRL_RE.match(line)
             if m:
                 controls.append((m.group(1), m.group(2), i))
+            m = re.match(r"^\s*EDITTEXT\s+(\w+)\s*,(.*)$", line)
+            if m:
+                edits.append((m.group(1), i, m.group(2)))
     if dialogs:
         stats["rc"] += 1
     return dialogs
