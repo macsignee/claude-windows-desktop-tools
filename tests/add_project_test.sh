@@ -41,7 +41,7 @@ ok "--tests-only again -> rc=3" "$([ $rc = 3 ] && echo 1 || echo 0)"
 
 python3 "$AP" "$D" ViewModels --kind viewmodel --uses LogicLayer --tests none >/dev/null
 python3 "$AP" "$D" ViewModels --tests-only >/dev/null
-ok "viewmodel kind: base classes + MainViewModel, and --tests-only detects it (MainViewModelTests.cs)" "$([ -f "$D/ViewModels/ObservableObject.cs" ] && [ -f "$D/ViewModels/RelayCommand.cs" ] && [ -f "$D/ViewModels/MainViewModel.cs" ] && [ -f "$D/ViewModels.Tests/MainViewModelTests.cs" ] && grep -q 'namespace App.ViewModels;' "$D/ViewModels/MainViewModel.cs" && echo 1 || echo 0)"
+ok "viewmodel kind: base classes + MainViewModel, and --tests-only detects it (MainViewModelTests.cs)" "$([ -f "$D/ViewModels/ObservableObject.cs" ] && [ -f "$D/ViewModels/RelayCommand.cs" ] && [ -f "$D/ViewModels/ViewModelBase.cs" ] && [ -f "$D/ViewModels/ErrorTextMap.cs" ] && [ -f "$D/ViewModels/MainMessages.cs" ] && [ -f "$D/ViewModels/MainViewModel.cs" ] && [ -f "$D/ViewModels.Tests/MainViewModelTests.cs" ] && grep -q 'namespace App.ViewModels;' "$D/ViewModels/MainViewModel.cs" && echo 1 || echo 0)"
 
 python3 "$AP" "$D" Net10 --tfm net10.0 --mstest-version 3.9.0 --testsdk-version 17.14.0 >/dev/null
 ok "--tfm / --mstest-version / --testsdk-version are applied" "$(grep -q 'net10.0</TargetFramework>' "$D/Net10/Net10.csproj" && grep -q 'MSTest.TestFramework" Version="3.9.0"' "$D/Net10.Tests/Net10.Tests.csproj" && grep -q 'Microsoft.NET.Test.Sdk" Version="17.14.0"' "$D/Net10.Tests/Net10.Tests.csproj" && echo 1 || echo 0)"

@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.93.0] 2026-11-17 (WPF の ViewModel の基底 `ViewModelBase`。実装の PR B-3)
+
+- **`add_project.py` (WPF):** `ViewModels` に、**`ViewModelBase`** (`Validate()` の結果 = .NET 標準の `ValidationResult` を、`ErrorTexts[欄名]` と `ScreenErrorTexts` にする)、**`ErrorTextMap`** (`Item[]` の変更を通知するインデクサー)、**`MainMessages`** (文章を 1 か所) を生成する。`MainViewModel` は `ViewModelBase` を継承し、`Validate()` / `IsValid` を持つ (名前は 20 文字以内)。
+- **XAML:** メイン画面に、`NameErrorText` (`{Binding ErrorTexts[Name], Mode=OneWay}`。普通のバインディングだけ) を足した。`Styles.xaml` に `ErrorTextStyle` を足した。既存のコントロールと `AutomationId` は、変えていない。
+- **契約を変えた点:** `viewmodel` の層に、ファイルが 3 つ増える (`ViewModelBase.cs`・`ErrorTextMap.cs`・`MainMessages.cs`)。`MainViewModelTests` が 5 件から 10 件になる。`MainViewModel` の `PropertyChanged` は、`Name` / `Greeting` に加えて、`IsValid` / `ScreenErrorTexts` も通知する。
+- 規約・手引き・`SKILL.md`・`DESIGN.md` (4.88) の記述を、実装に合わせた。
+- テスト: `tests/new_solution_wpf_test.sh` に +3 件 (`wpf-check` が、`ErrorTexts[Name]` を、指摘なしで通すことを含む)、`tests/add_project_test.sh` を更新。**実機の確認 (2026-11-17。SM4): 済み。** ビルド成功 (警告 0)、単体テスト 15 件、UI テスト 4 件が合格。目視で、誤りの文章が出る・消える・クリアで戻る、を確認した。
+- **この版では、まだ:** MFC (B-4)、`APP_FAKE_SCREENS` ほか (PR C)。
+
 ## [2.92.0] 2026-11-17 (WinForms のひな形を画面モデルにする。C# の共通部品 `RepositoryException`。実装の PR B-1・B-2)
 
 - **`new_solution.py` / `add_project.py` (WinForms):** 生成するサンプルを、**画面モデル中心**に変えた。`IMainView` / `MainPresenter` / `MainPresenterTests` をやめ、**`IMainScreenModel` / `MainScreenModel` / `MainMessages` / `MainScreenModelTests` (7 件)** を生成する (ロジック層の `ScreenModels/`、なければアプリの `ScreenModels/`。後者の名前空間は `<ルート>.ScreenModels`)。`MainForm` は、`Bind(IMainScreenModel)` で画面モデルを結び、状態の表示と操作の呼び出しだけをする (コンストラクターは引数なし)。`Program.cs` が、画面モデルと Form を組み立てる。画面の文言と、コントロールの `Name` は、変えていない (既存の UI テストは、そのまま)。

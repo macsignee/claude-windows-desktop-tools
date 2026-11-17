@@ -367,17 +367,121 @@ public sealed class RelayCommand : ICommand
 '''
 
 
-def main_viewmodel_cs(ns):
-    return f'''namespace {ns};
+def error_text_map_cs(ns):
+    return f'''using System.ComponentModel;
 
-/// <summary>メイン画面の ViewModel。WPF の型 (Window や MessageBox) を、使わない。</summary>
-public sealed class MainViewModel : ObservableObject
+namespace {ns};
+
+/// <summary>欄の名前 (プロパティの名前) → 誤りの文章。誤りがなければ、空の文字列。
+/// XAML では、{{Binding ErrorTexts[Name], Mode=OneWay}} のように、普通のバインディングで読む (変換器は要らない)。</summary>
+public sealed class ErrorTextMap : INotifyPropertyChanged
 {{
+    private Dictionary<string, string> _texts = new();
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string this[string property] => _texts.TryGetValue(property, out var text) ? text : "";
+
+    /// <summary>文章を入れ替えて、インデクサーの変更 (Item[]) を通知する。</summary>
+    internal void Set(Dictionary<string, string> texts)
+    {{
+        _texts = texts;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
+    }}
+}}
+'''
+
+
+def view_model_base_cs(ns):
+    return f'''using System.ComponentModel.DataAnnotations;
+
+namespace {ns};
+
+/// <summary>画面の ViewModel の基底クラス (画面モデルの共通部分)。Validate() の結果 (.NET 標準の ValidationResult) を、
+/// 画面に出す文章 (ErrorTexts / ScreenErrorTexts) にする。WPF の型を使わない。
+/// 値を変えたあと (と、Failure を変えたあと) に、RefreshErrors() を呼ぶ。</summary>
+public abstract class ViewModelBase : ObservableObject
+{{
+    private IReadOnlyList<string> _screenErrorTexts = Array.Empty<string>();
+    private string? _failure;
+
+    /// <summary>欄の名前 → 誤りの文章。複数の欄にまたがる誤りの文章は、先頭 (主たる) の欄に出す。</summary>
+    public ErrorTextMap ErrorTexts {{ get; }} = new();
+
+    /// <summary>欄に紐づかない画面全体の誤りと、Failure の文章。</summary>
+    public IReadOnlyList<string> ScreenErrorTexts
+    {{
+        get => _screenErrorTexts;
+        private set => SetProperty(ref _screenErrorTexts, value);
+    }}
+
+    /// <summary>直近の失敗の文章 (なければ null)。次の編集、または次の Commit の開始で、派生クラスが消す。</summary>
+    public string? Failure
+    {{
+        get => _failure;
+        protected set
+        {{
+            if (SetProperty(ref _failure, value))
+            {{
+                RefreshErrors();
+            }}
+        }}
+    }}
+
+    /// <summary>入力が正しいか (Validate() の結果が空)。</summary>
+    public bool IsValid => Validate().Count == 0;
+
+    /// <summary>入力を検査する (純粋。状態を持たず、副作用がない)。MemberNames は欄の名前 (空 = 画面全体、先頭 = 主たる欄)。</summary>
+    public abstract IReadOnlyList<ValidationResult> Validate();
+
+    /// <summary>検査をやり直して、ErrorTexts / ScreenErrorTexts / IsValid を更新する。</summary>
+    protected void RefreshErrors()
+    {{
+        var texts = new Dictionary<string, string>();
+        var screen = new List<string>();
+        foreach (var result in Validate())
+        {{
+            var text = result.ErrorMessage ?? "";
+            var names = result.MemberNames.ToList();
+            if (names.Count == 0)
+            {{
+                screen.Add(text);
+            }}
+            else if (!texts.ContainsKey(names[0]))
+            {{
+                texts[names[0]] = text;
+            }}
+        }}
+
+        if (_failure is not null)
+        {{
+            screen.Add(_failure);
+        }}
+
+        ErrorTexts.Set(texts);
+        ScreenErrorTexts = screen;
+        OnPropertyChanged(nameof(IsValid));
+    }}
+}}
+'''
+
+
+def main_viewmodel_cs(ns):
+    return f'''using System.ComponentModel.DataAnnotations;
+
+namespace {ns};
+
+/// <summary>メイン画面の ViewModel (画面モデル)。WPF の型 (Window や MessageBox) を、使わない。状態は、ここだけが持つ。</summary>
+public sealed class MainViewModel : ViewModelBase
+{{
+    private const int MaxNameLength = 20;
+
     private string _name = "";
 
     public MainViewModel()
     {{
         ClearCommand = new RelayCommand(Clear, () => Name.Length > 0);
+        RefreshErrors();
     }}
 
     public string Name
@@ -389,13 +493,25 @@ public sealed class MainViewModel : ObservableObject
             {{
                 OnPropertyChanged(nameof(Greeting));
                 ClearCommand.NotifyCanExecuteChanged();
+                RefreshErrors();
             }}
         }}
     }}
 
-    public string Greeting => Name.Length == 0 ? "名前を入力してください" : $"こんにちは、{{Name}} さん";
+    public string Greeting => Name.Length == 0 ? MainMessages.AskName : MainMessages.Hello(Name);
 
     public RelayCommand ClearCommand {{ get; }}
+
+    public override IReadOnlyList<ValidationResult> Validate()
+    {{
+        var errors = new List<ValidationResult>();
+        if (Name.Length > MaxNameLength)
+        {{
+            errors.Add(new ValidationResult(MainMessages.NameTooLong(MaxNameLength), new[] {{ nameof(Name) }}));
+        }}
+
+        return errors;
+    }}
 
     private void Clear()
     {{
@@ -438,7 +554,7 @@ public class MainViewModelTests
 
         vm.Name = "太郎";
 
-        CollectionAssert.AreEquivalent(new[] {{ "Name", "Greeting" }}, raised);
+        CollectionAssert.IsSubsetOf(new[] {{ "Name", "Greeting" }}, raised);
     }}
 
     [TestMethod]
@@ -458,6 +574,57 @@ public class MainViewModelTests
 
         Assert.AreEqual("", vm.Name);
     }}
+
+    [TestMethod]
+    public void Validate_NameTooLong_ReturnsAnErrorForName()
+    {{
+        var vm = new MainViewModel {{ Name = new string('あ', 21) }};
+
+        var errors = vm.Validate();
+
+        Assert.AreEqual(1, errors.Count);
+        CollectionAssert.AreEqual(new[] {{ "Name" }}, errors[0].MemberNames.ToArray());
+        Assert.AreEqual("名前は 20 文字以内で入力してください", errors[0].ErrorMessage);
+        Assert.IsFalse(vm.IsValid);
+    }}
+
+    [TestMethod]
+    public void Validate_NameWithinLimit_IsValid()
+    {{
+        var vm = new MainViewModel {{ Name = "太郎" }};
+
+        Assert.AreEqual(0, vm.Validate().Count);
+        Assert.IsTrue(vm.IsValid);
+    }}
+
+    [TestMethod]
+    public void ErrorTexts_NameTooLong_ShowsTheMessageForName()
+    {{
+        var vm = new MainViewModel {{ Name = new string('あ', 21) }};
+
+        Assert.AreEqual("名前は 20 文字以内で入力してください", vm.ErrorTexts["Name"]);
+        Assert.AreEqual(0, vm.ScreenErrorTexts.Count);
+    }}
+
+    [TestMethod]
+    public void ErrorTexts_NameWithinLimit_IsEmpty()
+    {{
+        var vm = new MainViewModel {{ Name = "太郎" }};
+
+        Assert.AreEqual("", vm.ErrorTexts["Name"]);
+    }}
+
+    [TestMethod]
+    public void ErrorTexts_Changed_RaisesTheIndexerNotification()
+    {{
+        var vm = new MainViewModel();
+        var raised = new List<string?>();
+        vm.ErrorTexts.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.Name = new string('あ', 21);
+
+        CollectionAssert.Contains(raised, "Item[]");
+    }}
 }}
 '''
 
@@ -468,6 +635,14 @@ def styles_xaml():
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Thickness x:Key="DefaultControlMargin">8</Thickness>
+
+    <Style x:Key="ErrorTextStyle"
+           TargetType="TextBlock">
+        <Setter Property="Margin"
+                Value="{StaticResource DefaultControlMargin}" />
+        <Setter Property="Foreground"
+                Value="Firebrick" />
+    </Style>
 
     <Style x:Key="PrimaryButtonStyle"
            TargetType="Button">
@@ -554,6 +729,7 @@ def main_window_xaml(ns, title, vm_ns, vm_assembly=None):
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -571,11 +747,16 @@ def main_window_xaml(ns, title, vm_ns, vm_assembly=None):
         </DockPanel>
 
         <TextBlock Grid.Row="1"
+                   AutomationProperties.AutomationId="NameErrorText"
+                   Style="{{StaticResource ErrorTextStyle}}"
+                   Text="{{Binding ErrorTexts[Name], Mode=OneWay}}" />
+
+        <TextBlock Grid.Row="2"
                    AutomationProperties.AutomationId="GreetingText"
                    Margin="{{StaticResource DefaultControlMargin}}"
                    Text="{{Binding Greeting, Mode=OneWay}}" />
 
-        <Button Grid.Row="2"
+        <Button Grid.Row="3"
                 AutomationProperties.AutomationId="ClearButton"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
@@ -1059,6 +1240,9 @@ def viewmodel_files(folder, ns):
     return {
         f'{folder}/ObservableObject.cs': observable_object_cs(ns),
         f'{folder}/RelayCommand.cs': relay_command_cs(ns),
+        f'{folder}/ErrorTextMap.cs': error_text_map_cs(ns),
+        f'{folder}/ViewModelBase.cs': view_model_base_cs(ns),
+        f'{folder}/MainMessages.cs': main_messages_cs(ns),
         f'{folder}/MainViewModel.cs': main_viewmodel_cs(ns),
     }
 
