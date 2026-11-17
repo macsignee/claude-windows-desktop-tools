@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.6] 2026-11-17 (claude-spec-workflow の追随の記録。文書だけ)
+
+- 残作業 A11 の結果を記録した。`claude-spec-workflow` は、画面モデルの採用に追随していなかった (`add-feature` が Presenter + `IView` の Fake、`update-from-ideas` が「WinForms (MVP)」のまま) ので、v1.8.0 (macsignee/claude-spec-workflow#13) で直した。`docs/NEXT-STEPS.md` を更新した。
+- 残り: `brainstormF` (仕様の段階で、入力の検査・失敗の観点を聞く) は、足していない。
+- 契約の変更なし。
+
 ## [2.96.5] 2026-11-17 (UI-CTL-100 と MBCS の整合の記録。文書だけ)
 
 - 確認 (残作業 A9): `UI-Design-Guidelines.md` の UI-CTL-100 (Unicode でビルドする。コード例は `#ifdef UNICODE` で囲む) と、v2.95.0 の変更 (`framework.h` の `#ifdef UNICODE` を外した) は、矛盾しない。Unicode (既定) の生成物は、どちらでもガイドラインを満たす。差は、MBCS のときだけ (実機で、指令を外すとビジュアルスタイルが効く)。
