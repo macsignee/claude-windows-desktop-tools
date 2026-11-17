@@ -140,10 +140,10 @@ python3 <このSkillのフォルダ>/scripts/add_ui_host.py "$SLN_DIR" [--name U
 |---|---|
 | UI DLL (`<名前>`、既定 `UiLayer`) | 標準 DLL (既定。共有 MFC) か拡張 DLL (`--kind`)。サンプルのダイアログ (`GreetingDialog`: 名前の入力 → 挨拶の表示 → クリア)、`.rc`、`Resource.h` (ID は 3000 台)。**標準 DLL**: 公開関数 `ShowGreetingDialog(HWND)` (先頭で `AFX_MANAGE_STATE`)。**拡張 DLL**: `AFX_EXT_CLASS` のクラス |
 | 画面ホスト (`<名前>Host`) | 画面を開くだけの exe。ダイアログが、そのまま、メインウィンドウになる。**標準 DLL のホストは、MFC なしの Win32 exe** (標準 DLL がどの exe からも使えることの確認)。**拡張 DLL のホストは、MFC の exe (`UseOfMfc=Dynamic`)** |
-| ロジック層の `Greeting` | **画面モデル (`ScreenModel`) 相当** (現状のひな形は、`ScreenModel` クラスを生成せず、`MakeGreeting` だけ。`ScreenModel` への改訂は、ひな形の実装の段階)。画面に依存しない `MakeGreeting` を、ロジック層に足し、ダイアログが呼ぶ。`<ロジック層>Test` に、単体テスト (`TestGreeting.cpp`) も足す。ロジック層は、名前に `Logic` を含む DLL を探す (`--logic` で指定、`none` で足さない。なければ、ダイアログの中に書く) |
+| ロジック層の画面モデル (`GreetingScreenModel`) | **画面モデル (`ScreenModel`)。** ロジック層に、**ヘッダーだけ**で足す (DLL の境界に、`std` の型を出さないため。MFC の型を使わない): `GreetingScreenModelInterface.h` (インターフェースと `GreetingProperty`)、`GreetingScreenModel.h`、`GreetingMessages.h` (文章を 1 か所)、共通の `Observable.h` (`AddHandler` / `RemoveHandler` / `Raise`)、`ScreenModelSupport.h` (`ValidationError`・`ValidationResult`・`RepositoryException`。共通の 2 つは、Skill の `assets/` の実物のコピー)。`<ロジック層>Test` に、単体テスト (`TestGreetingScreenModel.cpp`、8 件) も足す。UI DLL には、`ScreenModelUi.h` (`ToCString` / `ToWString`) を足し、ダイアログは、`GreetingScreenModelInterface&` を受け取る。ロジック層は、名前に `Logic` を含む DLL を探す (`--logic` で指定、`none` で足さない。なければ、画面モデルを UI DLL に置く) |
 | UI テスト | `<ホスト>.UITests` (`add_ui_tests.py --app <ホスト>`) と、`GreetingDialogUiTests.cs` (開いたとき・名前を入れたとき・クリアしたとき) |
 
-- **規則と画面の分け方:** 挨拶の文の規則は、ロジック層の単体テストで確かめる。UI テストは、画面と規則が、つながっていることと、主要な操作だけ。
+- **規則と画面の分け方:** 挨拶の文・入力の検査・クリアの有効・無効の規則は、画面モデルの単体テストで確かめる。UI テストは、画面と規則が、つながっていることと、主要な操作だけ。
 - **ID:** DLL のダイアログの ID は、呼び出す exe の ID と、重ならない範囲 (3000 台) にする (拡張 DLL は、exe のリソースと、同じ検索の列に入る)。UI テストは、コントロール ID の数値 (`"3002"` など) で、部品を探す。
 - **`mfc-check`:** 名前に `Ui` / `View` / `Dialog` の語を含む DLL は、画面を持つ層として扱い、**ライブラリの GUI の使用 (LAY001 / LAY002) を指摘しない**。層の向きは、メイン → 画面 → ロジック → データ (ロジック・データから画面への参照と、画面からメインへの参照は、LAY003)。名前がこの形でないときは、`mfc_check.py --ui <名前>`。
 - 生成のあと、**ウォッチャーで、ビルドと、UI テスト (`uitest_once.sh`) を確かめる** (`/ui-test-first` のループ)。

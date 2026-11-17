@@ -15,7 +15,7 @@ Usage:
   <UI DLL>/            標準 DLL / 拡張 DLL の一式 (add_layer.py と同じ) + サンプルのダイアログ (GreetingDialog.h/.cpp、<名前>.rc、Resource.h)
                        標準 DLL: 公開関数 ShowGreetingDialog(HWND) (先頭で AFX_MANAGE_STATE)。拡張 DLL: AFX_EXT_CLASS のクラス GreetingDialog
   <ホスト>/            画面を開くだけの exe (標準 DLL: MFC なしの Win32。拡張 DLL: MFC)。ダイアログが、そのまま、メインウィンドウになる
-  <ロジック層>/        Greeting.h / Greeting.cpp (MakeGreeting: 画面に依存しない規則) と、<ロジック層>Test/TestGreeting.cpp (単体テスト)
+  <ロジック層>/        画面モデル (GreetingScreenModel.h ほか。ヘッダーだけ。MFC に依存しない)、共通の Observable.h / ScreenModelSupport.h と、<ロジック層>Test/TestGreetingScreenModel.cpp (単体テスト)。ロジック層がなければ、UI DLL に置く
   <ホスト>.UITests/    add_ui_tests.py が作る UI テストのプロジェクトと、GreetingDialogUiTests.cs
 .slnx / .sln にも登録する。UI テストは、ウォッチャーの trigger_uitest.flag (uitest_once.sh) で実行する。
 """
@@ -29,7 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import add_layer as AL  # noqa: E402
 
-DLG_ID = {'IDD_GREETING_DIALOG': 3001, 'IDC_GREETING_NAME_EDIT': 3002, 'IDC_GREETING_TEXT': 3003, 'IDC_GREETING_CLEAR_BUTTON': 3004}
+DLG_ID = {'IDD_GREETING_DIALOG': 3001, 'IDC_GREETING_NAME_EDIT': 3002, 'IDC_GREETING_TEXT': 3003, 'IDC_GREETING_CLEAR_BUTTON': 3004, 'IDC_GREETING_ERROR_TEXT': 3005}
 UI_WORDS = ('ui', 'view', 'views', 'dialog', 'dialogs')     # mfc_check.py の、画面を持つ層の名前の語と、同じ
 EMPTY_TEXT = '名前を入力してください'
 
@@ -143,44 +143,258 @@ def logic_info(sln_dir, sln_path, logic_arg):
 
 
 # ------------------------------------------------------------------ ひな形
-GREETING_H = '''#pragma once
+SM_INTERFACE_H = '''#pragma once
+#include <functional>
 #include <string>
-@@API_INCLUDE@@
-namespace @@NS@@
+#include "ScreenModelSupport.h"
+
+namespace @@SNS@@
 {
-    // 画面 (ダイアログ) に表示する挨拶の文を決める規則。画面に依存しない (MFC の型を使わない) ので、単体テストで確かめる。
-    @@API@@std::wstring MakeGreeting(const std::wstring& name);
+    // 画面の通知の識別 (通知と、誤りの対象の欄を、兼ねる)。宣言の順序: 入力欄、表示、実行可否、検査、全体。
+    enum class GreetingProperty : int
+    {
+        Name,
+        Greeting,
+        CanClear,
+        IsValid,
+        All,
+    };
+
+    // 挨拶の画面の、ダイアログから見た姿 (画面モデル)。MFC のウィンドウのクラス・HWND・リソース ID を、持ち込まない。
+    // 画面モデルは、UI スレッドからだけ呼ぶ。
+    class GreetingScreenModelInterface
+    {
+    public:
+        virtual ~GreetingScreenModelInterface() = default;
+
+        // 変更の通知。ダイアログは、OnInitDialog で AddHandler、OnDestroy で RemoveHandler する。
+        virtual int AddHandler(std::function<void(int)> handler) = 0;
+        virtual void RemoveHandler(int id) = 0;
+
+        virtual std::wstring GetName() const = 0;
+        virtual void SetName(const std::wstring& name) = 0;
+        virtual std::wstring GetGreeting() const = 0;
+        virtual bool CanClear() const = 0;
+        virtual bool IsValid() const = 0;
+        virtual ValidationResult Validate() const = 0;
+        virtual void Clear() = 0;
+    };
 }
 '''
 
-GREETING_CPP = '''@@PCH@@#include "Greeting.h"
+SM_MESSAGES_H = '''#pragma once
+#include <format>
+#include <string>
 
-namespace @@NS@@
+namespace @@SNS@@::GreetingMessages
 {
-    std::wstring MakeGreeting(const std::wstring& name)
+    // 挨拶の画面の文章を、ここに 1 か所にまとめる (日本語。国際化が必要になったとき、ここを、リソース (STRINGTABLE) を引く実装に置き換える)。
+    inline std::wstring AskName()
     {
-@@MANAGE@@        if (name.empty())
-        {
-            return L"@@EMPTY@@";
-        }
-        return L"こんにちは、" + name + L" さん";
+        return L"@@EMPTY@@";
+    }
+
+    inline std::wstring Hello(const std::wstring& name)
+    {
+        return std::format(L"こんにちは、{} さん", name);
+    }
+
+    inline std::wstring NameTooLong(int max)
+    {
+        return std::format(L"名前は {} 文字以内で入力してください", max);
     }
 }
 '''
 
-GREETING_TEST = '''#include <gtest/gtest.h>
-#include "Greeting.h"
+SM_MODEL_H = '''#pragma once
+#include <cstddef>
+#include "GreetingMessages.h"
+#include "GreetingScreenModelInterface.h"
+#include "Observable.h"
 
-TEST(GreetingTest, MakeGreeting_EmptyName_AsksForName)
+namespace @@SNS@@
 {
-    EXPECT_EQ(@@NS@@::MakeGreeting(L""), L"@@EMPTY@@");
-}
+    // 挨拶の画面の振る舞い (画面モデル)。画面に依存しない (MFC の型を使わない) ので、単体テストで確かめる。状態は、ここだけが持つ。
+    class GreetingScreenModel : public GreetingScreenModelInterface, private Observable
+    {
+    public:
+        int AddHandler(std::function<void(int)> handler) override
+        {
+            return Observable::AddHandler(std::move(handler));
+        }
 
-TEST(GreetingTest, MakeGreeting_Name_GreetsWithName)
-{
-    EXPECT_EQ(@@NS@@::MakeGreeting(L"太郎"), L"こんにちは、太郎 さん");
+        void RemoveHandler(int id) override
+        {
+            Observable::RemoveHandler(id);
+        }
+
+        std::wstring GetName() const override
+        {
+            return m_name;
+        }
+
+        void SetName(const std::wstring& name) override
+        {
+            if (m_name == name)
+            {
+                return;
+            }
+            m_name = name;
+            // 名前と、そこから決まる値 (挨拶・クリア・検査) が変わるので、全体を 1 回通知する。
+            Raise(static_cast<int>(GreetingProperty::All));
+        }
+
+        std::wstring GetGreeting() const override
+        {
+            return m_name.empty() ? GreetingMessages::AskName() : GreetingMessages::Hello(m_name);
+        }
+
+        bool CanClear() const override
+        {
+            return !m_name.empty();
+        }
+
+        bool IsValid() const override
+        {
+            return Validate().empty();
+        }
+
+        ValidationResult Validate() const override
+        {
+            ValidationResult errors;
+            if (m_name.size() > static_cast<std::size_t>(MAX_NAME_LENGTH))
+            {
+                errors.push_back({ { static_cast<int>(GreetingProperty::Name) }, GreetingMessages::NameTooLong(MAX_NAME_LENGTH) });
+            }
+            return errors;
+        }
+
+        void Clear() override
+        {
+            SetName(L"");
+        }
+
+    private:
+        static constexpr int MAX_NAME_LENGTH = 20;
+
+        std::wstring m_name;
+    };
 }
 '''
+
+SM_UI_H = '''#pragma once
+#include <afxwin.h>
+#include <string>
+
+// 画面モデル (std::wstring) と、MFC (CString) の境界の変換。
+// プロジェクトの文字セットで、CString は揺らぐ (Unicode は CStringW、MBCS は CStringA)。その差を、ここだけで吸収する。
+// Unicode では、コピーだけ。MBCS では、ANSI (CP_ACP) との変換になり、ANSI に表せない文字は '?' になる。
+inline CString ToCString(const std::wstring& s)
+{
+    return CString(s.c_str(), static_cast<int>(s.size()));
+}
+
+inline std::wstring ToWString(const CString& s)
+{
+    const CStringW w(s);
+    return std::wstring(w.GetString(), w.GetLength());
+}
+'''
+
+GREETING_TEST = '''#include <gtest/gtest.h>
+#include "GreetingScreenModel.h"
+
+using @@SNS@@::GreetingProperty;
+using @@SNS@@::GreetingScreenModel;
+
+TEST(GreetingScreenModelTest, Constructor_NameEmpty_AsksForNameAndDisablesClear)
+{
+    GreetingScreenModel model;
+
+    EXPECT_EQ(model.GetGreeting(), L"@@EMPTY@@");
+    EXPECT_FALSE(model.CanClear());
+}
+
+TEST(GreetingScreenModelTest, SetName_Name_GreetsWithName)
+{
+    GreetingScreenModel model;
+
+    model.SetName(L"太郎");
+
+    EXPECT_EQ(model.GetGreeting(), L"こんにちは、太郎 さん");
+    EXPECT_TRUE(model.CanClear());
+}
+
+TEST(GreetingScreenModelTest, Clear_NameSet_ClearsNameAndDisablesClear)
+{
+    GreetingScreenModel model;
+    model.SetName(L"太郎");
+
+    model.Clear();
+
+    EXPECT_EQ(model.GetName(), L"");
+    EXPECT_FALSE(model.CanClear());
+}
+
+TEST(GreetingScreenModelTest, SetName_Changed_NotifiesAll)
+{
+    GreetingScreenModel model;
+    std::vector<int> received;
+    model.AddHandler([&received](int property) { received.push_back(property); });
+
+    model.SetName(L"太郎");
+
+    ASSERT_EQ(received.size(), 1u);
+    EXPECT_EQ(received[0], static_cast<int>(GreetingProperty::All));
+}
+
+TEST(GreetingScreenModelTest, SetName_SameValue_DoesNotNotify)
+{
+    GreetingScreenModel model;
+    model.SetName(L"太郎");
+    int count = 0;
+    model.AddHandler([&count](int) { ++count; });
+
+    model.SetName(L"太郎");
+
+    EXPECT_EQ(count, 0);
+}
+
+TEST(GreetingScreenModelTest, RemoveHandler_Removed_StopsNotifying)
+{
+    GreetingScreenModel model;
+    int count = 0;
+    const int id = model.AddHandler([&count](int) { ++count; });
+    model.RemoveHandler(id);
+
+    model.SetName(L"太郎");
+
+    EXPECT_EQ(count, 0);
+}
+
+TEST(GreetingScreenModelTest, Validate_NameTooLong_ReturnsAnErrorForName)
+{
+    GreetingScreenModel model;
+    model.SetName(std::wstring(21, L'あ'));
+
+    const ValidationResult errors = model.Validate();
+
+    ASSERT_EQ(errors.size(), 1u);
+    EXPECT_EQ(errors[0].properties, std::vector<int>{ static_cast<int>(GreetingProperty::Name) });
+    EXPECT_EQ(errors[0].message, L"名前は 20 文字以内で入力してください");
+    EXPECT_FALSE(model.IsValid());
+}
+
+TEST(GreetingScreenModelTest, Validate_NameWithinLimit_IsValid)
+{
+    GreetingScreenModel model;
+    model.SetName(L"太郎");
+
+    EXPECT_TRUE(model.Validate().empty());
+    EXPECT_TRUE(model.IsValid());
+}
+'''
+
 
 RESOURCE_H = '''#pragma once
 // ダイアログのリソース ID。値は、呼び出す側の exe の ID と、重ならない範囲 (3000 台) にしてある
@@ -189,12 +403,13 @@ RESOURCE_H = '''#pragma once
 #define IDC_GREETING_NAME_EDIT          3002
 #define IDC_GREETING_TEXT               3003
 #define IDC_GREETING_CLEAR_BUTTON       3004
+#define IDC_GREETING_ERROR_TEXT         3005
 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        3002
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         3005
+#define _APS_NEXT_CONTROL_VALUE         3006
 #define _APS_NEXT_SYMED_VALUE           3000
 #endif
 #endif
@@ -213,6 +428,7 @@ BEGIN
     LTEXT           "&Name:",IDC_STATIC,7,9,30,8
     EDITTEXT        IDC_GREETING_NAME_EDIT,40,7,193,14,ES_AUTOHSCROLL
     LTEXT           "",IDC_GREETING_TEXT,7,30,226,8
+    LTEXT           "",IDC_GREETING_ERROR_TEXT,7,45,226,8
     PUSHBUTTON      "&Clear",IDC_GREETING_CLEAR_BUTTON,7,79,50,14
     DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,183,79,50,14
@@ -221,9 +437,11 @@ END
 
 DIALOG_H = '''#pragma once
 #include <afxwin.h>
+#include "GreetingScreenModelInterface.h"
 #include "Resource.h"
 
-// DLL が提供する画面 (名前を入れると、挨拶を表示する)。表示する文は、画面に依存しない規則 (MakeGreeting) が決める。
+// DLL が提供する画面 (名前を入れると、挨拶を表示する)。状態と規則は、画面モデル (GreetingScreenModelInterface) が持つ。
+// ダイアログは、画面モデルの状態を表示し、操作 (SetName / Clear) を呼ぶだけ。
 class @@EXPORT@@GreetingDialog : public CDialog
 {
     DECLARE_DYNAMIC(GreetingDialog)
@@ -231,79 +449,114 @@ class @@EXPORT@@GreetingDialog : public CDialog
 public:
     enum { IDD = IDD_GREETING_DIALOG };
 
-    explicit GreetingDialog(CWnd* parent = nullptr);
+    GreetingDialog(@@SNS@@::GreetingScreenModelInterface& model, CWnd* parent = nullptr);
 
 protected:
     BOOL OnInitDialog() override;
 
+    afx_msg void OnDestroy();
     afx_msg void OnNameChanged();
     afx_msg void OnClear();
     DECLARE_MESSAGE_MAP()
 
 private:
-    // 入力欄の内容から、挨拶の表示と、クリアボタンの有効・無効を更新する。
-    void Refresh();
+    // 画面モデルの通知を受けたとき。更新は、ここ (ApplyControls) に集める。
+    void OnModelChanged(int property);
+
+    // 画面モデルの状態を、コントロールへ反映する (名前、挨拶、誤りの文章、クリアの有効・無効)。
+    void ApplyControls();
+
+    @@SNS@@::GreetingScreenModelInterface& m_model;
+    int m_handlerId = 0;
+    bool m_updating = false;   // コントロールを更新している間は、EN_CHANGE を、画面モデルへ戻さない
 };
 '''
 
 DIALOG_CPP = '''#include "pch.h"
 #include "GreetingDialog.h"
+#include "ScreenModelUi.h"
 @@INCLUDES@@
 IMPLEMENT_DYNAMIC(GreetingDialog, CDialog)
 
-GreetingDialog::GreetingDialog(CWnd* parent)
+GreetingDialog::GreetingDialog(@@SNS@@::GreetingScreenModelInterface& model, CWnd* parent)
     : CDialog(IDD, parent)
+    , m_model(model)
 {
 }
 
 BOOL GreetingDialog::OnInitDialog()
 {
     CDialog::OnInitDialog();
-    Refresh();
+    m_handlerId = m_model.AddHandler([this](int property) { OnModelChanged(property); });
+    ApplyControls();
     return TRUE;
+}
+
+void GreetingDialog::OnDestroy()
+{
+    // 通知の登録は、閉じるときに、必ず解除する (しないと、閉じたあとの通知で、壊れたダイアログを呼ぶ)。
+    m_model.RemoveHandler(m_handlerId);
+    CDialog::OnDestroy();
 }
 
 void GreetingDialog::OnNameChanged()
 {
-    Refresh();
+    if (m_updating)
+    {
+        return;
+    }
+    CString name;
+    GetDlgItemText(IDC_GREETING_NAME_EDIT, name);
+    m_model.SetName(ToWString(name));
 }
 
 void GreetingDialog::OnClear()
 {
-    // 入力欄を空にすると、EN_CHANGE で Refresh() が呼ばれる。
-    SetDlgItemText(IDC_GREETING_NAME_EDIT, L"");
+    m_model.Clear();
     // クリアボタンが無効になるので、フォーカスを入力欄へ戻す。
     GetDlgItem(IDC_GREETING_NAME_EDIT)->SetFocus();
 }
 
-void GreetingDialog::Refresh()
+void GreetingDialog::OnModelChanged(int /*property*/)
 {
-    CString name;
-    GetDlgItemText(IDC_GREETING_NAME_EDIT, name);
-@@GREETING@@
-    GetDlgItem(IDC_GREETING_CLEAR_BUTTON)->EnableWindow(!name.IsEmpty());
+    ApplyControls();
+}
+
+void GreetingDialog::ApplyControls()
+{
+    m_updating = true;
+
+    CString current;
+    GetDlgItemText(IDC_GREETING_NAME_EDIT, current);
+    const CString name = ToCString(m_model.GetName());
+    if (current != name)
+    {
+        SetDlgItemText(IDC_GREETING_NAME_EDIT, name);
+    }
+    SetDlgItemText(IDC_GREETING_TEXT, ToCString(m_model.GetGreeting()));
+
+    // 検査の誤り: 最初の 1 件の文章を表示する (欄ごとの表示は、誤りの対象の欄 (properties) で振り分ける)。
+    CString error;
+    for (const auto& e : m_model.Validate())
+    {
+        error = ToCString(e.message);
+        break;
+    }
+    SetDlgItemText(IDC_GREETING_ERROR_TEXT, error);
+
+    // 有効・無効は、最後に、まとめて適用する (CanXxx は、複数の値に依存するので、更新漏れを防ぐ)。
+    GetDlgItem(IDC_GREETING_CLEAR_BUTTON)->EnableWindow(m_model.CanClear());
+
+    m_updating = false;
 }
 
 BEGIN_MESSAGE_MAP(GreetingDialog, CDialog)
+    ON_WM_DESTROY()
     ON_EN_CHANGE(IDC_GREETING_NAME_EDIT, &GreetingDialog::OnNameChanged)
     ON_BN_CLICKED(IDC_GREETING_CLEAR_BUTTON, &GreetingDialog::OnClear)
 END_MESSAGE_MAP()
 @@SHOW@@'''
 
-GREETING_VIA_LOGIC = '''    const std::wstring greeting = @@LNS@@::MakeGreeting(std::wstring(name.GetString()));
-    SetDlgItemText(IDC_GREETING_TEXT, greeting.c_str());'''
-
-GREETING_INLINE = '''    // ロジック層がないので、挨拶の文を、ここで決めている (ロジック層を作ったら、画面に依存しない関数に、切り出す)。
-    CString greeting;
-    if (name.IsEmpty())
-    {
-        greeting = L"@@EMPTY@@";
-    }
-    else
-    {
-        greeting.Format(L"こんにちは、%s さん", static_cast<LPCWSTR>(name));
-    }
-    SetDlgItemText(IDC_GREETING_TEXT, greeting);'''
 
 SHOW_H = '''#pragma once
 #include <windows.h>
@@ -323,7 +576,9 @@ namespace @@NS@@
     {
         // 共有 MFC の標準 DLL: エクスポートする関数は、先頭で、これを呼ぶ (オブジェクト変数の宣言よりも前)。
         AFX_MANAGE_STATE(AfxGetStaticModuleState());
-        GreetingDialog dialog(CWnd::FromHandle(parent));
+        // 画面モデルを作って、ダイアログへ渡す (組み立てる場所)。
+        @@SNS@@::GreetingScreenModel model;
+        GreetingDialog dialog(model, CWnd::FromHandle(parent));
         return static_cast<int>(dialog.DoModal());
     }
 }
@@ -360,6 +615,7 @@ public:
 HOST_EXT_APP_CPP = '''#include "pch.h"
 #include "HostApp.h"
 #include "GreetingDialog.h"
+#include "GreetingScreenModel.h"
 
 HostApp theApp;
 
@@ -368,7 +624,9 @@ BOOL HostApp::InitInstance()
     // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している。
     CWinApp::InitInstance();
 
-    GreetingDialog dialog;
+    // 画面モデルを作って、ダイアログへ渡す (組み立てる場所)。
+    @@SNS@@::GreetingScreenModel model;
+    GreetingDialog dialog(model);
     m_pMainWnd = &dialog;
     dialog.DoModal();
 
@@ -384,7 +642,7 @@ namespace @@NS@@;
 
 /// <summary>@@UI@@ (@@KIND@@) が提供する画面 (GreetingDialog) の、煙テスト。
 /// 画面ホスト (@@HOST@@.exe) が、ダイアログを、そのまま、メインウィンドウとして開く。部品は、リソースのコントロール ID の数値で探す (@@UI@@/Resource.h)。
-/// 挨拶の文の規則は、ロジック層の単体テスト (TestGreeting.cpp) で確かめる。ここは、画面と規則が、つながっていることを確かめる。</summary>
+/// 挨拶の文の規則は、画面モデルの単体テスト (TestGreetingScreenModel.cpp) で確かめる。ここは、画面と規則が、つながっていることを確かめる。</summary>
 [TestClass]
 public class GreetingDialogUiTests : UiTestBase
 {
@@ -437,10 +695,10 @@ def claude_md_section(ui, host, kind, logic):
         out += '- 標準 DLL の公開関数 (`ShowGreetingDialog`) は、先頭で `AFX_MANAGE_STATE(AfxGetStaticModuleState());` を呼ぶ。ホストは、MFC なしの Win32 exe。\n'
     else:
         out += '- 拡張 DLL の画面は、ホスト (MFC の exe。`UseOfMfc=Dynamic`) のリソースの検索の列に入る。ホストの ID は、3000 より小さい値にする。\n'
-    if logic:
-        out += f'- 画面の規則 (挨拶の文) は、ロジック層 `{logic["name"]}` の `Greeting.h` (`MakeGreeting`)。画面に依存しないので、単体テスト (`TestGreeting.cpp`) で確かめ、UI テストは、つながりと主要な操作だけを確かめる。\n'
-    else:
-        out += '- ロジック層がないので、挨拶の文は、ダイアログの中に書いてある。ロジック層を作ったら、画面に依存しない関数に切り出す。\n'
+    where = f'ロジック層 `{logic["name"]}`' if logic else f'UI DLL `{ui}`'
+    out += f'- **画面の状態と規則 (挨拶の文、入力の検査、クリアの有効・無効) は、画面モデル (`GreetingScreenModel`。**すべての画面で必須**) に置く。** {where} の `GreetingScreenModel.h` / `GreetingScreenModelInterface.h` / `GreetingMessages.h` (ヘッダーだけ。MFC の型を使わない)。ダイアログは、`GreetingScreenModelInterface&` を受け取り、状態を表示して操作を呼ぶだけ。通知は `Observable.h` (`AddHandler` / `RemoveHandler` / 複数の値を変える操作は最後に全体を 1 回)、誤りは `ScreenModelSupport.h` (`ValidationError`、`RepositoryException`)。文字列は `std::wstring` で、MFC 側の境界で `ScreenModelUi.h` の `ToCString` / `ToWString` が変換する (MBCS でも、ここだけで吸収する)。規則は、単体テスト (`TestGreetingScreenModel.cpp`) で確かめ、UI テストは、つながりと主要な操作だけを確かめる。詳細は、規約 `mfc-cpp.md`。\n'
+    if not logic:
+        out += '- ロジック層がないので、画面モデルは、UI DLL に置いてある。ロジック層を作ったら、ヘッダーを移して、単体テストを足す。\n'
     return out
 
 
@@ -481,10 +739,22 @@ def main():
     ns = a.namespace or AL.default_namespace(sln)
     up = ui.upper()
     logic = logic_info(sln_dir, sln, a.logic)
-    if logic:
-        gh, gc = (os.path.join(sln_dir, logic['name'], f) for f in ('Greeting.h', 'Greeting.cpp'))
-        if os.path.exists(gh) or os.path.exists(gc):
-            die(f'すでに存在する: {logic["name"]}/Greeting.h または Greeting.cpp (何も書いていない)', 3)
+    sns = logic['ns'] if logic else ns                    # 画面モデルの名前空間
+    sm_dir = logic['name'] if logic else ui               # 画面モデルのファイルを置くフォルダ (ロジック層がなければ、UI DLL)
+    if os.path.exists(os.path.join(sln_dir, sm_dir, 'GreetingScreenModel.h')):
+        die(f'すでに存在する: {sm_dir}/GreetingScreenModel.h (何も書いていない)', 3)
+    # 共通の部品 (実物のヘッダーを、そのままコピーする)。すでにあるときは、足さない
+    common = {}
+    for fn in ('Observable.h', 'ScreenModelSupport.h'):
+        if not os.path.exists(os.path.join(sln_dir, sm_dir, fn)):
+            with open(os.path.join(HERE, '..', 'assets', fn), encoding='utf-8') as f:
+                common[fn] = f.read()
+    sm_files = {
+        'GreetingScreenModelInterface.h': fill(SM_INTERFACE_H, SNS=sns),
+        'GreetingMessages.h': fill(SM_MESSAGES_H, SNS=sns, EMPTY=EMPTY_TEXT),
+        'GreetingScreenModel.h': fill(SM_MODEL_H, SNS=sns),
+    }
+    sm_files.update(common)
 
     ug, hg = AL.new_guid(), AL.new_guid()
     files, plain, edits = {}, {}, {}      # 新しいファイル (BOM 付き) / 新しいファイル (BOM なし。.rc) / 既存のファイルの編集 (パス -> 関数)
@@ -493,7 +763,9 @@ def main():
     uses = [logic['name']] if logic else []
     base = AL.dll_files(ui, ns, uses, toolset, ug, kind=a.kind)
     std = a.kind == 'mfc-std-dll'
-    new_items = ['GreetingDialog.h', 'GreetingDialog.cpp', f'{ui}.rc', 'Resource.h'] + (['ShowGreeting.h'] if std else [])
+    new_items = ['GreetingDialog.h', 'GreetingDialog.cpp', 'ScreenModelUi.h', f'{ui}.rc', 'Resource.h'] + (['ShowGreeting.h'] if std else [])
+    if not logic:
+        new_items += list(sm_files)       # ロジック層がないので、画面モデルは、UI DLL に置く
     vtext = base[f'{ui}/{ui}.vcxproj']
     vtext = add_to_vcxproj(vtext, new_items)
     if logic:
@@ -502,11 +774,14 @@ def main():
     all_items = [m.group(1) for m in re.finditer(r'<(?:ClInclude|ClCompile|ResourceCompile) Include="([^"]+)"', vtext)]
     base[f'{ui}/{ui}.vcxproj.filters'] = AL.vcxproj_filters(all_items)
     files.update(base)
-    includes = ('#include "Greeting.h"\n' if logic else '') + ('#include "ShowGreeting.h"\n' if std else '')
-    greeting = (fill(GREETING_VIA_LOGIC, LNS=logic['ns']) if logic else fill(GREETING_INLINE, EMPTY=EMPTY_TEXT))
-    files[f'{ui}/GreetingDialog.h'] = fill(DIALOG_H, EXPORT='' if std else 'AFX_EXT_CLASS ')
-    files[f'{ui}/GreetingDialog.cpp'] = fill(DIALOG_CPP, INCLUDES=includes, GREETING=greeting,
-                                             SHOW=fill(SHOW_CPP, NS=ns) if std else '')
+    includes = ('#include "GreetingScreenModel.h"\n#include "ShowGreeting.h"\n' if std else '')
+    files[f'{ui}/GreetingDialog.h'] = fill(DIALOG_H, EXPORT='' if std else 'AFX_EXT_CLASS ', SNS=sns)
+    files[f'{ui}/GreetingDialog.cpp'] = fill(DIALOG_CPP, INCLUDES=includes, SNS=sns,
+                                             SHOW=fill(SHOW_CPP, NS=ns, SNS=sns) if std else '')
+    files[f'{ui}/ScreenModelUi.h'] = SM_UI_H
+    if not logic:
+        for fn, text in sm_files.items():
+            files[f'{ui}/{fn}'] = text
     files[f'{ui}/Resource.h'] = RESOURCE_H
     plain[f'{ui}/{ui}.rc'] = RC
     if std:
@@ -521,36 +796,32 @@ def main():
         items = ['pch.h', 'HostApp.h', 'HostApp.cpp']
         files[f'{host}/pch.h'] = HOST_EXT_PCH
         files[f'{host}/HostApp.h'] = HOST_EXT_APP_H
-        files[f'{host}/HostApp.cpp'] = HOST_EXT_APP_CPP
-        files[f'{host}/{host}.vcxproj'] = AL.vcxproj(host, hg, 'Application', toolset, items, [(ui, ug)], [f'$(ProjectDir)..\\{ui}'], '_WINDOWS;', 'Windows', mfc=True)
+        files[f'{host}/HostApp.cpp'] = fill(HOST_EXT_APP_CPP, SNS=sns)
+        files[f'{host}/{host}.vcxproj'] = AL.vcxproj(host, hg, 'Application', toolset, items, [(ui, ug)], [f'$(ProjectDir)..\\{ui}'] + ([f'$(ProjectDir)..\\{logic["name"]}'] if logic else []), '_WINDOWS;', 'Windows', mfc=True)
     files[f'{host}/{host}.vcxproj.filters'] = AL.vcxproj_filters(items)
     projects = [(ui, ug), (host, hg)]
 
-    # ---- ロジック層 (規則) と、その単体テスト
+    # ---- ロジック層 (画面モデル) と、その単体テスト。画面モデルは、ヘッダーだけで書いてある (DLL の境界に、std の型を出さない)
     notes = []
     if logic:
         ln = logic['name']
-        manage = '        // 共有 MFC の標準 DLL: エクスポートする関数は、先頭で、これを呼ぶ (オブジェクト変数の宣言よりも前)。\n' \
-                 '        AFX_MANAGE_STATE(AfxGetStaticModuleState());\n' if logic['mfc_std'] else ''
-        api = '' if logic['lib'] or not logic['api'] else f'{ln.upper()}_API '
-        files[f'{ln}/Greeting.h'] = fill(GREETING_H, NS=logic['ns'], API=api, API_INCLUDE=f'#include "{ln}Api.h"\n' if api else '')
-        files[f'{ln}/Greeting.cpp'] = fill(GREETING_CPP, NS=logic['ns'], EMPTY=EMPTY_TEXT, MANAGE=manage,
-                                           PCH='#include "pch.h"\n' if logic['pch'] else '')
+        for fn, text in sm_files.items():
+            files[f'{ln}/{fn}'] = text
         for fn in ('.vcxproj', '.vcxproj.filters'):
             p = f'{ln}/{ln}{fn}'
             if os.path.isfile(os.path.join(sln_dir, p)):
-                edits[p] = (lambda t, fn=fn: (add_to_vcxproj if fn == '.vcxproj' else add_to_filters)(t, ['Greeting.h', 'Greeting.cpp']))
+                edits[p] = (lambda t, fn=fn: (add_to_vcxproj if fn == '.vcxproj' else add_to_filters)(t, list(sm_files)))
         if logic['test']:
             tn = logic['test']
-            files[f'{tn}/TestGreeting.cpp'] = fill(GREETING_TEST, NS=logic['ns'], EMPTY=EMPTY_TEXT)
+            files[f'{tn}/TestGreetingScreenModel.cpp'] = fill(GREETING_TEST, SNS=sns, EMPTY=EMPTY_TEXT)
             for fn in ('.vcxproj', '.vcxproj.filters'):
                 p = f'{tn}/{tn}{fn}'
                 if os.path.isfile(os.path.join(sln_dir, p)):
-                    edits[p] = (lambda t, fn=fn: (add_to_vcxproj if fn == '.vcxproj' else add_to_filters)(t, ['TestGreeting.cpp']))
+                    edits[p] = (lambda t, fn=fn: (add_to_vcxproj if fn == '.vcxproj' else add_to_filters)(t, ['TestGreetingScreenModel.cpp']))
         else:
-            notes.append(f'NOTE: {ln} のテストのプロジェクトがないので、Greeting の単体テストは、作らない (cpp-test-first の add_layer.py --tests-only で、足せる)')
+            notes.append(f'NOTE: {ln} のテストのプロジェクトがないので、画面モデルの単体テストは、作らない (cpp-test-first の add_layer.py --tests-only で、足せる)')
     else:
-        notes.append('NOTE: ロジック層がないので、挨拶の文は、ダイアログの中に書いた。ロジック層を作ったら、画面に依存しない関数に、切り出す')
+        notes.append('NOTE: ロジック層がないので、画面モデル (GreetingScreenModel ほか) は、UI DLL に置いた。ロジック層を作ったら、ヘッダーを移して、単体テストを足す')
 
     print(f'ソリューション : {os.path.basename(sln)}')
     print(f'UI DLL         : {ui} ({"MFC 標準 DLL (共有 MFC)" if std else "MFC 拡張 DLL"})')

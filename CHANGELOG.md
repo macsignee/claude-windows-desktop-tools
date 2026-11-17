@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.94.0] 2026-11-17 (MFC の UI DLL のサンプルを画面モデルにする。実装の PR B-4)
+
+- **`add_ui_host.py`:** サンプル `GreetingDialog` を、**画面モデル中心**に変えた。`Greeting.h` / `Greeting.cpp` (`MakeGreeting`) と `TestGreeting.cpp` をやめ、**ヘッダーだけの画面モデル** (`GreetingScreenModelInterface.h`・`GreetingScreenModel.h`・`GreetingMessages.h`) と、`TestGreetingScreenModel.cpp` (8 件) を生成する。ロジック層があればそこに、なければ UI DLL に置く。
+- **共通部品:** `Observable.h` と `ScreenModelSupport.h` (`ValidationError`・`ValidationResult`・`RepositoryException`。文章は `GetText()`) を、Skill の `assets/` の**実物のコピー**として生成する (すでにあれば、足さない)。UI DLL に `ScreenModelUi.h` (`ToCString` / `ToWString`) を足す。
+- **ダイアログ:** `GreetingScreenModelInterface&` を受け取る (`explicit` でないコンストラクター。`ShowGreetingDialog` と拡張 DLL のホストが、画面モデルを作って渡す)。`OnInitDialog` で `AddHandler`、`OnDestroy` で `RemoveHandler`。誤りの表示用に `IDC_GREETING_ERROR_TEXT` (3005) を足した。**既存のコントロール ID (3001〜3004) と、UI テストの内容は、変えていない。**
+- **契約を変えた点:** (1) ロジック層に `Greeting.h` / `Greeting.cpp` を足さなくなった (ヘッダー 5 つに変わった)。(2) `GreetingDialog` のコンストラクターに、画面モデルの引数が増えた。(3) 拡張 DLL のホストの include に、ロジック層のフォルダが入る。(4) `CLAUDE.md` の「画面を持つ DLL」の節を、画面モデルの説明に変えた。
+- 規約 (`mfc-cpp.md`)・`DLL-LAYOUT.md`・手引き・`DESIGN.md` (4.89) の記述を、実装に合わせた。
+- テスト: `tests/add_ui_host_test.sh` を新構成に更新 (+4 件。共通ヘッダーが Skill の実物と同じ内容であることを含む)。`mfc-check` は、生成物に指摘を出さない。**WSL には、C++ のコンパイラがなく、生成した C++ を、まだ一度もコンパイルしていない。実機の確認は、これから** (MSVC でのビルド、GoogleTest、UI テスト、MBCS)。
+- **この版では、まだ:** MFC のメイン (`mfc-dialog` の `CSampleDlg`・SDI・MDI。B-4b)、`APP_FAKE_SCREENS` ほか (PR C)。
+
 ## [2.93.0] 2026-11-17 (WPF の ViewModel の基底 `ViewModelBase`。実装の PR B-3)
 
 - **`add_project.py` (WPF):** `ViewModels` に、**`ViewModelBase`** (`Validate()` の結果 = .NET 標準の `ValidationResult` を、`ErrorTexts[欄名]` と `ScreenErrorTexts` にする)、**`ErrorTextMap`** (`Item[]` の変更を通知するインデクサー)、**`MainMessages`** (文章を 1 か所) を生成する。`MainViewModel` は `ViewModelBase` を継承し、`Validate()` / `IsValid` を持つ (名前は 20 文字以内)。
