@@ -49,4 +49,5 @@ C# 版と同じ: **インターフェースの、決めた意味だけ** (正常
 画面モデルにも、同じ形で契約テストを書く (名前は `<画面名>ScreenModelInterfaceContract`)。実装は、**本物の画面モデル (Fake リポジトリを渡す)** と、**Fake 画面モデル** (あるとき)。**ロジック先は、契約テストを先に書き、本物で Green にしてから、Fake 画面モデルを作る。**
 - **書く内容:** C# 版と同じ (`csharp-test-first/CONTRACT-TESTS.md` の「画面モデルの契約テスト」)。C++ では、`Validate()` (`std::vector<ValidationError>`) / `IsValid()`、`Commit()` (`bool`)、`GetFailure()` (`std::wstring`。空 = 失敗なし)、通知 (`AddHandler` したハンドラーが、どの識別 (`int`) を、いつ受け取るか。複数の値を変える操作は、最後に `All` を 1 回)。
 - **失敗の契約:** `RepositoryException` を投げるリポジトリで、`Commit()` が `false`、`GetFailure()` が、その文章、状態は不変。重複・見つからないは、本物と Fake の両方。接続できないは、Fake だけ (`FailNext(...)`)。
+- **Fake リポジトリの失敗の再現 (`FailNext` / `FailWhen`):** ひな形は生成しない。リポジトリを持つ画面を作るとき、Fake に足す (インターフェースには足さない)。形は、`csharp-test-first/CONTRACT-TESTS.md` の「Fake リポジトリの失敗の再現」と同じ (C++ は、`RepositoryException` を投げる)。
 - 文章は、`properties` と `message` (`std::wstring`) で検査する (文言を直したら、テストも直す)。

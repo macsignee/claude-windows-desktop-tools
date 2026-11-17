@@ -66,3 +66,36 @@ MSTest は、**抽象クラスの `[TestMethod]` を、具体クラスごとに�
 - **リポジトリの失敗の契約 (リポジトリの契約テストに足す):** 本物でも再現できる失敗 (重複、見つからない) は、本物と Fake の両方に通す。再現できない失敗 (接続できない) は、**Fake だけのテスト**として、別に書く (Fake の `FailNext(...)` / `FailWhen(操作, ...)` で再現する)。
 - **文章:** 画面モデルは、日本語の文章を作る。単体テストは、`MemberNames` と `ErrorMessage` (文章) で検査する (文言を直したら、テストも直す)。業務の生成文も、文言で検査する。
 
+
+## Fake リポジトリの失敗の再現 (`FailNext` / `FailWhen`)
+**ひな形は、リポジトリも Fake も生成しない** (決定 2026-11-17。サンプルの画面が、リポジトリを使わないため)。リポジトリを持つ画面を作るとき、利用者 (Claude) が、Fake に、次の形で足す。**インターフェースには足さない** (本物に「失敗させる」操作はない)。Fake を直接持つ単体テストだけが使う。
+
+```csharp
+public class FakeOrderRepository : IOrderRepository
+{
+    private readonly Queue<RepositoryException> _nextFailures = new();
+    private readonly List<(string Operation, Func<object?[], bool> When, RepositoryException Error)> _rules = new();
+
+    /// <summary>次の 1 回の呼び出しだけ失敗させる (その後は成功する。再試行の確認に使う)。</summary>
+    public void FailNext(RepositoryException error) => _nextFailures.Enqueue(error);
+
+    /// <summary>操作名 (nameof(Save) など) と、引数の条件に合う呼び出しを、失敗させる (条件に合う間、続く)。</summary>
+    public void FailWhen(string operation, Func<object?[], bool> when, RepositoryException error) => _rules.Add((operation, when, error));
+
+    private void ThrowIfFailing(string operation, params object?[] args)
+    {
+        if (_nextFailures.Count > 0) throw _nextFailures.Dequeue();
+        foreach (var r in _rules)
+            if (r.Operation == operation && r.When(args)) throw r.Error;
+    }
+
+    public void Save(Order order)
+    {
+        ThrowIfFailing(nameof(Save), order);   // 失敗するときは、状態を変える前に投げる
+        // ... メモリ上に保存する
+    }
+}
+```
+- **使い方 (単体テスト):** `fake.FailNext(new RepositoryException("保存できませんでした"))` → 画面モデルの `Commit()` → `false`、`Failure` がその文章、状態は不変。もう一度 `Commit()` で、成功する (再試行できる)。
+- **失敗する前に、状態を変えない** (本物のトランザクションの失敗と、同じ見え方にする)。
+- **UI テスト (別プロセス) は、メソッドを呼べない。** アプリの組み立てる場所が、`APP_MODEL=fake:<シナリオ名>` を (Debug のときだけ) 読み、そのシナリオ用に `FailNext` / `FailWhen` を設定した Fake を渡す。シナリオ名と設定は、アプリごとに決める (ひな形にはない)。
