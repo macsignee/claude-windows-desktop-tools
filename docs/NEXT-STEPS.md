@@ -1,6 +1,6 @@
 # 次の作業 (再開用メモ)
 
-2026-11-17 時点 (v2.96.1。`claude-spec-workflow` は未確認)。**画面モデル (PR A〜C。v2.91.0〜v2.96.0) は、実装・実機確認 (TEST-PLAN 2-57 の SM1〜SM10) とも済み。** 残っているのは、画面モデルの仕上げ (下の「0」)、任意の確認、条件が整ってから行うもの、判断待ちのものだけ。
+2026-11-17 時点 (v2.96.6。`claude-spec-workflow` は v1.8.0)。**画面モデル (PR A〜C。v2.91.0〜v2.96.0) は、実装・実機確認 (TEST-PLAN 2-57 の SM1〜SM10) とも済み。** 残っているのは、画面モデルの仕上げ (下の「0」)、任意の確認、条件が整ってから行うもの、判断待ちのものだけ。
 各項目の状況は `docs/REMAINING-CHECKS.md`、手順と結果は `docs/TEST-PLAN.md`、変更の一覧は `CHANGELOG.md`。以前の版のこのメモ (手順や依頼文) は、git の履歴にある。
 画面モデルの引き継ぎの詳細は `docs/HANDOFF-2026-11-17.md` (5 章が残作業)。
 
@@ -8,7 +8,7 @@
 
 - **方針の再確認:** MFC の SDI・MDI のひな形は、旧形のまま (Document/View なので対象外と決めた)。
 - **実機で未確認 (DESIGN 4.85):** MFC の言語切り替え (`SetThreadUILanguage`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。SM11 (新規 MFC の `framework.h` 変更後の実機ビルド)。
-- **確認:** `claude-spec-workflow` の追随、規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。
+- **確認:** 規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。
 - **低優先・保留:** 国際化 (リソースへの移行、`APP_CULTURE`、Satellite DLL)、非同期 `Commit()`、`switch (nID)` の `mfc-check` の検査、C# で複数プロパティの変更をまとめる必要、MFC の `Observable` の継続的な検証。
 
 ## 1. 任意の確認
@@ -49,7 +49,7 @@
 - **`HOST_VERSION`** (v2.56.0)、**利用ガイド `docs/USAGE.md`** (v2.56.1)、**テストの中身の点検 `test_guard.py audit` と変異の確認** (v2.57.0)。
 - **`<Skill群>` の表記と、プロジェクトの `.claude/skills` への配布** (v2.58.0): 実機の確認 (PL1・PL2) まで完了。両方にあるときは、ホームが優先される。
 - **WPF の MVVM の基底の明示** (v2.59.0・v2.59.1): 推奨は CommunityToolkit.Mvvm。Prism は、使うのは自由だが、推奨しない。
-- **`claude-spec-workflow`** (v1.0.0〜v1.7.2): `/add-feature` が、`add-package` と連携し (v1.6.0)、層の追加を `/add-project` にそろえた (v1.7.0)。実機の確認 (`wpfcutE`) まで完了。
+- **`claude-spec-workflow`** (v1.0.0〜v1.8.0。v1.8.0 で、画面モデルの採用に追随した (`add-feature` の画面モデルのタスク、`update-from-ideas` の WinForms の表記)。`brainstormF` の、検査・失敗の観点は、足していない): `/add-feature` が、`add-package` と連携し (v1.6.0)、層の追加を `/add-project` にそろえた (v1.7.0)。実機の確認 (`wpfcutE`) まで完了。
 
 ## 運用メモ (マージ・配置)
 
