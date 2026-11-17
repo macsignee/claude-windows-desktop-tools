@@ -148,14 +148,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
 # 書式は、Microsoft Learn「Build Requirements for Windows Common Controls」(MFC) の、公式の例のとおり (ia64 は除く。それ以外は、else の '*')。
 MFC_CC_MANIFEST = r'''
 // Common Controls 6.0 以降 (ビジュアルスタイル) を使う (UI デザインガイドライン UI-CTL-100)。
-#ifdef UNICODE
+// 文字セット (Unicode / MBCS) を問わず、適用できる (ウィザードは UNICODE のときだけ付けるが、MBCS でも効く)。
 #if defined _M_IX86
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #elif defined _M_X64
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
-#endif
 #endif
 '''
 
@@ -583,6 +582,7 @@ protected:
     BOOL OnInitDialog() override;
 
     afx_msg void OnDestroy();
+    afx_msg HBRUSH OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor);
     afx_msg void OnNameChanged();
     afx_msg void OnClear();
     DECLARE_MESSAGE_MAP()
@@ -638,6 +638,17 @@ void CSampleDlg::OnDestroy()
     CDialog::OnDestroy();
 }
 
+HBRUSH CSampleDlg::OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor)
+{
+    HBRUSH brush = CDialog::OnCtlColor(dc, wnd, ctlColor);
+    // 誤りの文章は、赤字にする (色だけに頼らない。文章そのものが、誤りを伝える)。
+    if (wnd->GetDlgCtrlID() == IDC_ERROR_TEXT)
+    {
+        dc->SetTextColor(RGB(192, 0, 0));
+    }
+    return brush;
+}
+
 void CSampleDlg::OnNameChanged()
 {
     if (m_updating)
@@ -691,6 +702,7 @@ void CSampleDlg::ApplyControls()
 
 BEGIN_MESSAGE_MAP(CSampleDlg, CDialog)
     ON_WM_DESTROY()
+    ON_WM_CTLCOLOR()
     ON_EN_CHANGE(IDC_NAME_EDIT, &CSampleDlg::OnNameChanged)
     ON_BN_CLICKED(IDC_CLEAR_BUTTON, &CSampleDlg::OnClear)
 END_MESSAGE_MAP()

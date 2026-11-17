@@ -455,6 +455,7 @@ protected:
     BOOL OnInitDialog() override;
 
     afx_msg void OnDestroy();
+    afx_msg HBRUSH OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor);
     afx_msg void OnNameChanged();
     afx_msg void OnClear();
     DECLARE_MESSAGE_MAP()
@@ -497,6 +498,17 @@ void GreetingDialog::OnDestroy()
     // 通知の登録は、閉じるときに、必ず解除する (しないと、閉じたあとの通知で、壊れたダイアログを呼ぶ)。
     m_model.RemoveHandler(m_handlerId);
     CDialog::OnDestroy();
+}
+
+HBRUSH GreetingDialog::OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor)
+{
+    HBRUSH brush = CDialog::OnCtlColor(dc, wnd, ctlColor);
+    // 誤りの文章は、赤字にする (色だけに頼らない。文章そのものが、誤りを伝える)。
+    if (wnd->GetDlgCtrlID() == IDC_GREETING_ERROR_TEXT)
+    {
+        dc->SetTextColor(RGB(192, 0, 0));
+    }
+    return brush;
 }
 
 void GreetingDialog::OnNameChanged()
@@ -552,6 +564,7 @@ void GreetingDialog::ApplyControls()
 
 BEGIN_MESSAGE_MAP(GreetingDialog, CDialog)
     ON_WM_DESTROY()
+    ON_WM_CTLCOLOR()
     ON_EN_CHANGE(IDC_GREETING_NAME_EDIT, &GreetingDialog::OnNameChanged)
     ON_BN_CLICKED(IDC_GREETING_CLEAR_BUTTON, &GreetingDialog::OnClear)
 END_MESSAGE_MAP()
