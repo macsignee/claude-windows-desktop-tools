@@ -90,3 +90,6 @@ winforms-check: error 1 / warning 1 (3 projects: WfApp, LogicLayer, DataLayer)
 - WFL001 / WFL002 は、**`using` と、型の名前 (`MessageBox` / `Control` / `Form` など) の字面**で判定する。同名の自作の型があると、誤検出になる。
 - 層の判定は、**名前の推定:** `Logic` / `Domain` / `Core` / `Presenters` → ロジック、`Data` → データ、`UseWindowsForms` の exe → アプリ。テストプロジェクト (`Test` / `Tests` で終わる) は、層の検査の対象外 (共通の規則 (ASY / EXC / NAM) も、見ない)。外れるときは、`--logic` / `--data` で指定する。
 - **実プロジェクトでの検証は、まだ。** 疑似のソリューションと、`new-solution` が作ったものでは、誤検出なし。実プロジェクトで誤検出を見つけたら、報告に書き (どのコードの、どの書き方か)、ユーザーに伝える。
+
+## 規則との対応
+どの規則 (規約の章・節) を、どの検査 ID が確かめるかの表は、`references/rule-map.md` (規約の付録から移した)。
