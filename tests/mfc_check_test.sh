@@ -561,5 +561,42 @@ print(*[int(m.is_ui_name(n)) for n in ("ReportViewModel", "ViewModels", "ReportV
 PYEOF
 )"
 ok "is_ui_name: ReportViewModel / ViewModels は画面の層でない。ReportView / UiLayer / OrderDialog は画面の層。LogicLayer は違う" "$([ "$ui_names" = "0 0 1 1 1 0" ] && echo 1 || echo 0)"
+# ---- MDI001: CMDIFrameWnd 派生が OnCreateClient を上書きせず、IDR_MAINFRAME のメニューが 2 項目未満 (v2.97.1。v2.60.1 の起動時 ASSERT の再発防止)
+python3 -I - "$T" <<'PYEOF'
+import os, sys
+T = sys.argv[1]
+def w(path, text):
+    path = os.path.join(T, path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "wb").write(text.replace("\n", "\r\n").encode("utf-8"))
+VCX = '<?xml version="1.0" encoding="utf-8"?>\n<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n<PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseOfMfc>Dynamic</UseOfMfc></PropertyGroup>\n</Project>\n'
+FRAME_PLAIN = "#pragma once\n#include <afxwin.h>\nclass CMainFrame : public CMDIFrameWnd\n{\n    DECLARE_DYNAMIC(CMainFrame)\n};\n"
+FRAME_OVR = "#pragma once\n#include <afxwin.h>\nclass CMainFrame : public CMDIFrameWnd\n{\n    DECLARE_DYNAMIC(CMainFrame)\n    BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;\n};\n"
+FRAME_CHILD = "#pragma once\n#include <afxwin.h>\nclass CBaseFrame : public CMDIFrameWnd\n{\n    DECLARE_DYNAMIC(CBaseFrame)\n    BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;\n};\nclass CMainFrame : public CBaseFrame\n{\n    DECLARE_DYNAMIC(CMainFrame)\n};\n"
+FRAME_SDI = "#pragma once\n#include <afxwin.h>\nclass CMainFrame : public CFrameWnd\n{\n    DECLARE_DYNAMIC(CMainFrame)\n};\n"
+RC1 = '#include "resource.h"\n#include "afxres.h"\nIDR_MAINFRAME MENU\nBEGIN\n    POPUP "&File"\n    BEGIN\n        MENUITEM "E&xit", ID_APP_EXIT\n    END\nEND\n'
+RC4 = '#include "resource.h"\n#include "afxres.h"\nIDR_MAINFRAME MENU\nBEGIN\n    POPUP "&File"\n    BEGIN\n        MENUITEM "E&xit", ID_APP_EXIT\n        MENUITEM "&Open", ID_FILE_OPEN\n    END\n    POPUP "&Edit"\n    BEGIN\n        MENUITEM "&Undo", ID_EDIT_UNDO\n    END\n    POPUP "&Window"\n    BEGIN\n        MENUITEM "&Cascade", ID_WINDOW_CASCADE\n    END\n    POPUP "&Help"\n    BEGIN\n        MENUITEM "&About", ID_APP_ABOUT\n    END\nEND\n'
+RESH = "#define IDR_MAINFRAME 128\n"
+for name, frame, rc in [("mdi_bad", FRAME_PLAIN, RC1), ("mdi_override", FRAME_OVR, RC1), ("mdi_menu4", FRAME_PLAIN, RC4),
+                        ("mdi_base_override", FRAME_CHILD, RC1), ("mdi_sdi", FRAME_SDI, RC1)]:
+    w(f"{name}/App/App.vcxproj", VCX)
+    w(f"{name}/App/resource.h", RESH)
+    w(f"{name}/App/App.rc", rc)
+    w(f"{name}/App/MainFrm.h", frame)
+PYEOF
+for c in mdi_bad mdi_override mdi_menu4 mdi_base_override mdi_sdi; do
+  eval "mdi_out_$c=\"\$(python3 -I \"\$S\" \"\$T/$c\" 2>&1)\""
+done
+ok "MDI001: OnCreateClient を上書きせず、IDR_MAINFRAME のメニューが 1 項目 → warning" "$(has "$mdi_out_mdi_bad" 'MDI001')"
+ok "MDI001: 報告の中に、フレームのクラス名 (CMainFrame) と、項目数がある" "$([ "$(has "$mdi_out_mdi_bad" 'CMainFrame')" = 1 ] && [ "$(has "$mdi_out_mdi_bad" '1 項目')" = 1 ] && echo 1 || echo 0)"
+ok "MDI001: OnCreateClient を上書きしていれば、出ない" "$([ "$(has "$mdi_out_mdi_override" 'MDI001')" = 0 ] && echo 1 || echo 0)"
+ok "MDI001: メニューが 4 項目 (File / Edit / Window / Help) なら、出ない" "$([ "$(has "$mdi_out_mdi_menu4" 'MDI001')" = 0 ] && echo 1 || echo 0)"
+ok "MDI001: プロジェクトの中の基底クラスが OnCreateClient を上書きしていれば、派生のフレームでも出ない" "$([ "$(has "$mdi_out_mdi_base_override" 'MDI001')" = 0 ] && echo 1 || echo 0)"
+ok "MDI001: SDI (CFrameWnd 派生) は、対象外" "$([ "$(has "$mdi_out_mdi_sdi" 'MDI001')" = 0 ] && echo 1 || echo 0)"
+ok "MDI001: warning であり、error ではない (終了コード 0)" "$(python3 -I "$S" "$T/mdi_bad" >/dev/null 2>&1; [ $? = 0 ] && echo 1 || echo 0)"
+# 生成物の MDI (v2.60.1 以降は OnCreateClient を上書きする) は、指摘なし
+python3 "$ROOT/skills/new-solution/scripts/new_solution.py" "$T/gen_mdi" --type mfc-mdi --layers none --tests none >/dev/null 2>&1
+ok "MDI001: 生成した --type mfc-mdi は、指摘なし" "$([ -d "$T/gen_mdi" ] && [ "$(python3 -I "$S" "$T/gen_mdi" 2>&1 | grep -c 'MDI001')" = 0 ] && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

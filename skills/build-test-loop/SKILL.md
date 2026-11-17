@@ -224,3 +224,4 @@ warnings: 12 (5 unique): C4244 x5, C4996 x3, C4101 x2, ... (+2 more)
 - `test_error.log`: テスト失敗・タイムアウト・環境エラー時のみ。環境エラーは先頭が `[ENVIRONMENT ERROR - not a source code problem]`。
 - `.claude-logs/`: `build.log` / `errors.log` / `warnings.log` / `test.log` (フルパスのまま)、`test-results/` (GoogleTest の XML と MSTest の trx)。
 - `ENV_ERROR` には、「テストが 1 件も実行されなかった」(.NET: trx がない / `executed=0`、GoogleTest: 要約行がない) も含まれる。**ソースもテストも直さずに、報告して止まる** (`Microsoft.NET.Test.Sdk` や、テストアダプタ (MSTest) の参照の確認を、ユーザーに依頼する)。
+- **`MSB4126` (無効な構成 `Debug|x64` など):** `auto-build` の同名の項と同じ。ウォッチャーの Platform 引数と、ソリューションの Platform の食い違いを疑い、ソースを直さず、ユーザーに、その Platform でウォッチャーを起動し直すよう依頼する (`run_watcher.cmd <フォルダ> "" Win32`)。

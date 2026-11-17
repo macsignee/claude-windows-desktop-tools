@@ -610,6 +610,8 @@ def mfc_ext_files(name, ns, uses, toolset, dg):
 // **CObject 派生クラス (シリアライズ対象など) には、{up}_API ではなく、MFC の AFX_EXT_CLASS を付ける**
 // (例: class AFX_EXT_CLASS Foo : public CObject。{name} の中では _AFXEXT により、エクスポートになる)。
 // 付け忘れると、利用側でリンクエラー (LNK2019) になる。
+// **公開ヘッダー (CObject・CString などを使うもの) は、自分で <afxwin.h> を include する。**
+// 利用側 (プリコンパイル済みヘッダーのないテスト exe など) で、BUILD_FAILED になるのを防ぐ。
 #ifdef {up}_EXPORTS
 #define {up}_API __declspec(dllexport)
 #else

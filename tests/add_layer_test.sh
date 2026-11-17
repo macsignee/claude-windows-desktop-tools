@@ -207,6 +207,7 @@ check "拡張 DLL: pch.h を使い (Use)、pch.cpp は Create、dllmain.cpp は 
 check "拡張 DLL: dllmain.cpp に定型コード (AFX_EXTENSION_MODULE / AfxInitExtensionModule / CDynLinkLibrary / AfxTermExtensionModule)" bash -c "for k in AFX_EXTENSION_MODULE AfxInitExtensionModule CDynLinkLibrary AfxTermExtensionModule afxdllx.h; do grep -q \$k '$S7/ExtLogic/dllmain.cpp' || exit 1; done"
 check "拡張 DLL: ModuleInfo.cpp は、先頭で pch.h を include (プリコンパイル済みヘッダーを使うため)" bash -c "tr -d '\r' < '$S7/ExtLogic/ExtLogicModuleInfo.cpp' | sed '1s/^\xef\xbb\xbf//' | head -1 | grep -q '#include \"pch.h\"'"
 check "拡張 DLL: Api.h に、CObject 派生には AFX_EXT_CLASS を付ける注意" grep -q 'AFX_EXT_CLASS' "$S7/ExtLogic/ExtLogicApi.h"
+check "拡張 DLL: Api.h に、公開ヘッダーは自分で <afxwin.h> を include する注意" grep -q '自分で <afxwin.h> を include' "$S7/ExtLogic/ExtLogicApi.h"
 check "拡張 DLL: 全ファイルが BOM + CRLF (BOM なし・LF だと、MFC のヘッダーで原因の分かりにくいエラー)" bash -c "for f in '$S7'/ExtLogic/*.cpp '$S7'/ExtLogic/*.h; do [ \"\$(head -c3 \$f | xxd -p)\" = efbbbf ] && [ \"\$(grep -vc \$'\\r\$' \$f)\" = 0 ] || exit 1; done"
 check "テスト exe: UseOfMfc=Dynamic (同じ共有 MFC ランタイム)、_AFXEXT は付けない、DLL をプロジェクト参照" bash -c "[ \"\$(grep -c '<UseOfMfc>Dynamic</UseOfMfc>' '$ET')\" = 2 ] && ! grep -q '_AFXEXT' '$ET' && grep -q 'ProjectReference Include=\"..\\\\ExtLogic\\\\ExtLogic.vcxproj\"' '$ET'"
 check "テスト exe: マニフェストの DPI は、付けない (UI のアプリではない)" bash -c "! grep -q 'EnableDpiAwareness' '$ET'"

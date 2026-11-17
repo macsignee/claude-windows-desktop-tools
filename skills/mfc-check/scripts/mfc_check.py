@@ -35,6 +35,7 @@ Usage: mfc_check.py <dir> [--json <out.json>] [--max-lines 40] [--all]
   DLG008 info    同じダイアログに、同じニーモニック (&X) が重複
   DLG009 info    AFX_DIALOG_LAYOUT が、存在しないダイアログのもの (VS が残した、不要な定義)
   DLG010 warning 同じメンバーを、複数の DDX_Control に渡している (2 回目以降は、MFC が何もしない)
+  MDI001 warning CMDIFrameWnd 派生のフレームが、OnCreateClient を上書きせず、IDR_MAINFRAME のメニューが 2 項目未満 (MFC の既定の OnCreateClient が、Window メニューを「右から 2 番目」と推測して、起動時に ASSERT で止まる)
   NSP001 warning CObject 派生のクラス (CDialog / CView / CDocument / CFrameWnd などを含む) が、名前空間の中にある (v2.89.0)
   DEC001 warning CObject 派生のクラスに、DECLARE_DYNAMIC / DECLARE_DYNCREATE / DECLARE_SERIAL がない (CWinApp / CWinThread 派生は除く)
   LAY001 error   ライブラリ (DLL / lib) で、GUI のクラスを使っている
@@ -267,7 +268,7 @@ def parse_rc(text):
     """-> dict(defs, dialogs, menu_ids, accel_ids, toolbar_ids, string_ids, ids, defines)"""
     lines = strip_code(text, blank_strings=False).split("\n")
     hits, skip = [], set()          # ID の出現 (名前, 行) と、使用に数えない行 (VS のメタデータ)
-    r = {"defs": [], "dialogs": OrderedDict(), "dlgctrls": OrderedDict(), "layouts": {}, "_skip": skip, "menu": {}, "accel": {}, "toolbar": {}, "strings": {}, "ids": {},
+    r = {"defs": [], "dialogs": OrderedDict(), "dlgctrls": OrderedDict(), "layouts": {}, "_skip": skip, "menu": {}, "menus": {}, "accel": {}, "toolbar": {}, "strings": {}, "ids": {},
          "defines": set()}
     for no, ln in enumerate(lines, 1):
         for m in ID_TOKEN.finditer(re.sub(r'"(?:[^"]|"")*"', '""', ln)):
@@ -335,10 +336,19 @@ def parse_block(r, name, typ, body, head_line=0):
         r["dialogs"][name] = ctrls
         r["dlgctrls"][name] = rich
     elif typ in ("MENU", "MENUEX"):
+        depth, top = 0, []          # top: メニューバーの項目 (深さ 1 の POPUP / MENUITEM) の種類。MDI001 が数える
         for no, ln in body:
             mm = re.search(r'MENUITEM\s+(?:"(?:[^"]|"")*"|\w+)\s*,\s*(\w+)', ln)
             if mm:
                 r["menu"].setdefault(mm.group(1), no)
+            s = re.sub(r'"(?:[^"]|"")*"', '""', ln)
+            opened = len(re.findall(r"\bBEGIN\b|\{", s))
+            kw = re.match(r"^\s*(POPUP|MENUITEM)\b", s)
+            if kw and depth == 1:
+                top.append(kw.group(1))
+            depth += opened - len(re.findall(r"\bEND\b|\}", s))
+        if name:
+            r["menus"][name] = top
     elif typ == "ACCELERATORS":
         for no, ln in body[1:-1]:
             mm = re.match(r'^\s*("(?:[^"]|\\")*"|[A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)\s*,', ln)
@@ -1054,6 +1064,54 @@ def check_class_decls(pr, codes):
     return found
 
 
+def derives_from(name, classes, target, seen=None):
+    """プロジェクトの中の基底クラスもたどって、target (MFC のクラス名) から派生しているか。"""
+    seen = seen if seen is not None else set()
+    if name in seen or name not in classes:
+        return False
+    seen.add(name)
+    for b in re.findall(r"\b\w+\b", classes[name][0]["bases"]):
+        if b == target or derives_from(b, classes, target, seen):
+            return True
+    return False
+
+
+def overrides_member(name, fn, classes, seen=None):
+    """name 自身か、プロジェクトの中の基底クラスが、fn を宣言 (上書き) しているか。"""
+    seen = seen if seen is not None else set()
+    if name in seen or name not in classes:
+        return False
+    seen.add(name)
+    if re.search(r"\b" + fn + r"\s*\(", classes[name][0]["own"]):
+        return True
+    return any(overrides_member(b, fn, classes, seen) for b in re.findall(r"\b\w+\b", classes[name][0]["bases"]))
+
+
+def check_mdi_frames(pr, codes, rcinfo):
+    """MDI001: CMDIFrameWnd 派生のフレームが、OnCreateClient を上書きしていないのに、IDR_MAINFRAME のメニューが 2 項目未満。
+    MFC の既定の OnCreateClient は、メニューバーの右から 2 番目を Window メニューと推測し (項目数 - 2)、負になると
+    ASSERT (winmdi.cpp) で、起動時に止まる (v2.60.1 の不具合)。メニューを、コードで差し替えるときなどは、誤検出になりうるので warning。"""
+    classes = build_classes(codes)
+    menu = None
+    for info in rcinfo.values():
+        if "IDR_MAINFRAME" in info.get("menus", {}):
+            menu = info["menus"]["IDR_MAINFRAME"]
+            break
+    found = 0
+    for name, defs in classes.items():
+        c = defs[0]
+        if not c["bases"] or not derives_from(name, classes, "CMDIFrameWnd"):
+            continue
+        found += 1
+        if menu is None or len(menu) >= 2 or overrides_member(name, "OnCreateClient", classes):
+            continue
+        pr.add("MDI001", "warning", f"{pr.name}: MDI のフレーム {name} が OnCreateClient を上書きしておらず、IDR_MAINFRAME のメニューが {len(menu)} 項目 "
+               "(MFC の既定の OnCreateClient は、メニューバーの右から 2 番目を Window メニューと推測して、項目が 2 つ未満だと、起動時に ASSERT で止まる。"
+               "OnCreateClient を上書きして CreateClient(lpcs, nullptr) を呼ぶか、Window メニューを含む 2 項目以上のメニューにする)",
+               pr.rel(c["file"]), c["line"])
+    return found
+
+
 # 画面モデル (ScreenModel) の検査 (SCM001 / SCM002) と、ダイアログのリポジトリの直接参照 (LAY004)
 SCREEN_WRAPPERS = re.compile(r"\b(?:CWnd|CDialog|CDialogEx|CEdit|CButton|CComboBox|CListBox|CListCtrl|CTreeCtrl|CStatic|CSliderCtrl|"
                              r"CSpinButtonCtrl|CProgressCtrl|CTabCtrl|CView|CFormView|CScrollView|CDocument|CFrameWnd|CMDIFrameWnd|"
@@ -1186,6 +1244,8 @@ def run(root, logic_names, data_names, ui_names=()):
             pr.checked = True    # CObject 派生のクラスがある (リソースも、メッセージマップも、なくても、検査した)
         if codes and check_screen_models(pr, codes):
             pr.checked = True    # 画面モデル・ダイアログがある
+        if codes and check_mdi_frames(pr, codes, {f: parse_rc(t) for f, t in pr.files if f.lower().endswith(".rc")}):
+            pr.checked = True    # MDI のフレームがある
     if has_ui_tests(root):   # UI テストのプロジェクトがあるときだけ (UI004)
         for pr in projects:
             if pr.checked:

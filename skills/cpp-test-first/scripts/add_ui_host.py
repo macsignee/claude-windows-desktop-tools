@@ -418,20 +418,23 @@ RESOURCE_H = '''#pragma once
 RC = '''#include "Resource.h"
 #include "afxres.h"
 
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+// この .rc は、UTF-8 (BOM 付き) で書く。リソース コンパイラーに、UTF-8 だと伝える (日本語の文言を含むため)。
+#pragma code_page(65001)
+
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 
 IDD_GREETING_DIALOG DIALOGEX 0, 0, 240, 100
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Greeting"
+CAPTION "あいさつ"
 FONT 9, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    LTEXT           "&Name:",IDC_STATIC,7,9,30,8
+    LTEXT           "名前(&N):",IDC_STATIC,7,9,30,8
     EDITTEXT        IDC_GREETING_NAME_EDIT,40,7,193,14,ES_AUTOHSCROLL
     LTEXT           "",IDC_GREETING_TEXT,7,30,226,8
     LTEXT           "",IDC_GREETING_ERROR_TEXT,7,45,226,8
-    PUSHBUTTON      "&Clear",IDC_GREETING_CLEAR_BUTTON,7,79,50,14
+    PUSHBUTTON      "クリア(&C)",IDC_GREETING_CLEAR_BUTTON,7,79,50,14
     DEFPUSHBUTTON   "OK",IDOK,129,79,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,183,79,50,14
+    PUSHBUTTON      "キャンセル",IDCANCEL,183,79,50,14
 END
 '''
 
@@ -770,7 +773,7 @@ def main():
     sm_files.update(common)
 
     ug, hg = AL.new_guid(), AL.new_guid()
-    files, plain, edits = {}, {}, {}      # 新しいファイル (BOM 付き) / 新しいファイル (BOM なし。.rc) / 既存のファイルの編集 (パス -> 関数)
+    files, plain, edits = {}, {}, {}      # 新しいファイル (BOM 付き) / 新しいファイル (BOM なし。今は、空) / 既存のファイルの編集 (パス -> 関数)
 
     # ---- UI DLL
     uses = [logic['name']] if logic else []
@@ -796,7 +799,7 @@ def main():
         for fn, text in sm_files.items():
             files[f'{ui}/{fn}'] = text
     files[f'{ui}/Resource.h'] = RESOURCE_H
-    plain[f'{ui}/{ui}.rc'] = RC
+    files[f'{ui}/{ui}.rc'] = RC   # UTF-8 (BOM 付き)・CRLF。日本語の文言を含むため、#pragma code_page(65001)
     if std:
         files[f'{ui}/ShowGreeting.h'] = fill(SHOW_H, NAME=ui, NS=ns, UP=up)
 
