@@ -51,10 +51,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 
 - **テストは、ライブラリ単位で作る。** ViewModel のテストは `ViewModels.Tests` に、ロジックのテストは `LogicLayer.Tests` に。テストプロジェクトは、対応するライブラリをプロジェクト参照している。ウォッチャーは、`dotnet test --no-build` で、すべて実行する。
 - **テスト対象は、ViewModel (WinForms は ScreenModel・Presenter)・ロジック・データ層のクラスだけ。** `Window`・`UserControl`・XAML・code-behind (WinForms は `Form`・`UserControl`・`*.Designer.cs`) は、対象にしない。
-  - 対象が View (XAML / code-behind。WinForms は `Form` のイベントハンドラー) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (WinForms は ScreenModel。またはロジック層) の、WPF (WinForms) 非依存のクラスに切り出す案を、ユーザーに示す。
-  - **ViewModel 層がなく、ViewModel がアプリの中 (`ViewModels/` フォルダ) にある場合も、同じ。** そのままでは、テストできない (アプリは、WPF の exe)。ViewModel 層 (クラスライブラリ) を作って、ViewModel を移す案を示す (`references/setup.md`)。
-  - 切り出し・移動の変更は、ユーザーの了承を得てから、行う。
-- **ViewModel が、WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) を使っている場合も、そのままではテストできない** (MSTest は、STA スレッドも `Application` も、ない)。インターフェース (`IDialogService` など) に分けて、フェイクに差し替えられるようにする案を示す。
+  - **テストできない構造のとき** (対象が View に書かれている、ViewModel 層がなく ViewModel がアプリの中にある、ViewModel が WPF の型を使っている) は、**テストを書かずに止まり**、切り出し・移動・インターフェース化の案を、ユーザーに示す。変更は、了承を得てから行う (詳細は `references/setup.md` の「テストできない構造」)。
 
 ## セットアップ (層やテストが、足りないとき)
 最初のソリューション・アプリ・層・テストは、`/new-solution --type wpf` / `winforms` が作る。**ここで足すのは、作ったあとで、足りないものが分かったときだけ** (`CLAUDE.md` の `- テスト:` が `なし`、対象の層のライブラリや `<名前>.Tests` がない)。その場合は、**`references/setup.md` を読んで、従う** (同梱の `add_project.py`、案を示して了承を得る、ベースラインの確認)。足りないものがなければ、読まない。

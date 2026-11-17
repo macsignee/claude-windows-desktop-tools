@@ -28,3 +28,11 @@
    - `BUILD_FAILED`: エラーを読んで直す。ベースのアプリ自体の、もともとのエラーなら、直さずに、報告する。
    - `ENV_ERROR`: .NET SDK、NuGet の復元 (ネットワーク)、テストが 1 件も実行されない、を確認して、ユーザーに報告する。
    - **ベースラインが緑になる前に、本物のテストを書かない。**
+
+## テストできない構造 (`SKILL.md` の「前提」から移した)
+`SKILL.md` は、次のとき、**テストを書かずに止まり、案を示す**、とだけ書く。詳細は、ここ。
+
+  - 対象が View (XAML / code-behind。WinForms は `Form` のイベントハンドラー) に書かれている場合は、**テストを書かずに止まり**、ロジックを、ViewModel (WinForms は ScreenModel。またはロジック層) の、WPF (WinForms) 非依存のクラスに切り出す案を、ユーザーに示す。
+  - **ViewModel 層がなく、ViewModel がアプリの中 (`ViewModels/` フォルダ) にある場合も、同じ。** そのままでは、テストできない (アプリは、WPF の exe)。ViewModel 層 (クラスライブラリ) を作って、ViewModel を移す案を示す (`references/setup.md`)。
+  - 切り出し・移動の変更は、ユーザーの了承を得てから、行う。
+- **ViewModel が、WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) を使っている場合も、そのままではテストできない** (MSTest は、STA スレッドも `Application` も、ない)。インターフェース (`IDialogService` など) に分けて、フェイクに差し替えられるようにする案を示す。

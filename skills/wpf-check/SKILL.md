@@ -105,3 +105,6 @@ wpf-check: error 2 / warning 1 (3 projects: WpfApp, MyApp.ViewModels, MyApp.Logi
 - 結合した辞書の `Source` は、相対パス・`/パス`・`pack://application:,,,/パス`・`/アセンブリ;component/パス` を解釈する。**アセンブリがソリューションの中にあれば、そのプロジェクトのファイルを探す。** それ以外 (NuGet のテーマなど) は、外部の辞書として扱い、RES001 を warning に下げる。
 - **層の判定は、名前の推定:** `Logic` / `Domain` / `Core` → ロジック、`Data` → データ、`ViewModels` → ViewModel、`UseWPF` の exe → View。テストプロジェクト (`Test` / `Tests` で終わる) は、対象外。外れるときは、`--logic` / `--data` / `--viewmodel` で指定する。
 - **実プロジェクトでの検証は、まだ。** 疑似プロジェクト (`tests/wpf_check_test.sh`) では、誤検出なし。実プロジェクトで、誤検出を見つけたら、報告に書き (どのコードの、どの書き方か)、ユーザーに伝える。
+
+## 規則との対応
+どの規則 (規約の章・節) を、どの検査 ID が確かめるかの表は、`references/rule-map.md` (規約の付録から移した)。

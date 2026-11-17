@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.8] 2026-11-17 (規約・Skill のサイズの余裕を広げる。残作業 A10)
+
+- **規約の付録 (規則とツールの対応表) を、検査の Skill の `references/rule-map.md` に移した:** `winforms-csharp.md` → `skills/winforms-check/references/rule-map.md`、`wpf-csharp.md` → `skills/wpf-check/references/rule-map.md`。規約には、案内 1 文と「編集したら、`*-check` を実行する」の行だけを残した。`csharp-common.md` の案内、2 つの検査 Skill の `SKILL.md` に、移動先の案内を足した。
+- **`csharp-test-first/SKILL.md`:** 「テストできない構造」(View に書かれている / ViewModel 層がない / ViewModel が WPF の型を使う) の 3 つの箇条書きを、1 つにまとめ、詳細を `references/setup.md` の同名の節へ移した (止まって案を示す、という要点は、`SKILL.md` に残した)。
+- **サイズ:** `csharp-test-first/SKILL.md` 31963 → 31298 (上限 32000)、WinForms の規約 + 共通 39903 → 38230 (40000)、WPF の規約 + 共通 43843 → 42250 (44000)。
+- 契約の変更なし。規約の内容は、変えていない (場所を移しただけ)。全テスト合格。
+
 ## [2.96.7] 2026-11-17 (MFC の SDI・MDI の扱いを、画面モデルの規約に明記する。文書だけ)
 
 - 残作業 A7 の結果。「画面モデルは、すべての画面で必須 (例外なし)」と、「Document/View は対象外」が、食い違っていた。**唯一の例外を、SDI・MDI のメインのビュー (`CView`) と明記した** (`docs/UI-MODEL-GUIDE.md`、`rules/mfc-cpp.md`)。SDI・MDI のアプリでも、ダイアログ・`CFormView`・画面 DLL は、画面モデルで作る。ひな形 (空の `CSampleDoc` / `CSampleView`) は、変えない。Document/View への適用は、実アプリで必要になったときに設計する。
