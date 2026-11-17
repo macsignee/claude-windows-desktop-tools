@@ -51,6 +51,7 @@ D="$(mk NoVm)"
 out="$(python3 "$NS" "$D" --type wpf --layers data,logic --tests mstest)"
 ok "no viewmodel layer: ViewModel lives in the app (ViewModels/ folder), no assembly= in the XAML" "$([ -f "$D/NoVm/ViewModels/MainViewModel.cs" ] && grep -q 'clr-namespace:NoVm.ViewModels"' "$D/NoVm/Views/MainWindow.xaml" && ! grep -q 'assembly=' "$D/NoVm/Views/MainWindow.xaml" && [ ! -d "$D/ViewModels" ] && echo 1 || echo 0)"
 ok "no viewmodel layer: CLAUDE.md says so" "$(grep -q 'ViewModel 層を作っていない' "$D/CLAUDE.md" && echo 1 || echo 0)"
+ok "CLAUDE.md: /ui-design-review の案内 (v2.97.2)" "$(grep -q '/ui-design-review' "$D/CLAUDE.md" && echo 1 || echo 0)"
 w="$(python3 -I "$WC" "$D" --all)"; wrc=$?
 ok "no viewmodel layer: wpf-check finds nothing" "$([ $wrc = 0 ] && [ "$(has "$w" 'error 0 / warning 0 / info 0')" = 1 ] && echo 1 || echo 0)"
 
