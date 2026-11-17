@@ -151,12 +151,51 @@ public abstract class UiTestBase
         return string.Equals((v ?? "").Trim(), "real", StringComparison.OrdinalIgnoreCase) ? "real" : "fake";
     }
 
+    /// <summary>シナリオを当てる画面 (Fake の画面モデルを選ぶ画面を含む)。「画面名」または「画面名:シナリオ名」のカンマ区切り (例: Main:InvalidName)。
+    /// 環境変数 UITEST_FAKE_SCREENS > uitest.settings の fake_screens= > 空 (すべて本物)。テストメソッドの [FakeScreen("画面名", "シナリオ名")] は、
+    /// その画面だけを、上書きして足す。StartApp が、環境変数 APP_FAKE_SCREENS として、アプリに渡す (アプリの組み立てる場所が、Debug のときだけ読む)。</summary>
+    protected string FakeScreens => _fakeScreens ??= ResolveFakeScreens();
+    private string? _fakeScreens;
+
+    private string ResolveFakeScreens()
+    {
+        var v = Environment.GetEnvironmentVariable("UITEST_FAKE_SCREENS");
+        if (string.IsNullOrWhiteSpace(v))
+        {
+            try
+            {
+                var f = Path.Combine(AppLocator.SolutionDir(), AppName + ".UITests", "uitest.settings");
+                if (File.Exists(f))
+                {
+                    foreach (var line in File.ReadLines(f))
+                    {
+                        var t = line.Trim();
+                        if (t.StartsWith("fake_screens=", StringComparison.OrdinalIgnoreCase)) { v = t.Substring(13).Trim(); break; }
+                    }
+                }
+            }
+            catch (Exception) { /* 読めなければ、空 (すべて本物) */ }
+        }
+        var entries = (v ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var method = GetType().GetMethod(TestContext.TestName ?? "");
+        if (method != null)
+        {
+            foreach (var a in method.GetCustomAttributes(typeof(FakeScreenAttribute), true).Cast<FakeScreenAttribute>())
+            {
+                entries.RemoveAll(e => string.Equals(e.Split(':')[0], a.Screen, StringComparison.Ordinal));
+                entries.Add(string.IsNullOrEmpty(a.Scenario) ? a.Screen : a.Screen + ":" + a.Scenario);
+            }
+        }
+        return string.Join(",", entries);
+    }
+
     [TestInitialize]
     public void StartApp()
     {
-        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms, model: {ModelMode}{(Presenting ? ", present" : "")})");
+        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms, model: {ModelMode}{(FakeScreens.Length > 0 ? ", fake_screens: " + FakeScreens : "")}{(Presenting ? ", present" : "")})");
         var exe = AppLocator.Find(AppName);
         Environment.SetEnvironmentVariable("APP_MODEL", ModelMode);   // 起動するアプリが、受け継ぐ
+        Environment.SetEnvironmentVariable("APP_FAKE_SCREENS", FakeScreens.Length > 0 ? FakeScreens : null);   // 空なら、渡さない (すべて本物)
         UiDialogs.OnTarget = Highlight;   // UiDialogs の操作 (ダイアログ・サブウィンドウの中も) が、操作する要素を、赤い枠で囲む (プレゼンのモードだけ)
         App = Application.Launch(exe);
         Automation = new UIA3Automation();
@@ -301,6 +340,23 @@ public abstract class UiTestBase
         }
         return condition();
     }
+}
+
+/// <summary>このテストメソッドの間だけ、画面 (画面名) に、シナリオ (状態の再現) を当てる (シナリオ名は、省略できる)。
+/// 例: [TestMethod, FakeScreen("Main", "InvalidName")]。UiTestBase が、起動の前に、APP_FAKE_SCREENS として、アプリに渡す。
+/// シナリオは、本物の画面モデルに、初期状態を当てる (誤りの表示など)。本物がまだない画面のつなぎは、別に Fake の画面モデルを書いて選ぶ。</summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+public sealed class FakeScreenAttribute : Attribute
+{
+    public FakeScreenAttribute(string screen, string? scenario = null)
+    {
+        Screen = screen;
+        Scenario = scenario;
+    }
+
+    public string Screen { get; }
+
+    public string? Scenario { get; }
 }
 '''
 
@@ -1268,7 +1324,7 @@ public class MainWindowUiTests : UiTestBase
         UiDialogs.Click(Find("ClearButton"));   // WinForms / MFC は BM_CLICK、WPF は DoDefaultAction (どちらも速い。UIA の Invoke は、別のデスクトップで約 2 秒かかる)
 
         Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
-    }
+    }__FAKE_TESTS__
 }
 '''
 
@@ -1307,9 +1363,30 @@ public class MainWindowUiTests : UiTestBase
         UiDialogs.Click(Find("ClearButton"));   // WinForms / MFC は BM_CLICK、WPF は DoDefaultAction (どちらも速い。UIA の Invoke は、別のデスクトップで約 2 秒かかる)
 
         Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
-    }
+    }__FAKE_TESTS__
 }
 '''
+
+FAKE_TESTS_WINFORMS = '''
+
+    // シナリオ (状態の再現)。[FakeScreen] の間だけ、メイン画面に、シナリオの初期状態が当たる。
+    [TestMethod, FakeScreen("Main", "NameEntered")]
+    public void FakeScreen_NameEntered_ShowsGreetingAndEnablesClear()
+    {
+        Assert.IsTrue(WaitFor(() => Find("GreetingLabel").Name == "こんにちは、太郎 さん"),
+            "挨拶が、出ない: " + Find("GreetingLabel").Name);
+        Assert.IsTrue(Find("ClearButton").IsEnabled, "クリアボタンが、有効でない");
+    }'''
+
+FAKE_TESTS_WPF = '''
+
+    // シナリオ (状態の再現)。[FakeScreen] の間だけ、メイン画面に、シナリオの初期状態が当たる。
+    [TestMethod, FakeScreen("Main", "InvalidName")]
+    public void FakeScreen_InvalidName_ShowsTheErrorText()
+    {
+        Assert.IsTrue(WaitFor(() => Find("NameErrorText").Name == "名前は 20 文字以内で入力してください"),
+            "誤りの文章が、出ない: " + Find("NameErrorText").Name);
+    }'''
 
 TESTS_MFC_CS = '''using FlaUI.Core.AutomationElements;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -1353,9 +1430,19 @@ public class MainWindowUiTests : UiTestBase
         UiDialogs.Click(Find(ClearButton));   // MFC のボタンは、BM_CLICK で押す (UiDialogs)
 
         Assert.IsTrue(WaitFor(() => string.IsNullOrEmpty(name.AsTextBox().Text)), "クリアしても、入力欄が空にならない");
-    }
+    }__FAKE_TESTS__
 }
 '''
+
+FAKE_TESTS_MFC = '''
+
+    // シナリオ (状態の再現)。[FakeScreen] の間だけ、メイン画面に、シナリオの初期状態が当たる。
+    [TestMethod, FakeScreen("Main", "InvalidName")]
+    public void FakeScreen_InvalidName_ShowsTheErrorText()
+    {
+        Assert.IsTrue(WaitFor(() => Find("__ID_ERROR__").Name == "名前は 20 文字以内で入力してください"),
+            "誤りの文章が、出ない: " + Find("__ID_ERROR__").Name);
+    }'''
 
 TESTS_GENERIC_CS = '''using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -1466,6 +1553,9 @@ def settings_text(kind):
             f'# model: アプリが使う Model (リポジトリなど。データベース・API の違いを隠すもの) を、fake (メモリ上の実装。速く、安定) にするか、real (本物) にするか。\n'
             f'# UI テストが、環境変数 APP_MODEL として、アプリに渡す (アプリの、組み立てる場所が、読む)。結合のときだけ、real。環境変数 UITEST_MODEL が、これより優先される\n'
             f'model=fake\n'
+            f'# fake_screens: シナリオ (状態の再現) を当てる画面 (画面名のカンマ区切り。画面名:シナリオ名 も可。例: Main:InvalidName)。空 = すべて本物。\n'
+            f'# UI テストが、環境変数 APP_FAKE_SCREENS として、アプリに渡す (アプリは、Debug のときだけ読む)。環境変数 UITEST_FAKE_SCREENS が、これより優先される。\n'
+            f'fake_screens=\n'
             f'# timeout: ウォッチャーが、このプロジェクトの UI テストを強制終了するまでの時間 (秒。既定 600)。UI テストが多い、重いときは、書く。1 回だけなら、uitest_once.sh --ui-timeout\n'
             f'# timeout=1800\n')
 
@@ -1543,16 +1633,24 @@ def main():
 
     # ひな形の View (標準) かを、調べる (NameTextBox / GreetingText / ClearButton の AutomationId)
     standard = False
+    fake_winforms = ''
+    fake_wpf = ''
     if kind == 'wpf':
         xaml = os.path.join(sln_dir, app, 'Views', 'MainWindow.xaml')
         if os.path.isfile(xaml):
             t = open(xaml, encoding='utf-8-sig').read()
             standard = all(f'AutomationId="{i}"' in t for i in ('NameTextBox', 'GreetingText', 'ClearButton'))
+            # ひな形のシナリオの切り替え (ScreenModelSelector.cs) と、誤りの表示 (NameErrorText) があるときだけ、シナリオの UI テストを足す
+            if standard and 'AutomationId="NameErrorText"' in t and os.path.isfile(os.path.join(sln_dir, app, 'ScreenModelSelector.cs')):
+                fake_wpf = FAKE_TESTS_WPF
     elif kind == 'winforms':
         designer = os.path.join(sln_dir, app, 'Forms', 'MainForm.Designer.cs')
         if os.path.isfile(designer):
             t = open(designer, encoding='utf-8-sig').read()
             standard = all(f'{i}.Name = "{i}";' in t for i in ('NameTextBox', 'GreetingLabel', 'ClearButton'))
+            # ひな形のシナリオの切り替え (ScreenModelSelector.cs) があるときだけ、シナリオの UI テストを足す
+            if standard and os.path.isfile(os.path.join(sln_dir, app, 'ScreenModelSelector.cs')):
+                fake_winforms = FAKE_TESTS_WINFORMS
 
     mfc_ids = {}
     if kind == 'cpp':
@@ -1567,7 +1665,21 @@ def main():
                     if m:
                         mfc_ids['ID_' + key] = m.group(1)
         standard = len(mfc_ids) == 3
+        # シナリオの切り替え (ScreenModelSelector.h) と、誤りの表示 (IDC_ERROR_TEXT) が、ひな形にあるときだけ、シナリオの UI テストを足す
+        fake_text = ''
+        if standard and os.path.isfile(os.path.join(proj_dir, 'ScreenModelSelector.h')):
+            for fn in os.listdir(proj_dir):
+                if fn.lower() == 'resource.h':
+                    t = open(os.path.join(proj_dir, fn), encoding='utf-8-sig', errors='replace').read()
+                    m = re.search(r'^[ \t]*#[ \t]*define[ \t]+IDC_ERROR_TEXT[ \t]+(\d+)\b', t, re.M)
+                    if m:
+                        fake_text = FAKE_TESTS_MFC.replace('__ID_ERROR__', m.group(1))
+        mfc_ids['FAKE_TESTS'] = fake_text
 
+    if kind == 'winforms':
+        mfc_ids['FAKE_TESTS'] = fake_winforms
+    elif kind == 'wpf':
+        mfc_ids['FAKE_TESTS'] = fake_wpf
     kv = dict(NS=ns, APP=app, TFM=tfm, SDK=a.testsdk_version or AP.TESTSDK_VER, MSTEST=a.mstest_version or AP.MSTEST_VER, FLAUI=a.flaui_version)
     files = {
         f'{ui}/{ui}.csproj': fill(CSPROJ, **kv),

@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.0] 2026-11-17 (画面のシナリオの切り替え。実装の PR C)
+
+- **方針:** Fake の画面モデルのクラスは、ひな形に置かない。**状態の再現は、本物の画面モデルに、シナリオの初期状態を当てる** (Debug のときだけ。`IMainViewModel` などのインターフェースの導入は、不要)。本物がまだない画面のつなぎだけ、別に Fake を書いて、同じ仕組みで選ぶ。
+- **`UiTestBase`:** `FakeScreens` (環境変数 `UITEST_FAKE_SCREENS` > `uitest.settings` の `fake_screens=` > 空) を、起動の前に `APP_FAKE_SCREENS` としてアプリへ渡す。テストメソッドの属性 **`[FakeScreen("画面名", "シナリオ名")]`** が、その画面だけを上書きする (仕様の案の `UseFakeScreen(...)` から変更。アプリは `[TestInitialize]` で起動するため)。`ui-trace.txt` の開始の行に `fake_screens: ...` を出す。
+- **WinForms・WPF のひな形:** `ScreenModelSelector.cs` (`APP_FAKE_SCREENS` を Debug のときだけ読む。`ApplyMain` がシナリオ `NameEntered` / `InvalidName` を当てる。知らない画面・シナリオは例外で止める)。`Program.cs` / `App.xaml.cs` が呼ぶ。UI テストを足した (WinForms は `NameEntered`、WPF は `InvalidName` で `NameErrorText`)。
+- **MFC のメインのひな形 (`mfc-dialog`):** `ScreenModelSelector.h` (Debug のときだけ読む)。`InitInstance` が、シナリオを本物の画面モデルに当てる (知らない画面・シナリオは、メッセージボックスで止める)。UI テスト `FakeScreen_InvalidName_ShowsTheErrorText` (IDC_ERROR_TEXT) を足した。
+- **この版では、まだ:** Fake リポジトリの `FailNext` / `FailWhen` と `APP_MODEL=fake:<シナリオ>` (サンプルにリポジトリがない)。
+- テスト: `ui_tests_gen_test.sh` に 4 件、`new_solution_test.sh` に 3 件、`new_solution_winforms_test.sh` に 3 件、`new_solution_wpf_test.sh` に 1 件。**生成物のビルドとシナリオの UI テストの実行は、実機で未確認。**
+
 ## [2.95.0] 2026-11-17 (MFC のダイアログ ベースのメインを画面モデルにする。実装の PR B-4b)
 
 - **`new_solution.py --type mfc-dialog`:** サンプル `CSampleDlg` を画面モデル中心に変えた。`SampleScreenModel` / `SampleScreenModelInterface.h` / `SampleMessages.h` (ヘッダーだけ) と、共通部品 `Observable.h` / `ScreenModelSupport.h`、メインの `ScreenModelUi.h` (`ToCString` / `ToWString`) を生成する。ロジック層があればそこに置き、`--tests gtest` なら、ロジック層のテストに `TestSampleScreenModel.cpp` (8 件) を足す。ロジック層がなければ、メインに置く。

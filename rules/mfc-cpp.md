@@ -121,4 +121,4 @@ paths:
 - **スレッド:** **画面モデルは、UI スレッドからだけ呼ぶ** (別スレッドの処理は、結果を UI スレッドへ引き渡してから、画面モデルを呼ぶ)。別スレッドから通知が上がるのは、規約違反 (バグ) で、`PostMessage` の保険は作らない。
 
 ### Fake 画面モデルの切り替え
-画面ごとに選ぶ。環境変数 `APP_FAKE_SCREENS` (画面名のカンマ区切り。`画面名:シナリオ名` も可)。**Debug のときだけ読む** (`InitInstance`。`APP_MODEL` と同じ)。ダイアログを開く側が、画面名から実装を選ぶ関数 (Debug のときだけ読む補助 `ScreenModelSelector`) で、コンストラクターへ渡す画面モデルを得る。UI テスト側の設定と、Fake の存続時間は、`ui-test-first` の `references/model-switching.md`。
+画面ごとに選ぶ。環境変数 `APP_FAKE_SCREENS` (画面名のカンマ区切り。`画面名:シナリオ名` も可)。**Debug のときだけ読む** (`InitInstance`。`APP_MODEL` と同じ)。ダイアログを開く側 (`InitInstance`) が、補助 `ScreenModelSelector.h` (Debug のときだけ読む) の結果を、**本物の画面モデルに、シナリオの初期状態として当てる** (Fake のクラスは、本物がまだない画面のつなぎだけ)。UI テスト側の設定と、Fake の存続時間は、`ui-test-first` の `references/model-switching.md`。

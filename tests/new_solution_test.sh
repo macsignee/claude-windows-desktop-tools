@@ -353,6 +353,8 @@ check "mfc-dialog (画面モデル): ダイアログは、画面モデルを受�
 D2="$WORK/R/V_dlgnolayer"; mkdir -p "$D2"; python3 "$NEW" "$D2" --type mfc-dialog --layers none --tests none >/dev/null 2>&1
 check "mfc-dialog (画面モデル): ロジック層がない (--layers none) ときは、メインに置く" bash -c "d='$D2/V_dlgnolayer'; test -f \"\$d/SampleScreenModel.h\" && grep -q 'SampleScreenModel.h' \"\$d/V_dlgnolayer.vcxproj\" && grep -q 'IDC_ERROR_TEXT' \"\$d/V_dlgnolayer.rc\" && python3 '$MFC_CHK' '$D2' --all | grep -q 'error 0 / warning 0'"
 check "mfc-dialog (画面モデル): 画面モデルは MFC の型を使わない (コメントを除く)" bash -c "! grep -hv '^ *//' '$D/LogicLayer/SampleScreenModel.h' '$D/LogicLayer/SampleScreenModelInterface.h' '$D/LogicLayer/SampleMessages.h' | grep -E 'afx|CString|CWnd|HWND|IDC_'"
+check "mfc-dialog (PR C): ScreenModelSelector.h は、Debug のときだけ APP_FAKE_SCREENS を読む" bash -c "f='$D/V_dlgtests/ScreenModelSelector.h'; test -f \"\$f\" && [ \"\$(grep -n '#ifdef _DEBUG' \"\$f\" | head -1 | cut -d: -f1)\" -lt \"\$(grep -n '_wdupenv_s' \"\$f\" | head -1 | cut -d: -f1)\" ] && grep -q '#endif' \"\$f\""
+check "mfc-dialog (PR C): InitInstance が、シナリオの初期状態を本物の画面モデルに当て、知らない画面・シナリオは止める。Fake のクラスは作らない。vcxproj に登録される" bash -c "d='$D/V_dlgtests'; grep -q 'ScreenModelSelector::FakeScenario' \"\$d/SampleApp.cpp\" && grep -q 'UnknownScreens' \"\$d/SampleApp.cpp\" && grep -q 'ApplyMainScenario' \"\$d/SampleApp.cpp\" && grep -q 'NameEntered' \"\$d/SampleApp.cpp\" && grep -q 'InvalidName' \"\$d/SampleApp.cpp\" && grep -q 'ScreenModelSelector.h' \"\$d/V_dlgtests.vcxproj\" && [ ! -e \"\$d/SampleFakeScreenModel.h\" ]"
 
 echo "== 11. MFC 拡張 DLL (--layer-kind mfc-ext-dll)"
 D="$WORK/Q/MfcExt"; mkdir -p "$D"
