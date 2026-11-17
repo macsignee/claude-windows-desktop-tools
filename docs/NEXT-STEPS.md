@@ -6,7 +6,7 @@
 
 ## 0. 画面モデルの仕上げ (2026-11-17)
 
-- **方針の再確認:** MFC の SDI・MDI のひな形は、旧形のまま (Document/View なので対象外と決めた)。
+- **MFC の SDI・MDI:** ひな形は、旧形のまま。Document/View (メインの `CView`) だけが、画面モデルの例外と、明記した (2026-11-17。ダイアログ・`CFormView`・画面 DLL は、画面モデルで作る)。Document/View への適用は、実アプリで必要になったとき。
 - **実機で未確認 (DESIGN 4.85):** MFC の言語切り替え (`SetThreadUILanguage`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。SM11 (新規 MFC の `framework.h` 変更後の実機ビルド)。
 - **確認:** 規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。
 - **低優先・保留:** 国際化 (リソースへの移行、`APP_CULTURE`、Satellite DLL)、非同期 `Commit()`、`switch (nID)` の `mfc-check` の検査、C# で複数プロパティの変更をまとめる必要、MFC の `Observable` の継続的な検証。

@@ -72,7 +72,7 @@ paths:
 - (`mfc-check` の NSP001 / DEC001 が検査する。どちらも warning。)
 
 ## 画面モデルと MFC のダイアログ
-画面モデルの考え方は、WPF (ViewModel)・WinForms と共通 (契約は、`winforms-view-model.md` の 2 章。MFC では、**役割の名前を `ScreenModel` と呼ぶ**)。Document/View は、対象外 (ただし、`CFormView` は、例外的に Document/View なので、更新の経路の表に載せる)。**共通部品 (`Observable`、`ValidationError`、`RepositoryException` (文章は `GetText()`)、`ToCString` / `ToWString` など) は、`add_ui_host.py` が生成する** (画面モデルは、ヘッダーだけ。ロジック層があればそこに、なければ UI DLL に置く)。
+画面モデルの考え方は、WPF (ViewModel)・WinForms と共通 (契約は、`winforms-view-model.md` の 2 章。MFC では、**役割の名前を `ScreenModel` と呼ぶ**)。Document/View は、対象外 (ただし、`CFormView` は、例外的に Document/View なので、更新の経路の表に載せる)。**SDI・MDI のメインのビュー (`CView`) だけが、画面モデルの例外。SDI・MDI のアプリでも、ダイアログ・`CFormView`・画面 DLL は、画面モデルで作る。業務の規則は、View・Document に書かず、ロジック層に置く。****共通部品 (`Observable`、`ValidationError`、`RepositoryException` (文章は `GetText()`)、`ToCString` / `ToWString` など) は、`add_ui_host.py` が生成する** (画面モデルは、ヘッダーだけ。ロジック層があればそこに、なければ UI DLL に置く)。
 
 ### 画面モデルの必須と命名
 - **画面モデルは、すべてのダイアログで必須 (例外なし)。** 表示専用や、入力が 1 つだけの単純なダイアログでも置く (ダイアログが、リポジトリ・Model を直接使う構成は、採らない)。計画には、画面モデルの行を、必ず書く。
