@@ -1362,3 +1362,13 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **対象外:** `mfc` (SDI)・`mfc-mdi` (MDI) は、Document/View なので、画面モデルの対象外 (4.84 の決定)。変更なし。
 - **未確認 (実機):** 生成した MFC ソリューションの MSVC でのビルド、GoogleTest、UI テスト、MBCS。**WSL では、C++ をコンパイルしていない。**
 
+### 4.91 画面のシナリオの切り替えを実装する (v2.96.0。4.85 の実装 PR C)
+- **決定 (2026-11-17): Fake の画面モデルのクラスを、ひな形に置かない。** 当初は、WinForms・MFC に Fake のクラス (本物を中に持つ薄いもの) を生成し、WPF は `IMainViewModel` を導入して Fake を差し込む案だった。**状態の再現 (誤りの表示など) が目的なら、本物の画面モデルに、シナリオの初期状態を当てれば足りる** (出現回数の少ない機能に、インターフェースの導入は重い、との指摘)。マクロ (`#if`) は、実行時に、テストごとのシナリオを選べないので、使わない (Release への混入の防止にだけ使う: `#if DEBUG` / `#ifdef _DEBUG`)。
+- **範囲:** `UiTestBase` (共通)、WinForms・WPF・MFC (`mfc-dialog`) のメインのひな形。
+- **`UiTestBase`:** `FakeScreens` = 環境変数 `UITEST_FAKE_SCREENS` > `uitest.settings` の `fake_screens=` > 空。起動の前に、`APP_FAKE_SCREENS` として、アプリへ渡す (空なら、設定しない)。`ui-trace.txt` の、テストごとの開始の行に、`fake_screens: ...` を出す。
+- **テストの書き方 (仕様の「案」から変更):** `UseFakeScreen(...)` の呼び出しでなく、**テストメソッドの属性 `[FakeScreen("画面名", "シナリオ名")]`** にした。アプリは `[TestInitialize]` で起動するので、テストの本体の呼び出しでは、起動に間に合わない。属性は、`UITEST_FAKE_SCREENS` / `fake_screens=` の同じ画面だけを、上書きする。
+- **アプリ側 (組み立てる場所):** `ScreenModelSelector` (WinForms・WPF: `ScreenModelSelector.cs`、MFC: `ScreenModelSelector.h`) が、`APP_FAKE_SCREENS` を、**Debug のときだけ** 読む (Release では、常に空)。組み立てる場所 (`Program.cs` / `App.xaml.cs` / `InitInstance`) が、本物の画面モデルを作り、シナリオの初期状態を当てる (`ApplyMain`。MFC は `SampleApp.cpp` の `ApplyMainScenario`)。一覧にあるのにアプリにない画面と、知らないシナリオは、黙って無視せず、**起動時にエラーで止める** (C# は例外、MFC はメッセージボックスと `FALSE`)。
+- **サンプルのシナリオ:** 空 (そのまま)・`NameEntered` (名前が入力ずみ)・`InvalidName` (名前が長すぎる)。UI テストは、WPF と MFC が `InvalidName` で誤りの文章を、WinForms が `NameEntered` で挨拶とクリアの有効を確かめる (WinForms のフォームには、誤りの表示欄がない)。
+- **Fake の画面モデルが要るとき (つなぎ):** 本物の画面モデルがまだない画面。設計の先行で、インターフェースが先にあるので、Fake (インターフェースの実装) を、その画面のぶんだけ書き、同じ `ScreenModelSelector` の仕組み (画面名とシナリオ) で選ぶ。ひな形には、置かない。
+- **未実装:** Fake リポジトリの `FailNext` / `FailWhen` と `APP_MODEL=fake:<シナリオ>` (サンプルにリポジトリがないので、足す場所がない。リポジトリを持つ画面ができたとき)。画面名から実装を選ぶ関数は、画面が 1 つなので、組み立てる場所に直接書いた (画面が増えたら、関数に切り出す)。
+- **未確認 (実機):** 生成物 (WinForms・WPF・MFC) のビルドと、シナリオの UI テストの実行。

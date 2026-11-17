@@ -544,16 +544,60 @@ MFC_DIALOG_FILES = {
 #include "SampleApp.h"
 #include "SampleDlg.h"
 #include "SampleScreenModel.h"
+#include "ScreenModelSelector.h"
+#include "ScreenModelUi.h"
 
 CSampleApp theApp;
+
+namespace
+{
+    // Main 画面のシナリオの初期状態を、画面モデルに当てる。知らないシナリオなら、false。
+    // シナリオ: 空 (そのまま)、"NameEntered" (名前が入力ずみ)、"InvalidName" (名前が長すぎて、検査の誤りがある)。
+    bool ApplyMainScenario(@@NS@@::SampleScreenModelInterface& model, const std::wstring& scenario)
+    {
+        if (scenario.empty())
+        {
+            return true;
+        }
+        if (scenario == L"NameEntered")
+        {
+            model.SetName(L"太郎");
+            return true;
+        }
+        if (scenario == L"InvalidName")
+        {
+            model.SetName(std::wstring(21, L'あ'));
+            return true;
+        }
+        return false;
+    }
+}
 
 BOOL CSampleApp::InitInstance()
 {
     // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
-    // 画面の状態と規則は、画面モデルが持つ。ダイアログは、画面モデルを受け取って、表示と操作だけをする。
+    // 画面モデルを、組み立てる (composition root)。環境変数 APP_FAKE_SCREENS (Debug のときだけ読む) で、画面ごとに、シナリオの初期状態を当てる。
+    // 一覧にあるのに、アプリにない画面・シナリオは、黙って無視せず、エラーで止める。
+    const auto fakes = ScreenModelSelector::ReadFakeScreens();
+    const auto unknown = ScreenModelSelector::UnknownScreens(fakes, { L"Main" });
+    if (!unknown.empty())
+    {
+        AfxMessageBox(CString(L"APP_FAKE_SCREENS に、アプリにない画面がある: ") + ToCString(unknown.front()), MB_ICONERROR);
+        return FALSE;
+    }
     @@NS@@::SampleScreenModel model;
+    if (const auto scenario = ScreenModelSelector::FakeScenario(fakes, L"Main"))
+    {
+        if (!ApplyMainScenario(model, *scenario))
+        {
+            AfxMessageBox(CString(L"Main に、シナリオがない: ") + ToCString(*scenario), MB_ICONERROR);
+            return FALSE;
+        }
+    }
+
+    // 画面の状態と規則は、画面モデルが持つ。ダイアログは、画面モデルを受け取って、表示と操作だけをする。
     CSampleDlg dlg(model);
     m_pMainWnd = &dlg;
     dlg.DoModal();
@@ -1073,6 +1117,115 @@ def write_plain(folder, rel, text, crlf=False):
         f.write(text.encode('utf-8'))
 
 
+# 画面モデルの切り替え (Debug のときだけ、環境変数 APP_FAKE_SCREENS を読む)。メインのプロジェクトに置く (UI 側)
+SELECTOR_H = '''#pragma once
+#include <cstdlib>
+#include <optional>
+#include <string>
+#include <vector>
+
+// 画面のシナリオ (状態の再現) の切り替え。環境変数 APP_FAKE_SCREENS (画面名のカンマ区切り。画面名:シナリオ名 も可。例: Main:InvalidName) を、
+// **Debug のときだけ** 読む (Release では、常に空。シナリオが、製品に、紛れ込まない)。UI テストが、起動の前に、設定する。
+// 組み立てる場所 (InitInstance) が、読んだ結果を、本物の画面モデルに、初期状態として当てる。本物がまだない画面のつなぎは、別に Fake の画面モデル
+// (インターフェースを実装) を書き、InitInstance で選ぶ。
+namespace ScreenModelSelector
+{
+    struct Entry
+    {
+        std::wstring screen;
+        std::wstring scenario;   // 空もある (既定のシナリオ)
+    };
+
+    inline std::wstring Trim(const std::wstring& s)
+    {
+        const auto first = s.find_first_not_of(L" \\t");
+        if (first == std::wstring::npos)
+        {
+            return L"";
+        }
+        return s.substr(first, s.find_last_not_of(L" \\t") - first + 1);
+    }
+
+    inline std::vector<Entry> Parse(const std::wstring& text)
+    {
+        std::vector<Entry> entries;
+        std::size_t pos = 0;
+        while (pos <= text.size())
+        {
+            const auto end = text.find(L',', pos);
+            const std::wstring item = Trim(text.substr(pos, end == std::wstring::npos ? std::wstring::npos : end - pos));
+            if (!item.empty())
+            {
+                const auto colon = item.find(L':');
+                if (colon == std::wstring::npos)
+                {
+                    entries.push_back({ item, L"" });
+                }
+                else
+                {
+                    entries.push_back({ Trim(item.substr(0, colon)), Trim(item.substr(colon + 1)) });
+                }
+            }
+            if (end == std::wstring::npos)
+            {
+                break;
+            }
+            pos = end + 1;
+        }
+        return entries;
+    }
+
+    // Debug のときだけ、APP_FAKE_SCREENS を読む。Release は、常に空 (すべて本物)。
+    inline std::vector<Entry> ReadFakeScreens()
+    {
+#ifdef _DEBUG
+        wchar_t* raw = nullptr;
+        std::size_t length = 0;
+        if (_wdupenv_s(&raw, &length, L"APP_FAKE_SCREENS") == 0 && raw != nullptr)
+        {
+            const std::wstring text(raw);
+            std::free(raw);
+            return Parse(text);
+        }
+#endif
+        return {};
+    }
+
+    // 画面 screen にシナリオを当てるなら、そのシナリオ名 (空もある) を返す。当てないなら、空。
+    inline std::optional<std::wstring> FakeScenario(const std::vector<Entry>& entries, const std::wstring& screen)
+    {
+        for (const auto& e : entries)
+        {
+            if (e.screen == screen)
+            {
+                return e.scenario;
+            }
+        }
+        return std::nullopt;
+    }
+
+    // 一覧にあるのに、アプリにない画面の名前。あれば、起動時に、エラーで止める (黙って無視しない)。
+    inline std::vector<std::wstring> UnknownScreens(const std::vector<Entry>& entries, const std::vector<std::wstring>& known)
+    {
+        std::vector<std::wstring> unknown;
+        for (const auto& e : entries)
+        {
+            bool found = false;
+            for (const auto& k : known)
+            {
+                found = found || (k == e.screen);
+            }
+            if (!found)
+            {
+                unknown.push_back(e.screen);
+            }
+        }
+        return unknown;
+    }
+}
+'''
+
+
 def sample_screen_model(ns):
     """mfc-dialog のメインの画面モデル (ヘッダーだけ) と、その単体テストと、共通部品。add_ui_host.py (UI DLL のサンプル) の
     ひな形を、Greeting -> Sample に読み替えて使う。返す: (画面モデルのファイル, 単体テスト)"""
@@ -1112,6 +1265,8 @@ def main_files(name, mtype, ns, toolset, guid, sm_in_main=True, incs=()):
             # 画面モデル (ヘッダーだけ)。ロジック層があれば、そちらに置く (create_mode)。ここには、UI の境界の変換だけ置く
             files[f'{name}/ScreenModelUi.h'] = AUH.SM_UI_H
             extra.append('ScreenModelUi.h')
+            files[f'{name}/ScreenModelSelector.h'] = SELECTOR_H
+            extra += ['ScreenModelSelector.h']
             if sm_in_main:
                 sm, _t = sample_screen_model(ns)
                 for fn, text in sm.items():

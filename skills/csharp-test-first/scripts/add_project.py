@@ -686,9 +686,14 @@ public partial class App : Application
         base.OnStartup(e);
 
         // 画面と ViewModel を組み立てる場所 (composition root)。DI コンテナを導入するときは、ここで構成する。
+        // Debug のときだけ、環境変数 APP_FAKE_SCREENS で、画面ごとに、シナリオの初期状態を当てる (一覧にあるのに、アプリにない画面は、止める)。
+        var fakes = ScreenModelSelector.ReadFakeScreens();
+        ScreenModelSelector.ThrowIfUnknown(fakes, "Main");
+        var viewModel = new MainViewModel();
+        ScreenModelSelector.ApplyMain(fakes, viewModel);
         var window = new MainWindow
         {{
-            DataContext = new MainViewModel(),
+            DataContext = viewModel,
         }};
         window.Show();
     }}
@@ -1028,6 +1033,75 @@ public class RepositoryExceptionTests
 '''
 
 
+def screen_model_selector_cs(ns, model_ns, model_type):
+    """Fake (シナリオ) の切り替え。WinForms は model_type = IMainScreenModel、WPF は MainViewModel (どちらも、Name を設定できる)。"""
+    usings = "\n".join(f"using {u};" for u in sorted({model_ns}))
+    return f"""{usings}
+
+namespace {ns};
+
+/// <summary>画面のシナリオの切り替え。環境変数 APP_FAKE_SCREENS (画面名のカンマ区切り。画面名:シナリオ名 も可。例: Main:InvalidName) を、
+/// <b>Debug のときだけ</b> 読む (Release では、常に空。シナリオが、製品に、紛れ込まない)。UI テストが、起動の前に、設定する。
+/// 組み立てる場所 (Program.cs / App.xaml.cs) が、読んだ結果を、画面モデルに当てる。
+/// シナリオは、<b>本物の画面モデルに、初期状態を当てる</b> (状態の再現。誤りの表示など)。本物がまだない画面のつなぎは、
+/// 別に Fake の画面モデル (インターフェースを実装) を書き、ここで選ぶ。</summary>
+internal static class ScreenModelSelector
+{{
+    /// <summary>シナリオを当てる画面と、そのシナリオ名 (空もある)。Release では、常に空。</summary>
+    public static IReadOnlyDictionary<string, string> ReadFakeScreens()
+    {{
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+#if DEBUG
+        var text = Environment.GetEnvironmentVariable("APP_FAKE_SCREENS");
+        if (!string.IsNullOrWhiteSpace(text))
+        {{
+            foreach (var item in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {{
+                var parts = item.Split(':', 2, StringSplitOptions.TrimEntries);
+                result[parts[0]] = parts.Length > 1 ? parts[1] : "";
+            }}
+        }}
+#endif
+        return result;
+    }}
+
+    /// <summary>一覧にあるのに、アプリにない画面があれば、例外で止める (黙って無視しない)。</summary>
+    public static void ThrowIfUnknown(IReadOnlyDictionary<string, string> fakes, params string[] knownScreens)
+    {{
+        var unknown = fakes.Keys.Where(k => !knownScreens.Contains(k)).ToList();
+        if (unknown.Count > 0)
+        {{
+            throw new InvalidOperationException($"APP_FAKE_SCREENS に、アプリにない画面がある: {{string.Join(", ", unknown)}}");
+        }}
+    }}
+
+    /// <summary>Main 画面のシナリオの初期状態を、画面モデルに当てる。シナリオがなければ、何もしない。知らないシナリオは、例外で止める。
+    /// シナリオ: 空 (そのまま)、"NameEntered" (名前が入力ずみ)、"InvalidName" (名前が長すぎて、検査の誤りがある)。</summary>
+    public static void ApplyMain(IReadOnlyDictionary<string, string> fakes, {model_type} model)
+    {{
+        if (!fakes.TryGetValue("Main", out var scenario))
+        {{
+            return;
+        }}
+
+        switch (scenario)
+        {{
+            case "":
+                break;
+            case "NameEntered":
+                model.Name = "太郎";
+                break;
+            case "InvalidName":
+                model.Name = new string('あ', 21);
+                break;
+            default:
+                throw new InvalidOperationException($"Main に、シナリオ '{{scenario}}' がない (あるのは: NameEntered, InvalidName)");
+        }}
+    }}
+}}
+"""
+
+
 def program_cs(ns, usings):
     # using の並びは、dotnet format (IMPORTS) の規約に合わせる: System が先、残りは名前の順
     lines = "\n".join(f"using {u};" for u in sorted(set(usings)))
@@ -1043,7 +1117,11 @@ internal static class Program
         ApplicationConfiguration.Initialize();
 
         // 画面と画面モデルを組み立てる場所 (composition root)。DI コンテナを導入するときは、ここで構成する。
+        // Debug のときだけ、環境変数 APP_FAKE_SCREENS で、画面ごとに、シナリオの初期状態を当てる (一覧にあるのに、アプリにない画面は、止める)。
+        var fakes = ScreenModelSelector.ReadFakeScreens();
+        ScreenModelSelector.ThrowIfUnknown(fakes, "Main");
         var model = new MainScreenModel();
+        ScreenModelSelector.ApplyMain(fakes, model);
         var form = new MainForm();
         form.Bind(model);
         Application.Run(form);
@@ -1276,6 +1354,7 @@ def winforms_app_files(name, ns, tfm, uses, presenter_ns, presenter_in_app):
     files = {
         f'{name}/{name}.csproj': csproj_winforms(tfm, ns, uses),
         f'{name}/Program.cs': program_cs(ns, [f'{ns}.Forms', presenter_ns]),
+        f'{name}/ScreenModelSelector.cs': screen_model_selector_cs(ns, presenter_ns, 'IMainScreenModel'),
         f'{name}/Forms/MainForm.cs': main_form_cs(ns, presenter_ns),
         f'{name}/Forms/MainForm.Designer.cs': main_form_designer_cs(ns, name),
     }
@@ -1294,6 +1373,7 @@ def wpf_app_files(name, ns, tfm, uses, vm_in_app, vm_project=None):
         f'{name}/app.manifest': app_manifest(),
         f'{name}/App.xaml': app_xaml(ns),
         f'{name}/App.xaml.cs': app_xaml_cs(ns, vm_ns),
+        f'{name}/ScreenModelSelector.cs': screen_model_selector_cs(ns, vm_ns, 'MainViewModel'),
         f'{name}/Resources/Styles.xaml': styles_xaml(),
         f'{name}/Views/MainWindow.xaml': main_window_xaml(ns, name, vm_ns, None if vm_in_app else vm_project),
         f'{name}/Views/MainWindow.xaml.cs': main_window_cs(ns),
