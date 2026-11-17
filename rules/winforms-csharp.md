@@ -58,14 +58,14 @@ Solution/
     Program.cs               ← composition root
     Forms/                   ← Form と、*.Designer.cs
     Presenters/              ← Presenter と IView (任意。WinForms の型を使うものは、ここ)
-  LogicLayer/                ← 画面モデル (ViewModels/)・業務ロジック (WinForms 非依存。net10.0)
+  LogicLayer/                ← 画面モデル (ScreenModels/)・業務ロジック (WinForms 非依存。net10.0)
   DataLayer/                 ← データアクセス (net10.0)
   LogicLayer.Tests/ …        ← MSTest
   App.UITests/               ← FlaUI (必要なとき)
 ```
 - **依存の向き: アプリ → ロジック → データ。** 逆向きの参照は禁止 (`winforms-check` の WFL003)。
 - **ロジック層・データ層は、WinForms 非依存** (`net10.0` などの Windows 非依存。`UseWindowsForms` / `-windows` を付けない。`System.Windows.Forms` / `System.Drawing` を使わない)。付けると、ビルドで落ちるのではなく、**黙って、依存が混ざる**ので、`winforms-check` の WFL001 が確かめる。
-- ロジック層がない小さなアプリでは、画面モデルは、アプリの `ViewModels/` に置いてよい (WinForms の型は使わない)。**業務ロジックが増えたら、ロジック層に切り出す。** Presenter は、`IView` を介して Form を知るだけで、WinForms の型を使わないので、ロジック層に置いてもよい。
+- ロジック層がない小さなアプリでは、画面モデルは、アプリの `ScreenModels/` に置いてよい (WinForms の型は使わない)。**業務ロジックが増えたら、ロジック層に切り出す。** Presenter は、`IView` を介して Form を知るだけで、WinForms の型を使わないので、ロジック層に置いてもよい。
 
 ### 3.2 層の名前
 既定は `LogicLayer` / `DataLayer`。作成後に、個々の事情に応じて、リネームしてよい (手順は `DLL-LAYOUT.md`。名前を変えたら、プロジェクト・名前空間・`CLAUDE.md` をそろえる)。名前が既定と違うときは、`winforms-check` に、`--logic <名前>` / `--data <名前>` で伝える。
@@ -74,7 +74,7 @@ Solution/
 
 ### 4.1 型・メンバー
 - 型・メソッド・プロパティは PascalCase、private フィールドは `_camelCase`、インターフェースは `I` 接頭辞 (C# の共通規約。`.editorconfig` が、提案として示す)。
-- Form は `<画面名>Form`、**画面モデルは `<画面名>ViewModel`** (名前は暫定。WPF の ViewModel と、呼び名をそろえる)、Presenter は `<画面名>Presenter`、View のインターフェースは `I<画面名>View`。
+- Form は `<画面名>Form`、**画面モデルは `<画面名>ScreenModel`** (ViewModel に相当)、Presenter は `<画面名>Presenter`、View のインターフェースは `I<画面名>View`。
 
 ### 4.2 コントロール (最重要)
 - **すべてのコントロールに、役割が分かる `Name` を付ける。** `<役割><型>` の形 (`NameTextBox` / `SaveButton` / `OrderGrid` / `StatusLabel`)。`textBox1` / `button1` のままにしない。
@@ -168,7 +168,7 @@ Solution/
 `csharp-common.md` の「16 テスト規約」を、そのまま適用する (`メソッド_条件_期待` の名前、1 テスト 1 検証、ファイルは `<クラス名>Tests.cs`)。
 - **テストの対象は、画面モデル、Presenter (あるとき)、ロジック層 / データ層。** **画面モデルは、リポジトリの Fake を渡し、メソッドを呼んで、状態・実行可否・検査・通知を確かめる** (Form も `IView` の偽物も、要らない)。Presenter は、`IView` の Fake を作り、遷移・ダイアログ・フォーカスだけを確かめる (現状の生成物の `MainPresenterTests` は、改訂前の形)。
 - **Form (`Forms/`) は、単体テストしない** (UI テスト、または、目視)。
-- ロジック層がない構成では、`<アプリ名>.Tests` が、アプリを参照して、`ViewModels/` と `Presenters/` をテストする (TFM は、アプリと同じ `-windows`)。
+- ロジック層がない構成では、`<アプリ名>.Tests` が、アプリを参照して、`ScreenModels/` と `Presenters/` をテストする (TFM は、アプリと同じ `-windows`)。
 
 ### 13.2 UI テスト (FlaUI)
 - **操作するコントロールの `Name` が、`AutomationId`** (4.2)。`Find("NameTextBox")` で探し、`AsTextBox().Text = "..."` (ValuePattern) / `AsButton().Invoke()` (InvokePattern) で操作する。**マウス・キーボードの入力は、使わない。**
@@ -208,7 +208,7 @@ Solution/
 |---|---|
 | 3.1 参照方向、ロジック・データ層が WinForms に依存しない | `winforms-check` WFL001 / WFL003 |
 | `winforms-view-model.md` 1・5 章 / 6.3 Presenter・画面モデルが WinForms の型を使わない | `winforms-check` WFL002 (アプリの中の画面モデル)、WFL001 (ロジック層) |
-| `winforms-view-model.md` 1・5.1 画面モデルが WinForms の型を使わない | ロジック層に置く限り `winforms-check` WFL001。**`ViewModels/`・名前による検査は未実装 (予定)** |
+| `winforms-view-model.md` 1・5.1 画面モデルが WinForms の型を使わない | ロジック層に置く限り `winforms-check` WFL001。**`ScreenModels/`・名前による検査は未実装 (予定)** |
 | `winforms-view-model.md` 4 章: Form・Presenter が、データアクセスを `new` しない・リポジトリを直接参照しない、層の参照の向き | `winforms-check` WFL004 / WFL005 / WFL003。それ以外の戻りの規則は、レビュー |
 | 2.3 / 11 Form で Service を `new` しない | `winforms-check` WFL004 |
 | 4.2 コントロールの `Name` (空・重複・変数名との違い) | `winforms-check` WFD002 / WFD003 / WFD005 |
