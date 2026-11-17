@@ -1218,4 +1218,4 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SM8 | WinForms (v2.96.0) | ビルド・単体・UI | 単体 11、UI 5 (`FakeScreen_...` 合格) | ✔ (2026-11-17) |
 | SM9 | WPF (v2.96.0) | 同上 | 単体 15、UI 5 | ✔ (2026-11-17) |
 | SM10 | MFC (gtest。v2.96.0) | 同上 | 単体 9、UI 5 | ✔ (2026-11-17) |
-| SM11 | `framework.h` の `#ifdef UNICODE` を外した後に、新しく生成した MFC の実機ビルド | — | ユーザーの判断で、していない。SM10 は、その後の生成で確認済みのはず (要確認) | 未 |
+| SM11 | `framework.h` の `#ifdef UNICODE` を外した後に、新しく生成した MFC の実機ビルド | SM10 の確認で足りる | SM10 は v2.96.0 の生成物 (v2.95.0 の変更の後)。`framework.h` に `#ifdef UNICODE` がなく、`build_result.txt` は `SUCCESS` | ✔ (2026-11-17。SM10 で) |

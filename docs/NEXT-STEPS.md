@@ -7,7 +7,7 @@
 ## 0. 画面モデルの仕上げ (2026-11-17)
 
 - **MFC の SDI・MDI:** ひな形は、旧形のまま。Document/View (メインの `CView`) だけが、画面モデルの例外と、明記した (2026-11-17。ダイアログ・`CFormView`・画面 DLL は、画面モデルで作る)。Document/View への適用は、実アプリで必要になったとき。
-- **実機で未確認 (DESIGN 4.85):** MFC の言語切り替え (`SetThreadUILanguage`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。SM11 (新規 MFC の `framework.h` 変更後の実機ビルド)。
+- **実機で未確認 → 条件つきに整理 (2026-11-17。DESIGN 4.85):** **SM11** は、SM10 (v2.96.0 の生成物。`framework.h` の指令に `#ifdef UNICODE` がなく、ビルド `SUCCESS`) で確認済み。**MFC の言語切り替え (`SetThreadUILanguage`)** は、国際化 (下の「低優先・保留」) の一部で、実装がないので、確認する対象がない (国際化を実装するときに、実機で確認する)。**MFC のダイアログでの `ON_UPDATE_COMMAND_UI`** は、設計が使わない (ダイアログは、`OnModelChanged` の最後で `EnableWindow`。`ON_UPDATE_COMMAND_UI` は、メニュー・ツールバー用に限る。ダイアログのひな形には、メニューがない)。メニューを持つダイアログを作るときに、確認する。
 - **規約サイズの余裕 (v2.96.8 で、広げた):** `csharp-test-first` の `SKILL.md` 31298/32000 (余裕 702)、WinForms の規約 + 共通 38230/40000 (1770)、WPF の規約 + 共通 42250/44000 (1750)。`csharp-test-first` の `SKILL.md` は、残りが、テストで中身を確かめている節 (空フォルダの案内、作業フォルダ、`test_guard`) なので、これ以上は、移せない。足すときは、`references` へ。
 - **低優先・保留:** 国際化 (リソースへの移行、`APP_CULTURE`、Satellite DLL)、非同期 `Commit()`、`switch (nID)` の `mfc-check` の検査、C# で複数プロパティの変更をまとめる必要、MFC の `Observable` の継続的な検証。
 
