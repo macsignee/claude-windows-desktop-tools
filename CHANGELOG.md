@@ -2,6 +2,11 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.7] 2026-11-17 (MFC の SDI・MDI の扱いを、画面モデルの規約に明記する。文書だけ)
+
+- 残作業 A7 の結果。「画面モデルは、すべての画面で必須 (例外なし)」と、「Document/View は対象外」が、食い違っていた。**唯一の例外を、SDI・MDI のメインのビュー (`CView`) と明記した** (`docs/UI-MODEL-GUIDE.md`、`rules/mfc-cpp.md`)。SDI・MDI のアプリでも、ダイアログ・`CFormView`・画面 DLL は、画面モデルで作る。ひな形 (空の `CSampleDoc` / `CSampleView`) は、変えない。Document/View への適用は、実アプリで必要になったときに設計する。
+- 契約の変更なし (規約の文章の追加。検査は変えていない)。
+
 ## [2.96.6] 2026-11-17 (claude-spec-workflow の追随の記録。文書だけ)
 
 - 残作業 A11 の結果を記録した。`claude-spec-workflow` は、画面モデルの採用に追随していなかった (`add-feature` が Presenter + `IView` の Fake、`update-from-ideas` が「WinForms (MVP)」のまま) ので、v1.8.0 (macsignee/claude-spec-workflow#13) で直した。`docs/NEXT-STEPS.md` を更新した。
