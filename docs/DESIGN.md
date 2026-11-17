@@ -1344,5 +1344,5 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **決定の実装:** 生成する WPF のソリューションに、`ViewModelBase` (`ObservableObject` の派生。`Validate()` の結果 (.NET 標準の `ValidationResult`) を、`ErrorTexts` (欄の名前 → 文章) と `ScreenErrorTexts` (画面全体の誤りと `Failure`) にする)、`ErrorTextMap` (インデクサー `Item[]` の変更を通知する)、`MainMessages` (文章を 1 か所) を足した。`MainViewModel` は `ViewModelBase` を継承し、`Validate()` (名前は 20 文字以内) と `IsValid` を持つ。
 - **XAML:** `<TextBlock Text="{Binding ErrorTexts[Name], Mode=OneWay}"/>` だけ (`INotifyDataErrorInfo`・変換器・見た目のテンプレートは使わない。決定どおり)。画面の既存の部品と `AutomationId` は、変えていない (`NameErrorText` を足した)。
 - **判断:** 複数の欄にまたがる誤りの文章は、先頭 (主たる) の欄にだけ出す (残りの欄は、文章なし)。`Failure` は基底に持たせ、サンプルのメイン画面は使わない (Commit がないため)。`wpf-check` は、`ErrorTexts[Name]` の経路を、指摘なしで通す (生成物で確認)。
-- **未確認 (実機):** WPF の `ErrorTexts` の `Item[]` 通知で、画面の文章が更新されること (生成した WPF ソリューションのビルド・単体テスト・UI テスト・目視)。
+- **実機の確認 (2026-11-17。SM4: WPF、data / logic / viewmodel、flaui): 済み。** ビルド成功 (警告 0)、単体テスト 15 件、UI テスト 4 件が合格。目視で、21 文字の入力で赤い文章が出る・20 文字に減らすと消える・クリアで戻る、を確認した (`ErrorTexts` の `Item[]` 通知で、画面の文章が更新される)。
 

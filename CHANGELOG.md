@@ -8,7 +8,7 @@
 - **XAML:** メイン画面に、`NameErrorText` (`{Binding ErrorTexts[Name], Mode=OneWay}`。普通のバインディングだけ) を足した。`Styles.xaml` に `ErrorTextStyle` を足した。既存のコントロールと `AutomationId` は、変えていない。
 - **契約を変えた点:** `viewmodel` の層に、ファイルが 3 つ増える (`ViewModelBase.cs`・`ErrorTextMap.cs`・`MainMessages.cs`)。`MainViewModelTests` が 5 件から 10 件になる。`MainViewModel` の `PropertyChanged` は、`Name` / `Greeting` に加えて、`IsValid` / `ScreenErrorTexts` も通知する。
 - 規約・手引き・`SKILL.md`・`DESIGN.md` (4.88) の記述を、実装に合わせた。
-- テスト: `tests/new_solution_wpf_test.sh` に +3 件 (`wpf-check` が、`ErrorTexts[Name]` を、指摘なしで通すことを含む)、`tests/add_project_test.sh` を更新。**実機の確認は、これから** (生成した WPF ソリューションのビルド・単体テスト・UI テスト・目視)。
+- テスト: `tests/new_solution_wpf_test.sh` に +3 件 (`wpf-check` が、`ErrorTexts[Name]` を、指摘なしで通すことを含む)、`tests/add_project_test.sh` を更新。**実機の確認 (2026-11-17。SM4): 済み。** ビルド成功 (警告 0)、単体テスト 15 件、UI テスト 4 件が合格。目視で、誤りの文章が出る・消える・クリアで戻る、を確認した。
 - **この版では、まだ:** MFC (B-4)、`APP_FAKE_SCREENS` ほか (PR C)。
 
 ## [2.92.0] 2026-11-17 (WinForms のひな形を画面モデルにする。C# の共通部品 `RepositoryException`。実装の PR B-1・B-2)
