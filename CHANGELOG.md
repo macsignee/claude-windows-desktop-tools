@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.5] 2026-11-17 (UI-CTL-100 と MBCS の整合の記録。文書だけ)
+
+- 確認 (残作業 A9): `UI-Design-Guidelines.md` の UI-CTL-100 (Unicode でビルドする。コード例は `#ifdef UNICODE` で囲む) と、v2.95.0 の変更 (`framework.h` の `#ifdef UNICODE` を外した) は、矛盾しない。Unicode (既定) の生成物は、どちらでもガイドラインを満たす。差は、MBCS のときだけ (実機で、指令を外すとビジュアルスタイルが効く)。
+- `skills/ui-design-review/SKILL.md` の「既知の制限」に、その差を記録した。参照文書 (`UI-Design-Guidelines.md`) と、検査 (UIG-CTL100U) は、変えない。
+- 契約の変更なし。
+
 ## [2.96.4] 2026-11-17 (旧 Presenter 構成の移行手順。文書だけ)
 
 - `docs/MIGRATION-SCREEN-MODEL.md` を新設: WinForms の旧 Presenter 構成 (`IMainView` + `MainPresenter`) から画面モデルへ移す手順 (対応表、テスト先行の 9 手順、Presenter に残すもの、検査)。WPF・MFC は、生成物の差分から書いた短い節 (旧構成の実際のソリューションでは未確認)。自動の移行は、ない。
