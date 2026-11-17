@@ -1,7 +1,16 @@
 # 次の作業 (再開用メモ)
 
-2026-11-10 時点 (v2.62.4。`claude-spec-workflow` は v1.7.2)。**必須の残り作業は、ない。** 残っているのは、任意の確認、条件が整ってから行うもの、判断待ちのものだけ。
+2026-11-17 時点 (v2.96.1。`claude-spec-workflow` は未確認)。**画面モデル (PR A〜C。v2.91.0〜v2.96.0) は、実装・実機確認 (TEST-PLAN 2-57 の SM1〜SM10) とも済み。** 残っているのは、画面モデルの仕上げ (下の「0」)、任意の確認、条件が整ってから行うもの、判断待ちのものだけ。
 各項目の状況は `docs/REMAINING-CHECKS.md`、手順と結果は `docs/TEST-PLAN.md`、変更の一覧は `CHANGELOG.md`。以前の版のこのメモ (手順や依頼文) は、git の履歴にある。
+画面モデルの引き継ぎの詳細は `docs/HANDOFF-2026-11-17.md` (5 章が残作業)。
+
+## 0. 画面モデルの仕上げ (2026-11-17)
+
+- **未実装・未整備:** Fake リポジトリの `FailNext` / `FailWhen` と `APP_MODEL=fake:<シナリオ>` (サンプルにリポジトリがない。リポジトリを持つ画面ができたときに)、画面モデルの契約テストとリポジトリの契約テストの生成 (文書 `CONTRACT-TESTS.md` だけ)、旧 Presenter 構成のソリューションの移行手順。
+- **方針の再確認:** MFC の SDI・MDI のひな形は、旧形のまま (Document/View なので対象外と決めた)。
+- **実機で未確認 (DESIGN 4.85):** MFC の言語切り替え (`SetThreadUILanguage`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。SM11 (新規 MFC の `framework.h` 変更後の実機ビルド)。
+- **確認:** `UI-Design-Guidelines.md` の `#ifdef UNICODE` の記述と v2.95.0 の整合、`claude-spec-workflow` の追随、規約サイズの余裕 (`csharp-test-first` の `SKILL.md` 31963/32000、WinForms の規約 + 共通 39899/40000 (v2.93.0 時点)。足すときは `references` へ)。
+- **低優先・保留:** 国際化 (リソースへの移行、`APP_CULTURE`、Satellite DLL)、非同期 `Commit()`、`switch (nID)` の `mfc-check` の検査、C# で複数プロパティの変更をまとめる必要、MFC の `Observable` の継続的な検証。
 
 ## 1. 任意の確認
 

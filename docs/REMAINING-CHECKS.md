@@ -36,6 +36,7 @@
 | `/new-solution` (C++) | 2-0c | N2、N3v ほか (✔ の行) | 詳細は、TEST-PLAN の 2-0c |
 | テスト先行 Skill の改名 (v2.32.0) | 2-15 | CT1〜CT5、CW1、SU1・SU2、UQ1〜UQ4、LY1、BT1・BT2 | WinForms (CT1・CT2)・WPF (CT3) の依頼文から `csharp-test-first` が選ばれ、C++ (CT4) では `cpp-test-first` が選ばれ、ASP.NET Core (CT5) ではどちらも選ばれない。CW1 = v2.34.0 の読み替え表。SU1・SU2 = v2.37.0 の「セットアップ」の分離。SU1 は、足りない層の場面で `references/setup.md` を読み、`add_project.py` で層を足した。SU2 は、通常の流れで読まなかった (主な合否 ✔。(5) 報告の先頭は ✗)。BT1・BT2 = v2.40.0 の `build-test-loop` の UI テストの節の分離。BT1 は、ベースラインで `build-test-loop` が読み込まれ、`PASSED`、`references/ui-tests.md` は読まれなかった。BT2 は、`/ui-test-first` の Red → Green が通った (分離で壊れていない。`references/ui-tests.md` は読まれず、不要だった)。LY1 = v2.38.0: WPF で `--layers` を省略した質問の推奨が `data,logic`、`ViewModels` は作られない (選択肢に `viewmodel` が出るが、許容。文面は直さない)。WinForms が Presenter と `IView` の Fake で、Green まで進む (`test_guard`・`winforms-check` を含む)。v2.33.0: `/new-solution` が、WinForms・WPF・MFC ダイアログで `--ui-tests` を質問し (UQ1〜UQ3)、`csharp-dll` では質問しない (UQ4)。最初の動作は、実行ごとに揺れる (CT2 の別の実行)。CT3 は、Red 後の確認と `test_guard` が、守られなかった (TEST-PLAN の知見 4) |
 | C# の規約の 3 分割 (v2.35.0) | 2-16 | RS1〜RS4 | `paths` の絞り込みが、実機で効く (RS4: WinForms の Red → Green が、分割後の規則で進む): WinForms の Presenter = 共通 + WinForms (約 37KB)、画面と無関係の `.cs` = 共通のみ (約 13KB)、WPF の ViewModel = 共通 + WPF (約 41KB)。分割前は、どれも約 62.5KB |
+| 画面モデル (v2.92.0〜v2.96.0) | 2-57 | SM1〜SM10 | WinForms・WPF・MFC (gtest あり・層なし・MBCS) の、ビルド・単体・UI・目視。SM11 (`framework.h` 変更後の新規 MFC の実機ビルド) は未 |
 
 ## 2. 未了の項目と扱い
 

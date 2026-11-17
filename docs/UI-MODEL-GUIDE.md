@@ -167,7 +167,7 @@ Fake 画面モデルは、**UI 先では、本物の画面モデルが結合さ�
 | 記録 | `ui-trace.txt` の先頭に、`fake_screens: Greeting, NameEdit:InvalidName` と出す |
 | `APP_MODEL` との関係 | 独立。`APP_MODEL` はリポジトリを、`APP_FAKE_SCREENS` は画面モデルを選ぶ。Fake 画面モデルを選んだ画面は、リポジトリを使わない |
 | 一覧にあるのに Fake がないとき | **Debug の起動時に、エラーで止める** (黙って本物に切り替えない) |
-| Release への Fake の混入 | `APP_MODEL` と同じ扱い: **Release では読まない** (Fake のクラス自体は、バイナリに残りうる。条件コンパイルで除くことは、決めていない) |
+| Release への Fake の混入 | `APP_MODEL` と同じ扱い: **Release では読まない** (Fake の画面モデルのクラスは、ひな形に置かない (決定 2026-11-17)。シナリオの初期状態を当てる処理は、`#if DEBUG` / `#ifdef _DEBUG` で、Release から除く) |
 
 - **インターフェースに依存する:** Form・ダイアログは、画面モデルの**インターフェース** (C++ は `GreetingScreenModelInterface`、C# は `IGreetingScreenModel`、WPF は `IGreetingViewModel`) だけを知る。
 - **組み立てる場所 (composition root) に、画面名から実装を選ぶ関数を 1 つ置く:** `APP_FAKE_SCREENS` に名前があれば Fake、なければ本物を返す。MFC は、ダイアログを開く側が、コンストラクターへ渡す画面モデルを、この関数から得る (Debug のときだけ読む補助 `ScreenModelSelector` を、UI 側の共通ヘッダーに置く案)。

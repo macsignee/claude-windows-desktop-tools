@@ -1201,3 +1201,21 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | VS14 | **ダイアログで止まっているとき:** VS に、モーダルのダイアログを出したまま、`--status` | `TIMEOUT` か、COM の拒否で `ENV_ERROR` のいずれか。Claude は、もう一度走らせず、ユーザーに、ダイアログを閉じるよう依頼する | 観察のみ (2026-11-15 ユーザー判断。VS4 のとき、C++ の IntelliSense のモーダルダイアログが出たままでも、`Solution.FullName` を読め、`INSTANCES: 2` と数えられた。ほかの種類のモーダル (保存の確認など) や、固まった VS は、未確認。`TIMEOUT` / `ENV_ERROR` の経路は、実機では未確認) |
 | VS15 | **VS の版:** VS 2022 と VS 2026 (入っていれば、両方) | どちらでも、ROT から見つかり、VS1〜VS8 が動く (`17.0` を固定していない) | 対象外 (2026-11-15 ユーザー判断。VS 2022 で動いても、将来の版 (例: 2030) の保証にならない。版を固定しない作り (ROT の `!VisualStudio.DTE.` の前方一致、`vswhere -latest -prerelease`。静的テストで `DTE.17` の固定がないことを確認) と、VS 2026 (`DTE.18.0`) で、コードを直さずに動いたことが、根拠。**前提:** ROT の名前、DTE の API、`Debugger.CurrentMode` の値 (1=design 2=break 3=run)、`vswhere` の `productPath`。VS がこれらを変えたら、実機の出力を見て直す) |
 | VS16 | **古いウォッチャー:** ウォッチャーを再起動しない (旧版のまま) で、`vs_once.sh` | `WATCHER_NOT_RUNNING` (15 秒)。メッセージに、再配布と再起動の案内 | ✔ (2026-11-15。ウォッチャーを止めて `vs_once.sh --status`。15 秒後に `WATCHER_NOT_RUNNING`、再配布 (HOST_VERSION 2.90.0 以降) と再起動の案内。`trigger_vs.flag` は取り下げられ、`vs_result.txt` もなし) |
+
+### 2-57. 画面モデルの実機確認 (v2.92.0〜v2.96.0。SM1〜SM10)
+
+場所: `C:\Workspace\macsignee\source\repos\CSharpTF\` の `SM1`〜`SM10`。ウォッチャー 2.96.0 (ソリューションのフォルダごとに起動し直す)。gtest のソリューションは、生成後に vcpkg の準備 (`package_once.sh <フォルダ> --timeout 1800 'vcpkg baseline' 'vcpkg install'`) が要る。
+
+| # | 対象 | 手順 | 結果 | 状況 |
+|---|---|---|---|---|
+| SM1 | WinForms (v2.92.0) | `/new-solution` → ビルド・テスト・デザイナー | ビルド、単体 11、UI 4、デザイナーで表示 | ✔ (2026-11-17) |
+| SM2 | WinForms (ロジック層なし) | ビルド・テスト | 単体 10 | ✔ (2026-11-17) |
+| SM3 | WPF (v2.93.0) | ビルド・テスト | 単体 10 | ✔ (2026-11-17) |
+| SM4 | WPF (`ViewModelBase` / `ErrorTexts`) | ビルド・テスト・UI テスト・目視 | 単体 15、UI 4。21 字で赤字の誤り文、20 字以下で消え、クリアで復帰 | ✔ (2026-11-17) |
+| SM5 | MFC (data + logic、gtest。v2.94.0・v2.95.0) | ビルド (MSVC v145、C++20・`std::format`)・単体・UI・目視 | 単体 18 (`SampleScreenModel` 8、`GreetingScreenModel` 8、モジュール情報、データ 1)、UI 9 (メイン 4、`UiLayerHost` 5)。21 字で「名前は 20 文字以内で入力してください」 | ✔ (2026-11-17) |
+| SM6 | MFC (層なし)。MBCS (`CharacterSet=MultiByte`) も | ビルド・UI テスト | UI 4。MBCS でもビルド・UI テスト合格。「𠮟る」は `?` になる (Shift_JIS に収まらない。仕様どおり)。MBCS でビジュアルスタイルが当たらない原因は `framework.h` の `#ifdef UNICODE` → v2.95.0 で外し、手で外して再ビルドして、効くことを確認 | ✔ (2026-11-17) |
+| SM7 | MFC | 赤字の誤り表示 (`OnCtlColor`) の目視 | 誤りの文章が赤字で出る | ✔ (2026-11-17) |
+| SM8 | WinForms (v2.96.0) | ビルド・単体・UI | 単体 11、UI 5 (`FakeScreen_...` 合格) | ✔ (2026-11-17) |
+| SM9 | WPF (v2.96.0) | 同上 | 単体 15、UI 5 | ✔ (2026-11-17) |
+| SM10 | MFC (gtest。v2.96.0) | 同上 | 単体 9、UI 5 | ✔ (2026-11-17) |
+| SM11 | `framework.h` の `#ifdef UNICODE` を外した後に、新しく生成した MFC の実機ビルド | — | ユーザーの判断で、していない。SM10 は、その後の生成で確認済みのはず (要確認) | 未 |
