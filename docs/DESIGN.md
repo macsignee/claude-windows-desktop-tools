@@ -1346,3 +1346,11 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **判断:** 複数の欄にまたがる誤りの文章は、先頭 (主たる) の欄にだけ出す (残りの欄は、文章なし)。`Failure` は基底に持たせ、サンプルのメイン画面は使わない (Commit がないため)。`wpf-check` は、`ErrorTexts[Name]` の経路を、指摘なしで通す (生成物で確認)。
 - **実機の確認 (2026-11-17。SM4: WPF、data / logic / viewmodel、flaui): 済み。** ビルド成功 (警告 0)、単体テスト 15 件、UI テスト 4 件が合格。目視で、21 文字の入力で赤い文章が出る・20 文字に減らすと消える・クリアで戻る、を確認した (`ErrorTexts` の `Item[]` 通知で、画面の文章が更新される)。
 
+### 4.89 MFC の UI DLL のサンプルを、画面モデルにする (v2.94.0。4.84・4.86 の実装 PR B-4)
+- **決定の実装:** `add_ui_host.py` (画面を持つ MFC の DLL と画面ホスト) が生成するサンプル `GreetingDialog` を、画面モデル中心に変えた。`MakeGreeting` (ロジック層の関数) をやめ、**ヘッダーだけ**の画面モデルを生成する: `GreetingScreenModelInterface.h` (インターフェース。`GreetingProperty` の列挙)、`GreetingScreenModel.h`、`GreetingMessages.h` (`std::format`。文章を 1 か所)。ロジック層があればそこに、なければ UI DLL に置く。単体テストは `TestGreetingScreenModel.cpp` (8 件。通知・検査・`RemoveHandler`)。
+- **共通部品 (実物のヘッダーのコピー。`skills/cpp-test-first/assets/`):** `Observable.h` (`AddHandler` / `RemoveHandler` / `Raise`。テンプレートなし)、`ScreenModelSupport.h` (`ValidationError`・`ValidationResult`・`RepositoryException`)。**`RepositoryException` の文章は `GetText()`** (`GetMessage` は、Windows のマクロ `GetMessageW` と衝突するため)。
+- **UI 側:** `ScreenModelUi.h` (`ToCString` / `ToWString`。`CString` の揺らぎを、境界で吸収)。`GreetingDialog` は `GreetingScreenModelInterface&` を受け取り、`OnInitDialog` で `AddHandler`、`OnDestroy` で `RemoveHandler`、`OnNameChanged` で `SetName(ToWString(...))`、`ApplyControls` で状態を反映 (名前・挨拶・誤りの文章・クリアの有効・無効。更新中のフラグで再入を防ぐ)。誤りの表示用に `IDC_GREETING_ERROR_TEXT` (3005) を足した。既存の ID (3001〜3004) と UI テストは、変えていない。
+- **判断:** (1) 画面モデルをヘッダーだけにしたのは、DLL の境界に `std` の型 (`std::wstring`・`std::function`) を出さないため。ロジック層の DLL に、コンパイルされるコードは、なくなる。(2) `std::format` と `operator==(...) = default` を使うので、C++20 (生成する `.vcxproj` は `stdcpp20`)。(3) 共通の 2 つのヘッダーは、すでにあれば、足さない (複数の画面で、重複させない)。
+- **未実装:** MFC のメイン (`mfc-dialog` の `CSampleDlg`・SDI・MDI。B-4b)、`APP_FAKE_SCREENS` ほか (PR C)。
+- **未確認 (実機):** 生成した MFC ソリューションの、MSVC でのビルド (C++20、`std::format`)、GoogleTest、UI テスト、MBCS でのビルドと `ToCString` / `ToWString`。**WSL には C++ のコンパイラがなく、コンパイルは、まだ一度もしていない。**
+
