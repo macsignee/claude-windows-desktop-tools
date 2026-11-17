@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.96.9] 2026-11-17 (未確認の挙動の整理。残作業 A8。文書だけ)
+
+- **SM11 を ✔ にした:** SM10 (v2.96.0 の生成物) の `framework.h` に `#ifdef UNICODE` がなく、ビルドが `SUCCESS` だった (TEST-PLAN 2-57)。
+- **MFC の言語切り替え (`SetThreadUILanguage`)** は、国際化の一部で、実装がないので、確認する対象がない。**ダイアログでの `ON_UPDATE_COMMAND_UI`** は、設計が使わない経路 (`EnableWindow`) で、ダイアログのひな形にメニューがない。どちらも、**条件つき** (国際化を実装するとき / メニューを持つダイアログを作るとき) に整理した (`docs/NEXT-STEPS.md`、`docs/DESIGN.md`)。
+- 契約の変更なし。
+
 ## [2.96.8] 2026-11-17 (規約・Skill のサイズの余裕を広げる。残作業 A10)
 
 - **規約の付録 (規則とツールの対応表) を、検査の Skill の `references/rule-map.md` に移した:** `winforms-csharp.md` → `skills/winforms-check/references/rule-map.md`、`wpf-csharp.md` → `skills/wpf-check/references/rule-map.md`。規約には、案内 1 文と「編集したら、`*-check` を実行する」の行だけを残した。`csharp-common.md` の案内、2 つの検査 Skill の `SKILL.md` に、移動先の案内を足した。

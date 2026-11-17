@@ -1309,7 +1309,7 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
   - **命名 (C++):** インターフェースは `XXXInterface`、軽いものは `XXXable` (`I` 接頭辞なし)。取得は `Get`、述語は `Is` / `Can`。
 - **実装 (この PR は文書だけ):** `rules/` (`winforms-csharp.md` を `winforms-view-model.md` に分割、`wpf-csharp.md`・`mfc-cpp.md`・`cpp-common.md`)、`ui-test-first`・`csharp-test-first`・`cpp-test-first` の文書、テスト。規約サイズの上限テストに、WinForms の Presenter / ScreenModel 読み込み時の上限 (60000 バイト) を設けた。
 - **未実装 (実装の PR):** `*-check`、ひな形と生成スクリプト、共通部品 (`Observable`・`ValidationResult`・`Failure`・`MessageFormatter` など)、`APP_FAKE_SCREENS` ほかの実装、完全性のテスト。`Observable` は「リリースまで検証を繰り返す」。現状のひな形 (生成されるサンプル) は、旧構成 (Presenter 中心)。
-- **未確認 (実機):** MFC の言語切り替え (`SetThreadUILanguage`)、WPF の `ErrorTexts` の通知 (`Item[]`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI`。国際化 (リソースへの移行、擬似ローカライズ) は、優先度が低い。
+- **未確認 (実機):** MFC の言語切り替え (`SetThreadUILanguage`)、WPF の `ErrorTexts` の通知 (`Item[]`)、MFC のダイアログでの `ON_UPDATE_COMMAND_UI` (どちらも、条件つきに整理した (2026-11-17)。`docs/NEXT-STEPS.md`)。国際化 (リソースへの移行、擬似ローカライズ) は、優先度が低い。
 - **見送り:** `mfciterators` (MFC のコレクションのイテレーター) の配布は、取り下げ。コレクション操作の拡張が要るときは、別途。
 
 ### 4.85 画面モデルの検査 (`*-check`) (v2.91.0。4.84 の実装 PR A)
