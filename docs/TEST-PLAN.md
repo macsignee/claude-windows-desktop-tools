@@ -1230,7 +1230,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | PS2 | **C++: DLL とテスト exe が、同じフォルダに出る:** PS1 のあと、`<ソリューション>\x64\Debug\` を見る | `LogicLayer.dll` と `LogicLayerTest.exe` が、同じフォルダにある (プロジェクトのフォルダの下の `x64\Debug\` には、できない。**`SolutionDir` の環境変数の効果**)。PS1 のテストが、DLL を読み込んで、通っている | 未 |
 | PS3 | **全体に戻る:** `--project` なしで、`build_test_once.sh` | これまでどおり。全層のテストが実行される。`RESULT_INFO` に `scope=solution` | 未 |
 | PS4 | **.NET: 1 つの層だけ:** WPF か WinForms のソリューションで、`--project LogicLayer` | `LogicLayer` と `LogicLayer.Tests` だけがビルドされ、**`LogicLayer.Tests` だけ**に `dotnet test` が走る。`PASSED`。古い出力の警告 (`Get-StaleTestAssemblies`) が出ない | 未 |
-| PS5 | **混在: .NET を単独で渡した出力先:** 混在のソリューションで、.NET の層を `--project` で指定 | `dotnet test --no-build` が、今回ビルドした DLL を見る (出力先が、ずれない)。ずれたときは、「古い出力先」の警告が出る → `-DotnetTestArgs:-p:Platform=x64` で合わせる方法を、Skill に書く | 未 |
+| PS5 | **混在: .NET を単独で渡した出力先:** 混在のソリューションで、.NET の層を `--project` で指定 | `dotnet test --no-build` が、今回ビルドした DLL を見る (出力先が、ずれない)。ずれたときは、「古い出力先」の警告が出る → `-DotnetTestArgs:-p:Platform=x64` で合わせる方法を、Skill に書く | **2026-11-18: 不具合 → 2.98.1 で修正、再確認待ち** (`bin\x64\Debug` に出て、`LogicLayer.Tests.dll が見つかりません` で失敗。`scope=project=LogicLayer` は出た = フラグの受け渡しと新ウォッチャーは動いた。単独の .NET に AnyCPU を渡して直した) |
 | PS6 | **UI テスト:** WPF か WinForms で、`uitest_once.sh --project <メイン>` (`<メイン>.UITests`) | `<メイン>` と `<メイン>.UITests` だけがビルドされ、その UI テストだけが走る。`scope=project=<メイン>` | 未 |
 | PS7 | **ない名前:** `--project NoSuch` | `BUILD_FAILED` (ビルドの要求は、`FAILED`)。`build_error.log` が `[ENVIRONMENT ERROR ...]` で、**ソリューションにあるプロジェクトの名前の一覧**を出す。ソースは、直さない | 未 |
 | PS8 | **テストのない名前:** テストのプロジェクトがない層で、`--project <層>` (テストあり) | 環境エラー (`no test project for '<層>' (looked for <層>Test / <層>.Tests)`)。ビルドだけ (`build_once.sh --project <層>`) は、通る | 未 |
