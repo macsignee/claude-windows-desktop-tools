@@ -125,6 +125,7 @@ ok "watch_and_build.ps1: tests run against the scope's test projects only (Proje
 ok "watch_and_build.ps1: documents project= in the header and the banner" "$([ "$(has "$p" '[プロジェクト単位]')" = 1 ] && [ "$(has "$p" 'flag line project=<name>')" = 1 ] && echo 1 || echo 0)"
 ok "watch_and_build.ps1: the message uses \${scopeName} (a variable followed by ':' would be read as a drive-qualified name)" "$([ "$(has "$p" '${scopeName}:')" = 1 ] && ! grep -q '\$scopeName:' <<<"$p" && echo 1 || echo 0)"
 ok "tests.ps1: Find-TestExes keeps only the exes of the scope's test projects when a scope is active" "$([ "$(has "$t" 'if ($script:ScopeActive)')" = 1 ] && [ "$(has "$t" '$scopeExes -contains $_.Name')" = 1 ] && echo 1 || echo 0)"
+ok "common.ps1: scope= keeps the requested name even when the scope is an error (no such project): else harness_note.sh shows a false 'old watcher' NOTE" "$([ "$(has "$c" 'scope=$(if ($script:Scope -and -not $script:Scope.Error)')" = 0 ] && [ "$(has "$c" 'scope=$(if ($script:Scope) {')" = 1 ] && echo 1 || echo 0)"
 ok "common.ps1: run_id.txt records scope= (project=<name> or solution)" "$([ "$(has "$c" 'scope=$(if ($script:Scope')" = 1 ] && [ "$(has "$c" "'solution'")" = 1 ] && echo 1 || echo 0)"
 cmd="$(iconv -f CP932 -t UTF-8 "$CMD" | tr -d '\r')"
 ok "build-windows.cmd: a lone .csproj / .vbproj / .fsproj gets Platform AnyCPU (Any CPU is the solution configuration name); a solution is unchanged" "$([ "$(has "$cmd" 'for %%E in (.csproj .vbproj .fsproj) do if /i "%TARGET_EXT%"=="%%E" set "MSPLATFORM=AnyCPU"')" = 1 ] && echo 1 || echo 0)"
