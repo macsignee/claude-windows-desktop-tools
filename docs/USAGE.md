@@ -1,6 +1,6 @@
 # 利用ガイド (どのコマンドを打つか・承認の言い方・困ったとき)
 
-このガイドは、**使う人**向けです。設計の判断は [`DESIGN.md`](DESIGN.md)、Skill ごとの詳細は [`README.md`](../README.md) を見る。
+このガイドは、**使う人**向けです。設計の判断は [`DESIGN.md`](DESIGN.md)、Skill ごとの詳細は [`README.md`](../README.md) を見る。画面モデルの考え方は [`UI-MODEL-GUIDE.md`](UI-MODEL-GUIDE.md)。
 
 あなたが打つのは、**`/` から始まるコマンド**だけです。それ以外の Skill (`auto-build`、`build-test-loop`、`mfc-check` など) は、依頼文 (「ビルドして」「先にテストを書いて」など) に合わせて、Claude が選びます。
 
@@ -16,26 +16,32 @@
 | 先に、仕様を固めてから作る | `/brainstorm` → `/update-from-ideas` → `/new-solution --spec <仕様書>` |
 | 同じ題材で、種類違いの複数の候補 (WPF と WinForms など) を作って、比べる | `/new-solutions` |
 
+- C++ で、テストあり (`--tests gtest`) のときは、作成のあとに、**GoogleTest (vcpkg) の準備** (`builtin-baseline` の固定と `gtest` の取得。初回は数分) が要ります。`/new-solution` を通せば、Claude が続けて実行します。スクリプトを直接実行したときは、「vcpkg の baseline を固定して」と頼みます (しないと、ビルドが `requires a manifest with a specified baseline` で止まります)。
+
 **ある (すでに作ってある)** → Q2 へ。
 
 ### Q2. すでにあるソリューションで、何をしたいか?
 
 | やりたいこと | 打つもの・頼み方 |
 |---|---|
-| **層・テスト・画面を持つ DLL・UI テストを、足す** | `/add-project` (層 / テスト / 画面 + ホスト / UI テスト) |
+| **層・テスト・画面を持つ DLL・UI テストを、足す** | `/add-project` (層 / テスト / 画面 + ホスト / UI テスト / プラットフォーム (C++ の Win32 など) / 共通の MSBuild 設定) |
 | **機能を作る** (仕様書から。計画 → 承認 → テスト先行 → 実装 → 検証) | `/add-feature [仕様書のパス]` (別リポジトリ `claude-spec-workflow`) |
 | 機能の仕様を、整理したい・追加のアイデアを、仕様書に反映したい | `/brainstorm` → `/update-from-ideas` (`claude-spec-workflow`) |
-| 画面を、プロンプトで作りながら、UI テストを先に書く | `/ui-test-first [作りたい画面の説明]` |
+| 画面を、プロンプトで作りながら、UI テストを先に書く (**手書きのスケッチや、画面の写真を渡して、作ることもできる**) | `/ui-test-first [作りたい画面の説明]` (画像は、チャットに貼る。Claude が、部品の一覧を見せて、決まらないことを、確認する) |
 | 先にテストを書いて、Red を確認したい (TDD) | 「先にテストを書いて」「TDD で」と頼む (`cpp-test-first` / `csharp-test-first`) |
 | ビルドだけ、確かめたい・エラーを直したい | 「ビルドして」(`auto-build`) |
 | ビルドとテストを通したい | 「テストまで通して」(`build-test-loop`) |
+| **1 つの層だけ**、ビルドとテストを回したい (ほかの層の失敗に、止められたくない) | 「`OrderLogic` だけ、ビルドとテストを回して」(`--project OrderLogic`。テストは `OrderLogicTest` / `OrderLogic.Tests` と推測。UI テストは `OrderLogic.UITests`) |
 | MFC / WPF / WinForms の、実行時に壊れる所を、静的に調べたい | 「`mfc-check` して」など (`mfc-check` / `wpf-check` / `winforms-check`) |
 | ライブラリ (NuGet・vcpkg・GitHub のソース) を、足したい | 「○○を追加して」(`add-package`) |
 | Visual Studio で、ソリューションを開く・ブレークポイントを置く・デバッグ実行する | 「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」(`vs-debug`) |
 | 画面を、UI ガイドラインに沿って、設計・レビューしたい | 「画面をレビューして」(`ui-design-review`) |
+| 旧い構成 (Presenter 中心) の WinForms の画面を、画面モデルの構成へ移したい | [`MIGRATION-SCREEN-MODEL.md`](MIGRATION-SCREEN-MODEL.md) の手順で、1 画面ずつ頼む (**移さなくても動く。急がない**) |
 
 ### 前提 (ビルドとテストをするとき)
 Windows 側で、**ウォッチャー** (`run_watcher.cmd`) を、対象のプロジェクトのフォルダで、起動しておく。ビルドとテストは、ウォッチャー経由でしか、実行できない。静的検査 (`mfc-check` など) と、ソリューションの作成・層の追加は、ウォッチャーがなくても、できる。
+
+**ウォッチャーの版:** 1 つの層だけ回す (`--project`) には 2.98.0 以降、Visual Studio の操作 (`vs-debug`) には 2.90.0 以降が要る。古いときは、結果の末尾に `NOTE:` が出る (下の「3」)。ホスト側を配り直して (`install/install.sh`)、ウォッチャーを再起動する。
 
 ### 新しい Skill を使えないとき
 Skill を配布したあと (`install/install.sh --skills-only`) は、**Claude Code のセッションを、新しく起動する。** 起動中のセッションには、反映されない。ホームの `~/.claude/skills/` に配っても、プロジェクトの `.claude/skills/` に配っても (`--skills-dir`。README の「5-2」)、同じ。
@@ -92,6 +98,12 @@ OK、この案で足してください
 | ビルドやテストが、長い間、進まない | ウォッチャーのウィンドウを、確認する。タイトルに `選択` と出ていたら、コンソールを、クリックしたため、出力が止まっている。Enter か Esc で、再開する。テストが `TIMEOUT` なら、`host-tools/README.md` を見る |
 | `NOTE: 版の不一致` と出る | 警告だけで、結果には、影響しない。ウォッチャーが、**ホスト側が最後に変わった版より古い**ときだけ出る。ウォッチャーが古いのが原因なので、`install/install.sh` (引数なし) で、ホスト側を配り直し、ウォッチャーを再起動する。Skill だけを配ったときは、出ない |
 | 新しい Skill が出ない・動きが古い | 配布したあと、セッションを、新しく起動したか、確認する。配布されたかは、`~/.claude/skills/<Skill 名>/VERSION` で、わかる |
+| `--project` を付けたのに、`NOTE: ... プロジェクト単位 (project=) で処理していない` と出る | ウォッチャーが古い (2.98.0 より前)。古いウォッチャーは、`project=` を読まず、**ソリューション全体を処理する** (結果は出るが、層だけではない)。`install/install.sh` で配り直し、ウォッチャーを再起動する |
+| `ENV_ERROR` で、`no project named 'XXX'` と出る | `--project` の名前が、ソリューションにない。出力に、ソリューションにあるプロジェクトの名前の一覧が出る。**ソースの問題ではない**ので、Claude は、直さずに止まる。名前を直して、もう一度 |
+| `ENV_ERROR` で、`no test project for 'XXX'` と出る | その層に、テストのプロジェクトがない (`XXXTest` / `XXX.Tests` を探した)。テストなしの層 (メインのアプリなど) は、ビルドだけならできる (「`XXX` だけビルドして」)。テストが要るなら、`/add-project tests` で足す |
+| `MSB4126` (無効なソリューション構成 `Debug\|x64` など) が出る | ソースの問題ではない。(1) ウォッチャーの Platform が、ソリューションと食い違っている (`Win32` のソリューションを、`x64` のウォッチャーで)。(2) **.NET だけの `.slnx` に C++ の層を足した**とき、`.slnx` に `x64` の構成がない (v2.98.2 以降の `/add-project` は、足す。古い版で足したなら、`.slnx` の `<Configurations>` に `<Platform Name="x64" />` を足す) |
+| ビルドが `requires a manifest with a specified baseline` で止まる | GoogleTest (vcpkg) の準備が、まだ。「vcpkg の baseline を固定して」と頼む (`package_once.sh "<フォルダ>" --timeout 1800 "vcpkg baseline" "vcpkg install"`。初回は数分) |
+| ビルドが `__MSBUILD_COMMON_DIR_NOT_SET__\Common.props` が見つからない、で止まる | 共通の MSBuild 設定の場所 (環境変数 `MSBUILD_COMMON_DIR`) が、Windows 側に設定されていない。設定して、Visual Studio とウォッチャーを起動し直す。または、`/add-project common` の案内に従う (README の「3-2」) |
 | `/コマンド` を打っても、反応しない | スラッシュ専用の Skill (`/new-solution`、`/add-project`、`/new-solutions`、`/ui-test-first`) は、依頼文では、起動しない。スペルとスラッシュを確認し、配布とセッションの再起動も確認する |
 | 案が、気に入らない | **承認しないことが正解**。直したい点を、具体的に伝える (上の「2」) |
 | 途中で、やめたい | 「中止してください」と伝える。`/add-project` などは、承認の前なら、何も作られていない。Esc でも、中断できる |
@@ -101,6 +113,15 @@ OK、この案で足してください
 
 ### それでも解決しないとき
 状況を、そのまま、会話で伝える (「テストが○○で落ちる」「案のここが不安」)。エラーの原文を、貼ると、次の一手を、提案できる。
+
+### Visual Studio を、Claude に操作させるとき (`vs-debug`)
+
+「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」と頼みます (ウォッチャー 2.90.0 以降。README の「2-8」)。
+
+- **ブレークポイントを置くだけでは、実行しません。** 実行は、**「デバッグを実行して」と言ったときだけ**です。実行の前に、ビルドが成功している必要があります。
+- **デバッグ中は、Claude は、ビルド・テスト・編集をしません** (exe がロックされるため)。止めるのは、あなたの操作です (Shift+F5)。
+- **Visual Studio で、未保存の編集があるファイルは、Claude は、編集しません。** 保存 (Ctrl+S) してもらうか、別のファイルを進めるかを、聞かれます。Claude の編集を、VS に取り込むには、VS の設定 (ツール → オプション → 環境 → ドキュメント →「ファイルが外部で変更された場合は、保存されていない変更がない限り、自動的に読み込む」) を、有効にしておくと、手間がありません。
+- **VS が 2 つ以上、同じソリューションで開いている**と、止まって、どちらで続けるかを聞かれます。
 
 ### Visual Studio と WSL の、両方で、Git を操作するとき
 
