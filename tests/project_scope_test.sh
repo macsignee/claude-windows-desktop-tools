@@ -128,6 +128,7 @@ ok "tests.ps1: Find-TestExes keeps only the exes of the scope's test projects wh
 ok "common.ps1: run_id.txt records scope= (project=<name> or solution)" "$([ "$(has "$c" 'scope=$(if ($script:Scope')" = 1 ] && [ "$(has "$c" "'solution'")" = 1 ] && echo 1 || echo 0)"
 cmd="$(iconv -f CP932 -t UTF-8 "$CMD" | tr -d '\r')"
 ok "build-windows.cmd: a lone .csproj / .vbproj / .fsproj gets Platform AnyCPU (Any CPU is the solution configuration name); a solution is unchanged" "$([ "$(has "$cmd" 'for %%E in (.csproj .vbproj .fsproj) do if /i "%TARGET_EXT%"=="%%E" set "MSPLATFORM=AnyCPU"')" = 1 ] && echo 1 || echo 0)"
+ok "build-windows.cmd: a lone .NET project also gets AnyCPU when the watcher Platform is x64 (mixed solution), unless it declares <Platforms> (else bin\\x64\\Debug and dotnet test --no-build looks in bin\\Debug)" "$([ "$(has "$cmd" 'findstr /I /C:"<Platforms>" "%TARGET%" >nul 2>&1 || set "MSPLATFORM=AnyCPU"')" = 1 ] && echo 1 || echo 0)"
 ok "the new mapping comes after TARGET_EXT is set and before MSBuild runs" "$(python3 - "$CMD" <<'PYEOF' 2>/dev/null && echo 1 || echo 0
 import sys
 t = open(sys.argv[1], 'rb').read().decode('cp932')
