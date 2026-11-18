@@ -9,7 +9,7 @@
 - **`/ui-test-first` のループ** (画面を、プロンプトで作りながら、UI テストを先に書き、繰り返し実行する)。UI テストを先に書いて Red にする、UI テストファーストは、このループが担う (従来の「しない」は、取り下げた。DESIGN 4.38)。
 
 ## UI テストの、実行の指定 (どれも、ウォッチャーの再起動は、要らない)
-`uitest_once.sh "$SLN_DIR" [待つ秒] [--filter 式] [--ui-timeout 秒] [--visible | --separate] [--slowmo ms]`
+`uitest_once.sh "$SLN_DIR" [待つ秒] [--filter 式] [--ui-timeout 秒] [--visible | --separate] [--slowmo ms] [--project 名前]`
 - **`--filter "FullyQualifiedName~クラス名"`:** `dotnet test --filter` の式で、**いま書いた UI テストだけ**を実行する (UI のループで、毎回、全部を走らせない)。式に、引用符・改行は、使えない。`~` は「含む」、`=` は「等しい」、`&` / `|` で組み合わせる。絞った結果が 0 件だと、何も実行されず、**`ENV_ERROR` (終了コード 4。`dotnet test` の「一致するテストはありません」が、そのまま出る)** になる (式の誤りは、これで気づける。実機で確認)。
 - **`--ui-timeout 秒`:** ウォッチャーが、UI テストのプロジェクトを、強制終了するまでの時間 (既定 600 秒)。**UI テストが多い、重い画面は、長く** (例: `--ui-timeout 1800`)。指定しない既定は、`uitest.settings` の `timeout=` (プロジェクトごとの既定。例: `timeout=1800`) → ウォッチャーの `-UiTestTimeoutSec` / `WATCH_UI_TIMEOUT_SEC`。`--ui-timeout` が 780 以上なら、Skill 側の待ち時間も、自動で、`秒 + 120` に延びる。
 - デスクトップ (`--visible` / `--separate`)、操作の間の待ち (`--slowmo`) は、上の「どのデスクトップで実行されるか」。
@@ -97,3 +97,6 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 - 実行の前後に、ウォッチャーが、テストが残したアプリのプロセスを終了する (別のデスクトップのときは、ジョブオブジェクトで、すべて終了する)。
 - 別のデスクトップでは、**WPF の描画を、UI テストの間だけ、ソフトウェアレンダリングにする** (レジストリ `HKCU\Software\Microsoft\Avalon.Graphics\DisableHWAcceleration`。元の値を記録して、終了後に復元する)。
 - MFC のダイアログ・ウィンドウは、標準のコントロール (ボタン、エディット、リスト、コンボ) は操作できる。オーナー描画・独自描画は取れない。C++ のソリューションに UI テスト (.NET) を足すと、C++ と .NET の混在になる (`docs/DESIGN.md` 4.24)。WinForms は、まだ対象にしていない。
+
+## プロジェクト単位 (`--project <名前>`。v2.98.0)
+`--project <名前>` を付けると、**`<名前>` と、その UI テストのプロジェクト (`<名前>.UITests`) だけ**を、ビルド・実行する (ソリューション全体の UI テストを、回さない)。待ち時間の計算も、UI テストのプロジェクト 1 つぶん。`--filter` と、組み合わせてよい。ウォッチャーが 2.98.0 以降であること。詳細は `references/project-scope.md`。

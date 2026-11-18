@@ -1219,3 +1219,21 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SM9 | WPF (v2.96.0) | 同上 | 単体 15、UI 5 | ✔ (2026-11-17) |
 | SM10 | MFC (gtest。v2.96.0) | 同上 | 単体 9、UI 5 | ✔ (2026-11-17) |
 | SM11 | `framework.h` の `#ifdef UNICODE` を外した後に、新しく生成した MFC の実機ビルド | SM10 の確認で足りる | SM10 は v2.96.0 の生成物 (v2.95.0 の変更の後)。`framework.h` に `#ifdef UNICODE` がなく、`build_result.txt` は `SUCCESS` | ✔ (2026-11-17。SM10 で) |
+
+### 2-58. プロジェクト単位のビルド・テスト (`--project`。v2.98.0)
+
+準備: マージして、`install/install.sh` (全体。ホスト側と Skill を配る) で配布し、**ウォッチャーを再起動する** (`HOST_VERSION` 2.98.0)。確認用に、MFC のソリューション (`--type mfc-dialog --layers data,logic --tests gtest`。`LogicLayer` / `LogicLayerTest`、`DataLayer` / `DataLayerTest`)、WPF か WinForms のソリューション (`--layers data,logic --tests mstest --ui-tests flaui`)、混在のソリューション (C++ のメイン + 層 + .NET) を作る。実行は、Claude Code に、「`LogicLayer` だけ、ビルドとテストを回して」と頼む (または、`build_test_once.sh "$PWD" 300 --project LogicLayer`)。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| PS1 | **C++: 1 つの層だけ:** MFC のソリューションで、`--project LogicLayer` | `LogicLayer` と `LogicLayerTest` だけがビルドされ (ウォッチャーのウィンドウに `[SCOPE] project=LogicLayer: LogicLayer.vcxproj, LogicLayerTest.vcxproj`、`[SCOPE] ... building` が 2 回)、**`LogicLayerTest.exe` だけが実行される** (`DataLayerTest.exe` は、実行されない)。`PASSED`。`RESULT_INFO` に `scope=project=LogicLayer` | 未 |
+| PS2 | **C++: DLL とテスト exe が、同じフォルダに出る:** PS1 のあと、`<ソリューション>\x64\Debug\` を見る | `LogicLayer.dll` と `LogicLayerTest.exe` が、同じフォルダにある (プロジェクトのフォルダの下の `x64\Debug\` には、できない。**`SolutionDir` の環境変数の効果**)。PS1 のテストが、DLL を読み込んで、通っている | 未 |
+| PS3 | **全体に戻る:** `--project` なしで、`build_test_once.sh` | これまでどおり。全層のテストが実行される。`RESULT_INFO` に `scope=solution` | 未 |
+| PS4 | **.NET: 1 つの層だけ:** WPF か WinForms のソリューションで、`--project LogicLayer` | `LogicLayer` と `LogicLayer.Tests` だけがビルドされ、**`LogicLayer.Tests` だけ**に `dotnet test` が走る。`PASSED`。古い出力の警告 (`Get-StaleTestAssemblies`) が出ない | 未 |
+| PS5 | **混在: .NET を単独で渡した出力先:** 混在のソリューションで、.NET の層を `--project` で指定 | `dotnet test --no-build` が、今回ビルドした DLL を見る (出力先が、ずれない)。ずれたときは、「古い出力先」の警告が出る → `-DotnetTestArgs:-p:Platform=x64` で合わせる方法を、Skill に書く | 未 |
+| PS6 | **UI テスト:** WPF か WinForms で、`uitest_once.sh --project <メイン>` (`<メイン>.UITests`) | `<メイン>` と `<メイン>.UITests` だけがビルドされ、その UI テストだけが走る。`scope=project=<メイン>` | 未 |
+| PS7 | **ない名前:** `--project NoSuch` | `BUILD_FAILED` (ビルドの要求は、`FAILED`)。`build_error.log` が `[ENVIRONMENT ERROR ...]` で、**ソリューションにあるプロジェクトの名前の一覧**を出す。ソースは、直さない | 未 |
+| PS8 | **テストのない名前:** テストのプロジェクトがない層で、`--project <層>` (テストあり) | 環境エラー (`no test project for '<層>' (looked for <層>Test / <層>.Tests)`)。ビルドだけ (`build_once.sh --project <層>`) は、通る | 未 |
+| PS9 | **ビルドの失敗:** `LogicLayer` に、わざと、コンパイルエラーを入れて、`--project LogicLayer` | `BUILD_FAILED`。`LogicLayer` のビルドで止まり、`LogicLayerTest` は、ビルドされない。エラーの要約が出る | 未 |
+| PS10 | **古いウォッチャー:** ウォッチャーを、再起動せずに (旧版のまま)、`--project LogicLayer` | 結果は出る (全体が処理される)。出力の末尾に `NOTE: --project LogicLayer を指定したが、ウォッチャーは、プロジェクト単位 (project=) で処理していない (scope=なし)` と、版の不一致の `NOTE` | 未 |
+| PS11 | **速さ:** PS1 と PS3 の、所要時間 | PS1 が、PS3 より、短い (層が多いほど、差が出る) | 未 |

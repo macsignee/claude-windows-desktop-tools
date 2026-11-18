@@ -27,6 +27,8 @@ description: C++ (MSBuild / .vcxproj) と .NET (WPF などの SDK 形式 .csproj
 bash <このSkillのフォルダ>/scripts/build_once.sh "$PROJ" 180
 ```
 
+**1 つのプロジェクトだけをビルドするとき:** `... build_once.sh "$PROJ" 180 --project <名前>` (その `<名前>` と、テストのプロジェクト (`<名前>Test` / `<名前>.Tests`) だけ。ソリューション全体より速い)。ウォッチャーが 2.98.0 以降であること (古いと、全体をビルドし、末尾に NOTE)。詳細は `build-test-loop` の `references/project-scope.md`。
+
 **重要 (トークン節約と打ち切り防止):** Bash ツールの既定タイムアウトは120秒で、180秒待つスクリプトが
 途中で打ち切られる。次のどちらかで呼ぶ。待機中に ls や cat で状況確認をしない (1回の呼び出しで完結する)。
 - `run_in_background: true` で実行し、完了通知を待つ (推奨。待機中は何も消費しない)。

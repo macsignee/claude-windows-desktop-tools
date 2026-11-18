@@ -74,6 +74,16 @@
         debug                     デバッグ実行を始める (デザインモードのときだけ)。モードと、停止した場所を返す
     - 結果は <TargetDir>\vs_output.txt (事実)、失敗時のみ vs_error.log、完了マーカー <TargetDir>\vs_result.txt (OK / FAILED。最後に書く)
 
+  [プロジェクト単位]  フラグの中身に project=<名前> (trigger_build.flag / trigger_test.flag / trigger_uitest.flag)
+    - その 1 回だけ、ソリューション全体ではなく、<名前> と、そのテストのプロジェクトだけを、ビルド・実行する。書かなければ、全体 (これまでどおり)。
+    - テストのプロジェクトは、<名前> から推測する: C++ は <名前>Test、.NET は <名前>.Tests (<名前>Test / <名前>Tests も可)、UI テスト (trigger_uitest.flag) は <名前>.UITests。
+    - ビルドは、<名前> (あれば)、続けて、テストのプロジェクトを、1 つずつ MSBuild に渡す (最初の失敗で止まる)。環境変数 SolutionDir を、ソリューションのフォルダにして渡すので、
+      C++ の出力先 ($(SolutionDir)x64\Debug\ など) は、ソリューション全体のときと同じ (DLL とテスト exe が、同じフォルダに出る)。
+    - テストは、そのテストのプロジェクトだけを実行する (C++: 名前が <テストのプロジェクト>.exe の GoogleTest exe。.NET: そのプロジェクトの dotnet test)。
+    - 名前に合うプロジェクトがない・テストのプロジェクトがない・名前が不正なときは、環境エラー (build_result.txt = FAILED と [ENVIRONMENT ERROR ...]。
+      テストのトリガーのときは、test_result.txt = BUILD_FAILED)。ソリューションにあるプロジェクトの名前を、build_error.log に書く。
+    - 結果の自己記述 (.claude-logs\run_id.txt) に、scope=project=<名前> (全体のときは scope=solution) を書く。
+
   ソリューション (.sln / .slnx):
     - -SolutionPath を省略すると、<TargetDir> の .slnx、なければ .sln を、**トリガーが来るたびに**探す。
       そのため、**ソリューションができる前に、ウォッチャーを起動しておける** (new_solution.py で作ってから、ビルドのトリガーを置けばよい)。
@@ -389,6 +399,7 @@ Write-Host " Build        : $Configuration|$Platform  /t:$MSBuildTarget" -Foregr
 Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
 Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
 Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch) / trigger_vs.flag (Visual Studio)" -ForegroundColor Cyan
+Write-Host " Scope        : flag line project=<name> builds / tests only <name> and its test project (<name>Test, <name>.Tests, <name>.UITests); without it, the whole solution" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (GoogleTest, timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
 Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop [auto = uitest.settings of the UI test project, else separate; override per run with desktop=visible|separate in the flag], timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
 Write-Host " Proxy        : $(if ($proxyUrl) { $proxyUrl + ' (from the HTTPS_PROXY / HTTP_PROXY environment variable)' } else { '(none: the system proxy settings are used)' })" -ForegroundColor Cyan
@@ -476,6 +487,21 @@ while ($true) {
         $script:CurrentRunId = Get-RunIdFromFlag $(if ($runUiTests) { $UiTestTriggerFile } elseif ($runTests) { $TestTriggerFile } else { $TriggerFile })   # フラグを消す前に、実行 ID を読む
         $script:CurrentKind = $(if ($runUiTests) { "uitest" } elseif ($runTests) { "test" } else { "build" })
         Set-WatcherBusy "$mode run=$($script:CurrentRunId)"
+        # プロジェクト単位 (flag の project=<名前>): 1 回ごとの指定。フラグを消す前に読む。なければ、ソリューション全体 ($script:Scope = $null)
+        $script:Scope = $null
+        $scopeText = ""
+        try { $scopeText = Get-Content -LiteralPath $(if ($runUiTests) { $UiTestTriggerFile } elseif ($runTests) { $TestTriggerFile } else { $TriggerFile }) -Raw -Encoding UTF8 -ErrorAction Stop } catch { $scopeText = "" }
+        if ($null -eq $scopeText) { $scopeText = "" }
+        $scopeName = Get-FlagProjectName $scopeText
+        if ($scopeName) {
+            $script:Scope = Resolve-ProjectScope $scopeName ([bool]$runUiTests)
+            if (($runTests -or $runUiTests) -and -not $script:Scope.Error -and @($script:Scope.Test).Count -eq 0) {
+                $script:Scope.Error = "no $(if ($runUiTests) { 'UI ' })test project for '$scopeName' (looked for $(if ($runUiTests) { $scopeName + '.UITests' } else { $scopeName + 'Test / ' + $scopeName + '.Tests' })) in the solution"
+            }
+            $scopeFiles = @(@($script:Scope.Main) + @($script:Scope.Test) | Where-Object { $_ } | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+            $scopeMsg = if ($script:Scope.Error) { "ERROR: " + $script:Scope.Error } else { $scopeFiles -join ", " }
+            Write-Host "[SCOPE] project=${scopeName}: $scopeMsg" -ForegroundColor Cyan
+        }
         if ($runUiTests) {
             $uiFlagText = ""
             try { $uiFlagText = Get-Content -LiteralPath $UiTestTriggerFile -Raw -Encoding UTF8 -ErrorAction Stop } catch { $uiFlagText = "" }   # フラグを消す前に、1 回ごとの指定 (desktop= / slowmo=) を読む
@@ -503,7 +529,7 @@ while ($true) {
             # PS 5.1 は Stop 下でネイティブの stderr を例外にするため、ここだけ Continue にする
             $ErrorActionPreference = "Continue"
             try {
-                $build = Invoke-BuildScript
+                $build = if ($script:Scope) { Invoke-ScopedBuild } else { Invoke-BuildScript }
                 $console = $build.Lines
                 $exitCode = $build.ExitCode
             } catch {
@@ -569,7 +595,9 @@ while ($true) {
                     if ($runUiTests) { Write-UiTiming "build done; starting the UI test phase (desktop: $($script:UiRun.Desktop))" }
                     if ($runUiTests -and $script:UiRun.Desktop -eq "separate") { Set-WpfSoftwareRendering }
                     if ($runUiTests) { Write-UiTiming "WPF rendering setting done; calling Invoke-Tests" }
-                    Invoke-Tests -Ui:$runUiTests
+                    $savedProjectPaths = $script:ProjectPaths
+                    if ($script:Scope -and -not $script:Scope.Error) { $script:ProjectPaths = @($script:Scope.Test); $script:ScopeActive = $true }   # プロジェクト単位: そのテストのプロジェクトだけを実行する
+                    try { Invoke-Tests -Ui:$runUiTests } finally { $script:ProjectPaths = $savedProjectPaths; $script:ScopeActive = $false }
                 } catch {
                     Write-Host "[TEST] ENV_ERROR: $($_.Exception.Message)" -ForegroundColor Red
                     @("[ENVIRONMENT ERROR - not a source code problem]",
@@ -585,6 +613,7 @@ while ($true) {
             Stop-SolutionProcesses   # テストが残したアプリを、終了する
             Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS, Env:\UITEST_HOLD_SEC, Env:\UITEST_PRESENT -ErrorAction SilentlyContinue
         }
+        $script:Scope = $null
         Clear-WatcherBusy
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }

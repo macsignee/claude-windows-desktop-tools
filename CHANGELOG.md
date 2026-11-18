@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.0] 2026-11-18 (プロジェクト単位のビルド・テスト `--project <名前>`。ホスト側の変更。配布が要る)
+
+- **ユーザーの要望:** ビルド・テストが、ソリューション単位で行われる。**プロジェクトと、その `<名前>Test` だけで、ビルド・テスト・ループを回したい** (DESIGN 4.92)。
+- **使い方:** `build_once.sh` / `build_test_once.sh` / `uitest_once.sh` に **`--project <名前>`**。フラグの中身に `project=<名前>` が書かれ、ウォッチャーが、その 1 回だけ、`<名前>` と、そのテストのプロジェクト (C++: `<名前>Test`、.NET: `<名前>.Tests`、UI テスト: `<名前>.UITests`) だけを、ビルド・実行する。付けなければ、これまでどおり、全体。**ウォッチャーの再起動は、要らない (ただし、新しい版 (2.98.0) に、入れ替える)。**
+- **ホスト側 (`HOST_VERSION` 2.98.0。配布が要る):** `lib\build.ps1` に `Get-FlagProjectName` / `Resolve-ProjectScope` / `Invoke-ScopedBuild`。`<名前>`、続けて、テストのプロジェクトを、1 つずつ MSBuild に渡す。**環境変数 `SolutionDir` を、ソリューションのフォルダにして渡す** (単独のプロジェクトでも、C++ の出力先が、全体のときと同じ)。テストは、そのテストのプロジェクトだけを実行 (`lib\tests.ps1` の `Find-TestExes` が、絞る)。`build-windows.cmd` は、単独の .NET のプロジェクトに、Platform を `AnyCPU` と渡す。`run_id.txt` に `scope=project=<名前>` / `scope=solution`。`watch_and_build.ps1` の、ヘッダーとバナーに説明。
+- **古いウォッチャーの防止:** 古いウォッチャーは、`project=` を読まず、全体を処理する。`harness_note.sh` が、`--project` を指定したのに `scope=` が違うとき、`NOTE: --project ... を指定したが、ウォッチャーは、プロジェクト単位で処理していない` を出す。`RESULT_INFO` に `scope=` が出る。
+- **文書:** `build-test-loop/references/project-scope.md` (新規。使い方、名前の規則、仕組み、未確認)。`auto-build`・`build-test-loop` の `SKILL.md` に 1 段落、`references/ui-tests.md` に節。
+- **範囲外:** 名前の規則の設定による変更 (拡張・命名規約の変更が要るときに、直す)、複数の `project=`、依存の下流のビルド。
+- テスト: **`tests/project_scope_test.sh` (新規。40 件)**。疑似ウォッチャーで、Skill 側 (フラグの `project=`、引数の検査、古いウォッチャーの NOTE) を、WSL だけで確かめた。ホスト側は、PowerShell が WSL にないので、ソースを、静的に確かめた。`harness_note` の既存のテスト (フィールドの並び) は、変えていない。**実機の確認は、未 (TEST-PLAN 2-58 の PS1〜PS11)。**
+- **配布が要る:** `./install/install.sh` (全体。Skill とホスト側)。ホスト側は、ウォッチャーのフォルダに、`host-tools\` の、全ファイル (`lib\` と `build-windows.cmd` を含む) を、入れ替える。
+
 ## [2.97.6] 2026-11-18 (引き継ぎ文書 `docs/HANDOFF-2026-11-18.md` を足す。文書だけ)
 
 - 画面モデルの作業と、その残りの整理が完了した時点の引き継ぎ (作業の約束事、設計の要約、今回マージした PR の一覧、残り、推奨)。古い `HANDOFF-2026-11-17.md` (手元の未追跡) に代わる、現在の正。

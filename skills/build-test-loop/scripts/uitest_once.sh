@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # uitest_once.sh - ホスト側ウォッチャーに「ビルド + UI テスト (FlaUI など) 実行」を1回させ、完了まで待って結果を返す。
 #
-# Usage: uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present]
+# Usage: uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present] [--project <名前>]
+#   --project <名前>: この 1 回だけ、<名前> のプロジェクトと、その UI テストのプロジェクト (<名前>.UITests) だけを、ビルド・実行する (ソリューション全体ではなく)。
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
 #   --visible:  この 1 回だけ、ユーザーのデスクトップで実行する (ウィンドウが見える。実行中、ユーザーは PC に触らない)。
 #   --separate (別名 --invisible): この 1 回だけ、別のデスクトップで実行する (WPF でも。ウィンドウが画面に出ない。WPF のメニューは、開かない)。
@@ -60,6 +61,11 @@ while [ $# -gt 0 ]; do
             case "${2:-}" in ''|*[!0-9]*) hold="${hold:-60}" ;; *) shift; hold="$1" ;; esac
             flag_content="${flag_content}hold=$hold"$'\n' ;;
         --present) present=1 ;;
+        --project)
+            shift
+            case "${1:-}" in ''|*[!A-Za-z0-9_.-]*) echo "BAD_ARGS: --project needs a project name (letters, digits, '_', '.', '-'): ${1:-}"; exit 2 ;; esac
+            project="$1"
+            flag_content="${flag_content}project=$1"$'\n' ;;
         --ui-timeout)
             shift
             case "${1:-}" in ''|*[!0-9]*) echo "BAD_ARGS: --ui-timeout needs a number (seconds): ${1:-}"; exit 2 ;; esac
@@ -77,6 +83,7 @@ done
 if [ -z "$TIMEOUT" ]; then
     n_ui="$(find "$DIR" \( -name bin -o -name obj -o -name .git -o -name .claude-logs -o -name node_modules \) -prune -o -type f \( -iname '*UITests.csproj' -o -iname '*UiTests.csproj' \) -print 2>/dev/null | wc -l | tr -d ' ')"
     [ "${n_ui:-0}" -ge 1 ] || n_ui=1
+    [ -z "${project:-}" ] || n_ui=1   # --project: UI テストのプロジェクトは、1 つだけ
     TIMEOUT=$((600 + ${ui_timeout:-600} * n_ui + ${hold:-0} + 120))
     [ "$TIMEOUT" -ge 900 ] || TIMEOUT=900
 fi

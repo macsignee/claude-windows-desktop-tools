@@ -37,6 +37,8 @@ Claude はフラグを置いて結果を読むだけ。
 bash <このSkillのフォルダ>/scripts/build_test_once.sh "$SLN_DIR" 300
 ```
 
+**1 つのプロジェクトと、そのテストだけを回すとき:** `build_test_once.sh "$SLN_DIR" 300 --project <名前>` (UI テストは `uitest_once.sh --project`)。ウォッチャー 2.98.0 以降が必要 (古いと全体を処理し、末尾に NOTE)。区切りでは全体を 1 回。詳細は `references/project-scope.md`。
+
 **重要 (トークン節約と打ち切り防止):** Bash ツールの既定タイムアウトは120秒で、300秒待つスクリプトが
 途中で打ち切られる。次のどちらかで呼ぶ。
 - `run_in_background: true` で実行し、完了通知を待つ (推奨。待機中は何も消費しない)。
