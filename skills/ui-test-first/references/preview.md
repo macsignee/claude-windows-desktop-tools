@@ -25,3 +25,7 @@ bash <Skill群>/build-test-loop/scripts/uitest_once.sh "$SLN_DIR" --filter "Full
 - **再生するのは、`--filter` で指定したテストだけ** (`--filter` が、必須。ないと、`BAD_ARGS`)。見せたい動作のテストだけを、選ぶ (すべてを、通すと、長い。`--ui-timeout` を、必要なら、長くする)。最後に、各テストの終わりで、最後の状態を、`slowmo` の 2 倍の時間、見せる。**実行の前に、ユーザーに、告知して、了承を待つ** (画面が動く。同じ作業の中で、1 回、了承をもらえば、あとは、告知だけ)。
 - **既存のプロジェクトは、先に `--refresh-support-files` で、`UiTestBase.cs` を更新する** (旧い版では、赤い枠が出ない。**`Find(window, "Id")` も、新しい版にだけある**)。
 - ふだんの実行 (`--present` なし) では、枠も待ちも、ない。`--separate` とは、組み合わせられない。
+
+## `--separate` と `--visible` の使い分け (WPF のメニュー)
+
+WPF は、`uitest.settings` の既定が visible (ユーザーのデスクトップを占有する) だが、**メニューを開く操作を含まないテスト**は、`--separate` で動く。**メニューを開く操作を含むテストは、別のクラス (`<画面>MenuUiTests`) に分け、WPF では `--visible` で実行する** (別のデスクトップでは、WPF のメニューのポップアップが開かず、「要素がない」という、偽の Red になる)。
