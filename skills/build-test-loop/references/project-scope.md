@@ -30,5 +30,8 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" --project My
 - .NET の単独のプロジェクトには、Platform を `AnyCPU` と渡す (`Any CPU` は、ソリューションの構成の名前)。
 - 参照先のプロジェクト (`ProjectReference`) は、MSBuild が、必要なぶんだけ、ビルドする。
 
-## 未確認 (実機。TEST-PLAN 2-58)
-- 混在のソリューションで、.NET のプロジェクトを単独で渡したときの、出力先 (`bin\x64\Debug` か `bin\Debug` か)。ずれると、`dotnet test --no-build` が、古い DLL を見る (ウォッチャーが、古い出力の警告を出す。`-DotnetTestArgs:-p:Platform=x64` で合わせる)。
+## 実機の確認 (2026-11-18。TEST-PLAN 2-58)
+- 合格: C++ の層 (`NativeLayer`)、.NET の層 (`LogicLayer`)、全体に戻る、混在での出力先、ない名前、テストのない名前、ビルドの失敗。
+- 不具合を 3 件、直した (v2.98.1〜v2.98.3): 混在の単独の .NET の出力先、`.slnx` の `x64` の不足、ない名前の `scope=` の記録。
+- **速さ:** 小さいソリューションでは、差がない (本体とテストの 2 回の MSBuild 呼び出しで、初期化が 2 回入る)。大きいソリューションでの効果は、未確認。
+- 未確認: UI テスト (`uitest_once.sh --project`)、MFC のソリューション。
