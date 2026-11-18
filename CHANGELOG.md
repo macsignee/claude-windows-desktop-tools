@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.9] 2026-11-18 (README.md を、現状の仕様に合わせる。文書だけ)
+
+- **`--project`:** 2-6 に、使い方・テストの名前の推測・動き・`scope=` と古いウォッチャーの `NOTE`・効果 (小さいソリューションでは速さは変わらない) を足した。スクリプトの書式に `[--project <名前>]` を足した。
+- **Visual Studio との統合:** 2-8 に書き直した (VS の MSBuild でのビルド、`vs-debug` の詳細、`msbuild-common` による同じ設定、Git を VS と WSL の両方で扱う決まり)。節の番号を直した (パッケージの追加は 2-9)。
+- **画面モデル:** WPF・WinForms・MFC の構成と、`UI-MODEL-GUIDE.md`・`MIGRATION-SCREEN-MODEL.md` への案内を足した。
+- **ソリューションの作成と追加:** `--common` / `--common-dir` / `--check-git` / `--add-gitattributes` / `--layer-kind mfc-lib`、`/add-project common`、vcpkg の baseline の手順、C++ の層を足したときの `.slnx` の `x64` を足した。古い「Win32 は未対応」の記述を直した。
+- **数字と一覧:** Skill 14 個、規約 7 つ (`git-wsl.md` を足した)、`lib\` 9 ファイル。静的検査の項目、テストの一覧、文書の一覧 (`UI-MODEL-GUIDE`・`MIGRATION-SCREEN-MODEL`・`HANDOFF`)、対応範囲を直した。
+- 契約の変更なし。配布は要らない。
+
 ## [2.98.8] 2026-11-18 (`/add-project ui-host` の日本語の `.rc` (v2.97.0) の、実機の結果を記録する。文書だけ)
 
 - **TEST-PLAN 2-59 (新設) UJ1〜UJ4:** 合格。`ClaudePlayground\MfcScope` に `ui-host` を足し、全体のビルドとテストが `PASSED` (10 件、`.rc` の警告 0 件)、`UiLayerHost.UITests` が `PASSED` (5 件)、スクリーンショットで、「あいさつ」「名前(&N):」「クリア(&C)」「キャンセル」が、文字化けなく表示された。UJ5 (Visual Studio のリソース ビュー) は、任意で未実施。
