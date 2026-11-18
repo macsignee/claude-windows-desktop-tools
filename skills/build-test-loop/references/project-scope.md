@@ -34,4 +34,5 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" --project My
 - 合格: C++ の層 (`NativeLayer`)、.NET の層 (`LogicLayer`)、全体に戻る、混在での出力先、ない名前、テストのない名前、ビルドの失敗、UI テスト (`uitest_once.sh --project PS5`: `PS5.UITests` の 5 件が `PASSED`、`scope=project=PS5`)。
 - 不具合を 3 件、直した (v2.98.1〜v2.98.3): 混在の単独の .NET の出力先、`.slnx` の `x64` の不足、ない名前の `scope=` の記録。
 - **速さ:** 小さいソリューションでは、差がない (本体とテストの 2 回の MSBuild 呼び出しで、初期化が 2 回入る)。大きいソリューションでの効果は、未確認。
-- 未確認: MFC のソリューション。
+- MFC (SDI) のソリューションでも、合格 (`--project LogicLayer`、メインだけ `--project <メイン>`、出力先)。
+- 未確認: 大きいソリューションでの時間。
