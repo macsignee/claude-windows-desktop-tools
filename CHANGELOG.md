@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.6] 2026-11-18 (`--project` の UI テスト (PS6) の実機の結果を記録する。文書だけ)
+
+- **TEST-PLAN 2-58 PS6:** 合格。`ClaudePlayground\PS5` に `/add-project ui-tests:PS5` で `PS5.UITests` を足し、`uitest_once.sh --project PS5` が `PASSED` (5 件、`scope=project=PS5`、`NOTE` なし)。
+- これで、実機の確認は、MFC のソリューションを除いて、すべて終わった (PS1〜PS9。PS10 は省略、PS11 は差なし)。
+- DESIGN 4.92、`project-scope.md`、NEXT-STEPS、HANDOFF に反映した。
+- 契約の変更なし。配布は要らない。
+
 ## [2.98.5] 2026-11-18 (引き継ぎ文書 `docs/HANDOFF-2026-11-18.md` の更新。文書だけ)
 
 - `--project` (v2.98.0〜v2.98.4) の経緯 (マージした PR #213〜#219、要点、実機の結果、混在の作り方、vcpkg の baseline、改善の余地) を足した。
