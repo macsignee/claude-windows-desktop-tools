@@ -1237,3 +1237,15 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | PS9 | **ビルドの失敗:** `LogicLayer` に、わざと、コンパイルエラーを入れて、`--project LogicLayer` | `BUILD_FAILED`。`LogicLayer` のビルドで止まり、`LogicLayerTest` は、ビルドされない。エラーの要約が出る | **合格** (2026-11-18 実機 (ClaudePlayground\PS5: WPF + LogicLayer + NativeLayer)。`BUILD_FAILED` (`CS0103` 1 件)。`LogicLayer` で止まり、`LogicLayer.Tests` はビルドされない。元に戻したことを確認) |
 | PS10 | **古いウォッチャー:** ウォッチャーを、再起動せずに (旧版のまま)、`--project LogicLayer` | 結果は出る (全体が処理される)。出力の末尾に `NOTE: --project LogicLayer を指定したが、ウォッチャーは、プロジェクト単位 (project=) で処理していない (scope=なし)` と、版の不一致の `NOTE` | **省略** (疑似ウォッチャーのテストで、`scope=` がないときの `NOTE` を確認済み。実機でも、2.98.1 のウォッチャーに 2.98.3 の Skill で、版の不一致の `NOTE` が出ることを確認した。旧版に戻しての実行は、していない) |
 | PS11 | **速さ:** PS1 と PS3 の、所要時間 | PS1 が、PS3 より、短い (層が多いほど、差が出る) | **差なし** (2026-11-18 実機 (ClaudePlayground\PS5: WPF + LogicLayer + NativeLayer)。`NativeLayer` だけ 約 25 秒、全体 約 24 秒。**このソリューションの規模では、短くならない**: 省かれる .NET のプロジェクトが小さく (増分ビルド)、本体とテストの 2 回の MSBuild 呼び出しで、`VsDevCmd` の初期化が 2 回入る。大きいソリューションでの効果は未確認。2 回の呼び出しを 1 回にまとめる案は、遅くて困る例が出てから) |
+
+### 2-59. `/add-project ui-host` の日本語の `.rc` (v2.97.0)
+
+**2026-11-18 の実機の確認 (`ClaudePlayground\MfcScope`: MFC (SDI) のメイン + `LogicLayer` + `DataLayer` に、`/add-project ui-host` (標準 DLL、`UiLayer` + `UiLayerHost` + `UiLayerHost.UITests`) を足した):**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| UJ1 | 生成した `UiLayer.rc` を見る | UTF-8 (BOM 付き)、`#pragma code_page(65001)`、`LANGUAGE LANG_JAPANESE`。見出し「あいさつ」、「名前(&N):」「クリア(&C)」「キャンセル」 | ✔ (2026-11-18) |
+| UJ2 | ソリューション全体のビルドとテスト (`build_test_once.sh`) | `SUCCESS` / `PASSED`。`rc.exe` の警告 (`RC2104` など) が出ない | ✔ (2026-11-18) `PASSED`、10 件 (`DataLayerTest` 1、`LogicLayerTest` 9)。`warnings.log` に `.rc` の警告 0 件 |
+| UJ3 | `uitest_once.sh --separate` (`UiLayerHost.UITests`) | `PASSED`。画面ホストが、日本語のタイトルで起動する | ✔ (2026-11-18) `PASSED`、5 件 (`GreetingDialog` 3 件を含む)。起動の記録のタイトルが「あいさつ」 |
+| UJ4 | UI テストが残したスクリーンショット (`preview-main-window.png`) を見る | 見出し「あいさつ」、「名前(&N):」、「クリア(&C)」「OK」「キャンセル」が、日本語で、文字化けなし | ✔ (2026-11-18) 案内「名前を入力してください」も正しく表示。「クリア(&C)」は、入力が空なので無効 (灰色) |
+| UJ5 | Visual Studio で `.rc` のリソース ビューを開く (文字コードの確認の画面が出るか) | 開ける。日本語で表示される | 未実施 (任意。UJ4 で、実際の表示は確認済み) |
