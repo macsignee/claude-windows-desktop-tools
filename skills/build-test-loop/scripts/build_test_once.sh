@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # build_test_once.sh - ホスト側ウォッチャーに「ビルド + テスト (GoogleTest / MSTest) 実行」を1回させ、完了まで待って結果を返す。
 #
-# Usage: build_test_once.sh <solution_dir> [timeout_sec=300]
+# Usage: build_test_once.sh <solution_dir> [timeout_sec=300] [--project <名前>]
+#   --project <名前>: この 1 回だけ、<名前> のプロジェクトと、そのテストのプロジェクト (C++: <名前>Test、.NET: <名前>.Tests) だけを、ビルド・実行する (ソリューション全体ではなく)。
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
 #
 # 標準出力の1行目と終了コード:
@@ -15,6 +16,21 @@
 #   BAD_ARGS             rc=2  引数/フォルダ不正
 set -u
 
+# --project <名前> (v2.98.0): この 1 回だけ、ソリューション全体ではなく、<名前> と、そのテストのプロジェクト (C++: <名前>Test、.NET: <名前>.Tests、UI テスト: <名前>.UITests) だけを、ビルド・実行する。
+# ウォッチャーが、新しい版 (HOST_VERSION 2.98.0 以降) である必要がある (古いウォッチャーは、project= を読まず、全体を処理する。末尾の NOTE で分かる)。
+PROJECT=""
+_args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --project) shift; PROJECT="${1:-}"; [ -n "$PROJECT" ] || { echo "BAD_ARGS: --project needs a project name"; exit 2; } ;;
+        --project=*) PROJECT="${1#--project=}"; [ -n "$PROJECT" ] || { echo "BAD_ARGS: --project needs a project name"; exit 2; } ;;
+        *) _args+=("$1") ;;
+    esac
+    shift
+done
+set -- "${_args[@]+"${_args[@]}"}"
+# uitest_once.sh は、--project を、フラグの中身 (BUILD_TEST_FLAG_CONTENT の project= の行) として渡す
+[ -n "$PROJECT" ] || PROJECT="$(printf '%s\n' "${BUILD_TEST_FLAG_CONTENT:-}" | sed -n 's/^project=//p' | head -n 1 | tr -d '\r')"
 DIR="${1:-}"
 TIMEOUT="${2:-300}"
 PICKUP_WAIT="${CLAUDE_PICKUP_WAIT:-15}"   # フラグが回収されるまでの許容秒数 (ウォッチャーは1秒周期。テスト用に、環境変数 CLAUDE_PICKUP_WAIT で変えられる)
@@ -23,6 +39,10 @@ MAX_DETAIL=60    # 詳細ログの最大行数 (トークン節約)
 if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
     echo "BAD_ARGS: solution dir not found: $DIR"
     exit 2
+fi
+if [ -n "$PROJECT" ]; then
+    case "$PROJECT" in *[!A-Za-z0-9_.-]*) echo "BAD_ARGS: project name may contain only letters, digits, '_', '.', '-': $PROJECT"; exit 2 ;; esac
+    export HARNESS_EXPECT_SCOPE="$PROJECT"   # harness_note.sh が、ウォッチャーが project= を処理したかを、確かめる
 fi
 # 数値でない制限時間だと、待機ループの比較が毎回エラーになり、永久に待ち続けてしまう
 case "$TIMEOUT" in
@@ -185,7 +205,7 @@ check_flag_written() {
     fi
     exit 4
 }
-{ printf 'run=%s\n' "$RUN_ID"; if [ -n "${BUILD_TEST_FLAG_CONTENT:-}" ]; then printf '%s\n' "$BUILD_TEST_FLAG_CONTENT"; fi; } > "$FLAG"
+{ printf 'run=%s\n' "$RUN_ID"; if [ -n "${BUILD_TEST_FLAG_CONTENT:-}" ]; then printf '%s\n' "$BUILD_TEST_FLAG_CONTENT"; fi; if [ -n "$PROJECT" ] && ! printf '%s\n' "${BUILD_TEST_FLAG_CONTENT:-}" | grep -q '^project='; then printf 'project=%s\n' "$PROJECT"; fi; } > "$FLAG"
 check_flag_written
 
 elapsed=0

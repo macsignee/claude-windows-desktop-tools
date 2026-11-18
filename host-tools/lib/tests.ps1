@@ -16,6 +16,11 @@ function Find-TestExes {
             if ($found.Count -gt 0) { break }
         }
     }
+    # プロジェクト単位 (project=) のときは、$ProjectPaths を、そのテストのプロジェクトだけに絞っている。出力先の、ほかの exe は、実行しない
+    if ($script:ScopeActive) {
+        $scopeExes = @($ProjectPaths | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) + '.exe' })
+        $found = @($found | Where-Object { $scopeExes -contains $_.Name })
+    }
     # 既定の出力先に exe がないテストプロジェクトは、OutDir を変えたものかもしれない。そのプロジェクトだけ、MSBuild の TargetPath で探す
     # (一部のテストだけ OutDir を変えたとき、既定の出力先に見つかった分だけで終わって、残りを黙って飛ばさないため)
     $extra = @(Find-TestExesByTargetPath @($found | ForEach-Object { $_.Name }))

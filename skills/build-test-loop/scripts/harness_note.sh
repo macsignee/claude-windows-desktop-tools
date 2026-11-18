@@ -6,7 +6,8 @@
 #   v2.29.0 以降は、watcher= / kind= / input= / finished= の行が続く。古いウォッチャーは、1 行目だけ) と、
 #   このスクリプトの 1 つ上のフォルダの VERSION (install.sh が、配布のときに置く。Skill の版) と HOST_VERSION (同じく。ホスト側が、最後に変わった版)。
 # 出力 (終了コードは、常に 0。ビルドとテストの結果には、影響しない。不一致は、警告 (NOTE) だけで、実行を止めない):
-#   RESULT_INFO: kind=test input=<フォルダ名> finished=<時刻> watcher=<版>        (結果に、自己記述があるとき)
+#   RESULT_INFO: kind=test input=<フォルダ名> finished=<時刻> watcher=<版> [scope=project=<名前>]   (結果に、自己記述があるとき。scope は、v2.98.0 以降のウォッチャー)
+#   NOTE: --project <名前> を指定したのに、結果の scope が違う (古いウォッチャー) / (環境変数 HARNESS_EXPECT_SCOPE が、<名前>)
 #   NOTE: 版の不一致: Skill=<版> / ウォッチャー=<版> (...)                          (ウォッチャーの版が、ホスト側が最後に変わった版 (HOST_VERSION) より古いとき。
 #                                                                                   HOST_VERSION がない配布では、Skill の版と違うとき)
 #   NOTE: ウォッチャーが古い (版の表示なし。v2.29.0 より前) (...)                  (run_id.txt に watcher= がないとき)
@@ -27,10 +28,14 @@ host_req=""
 hf="$(dirname "${BASH_SOURCE[0]}")/../HOST_VERSION"
 [ -f "$hf" ] && host_req="$(tr -d '\r\n' < "$hf" | head -c 32)"
 watcher_ver="$(field watcher)"
-kind="$(field kind)"; input="$(field input)"; finished="$(field finished)"
+kind="$(field kind)"; input="$(field input)"; finished="$(field finished)"; scope="$(field scope)"
 
 if [ -n "$watcher_ver" ]; then
-    echo "RESULT_INFO: kind=${kind:-?} input=$(basename "${input//\\//}") finished=${finished:-?} watcher=$watcher_ver"
+    echo "RESULT_INFO: kind=${kind:-?} input=$(basename "${input//\\//}") finished=${finished:-?} watcher=$watcher_ver${scope:+ scope=$scope}"
+fi
+# --project を指定したのに、ウォッチャーが、project= を処理していない (古いウォッチャーは、project= を読まず、ソリューション全体を処理する): 結果は、全体のもの
+if [ -n "${HARNESS_EXPECT_SCOPE:-}" ] && [ "$scope" != "project=$HARNESS_EXPECT_SCOPE" ]; then
+    echo "NOTE: --project $HARNESS_EXPECT_SCOPE を指定したが、ウォッチャーは、プロジェクト単位 (project=) で処理していない (scope=${scope:-なし})。古いウォッチャーは、ソリューション全体を、ビルド・実行する。install.sh で、ホスト側を最新に揃え、ウォッチャーを再起動する (HOST_VERSION 2.98.0 以降が必要)"
 fi
 
 fix="install.sh で Skill とホスト側を、最新に揃え、ウォッチャーを再起動する"

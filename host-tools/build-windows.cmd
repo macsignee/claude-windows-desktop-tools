@@ -88,6 +88,9 @@ if not defined VCARCH (
 rem --- For a solution file, the x86 platform is usually named "x86" in the solution (its projects map it to Win32). Use the name the solution has,
 rem     otherwise MSBuild stops with MSB4126 (invalid solution configuration "Debug|Win32"). Solution platforms are listed as "Debug|x86 = Debug|x86".
 for %%I in ("%TARGET%") do set "TARGET_EXT=%%~xI"
+rem --- 単独のプロジェクト (.csproj など) には、Platform を AnyCPU と渡す (Any CPU は、ソリューションの構成の名前で、プロジェクトの Platform の名前は AnyCPU)。
+rem     プロジェクト単位のビルド (フラグの project=<名前>) で、.NET のプロジェクトを、単独で渡すときに使う。ソリューションを渡すときは、変わらない。
+if /i "%MSPLATFORM%"=="Any CPU" for %%E in (.csproj .vbproj .fsproj) do if /i "%TARGET_EXT%"=="%%E" set "MSPLATFORM=AnyCPU"
 if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".sln" findstr /C:"|Win32 = " "%TARGET%" >nul 2>&1
 if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".sln" if errorlevel 1 findstr /C:"|x86 = " "%TARGET%" >nul 2>&1 && set "MSPLATFORM=x86"
 if /i "%MSPLATFORM%"=="Win32" if /i "%TARGET_EXT%"==".slnx" findstr /R /C:"Name=.Win32." "%TARGET%" >nul 2>&1

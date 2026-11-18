@@ -56,7 +56,7 @@ function Write-RunId {
     try {
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         # 1 行目 (run=) だけを、照合に使う (古い Skill は、1 行目しか読まない)。2 行目以降は、結果の自己記述 (v2.29.0。いつ、どの実行の、どの入力の結果か、と、ウォッチャーの版)。
-        $info = "run=$($script:CurrentRunId)`r`nwatcher=$($script:WatcherVersion)`r`nkind=$($script:CurrentKind)`r`ninput=$TargetDir`r`nfinished=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n"
+        $info = "run=$($script:CurrentRunId)`r`nwatcher=$($script:WatcherVersion)`r`nkind=$($script:CurrentKind)`r`ninput=$TargetDir`r`nfinished=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`nscope=$(if ($script:Scope -and -not $script:Scope.Error) { 'project=' + $script:Scope.Name } else { 'solution' })`r`n"
         [System.IO.File]::WriteAllText((Join-Path $LogDir "run_id.txt"), $info)
     } catch { }
 }
