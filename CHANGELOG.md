@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.8] 2026-11-18 (`/add-project ui-host` の日本語の `.rc` (v2.97.0) の、実機の結果を記録する。文書だけ)
+
+- **TEST-PLAN 2-59 (新設) UJ1〜UJ4:** 合格。`ClaudePlayground\MfcScope` に `ui-host` を足し、全体のビルドとテストが `PASSED` (10 件、`.rc` の警告 0 件)、`UiLayerHost.UITests` が `PASSED` (5 件)、スクリーンショットで、「あいさつ」「名前(&N):」「クリア(&C)」「キャンセル」が、文字化けなく表示された。UJ5 (Visual Studio のリソース ビュー) は、任意で未実施。
+- これで、確認していない変更は、なくなった。
+- NEXT-STEPS、HANDOFF に反映した。
+- 契約の変更なし。配布は要らない。
+
 ## [2.98.7] 2026-11-18 (`--project` の、MFC のソリューションでの実機の結果を記録する。文書だけ)
 
 - **TEST-PLAN 2-58 PS1・PS2:** MFC (SDI) のソリューション (`ClaudePlayground\MfcScope`) でも合格。全体 `PASSED` (2 件)、`--project LogicLayer` で `LogicLayerTest` の 1 件だけ実行、`x64\Debug` に DLL とテスト exe が一緒、メインだけ `--project MfcScope` で `SUCCESS`。

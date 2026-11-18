@@ -30,7 +30,7 @@
 - **済み (v2.97.0。実機の確認は未):** `ExtLayerApi.h` (MFC 拡張 DLL の公開ヘッダーのひな形) に「公開ヘッダーは、自分で `<afxwin.h>` を include する」の注意書きを足した。
 - **MFC の生成物の、残り (v2.60.x):**
   - **C++ のプラットフォーム (Win32 / x64) (v2.62.0。実機の確認 ✔、TEST-PLAN 2-38 の W1〜W8)。** `/new-solution --platforms` と `/add-project platform`。W3 (MFC 拡張・標準 DLL の層) は、ビルドだけの確認で、Win32 でのテストの実行は、確認していない (任意)。
-  - **メニューとダイアログの文言を日本語にした (v2.60.4。決定済み。実機の確認 ✔、TEST-PLAN 2-37)。** **`/add-project ui-host` の `.rc` も、日本語にした (v2.97.0。UTF-8 BOM 付き、`#pragma code_page(65001)`、`LANG_JAPANESE`。メインの `.rc` と同じ書き方。実機の確認 (ビルドと表示) は未)。**
+  - **メニューとダイアログの文言を日本語にした (v2.60.4。決定済み。実機の確認 ✔、TEST-PLAN 2-37)。** **`/add-project ui-host` の `.rc` も、日本語にした (v2.97.0。UTF-8 BOM 付き、`#pragma code_page(65001)`、`LANG_JAPANESE`。メインの `.rc` と同じ書き方。実機の確認 ✔ (2026-11-18、TEST-PLAN 2-59): ビルド `SUCCESS`・`rc.exe` の警告なし、UI テスト `PASSED`、ダイアログの表示は、日本語のまま、文字化けなし)。**
   - **`mfc-check` の MDI の静的検査 (MDI001) は、済み (v2.97.1。静的テストのみ。実機の確認は不要: 検査自体が、実機で見つけた不具合の再発防止)。**
   - **`auto-build` / `build-test-loop` の SKILL:** `MSB4126` の注記を足した (v2.97.0。ウォッチャーの Platform 引数を疑う)。「ウォッチャーが起動済みかを、質問ツールで尋ねない (`WATCHER_NOT_RUNNING` のときだけ依頼する)」を入れるかは、再び出たら決める (W5 の `console` で 1 回)。
 - **UI ガイドライン (v2.26.0〜v2.27.0) の、残り:**
