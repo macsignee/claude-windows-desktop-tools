@@ -4,7 +4,7 @@ Claude Code (WSL) が、Windows 側の Visual Studio で、**C++ (MFC・Win32・
 
 - **使い方 (どのコマンドを打つか、承認の言い方、困ったとき) は、[`docs/USAGE.md`](docs/USAGE.md)。まず、これを読む。**
 - C++ のみ、.NET のみ、混在のソリューションのどれでも、同じ Skill と同じウォッチャーで使う (ソリューションの中身から、自動で判定する。[設計メモ 4.24](docs/DESIGN.md))。
-- **テスト先行 (TDD) の流れを支える。** ロジック層・ViewModel / Presenter では、テストを先に書いて Red を確認し、実装して Green にする。画面は、UI テストを先に書く (`/ui-test-first`)。1 タスクごとに、テストを数件まとめて回す (1 件ずつではない。→ 「2-5」)。
+- **テスト先行 (TDD) の流れを支える。** ロジック層・データ層・画面モデル (WPF は ViewModel、WinForms・MFC は ScreenModel) では、テストを先に書いて Red を確認し、実装して Green にする。画面は、UI テストを先に書く (`/ui-test-first`)。1 タスクごとに、テストを数件まとめて回す (1 件ずつではない。→ 「2-5」)。
 - **ソリューション全体でも、プロジェクト単位でも、回せる。** `--project OrderLogic` と書くだけで、その層と、名前から推測したテスト (`OrderLogicTest` / `OrderLogic.Tests` / `OrderLogic.UITests`) だけを、ビルド・実行する (→ 「2-6」)。
 - **画面は、画面モデルを通して作る** (v2.92.0〜)。WPF は `ViewModel`、WinForms と MFC は `<画面名>ScreenModel` が、状態・入力の検査・失敗の表示を持ち、フォームは表示と操作の受け渡しだけをする。WinForms と MFC のダイアログ、WPF の画面とも、ひな形が、この構成で作る (→ 「2-3」。設計は [`docs/UI-MODEL-GUIDE.md`](docs/UI-MODEL-GUIDE.md))。
 - 仕様の整理 (`/brainstorm` → `/update-from-ideas`) と機能の追加 (`/add-feature`) は、別リポジトリ [`claude-spec-workflow`](https://github.com/macsignee/claude-spec-workflow) (→ 「2-4」)。
@@ -141,19 +141,31 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
 
 ### 2-5. テストを先に書く (TDD)
 
-- **TDD の範囲**: ロジック層・データ層・ViewModel / Presenter で、テストを先に書き、Red (失敗の理由が、アサーションであること) を確認し、実装して Green にする。テストの改変の検出 (`test_guard.py`)、テストの中身の点検 (`audit`、変異の確認) が、手順として、組み込まれている。
-  - **画面 (View) は、テスト先行の対象外。** WPF の XAML・code-behind、WinForms の `Form` / `Designer.cs`、MFC の画面は、ViewModel / Presenter / 層に切り出してテストする。画面そのものは、UI テスト (FlaUI) を先に書く (`/ui-test-first`)。
+- **TDD の範囲**: ロジック層・データ層・画面モデル (WPF は ViewModel、WinForms・MFC は ScreenModel) で、テストを先に書き、Red (失敗の理由が、アサーションであること) を確認し、実装して Green にする。テストの改変の検出 (`test_guard.py`)、テストの中身の点検 (`audit`、変異の確認) が、手順として、組み込まれている。
+  - **画面 (View) は、テスト先行の対象外。** WPF の XAML・code-behind、WinForms の `Form` / `Designer.cs`、MFC の画面は、状態と規則を、画面モデルと層に置き、そちらをテストする。画面そのものは、UI テスト (FlaUI) を先に書く (`/ui-test-first`)。
   - サイクルの粒度: 1 タスク (1 つの層) ごとに、テスト 3〜8 件をまとめて書いて、Red → Green を回す。テスト 1 件ごとの往復ではない (ビルドとテストが、ウォッチャー経由で、数十秒〜数分かかるため)。
   - 整理 (リファクタリング) は、必要なときだけ、テストを変えずに行う。
   - `CLAUDE.md` の設定が `テスト: なし` のときは、テスト先行ではなく、「実装 → ビルド確認 → 手動確認」で進む (TDD ではない)。
 - **`cpp-test-first`**: Windows デスクトップの C++ (MFC・Win32・DLL) で、GoogleTest のテストを先に書き、スタブで Red を確認する。Red のあと、`test_guard.py` で、テストの改変を検出する。
   - 頼み方: 「先にテストを書いて」「TDD で」など。
   - スクリプト: `add_layer.py <SLN_DIR> <Name> [--kind dll|lib|mfc-ext-dll|mfc-std-dll] [--tests none|gtest] [--tests-only] [--namespace NS] [--uses OTHER ...]` (層と、そのテストを足す)。
-- **`csharp-test-first`**: WPF (MVVM) または WinForms (ScreenModel) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は ScreenModel (画面モデル) を直接呼んでテストする (Presenter は任意)。画面モデルのテストは、View の偽物を要らず、プロパティを設定して、状態と通知を確かめる。リポジトリを持つ画面は、Fake のリポジトリを渡す (失敗の再現の書き方は `CONTRACT-TESTS.md`。ひな形には入れない)。
+- **`csharp-test-first`**: WPF (MVVM) または WinForms (ScreenModel) の C# で、MSTest のテストを先に書き、Red を確認する。WPF は ViewModel、WinForms は ScreenModel (画面モデル) を直接呼んでテストする。画面モデルのテストは、View の偽物を要らず、プロパティを設定して、状態と通知を確かめる。リポジトリを持つ画面は、Fake のリポジトリを渡す (失敗の再現の書き方は `CONTRACT-TESTS.md`。ひな形には入れない)。
   - ソリューションがない (空の) フォルダでも、まず、この Skill が使われ、`/new-solution` の実行を案内して止まる。
   - 守る手順: Red のあとの確認。Green の前の `test_guard.py snapshot`、実装のあとの `check`。`wpf-check` / `winforms-check`。報告の先頭にテストファイル。
   - 層やテストが足りないときの手順は、`references/setup.md`。スクリプト: `add_project.py <SLN_DIR> <Name> [--kind lib|data|logic|viewmodel] [--tests none|mstest] [--tests-only]`。
 - **`/ui-test-first [作りたい画面・動作の説明]`**: 画面を、プロンプトで作りながら、UI テスト (FlaUI) を先に書き、実行して、直す、小さなループ。WinForms / WPF / MFC。スラッシュコマンドだけで起動する。入力の誤りの文章や、操作の失敗の表示も、UI テストで確かめる (誤りの状態の再現は、Fake の画面モデル (`APP_FAKE_SCREENS`) で行う)。
+  - **画面を作る流れ:**
+    1. **計画を立てて、1 回だけ承認を取る。** プロンプトから、部品 (識別の名前と、守る UI ガイドラインの規則 ID)、操作と期待 (具体例 3〜7 件)、どこで確かめるか、を短い表にして示す。承認のあと、サイクルの中は、止まらずに進む。承認された設計は `docs/design/<画面>.md` に保存される (設計の正本。UI テストの名前と、「操作と期待」の番号が対応する)。すでにあれば、その表を出発点にして、変更する行だけを示す。
+    2. **UI テストを先に書く (Red)。** 計画の具体例ごとに 1 テスト。操作は UIA のパターンだけ (マウス・キーボードの入力は使わない)。目視用に、アサーションのない `Preview_<画面>` も 1 つ置く。
+    3. **最小の View (部品を名前つきで置くだけ) → ビルド → 絞って実行して、Red を確認する。** 規則と画面モデルは、先に、単体テストで作る (`csharp-test-first` / `cpp-test-first`)。
+    4. **実装して Green にする。** 同じ `--filter` で、1 つずつ通す。失敗したら、スクリーンショットと `ui-trace.txt` を読んで直す (アサーションは弱めない)。実行は 1 サイクルで合計 5 回まで。Green のあと、その画面の全 UI テストと、静的検査 (`ui_guideline_check.py`、`*-check`) を実行する。
+  - **画像 (手書きのスケッチ、ドローツールの図、既存の画面の写真) から作る流れ:** 画像を渡すと、Claude が、**先に画像を読み取り** (`references/sketch.md`)、**部品の一覧 (種類・文言・位置・確信の高低)** を見せる。読み取れなかった文字や曖昧な部品は、確信を「低」にして聞く。**画像から決まらないこと** (識別の名前、動作、画面の種類、データ、曖昧な箇所) は、**推測せずに、一覧にして確認する**。確認した内容を、上の計画の表にして、承認を得る。画像は `docs/design/images/<画面>-sketch.<拡張子>` に保存される (個人情報・社外秘が写っていないかを、保存の前に確かめる)。
+    - 決まるのは**構造** (何が、どこに、どう並ぶか) だけ。色・フォント・正確な寸法は、同じにならない (標準の部品で、UI ガイドラインに沿う配置にする)。
+    - 「スケッチと見比べて」と頼んだときだけ、できあがりを画像と見比べる。
+  - **案を比べる (任意):** 新しい画面で、部品や配置が定まらないときは、2〜3 案を、部品の一覧と文字の配置図で示し、長所・短所を添える。1 案を選んで、計画にする。
+  - **ダイアログ・サブウィンドウ:** 種類 (モーダル / モードレス)、開き方 (開くボタンも部品)、閉じ方と結果、開くときの前提を、計画に足す (`references/dialogs.md`)。
+  - **データの層 (Model) が、まだ本物でないとき:** Fake (メモリ上の実装) で UI テストを回し、本物ができたら、同じ UI テストを `model=real` で通して結合する (`references/model-switching.md`)。
+  - **目視 (プレビュー):** いつもは裏 (別のデスクトップ) で実行し、見たいときだけ `--preview` で、ユーザーのデスクトップに出す。実行の前に、ユーザーに伝えて、返事を待つ (`references/preview.md`)。
   - スクリプト: `uitest_once.sh` で、絞って (`--filter`)、長い制限時間 (`--ui-timeout`) で、実行する。
 
 ### 2-6. ビルドとテストの実行
@@ -243,15 +255,16 @@ Visual Studio (2022 / 2026) とは、次の 4 つの形でつながる。
   - 読み込まれるファイル: `*.cs`。章の番号は、WPF 規約のまま。
 - **`wpf-csharp.md`** (29KB): WPF / XAML / MVVM 固有。
   - 読み込まれるファイル: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
-- **`winforms-csharp.md`** (25KB): WinForms 固有 (Form・Designer・スレッド・テストなど)。
-  - 読み込まれるファイル: `*.Designer.cs` `Forms/` `Presenters/` `*Presenter*.cs` `I*View.cs`。
-- **`winforms-view-model.md`** (18KB): WinForms の画面モデルと Presenter。画面モデルの契約、ダイアログのデータ、戻りの規則。
-  - 読み込まれるファイル: `Presenters/` `*Presenter*.cs` `I*View.cs` (`ViewModels/` は、WPF の規約と名前が同じなので、対象外。画面モデルを編集するときは、自分で読む)。
+- **`winforms-csharp.md`** (25KB): WinForms 固有 (Form・Designer・スレッド・テストなど)。**WinForms の型を使うファイルだけ**で読み込まれる。
+  - 読み込まれるファイル: `*.Designer.cs` `Forms/` と、任意の Presenter (`Presenters/` `*Presenter*.cs` `I*View.cs`)。**画面モデル (`ScreenModels/`) では、読み込まれない** (画面モデルは、WinForms の型を使わない)。
+- **`winforms-view-model.md`** (18KB): WinForms の画面モデル (`ScreenModel`) と、任意の Presenter。画面モデルの契約、ダイアログのデータ、戻りの規則。
+  - 読み込まれるファイル: `ScreenModels/` `*ScreenModel*.cs` (画面モデル)、`Presenters/` `*Presenter*.cs` `I*View.cs` (Presenter)。
 - **`git-wsl.md`** (3KB): Git を、Visual Studio (Windows) と WSL の両方で操作するときの決まり (→ 「2-8」)。
   - 読み込まれるファイル: `.gitattributes`、`*.sln`、`*.slnx`。
 - **読み込みの大きさの目安**:
-  - WinForms の Presenter = `csharp-common.md` + `winforms-csharp.md` + `winforms-view-model.md`。
+  - WinForms の画面モデル (`ScreenModels/`) = `csharp-common.md` + `winforms-view-model.md`。
   - WinForms の Form = `csharp-common.md` + `winforms-csharp.md`。
+  - WinForms の Presenter (任意) = `csharp-common.md` + `winforms-csharp.md` + `winforms-view-model.md`。
   - WPF の ViewModel = `csharp-common.md` + `wpf-csharp.md`。
   - 画面と無関係の `.cs` = `csharp-common.md` だけ。
 - **優先**: プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらが、優先される。書式の詳細は、プロジェクトの `.editorconfig` (C++ は `.clang-format`) が正。
