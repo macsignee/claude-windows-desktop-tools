@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.2] 2026-11-18 (混在のソリューション: .NET だけの `.slnx` に C++ の層を足すと、`.slnx` に `x64` がなく、全体のビルドが `MSB4126` になる問題の修正。Skill 側の変更)
+
+- **実機の確認 (TEST-PLAN 2-58 PS3) で見つかった不具合:** WPF のソリューションに、`add_layer.py` で C++ の DLL を足し、全体をビルドすると `MSB4126` (`Debug|x64` が無効) で止まった。.NET だけの `.slnx` は構成を書かず、`add_layer.py` の `edit_slnx` は、プロジェクトを足すだけだった。`--project` は `.slnx` を通さないので、影響されなかった。
+- **修正 (`cpp-test-first/scripts/add_layer.py`):** `ensure_slnx_platforms` を足した。`.slnx` に C++ のプラットフォーム (`x64` / `x86`) の宣言がなければ、`<Configurations>` (`Debug` / `Release` と `Platform`) を足す。すでにあれば、何もしない。.NET のプロジェクトへの構成の対応は、足さない (`Any CPU` のまま。2.98.1 の出力先 `bin\Debug` を保つ)。
+- **診断 (`add-project/scripts/solution_state.py`):** `.slnx` に C++ のプラットフォームの宣言がないとき、`MISMATCH` で知らせる (これまで `PLATFORMS: x64` だけを出し、`.vcxproj` の側だけを見て、見逃していた)。`auto-build/SKILL.md` の `MSB4126` の項に、この原因を足した。
+- テスト: `tests/add_layer_test.sh` (構成なし / x64 なし / すでにあり の 3 形)、`tests/add_project_skill_test.sh` (WPF + C++ の混在を作り、`.slnx` に `x64` が入る / 消すと `MISMATCH`)。
+- 契約の変更なし。**配布が要る:** `./install/install.sh` (Skill 側だけ。ウォッチャーの入れ替えは要らない)。
+
 ## [2.98.1] 2026-11-18 (`--project` の修正: 混在のソリューションで、.NET のプロジェクトを単独で渡すと、出力先がずれる。ホスト側の変更。`HOST_VERSION` 2.98.1)
 
 - **実機の確認 (TEST-PLAN 2-58 PS5) で見つかった不具合:** 混在のソリューションでは、ウォッチャーの Platform が `x64` になる。単独の .NET プロジェクトに `Platform=x64` を渡すと、出力が `bin\x64\Debug` になり、`dotnet test --no-build` (`bin\Debug` を見る) が DLL を見つけられず、`LogicLayer.Tests.dll が見つかりませんでした` で失敗した。ソリューションのビルドでは、.NET のプロジェクトは `AnyCPU` (`bin\Debug`) に出る。

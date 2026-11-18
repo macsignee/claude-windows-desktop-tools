@@ -1012,6 +1012,30 @@ def edit_sln(path, projects):
     open(path, 'wb').write((BOM if bom else b'') + out)
 
 
+def ensure_slnx_platforms(text, nl, platforms):
+    """.slnx に、C++ のプラットフォーム (x64 / x86) の宣言を足す (すでにあれば、何もしない)。
+    .NET だけのソリューションの .slnx は、構成を書かない。そこに C++ を足すと、ウォッチャーの Debug|x64 が、
+    ソリューションの構成になく、全体のビルドが MSB4126 で止まる (実機 PS3、2026-11-18)。.NET のプロジェクトは、
+    .slnx の既定の対応で Any CPU のまま (プロジェクトごとの対応は、足さない)。"""
+    names = ['x86' if pl == 'Win32' else pl for pl in platforms]
+    start = text.find('<Solution')
+    if start < 0:
+        return text
+    if '<Configurations>' not in text:
+        body = ''.join(f'    <Platform Name="{n}" />{nl}' for n in names)
+        block = (f'  <Configurations>{nl}    <BuildType Name="Debug" />{nl}    <BuildType Name="Release" />{nl}'
+                 f'{body}  </Configurations>{nl}')
+        at = text.find('>', start) + 1
+        at = text.find('\n', at) + 1 if text.find('\n', at) >= 0 else len(text)
+        return text[:at] + block + text[at:]
+    missing = [n for n in names if not re.search(r'<Platform\s+Name="' + re.escape(n) + '"', text)]
+    if not missing:
+        return text
+    end = text.find('</Configurations>')
+    line_start = text.rfind('\n', 0, end) + 1
+    return text[:line_start] + ''.join(f'    <Platform Name="{n}" />{nl}' for n in missing) + text[line_start:]
+
+
 def edit_slnx(path, projects):
     raw = open(path, 'rb').read()
     bom = raw.startswith(BOM)
@@ -1020,6 +1044,8 @@ def edit_slnx(path, projects):
     end = text.rfind('</Solution>')
     if end < 0:
         die('.slnx に </Solution> がない (想定外の形式)')
+    text = ensure_slnx_platforms(text, nl, get_platforms())
+    end = text.rfind('</Solution>')
     add = ''.join(f'  <Project Path="{n}/{n}.vcxproj" Id="{gd.strip("{}").lower()}" />{nl}' for n, gd in projects)
     # 直前の行頭に挿入する
     line_start = text.rfind('\n', 0, end) + 1
