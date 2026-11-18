@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.97.3] 2026-11-17 (NEXT-STEPS の更新。文書だけ)
+
+- `docs/NEXT-STEPS.md` を、現状 (v2.97.2) に合わせた。確認用フォルダの後片付けと、マージ済みのローカルブランチの削除を「済み」にした。`HANDOFF-2026-11-17.md` の残作業 A は、すべて済み、と案内を直した。
+- 判断待ちとして、**PR #179 (`nsp-realmachine`)** を記録した (`main` が進んでいて、そのままマージできない)。
+- 契約の変更なし。
+
 ## [2.97.2] 2026-11-17 (UI ガイドラインの残り。D)
 
 - **UIG-CTL024 (warning。UI-CTL-024: パスワードなどの機密値は、画面上で伏せ字にする):** 名前 (`password` / `passwd` / `pwd` / `passcode` / `パスワード` / `暗証`) で、機密値の入力欄と推測し、伏せ字になっていないものを指摘する。WPF: `TextBox` (→ `PasswordBox`)。WinForms: `TextBox` / `MaskedTextBox` に `UseSystemPasswordChar = true` か `PasswordChar` がない。MFC: `EDITTEXT` に `ES_PASSWORD` がない。**名前だけで推測するので、名前が違う機密値は検出できない** (`SKILL.md` に明記)。
