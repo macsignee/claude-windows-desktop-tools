@@ -194,5 +194,23 @@ ok "SKILL.md: ViewModel の層を作ったとき、「アプリの構成」の�
 
 ok "SKILL.md: 「移す」を選んだあと、層のサンプルのテストが失敗しうる。黙って直さず・弱めず、ユーザーに確認する" "$(grep -q '層の側に生成されたサンプルのテスト' "$SK" && grep -q 'テストを、黙って直さず、弱めない' "$SK" && echo 1 || echo 0)"
 
+# ---- 混在 (WPF に C++ の DLL を足す。実機 PS3、v2.98.2): .slnx に x64 が入り、solution_state が構成の不足を指摘する
+D="$T/Mixed"; mkdir -p "$D"
+python3 "$NEW" "$D" --type wpf --layers logic --tests mstest >/dev/null 2>&1
+SLNX="$(ls "$D"/*.slnx 2>/dev/null | head -1)"
+ok "mixed: .NET だけの .slnx は、構成 (x64) を持たない (前提)" "$([ -n "$SLNX" ] && ! grep -q 'Platform Name="x64"' "$SLNX" && echo 1 || echo 0)"
+python3 "$AL" "$D" NativeLayer --tests gtest --gtest vcpkg >/dev/null 2>&1
+ok "mixed: C++ の層を足すと、.slnx に x64 が足される (全体のビルドが MSB4126 にならない)" "$(grep -q 'Platform Name="x64"' "$SLNX" && echo 1 || echo 0)"
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "mixed: KIND=mixed、.slnx の構成の MISMATCH は出ない" "$([ "$(has "$out" 'KIND: mixed')" = 1 ] && [ "$(lines "$out" 'MSB4126')" = 0 ] && echo 1 || echo 0)"
+python3 - "$SLNX" <<'PYEOF'
+import re, sys
+t = open(sys.argv[1], encoding='utf-8-sig', newline='').read()
+t = re.sub(r'\s*<Configurations>.*?</Configurations>', '', t, flags=re.S)
+open(sys.argv[1], 'w', encoding='utf-8', newline='').write(t)
+PYEOF
+out="$(python3 "$SS" "$D" 2>&1)"
+ok "mixed: 構成を消すと、solution_state が MISMATCH (MSB4126) で指摘する" "$([ "$(lines "$out" '^MISMATCH.*MSB4126')" = 1 ] && echo 1 || echo 0)"
+
 echo "PASS: $pass / FAIL: $fail"
 [ "$fail" = 0 ]

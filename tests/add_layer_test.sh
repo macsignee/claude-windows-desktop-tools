@@ -136,6 +136,21 @@ check ".slnx が XML として正しい" python3 -c "import xml.dom.minidom as m
 check ".slnx: 2 プロジェクトが追加された" bash -c "[ \$(grep -c '<Project Path=' '$X/ThreeLayerSample.slnx') -eq 3 ]"
 check ".slnx: DataLayerTest が登録された" grep -q 'DataLayerTest/DataLayerTest.vcxproj' "$X/ThreeLayerSample.slnx"
 
+echo "== .slnx のプラットフォーム (.NET だけの .slnx に C++ を足す。実機 PS3、v2.98.2)"
+mk_net_slnx() { # $1=フォルダ $2=<Solution> の中身の先頭 (構成の宣言)。.NET のプロジェクトだけ
+    mkdir -p "$1/NetApp" "$1/ThreeLayerApp"; cp "$WORK/sln/ThreeLayerApp/ThreeLayerApp.vcxproj" "$1/ThreeLayerApp/"
+    printf '<Solution>\n%s  <Project Path="NetApp/NetApp.csproj" />\n  <Project Path="ThreeLayerApp/ThreeLayerApp.vcxproj" />\n</Solution>\n' "$2" > "$1/Net.slnx"
+}
+N1="$WORK/net1"; mk_net_slnx "$N1" ""
+run_al "$N1" DataLayer >/dev/null 2>&1
+check "構成なしの .slnx: <Configurations> と x64 が足される" bash -c "grep -q '<Platform Name=\"x64\" />' '$N1/Net.slnx' && grep -q '<BuildType Name=\"Debug\" />' '$N1/Net.slnx'"
+check "構成なしの .slnx: XML として正しい。.NET のプロジェクトに、構成の対応は足さない" bash -c "python3 -c \"import xml.dom.minidom as m; m.parse('$N1/Net.slnx')\" && ! grep -q 'Solution=' '$N1/Net.slnx'"
+check "構成なしの .slnx: <Configurations> が、プロジェクトの前にある" bash -c "[ \$(grep -n '<Configurations>' '$N1/Net.slnx' | head -1 | cut -d: -f1) -lt \$(grep -n '<Project ' '$N1/Net.slnx' | head -1 | cut -d: -f1) ]"
+N2="$WORK/net2"; mk_net_slnx "$N2" $'  <Configurations>\n    <BuildType Name="Debug" />\n  </Configurations>\n'
+run_al "$N2" DataLayer >/dev/null 2>&1
+check "x64 のない <Configurations>: x64 だけが足される (BuildType は重複しない)" bash -c "[ \$(grep -c 'Platform Name=\"x64\"' '$N2/Net.slnx') -eq 1 ] && [ \$(grep -c 'BuildType Name=\"Debug\"' '$N2/Net.slnx') -eq 1 ]"
+check "すでに x64 がある .slnx は、重複しない" bash -c "[ \$(grep -c 'Platform Name=\"x64\"' '$WORK/slnx/ThreeLayerSample.slnx') -eq 1 ]"
+
 echo "== --tests none / --tests-only"
 S2="$WORK/sln2"; make_sln "$S2"
 run_al "$S2" DataLayer --tests none >/dev/null 2>&1; [ $? -eq 0 ] && ok "--tests none の追加が成功" || ng "--tests none の追加が成功"

@@ -298,6 +298,22 @@ def cpp_platforms(sln_dir):
     return [x for x in order if x in every], [x for x in order if x in some]
 
 
+def slnx_platform_issues(sln_dir, every):
+    """.slnx が、C++ のプラットフォームを宣言していないときの説明 (空なら、問題なし)。
+    .NET だけの .slnx に、C++ を足したあと、構成がないと、全体のビルドが MSB4126 で止まる (実機 PS3、v2.98.2)。"""
+    out = []
+    for f in find_solutions(sln_dir):
+        if not f.lower().endswith('.slnx'):
+            continue
+        text = read_text(os.path.join(sln_dir, f))
+        missing = [('x86' if pl == 'Win32' else pl) for pl in every
+                   if not re.search(r'<Platform\s+Name="' + re.escape('x86' if pl == 'Win32' else pl) + '"', text)]
+        if missing:
+            out.append(f'{f} に、C++ のプラットフォーム ({", ".join(missing)}) の構成がない。全体のビルドが MSB4126 で止まる '
+                       '(<Configurations> に <Platform Name="x64" /> を足す。.NET のプロジェクトは、Any CPU のまま)')
+    return out
+
+
 def addables(sln_dir, projects, kind, main_name):
     out = []
     tests = tests_of(projects)
@@ -380,6 +396,8 @@ def main():
     if kind in ('cpp', 'mixed'):
         every, some = cpp_platforms(sln_dir)
         print(f'PLATFORMS: {", ".join(every) or "(なし)"}' + (f' (一部のプロジェクトだけ: {", ".join(some)})' if some else ''))
+    for m in (slnx_platform_issues(sln_dir, every) if kind in ('cpp', 'mixed') else []):
+        print(f'MISMATCH: {m}')
     for m in mismatches(projects, settings, main_name):
         print(f'MISMATCH: {m}')
     for m in ref_issues(projects):
