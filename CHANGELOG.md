@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.14] 2026-11-19 (規約の `paths` から、Presenter を外す。規約・Skill の変更)
+
+- **ユーザーの決定 (2026-11-19):** 画面モデルが中心になったので、規約の読み込み条件から、Presenter を外す。Presenter は、画面モデルのあとの、小さな補助の層 (任意) で、前面に出さない。
+- **`rules/winforms-csharp.md`:** `paths` を `**/*.Designer.cs` と `**/Forms/**/*.cs` だけにした (`Presenters/`・`*Presenter*.cs`・`I*View.cs` を外した)。本文の読み込み条件の説明も直した。
+- **`rules/winforms-view-model.md`:** `paths` を `**/ScreenModels/**/*.cs` と `**/*ScreenModel*.cs` だけにした (同上)。
+- **影響:** Presenter のファイルを編集するときは、`csharp-common.md` だけが、自動で読み込まれる。WinForms の型を使う Presenter を書くときは、`winforms-csharp.md` と `winforms-view-model.md` を、自分で読む (規約の本文に明記した)。画面モデルと Form の読み込みは、変わらない。
+- **文書とスクリプト:** README の「3-1」、`new-solution/SKILL.md` と、生成する `CLAUDE.md` (`new_solution.py`)、`csharp-test-first/SKILL.md` の、読み込み条件の説明を合わせた。
+- テスト: `tests/rules_split_test.sh` の 2 件を、新しい `paths` に合わせた (Presenter が `paths` に入っていないことを検査する。古い `paths` で失敗することを確認)。
+- **配布が要る:** `./install/install.sh` (規約と Skill の両方。`--rules-only` と `--skills-only`)。ウォッチャーの入れ替えは要らない。
+
 ## [2.98.13] 2026-11-19 (引き継ぎ文書 `docs/HANDOFF-2026-11-18.md` の更新。文書だけ)
 
 - 経緯の表に、#226・#227 (v2.98.11・v2.98.12) を足した。vcpkg の baseline の案内は、費用対効果を調べて、案 B (`fix-policy.md` に 2 行) にとどめた、と記録した。

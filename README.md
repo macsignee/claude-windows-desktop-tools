@@ -256,15 +256,15 @@ Visual Studio (2022 / 2026) とは、次の 4 つの形でつながる。
 - **`wpf-csharp.md`** (29KB): WPF / XAML / MVVM 固有。
   - 読み込まれるファイル: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
 - **`winforms-csharp.md`** (25KB): WinForms 固有 (Form・Designer・スレッド・テストなど)。**WinForms の型を使うファイルだけ**で読み込まれる。
-  - 読み込まれるファイル: `*.Designer.cs` `Forms/` と、任意の Presenter (`Presenters/` `*Presenter*.cs` `I*View.cs`)。**画面モデル (`ScreenModels/`) では、読み込まれない** (画面モデルは、WinForms の型を使わない)。
+  - 読み込まれるファイル: `*.Designer.cs` `Forms/`。**画面モデル (`ScreenModels/`) では、読み込まれない** (画面モデルは、WinForms の型を使わない)。**任意の Presenter (`Presenters/` `*Presenter*.cs` `I*View.cs`) でも、読み込まれない** (v2.98.14。Presenter を書くときは、自分で読む)。
 - **`winforms-view-model.md`** (18KB): WinForms の画面モデル (`ScreenModel`) と、任意の Presenter。画面モデルの契約、ダイアログのデータ、戻りの規則。
-  - 読み込まれるファイル: `ScreenModels/` `*ScreenModel*.cs` (画面モデル)、`Presenters/` `*Presenter*.cs` `I*View.cs` (Presenter)。
+  - 読み込まれるファイル: `ScreenModels/` `*ScreenModel*.cs` (画面モデル)。Presenter では、読み込まれない (v2.98.14)。
 - **`git-wsl.md`** (3KB): Git を、Visual Studio (Windows) と WSL の両方で操作するときの決まり (→ 「2-8」)。
   - 読み込まれるファイル: `.gitattributes`、`*.sln`、`*.slnx`。
 - **読み込みの大きさの目安**:
   - WinForms の画面モデル (`ScreenModels/`) = `csharp-common.md` + `winforms-view-model.md`。
   - WinForms の Form = `csharp-common.md` + `winforms-csharp.md`。
-  - WinForms の Presenter (任意) = `csharp-common.md` + `winforms-csharp.md` + `winforms-view-model.md`。
+  - WinForms の Presenter (任意) = `csharp-common.md` だけ。WinForms の型を使うものを書くときは、`winforms-csharp.md` と `winforms-view-model.md` を、自分で読む。
   - WPF の ViewModel = `csharp-common.md` + `wpf-csharp.md`。
   - 画面と無関係の `.cs` = `csharp-common.md` だけ。
 - **優先**: プロジェクトの `CLAUDE.md` に、固有の決まりがあれば、そちらが、優先される。書式の詳細は、プロジェクトの `.editorconfig` (C++ は `.clang-format`) が正。

@@ -12,7 +12,7 @@ chap() { grep -o '^## [0-9]*\.' "$1" | tr -d '#. ' | tr '\n' ' '; }
 ok "3 files exist" "$([ -f "$C" ] && [ -f "$W" ] && [ -f "$F" ] && echo 1 || echo 0)"
 ok "common: paths is **/*.cs only" "$([ "$(fm "$C" | grep -c '^  - ')" = 1 ] && fm "$C" | grep -q '"\*\*/\*\.cs"' && echo 1 || echo 0)"
 ok "wpf: paths does not match every .cs / .csproj (xaml, ViewModels, Views, *ViewModel* only)" "$(! fm "$W" | grep -q '"\*\*/\*\.cs"' && ! fm "$W" | grep -q 'csproj' && fm "$W" | grep -q '\*\*/\*\.xaml"' && fm "$W" | grep -q 'ViewModels' && fm "$W" | grep -q 'Views' && echo 1 || echo 0)"
-ok "winforms: paths does not match every .cs / .csproj (Designer.cs, Forms, Presenters, *Presenter*, I*View only)" "$(! fm "$F" | grep -q '"\*\*/\*\.cs"' && ! fm "$F" | grep -q 'csproj' && fm "$F" | grep -q 'Designer\.cs' && fm "$F" | grep -q 'Forms' && fm "$F" | grep -q 'Presenters' && fm "$F" | grep -q 'Presenter\*' && echo 1 || echo 0)"
+ok "winforms: paths does not match every .cs / .csproj (Designer.cs and Forms only; Presenter files are not in paths, v2.98.14)" "$(! fm "$F" | grep -q '"\*\*/\*\.cs"' && ! fm "$F" | grep -q 'csproj' && fm "$F" | grep -q 'Designer\.cs' && fm "$F" | grep -q 'Forms' && ! fm "$F" | grep -q 'Presenter' && ! fm "$F" | grep -q 'I\*View' && echo 1 || echo 0)"
 ok "common has the shared C# chapters 5 10 11 12 13 15 16 17, and no others" "$([ "$(chap "$C")" = '5 10 11 12 13 15 16 17 ' ] && echo 1 || echo 0)"
 ok "wpf keeps the WPF-specific chapters and has none of the shared ones (numbers are unchanged)" "$([ "$(chap "$W")" = '1 2 3 4 6 7 8 9 14 18 19 ' ] && echo 1 || echo 0)"
 ok "winforms: refers to csharp-common.md, no longer says to apply wpf-csharp.md chapters" "$(grep -q 'csharp-common.md' "$F" && ! grep -q '`wpf-csharp.md` の「' "$F" && ! grep -q 'wpf-csharp.md`) の \*\*C# の部分' "$F" && echo 1 || echo 0)"
@@ -26,7 +26,7 @@ ok "WinForms: common + winforms <= 40000 bytes (was 62524 before the split; ${bc
 ok "WPF: common + wpf <= 44000 bytes (was 62524 before the split; ${bc}+${bw})" "$([ $((bc+bw)) -le 44000 ] && echo 1 || echo 0)"
 V="$ROOT/rules/winforms-view-model.md"
 bv=$(bytes "$V")
-ok "winforms-view-model.md exists and is loaded for Presenters / IView / ScreenModels files (not ViewModels/, which would also load the WPF rule)" "$([ -f "$V" ] && grep -q -F '"**/Presenters/**/*.cs"' "$V" && grep -q -F '"**/I*View.cs"' "$V" && grep -q -F '"**/ScreenModels/**/*.cs"' "$V" && grep -q -F '"**/*ScreenModel*.cs"' "$V" && ! grep -q -F 'ViewModel*.cs"' "$V" && echo 1 || echo 0)"
+ok "winforms-view-model.md exists and is loaded for ScreenModels files only (not Presenters / IView since v2.98.14; not ViewModels/, which would also load the WPF rule)" "$([ -f "$V" ] && ! grep -q -F 'Presenter' <(sed -n '1,/^---$/p' "$V" | sed 1d) && ! grep -q -F '"**/I*View.cs"' "$V" && grep -q -F '"**/ScreenModels/**/*.cs"' "$V" && grep -q -F '"**/*ScreenModel*.cs"' "$V" && ! grep -q -F 'ViewModel*.cs"' "$V" && echo 1 || echo 0)"
 ok "WinForms Presenter / ScreenModel read: common + winforms + view-model <= 60000 bytes (${bc}+${bf}+${bv}; the view-model file holds the screen-model spec shared by WPF / WinForms / MFC)" "$([ $((bc+bf+bv)) -le 60000 ] && echo 1 || echo 0)"
 ok "a plain .cs read (common only) <= 15000 bytes (${bc})" "$([ "$bc" -le 15000 ] && echo 1 || echo 0)"
 
