@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.13] 2026-11-19 (引き継ぎ文書 `docs/HANDOFF-2026-11-18.md` の更新。文書だけ)
+
+- 経緯の表に、#226・#227 (v2.98.11・v2.98.12) を足した。vcpkg の baseline の案内は、費用対効果を調べて、案 B (`fix-policy.md` に 2 行) にとどめた、と記録した。
+- **決定の記録:** `claude-spec-workflow` の `brainstormF` に、入力の検査・失敗の観点は、足さない (ユーザーの決定、2026-11-19)。「判断待ち」から外し、「決定済み (蒸し返さない)」に移した。
+- 判断待ちに、規約の `paths` から Presenter を外すか、を足した。
+- 契約の変更なし。配布は要らない。
+
 ## [2.98.12] 2026-11-19 (ビルドで vcpkg の baseline のエラーを見たときの案内を、`fix-policy.md` に足す。Skill 側の変更)
 
 - **背景:** GoogleTest (vcpkg) の準備 (`builtin-baseline` の固定) は、作成の Skill (`new-solution`・`new-solutions`・`add-project`・`cpp-test-first`) の手順に、すでにある。Skill を通さずに、スクリプトを直接実行したときなど、準備をせずにビルドすると、`requires a manifest with a specified baseline` で止まる。`build-test-loop` と `auto-build` には、このときの案内がなかった (実機の混在の確認 (2026-11-18) で迷った)。
