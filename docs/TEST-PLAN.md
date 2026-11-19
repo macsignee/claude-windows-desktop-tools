@@ -1249,3 +1249,21 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | UJ3 | `uitest_once.sh --separate` (`UiLayerHost.UITests`) | `PASSED`。画面ホストが、日本語のタイトルで起動する | ✔ (2026-11-18) `PASSED`、5 件 (`GreetingDialog` 3 件を含む)。起動の記録のタイトルが「あいさつ」 |
 | UJ4 | UI テストが残したスクリーンショット (`preview-main-window.png`) を見る | 見出し「あいさつ」、「名前(&N):」、「クリア(&C)」「OK」「キャンセル」が、日本語で、文字化けなし | ✔ (2026-11-18) 案内「名前を入力してください」も正しく表示。「クリア(&C)」は、入力が空なので無効 (灰色) |
 | UJ5 | Visual Studio で `.rc` のリソース ビューを開く (文字コードの確認の画面が出るか) | 開ける。日本語で表示される | 未実施 (任意。UJ4 で、実際の表示は確認済み) |
+
+### 2-60. VS のデバッグ出力と、ブレーク時の状態の取り込み (`vs-debug` の `--output` / `--inspect`。v2.99.0)
+
+準備: マージして、`install/install.sh` (全体) で配布し、**ウォッチャーを再起動する** (`HOST_VERSION` 2.99.0)。**Visual Studio で、確認用のソリューションを開く** (C# の WPF か WinForms と、C++ の MFC の両方があるとよい)。アプリの、実行開始のあたりに、`System.Diagnostics.Debug.WriteLine("VO-1 start")` (C++ は `OutputDebugString(L"VO-1 start\n");` または `TRACE`) を足し、`Debug.WriteLine` を数十回呼ぶ処理も足す。**静的な検査と疑似ウォッチャーの検査 (`tests/vs_once_test.sh`) は通っている。PowerShell は WSL で実行できないので、DTE の動作は、すべて未確認。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| VO1 | VS で、デバッグ実行 (ブレークポイントで停止) → `vs_once.sh "$SLN_DIR" --output 50` | `OK`。`OUTPUT: file=vs_debug_output.txt lines=... total=...` と、`=== VS debug output ... ===` に、`VO-1 start` の行。**VS は、前面に出ない・起動されない**。日本語の文字化けなし | 未 |
+| VO2 | 日本語の VS (ペインの名前が「デバッグ」) と、英語の VS (「Debug」) で、VO1 | どちらでも、見つかる (GUID で探すため) | 未 |
+| VO3 | デバッグを、一度も始めていない VS で、`--output` | `OK` で、`OUTPUT_UNAVAILABLE:` (失敗にならない) | 未 |
+| VO4 | ブレークで止めて、`--inspect` | `STACK:` (関数・ファイル・行)、`LOCALS:` (名前 = 値 (型))。例外ブレーク (未処理の例外) のときは、`EXCEPTION:` も | 未 |
+| VO5 | アプリが走っている間 (run) に、`--inspect` | `OK` で、`INSPECT_SKIP: the mode is run` | 未 |
+| VO6 | VS を閉じて、`--output` | `FAILED` (「Visual Studio does not have this solution open」)。**VS は、起動されない** | 未 |
+| VO7 | 1000 行以上のデバッグ出力のあと、`--output 500` と `--output 20` | `vs_debug_output.txt` の行数が 500 / 20。標準出力は、最後の 60 行だけ。ファイルが 200000 文字を超えない | 未 |
+| VO8 | C++ (MFC) で、`OutputDebugString` と `TRACE` | どちらも、取り込める | 未 |
+| VO9 | 取り込みのあと、VS の出力ウィンドウを見る | ログが、消えていない (読み取りだけ) | 未 |
+| VO10 | `--debug --inspect --output 100` (ブレークポイントを置いたうえで) | デバッグを始め、止まったあとに、`STOPPED:`・`STACK:`・`LOCALS:`・取り込みが、この順で出る | 未 |
+| VO11 | **観察 (記録のみ):** 新しいデバッグの開始で、「デバッグ」ペインが消えるか | 消える場合は、「止まったあとに読めば足りる」と、DESIGN 4.93 に追記する | 未 |

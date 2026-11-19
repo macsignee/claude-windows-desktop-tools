@@ -12,7 +12,7 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
   trigger_uitest.flag (UI テスト)
   trigger_gtest.flag (GoogleTest の取得)
   trigger_package.flag (NuGet / vcpkg / ソースの取り込み)
-  trigger_vs.flag (Visual Studio の操作: 開く・前面・ブレークポイント・デバッグ実行)
+  trigger_vs.flag (Visual Studio の操作: 開く・前面・ブレークポイント・デバッグ実行・ブレーク時の状態・出力ウィンドウ)
                                              └─ build-windows.cmd ─▶ MSBuild
                                              └─ (テスト時) xxxTest.exe (GoogleTest)
                                                            dotnet test (MSTest / FlaUI)
@@ -164,9 +164,11 @@ Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空�
 | `reload <パス>` | VS で開いていて、未保存の編集がないドキュメントを、閉じて開き直す。未保存なら `RELOAD_SKIP_DIRTY:` |
 | `clear` | このツールが置いたブレークポイント (`Tag` = `claude-vs-debug`) だけを消す |
 | `break <パス>:<行>` | ブレークポイントを置く (同じ場所にあれば `BREAK_EXISTS:`。最大 20 件)。パスは、ソリューションのフォルダの下の相対パス (`..` と絶対パスは断る) |
+| `inspect` | **ブレークで止まっているときの状態** (v2.99.0)。`EXCEPTION:` (`$exception`)・`STACK:` (`CurrentThread.StackFrames`。最大 10)・`LOCALS:` (現在のフレームの `Locals`。最大 30。値は 200 文字まで)。読み取りだけ。ブレークでなければ `INSPECT_SKIP:`。`reload` などと同じく、**VS を起動しない** (このソリューションを開いている VS が、ちょうど 1 つ要る) |
+| `output <行数>` | **出力ウィンドウの「デバッグ」ペイン** (`Debug.WriteLine`・`Trace`・`OutputDebugString`・MFC の `TRACE`) の、最後の `<行数>` (1〜500) (v2.99.0)。全文 (最大 200000 文字) は `vs_debug_output.txt` に書き、`vs_output.txt` に `OUTPUT: file=vs_debug_output.txt lines=<件数> total=<全体の行数>`。ペインは、**GUID (`{FC076020-078A-11D1-A7DF-00A0C9110051}`) で探す** (名前は、VS の表示言語で変わるため)。まだペインがなければ `OUTPUT_UNAVAILABLE:` (失敗にはしない)。読み取りだけ (ペインを消さない)。VS を起動しない。**ログには、個人情報などが含まれうる** (`vs_debug_output.txt` は、生成するソリューションの `.gitignore` に入れてある) |
 | `debug` | デバッグ実行を始める (`DTE.Debugger.Go`)。デザインモードのときだけ。アプリの起動後、ブレークポイントに着くのを最大 20 秒待つ。`DEBUG_STARTED` / `DEBUG_MODE:` / break で止まれば `STOPPED:`。20 秒でも `run` なら `NOTE:` (`status` で、もう一度確かめる) |
 
-結果は `vs_output.txt` (事実)、失敗時のみ `vs_error.log` (環境の問題は、先頭が `[ENVIRONMENT ERROR - not a source code problem]`)、完了マーカー `vs_result.txt` (`OK` / `FAILED`。最後に書く)。VS が、ダイアログを出して待っていると、COM の呼び出しが拒否され、`TIMEOUT` になることがあります。
+結果は `vs_output.txt` (事実)、`output` のときの全文は `vs_debug_output.txt`、失敗時のみ `vs_error.log` (環境の問題は、先頭が `[ENVIRONMENT ERROR - not a source code problem]`)、完了マーカー `vs_result.txt` (`OK` / `FAILED`。最後に書く)。VS が、ダイアログを出して待っていると、COM の呼び出しが拒否され、`TIMEOUT` になることがあります。
 
 #### 実行 ID
 Skill のスクリプト (`gtest_once.sh` / `package_once.sh` / ビルド・テスト) は、フラグに実行 ID を書きます (gtest: 2 行目の `# run=<ID>`、package: 先頭のコメント行 `# run=<ID>`、build / test: `run=<ID>`)。古いウォッチャーは、コメントを、タグや操作と取り違えません。ウォッチャーは、結果のマーカーを書く直前に、同じ ID を `.claude-logs\run_id.txt` に書きます (前回の結果と、取り違えないため)。処理の間は、`.claude-logs\watcher_busy.txt` も置きます。

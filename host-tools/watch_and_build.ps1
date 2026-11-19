@@ -355,6 +355,7 @@ $VsTriggerFile = Join-Path $TargetDir "trigger_vs.flag"
 $VsResultFile  = Join-Path $TargetDir "vs_result.txt"
 $VsErrorLog    = Join-Path $TargetDir "vs_error.log"
 $VsOutputFile  = Join-Path $TargetDir "vs_output.txt"
+$VsDebugOutputFile = Join-Path $TargetDir "vs_debug_output.txt"   # output <lines>: the Debug pane of the Output window (v2.99.0)
 
 # ---------- 機能ごとの関数 (lib\*.ps1。同じスコープに読み込む) ----------
 $LibDir = Join-Path $PSScriptRoot "lib"
@@ -470,7 +471,7 @@ while ($true) {
         $script:CurrentKind = "vs"
         Set-WatcherBusy "vs run=$($script:CurrentRunId)"
         try { $vsLines = @(Get-Content -LiteralPath $VsTriggerFile -ErrorAction Stop) } catch { }
-        Remove-Item -LiteralPath $VsTriggerFile, $VsResultFile, $VsErrorLog, $VsOutputFile -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $VsTriggerFile, $VsResultFile, $VsErrorLog, $VsOutputFile, $VsDebugOutputFile -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         Invoke-VsFlag $vsLines
         Clear-WatcherBusy
