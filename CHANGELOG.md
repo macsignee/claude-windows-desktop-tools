@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.98.12] 2026-11-19 (ビルドで vcpkg の baseline のエラーを見たときの案内を、`fix-policy.md` に足す。Skill 側の変更)
+
+- **背景:** GoogleTest (vcpkg) の準備 (`builtin-baseline` の固定) は、作成の Skill (`new-solution`・`new-solutions`・`add-project`・`cpp-test-first`) の手順に、すでにある。Skill を通さずに、スクリプトを直接実行したときなど、準備をせずにビルドすると、`requires a manifest with a specified baseline` で止まる。`build-test-loop` と `auto-build` には、このときの案内がなかった (実機の混在の確認 (2026-11-18) で迷った)。
+- **対応 (`build-test-loop/references/fix-policy.md`):** 「ビルドエラー」の「直さずに、停止して報告する」の vcpkg の項に、このエラーの扱いを足した。ソースも `vcpkg.json` も、手で直さず (baseline はハッシュで、推測で書けない)、`package_once.sh "$SLN_DIR" --timeout 1800 "vcpkg baseline" "vcpkg install"` を実行する。
+- **費用に見合う範囲にとどめた:** 発生は、Skill を通さない使い方に、ほぼ限られる (実機の確認の少なくとも 7 件は、Skill 経由で問題なし)。結果の要約への `HINT:` (`summarize_build_log.py` の 2 コピー)、ウォッチャーでの `ENV_ERROR` 化 (ホスト側の変更) は、費用に見合わないので、しなかった。`SKILL.md` は、触っていない (サイズの余裕が小さい)。
+- テスト: `tests/fix_policy_test.sh` に 1 件。
+- **配布が要る:** `./install/install.sh --skills-only` (Skill 側だけ。ウォッチャーの入れ替えは要らない)。
+
 ## [2.98.11] 2026-11-19 (引き継ぎ文書 `docs/HANDOFF-2026-11-18.md` の更新。文書だけ)
 
 - 経緯の表に、#220〜#225 (v2.98.5〜v2.98.10) を足した (README と USAGE の更新を含む)。閉じた PR (#158・#164・#179) の記録を足した。
