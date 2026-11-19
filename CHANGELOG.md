@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.99.2] 2026-11-19 (`vs-debug` の `--output` / `--inspect` の、実機の確認の結果の記録と、小さな直し 2 件。ホスト側の変更。`HOST_VERSION` 2.99.2)
+
+- **実機の確認 (TEST-PLAN 2-60。`ClaudePlayground\PS5`・`MfcScope`、VS 2026):** VO1・VO3〜VO11 は合格 (VO2 は、日本語の VS だけで確認し、英語の VS は、確認しないことにした (ユーザーの判断))。`--output` (出力ペイン) と `--inspect` (例外・呼び出し履歴・ローカル変数) が、.NET (`Debug.WriteLine`) と C++ (`OutputDebugString`・`TRACE`) で、動くことを確かめた。
+- **わかったこと:** 新しいデバッグの開始で、「デバッグ」ペインは、クリアされる (積み重ならない)。止まったあとに、その場で読めば、今回のセッションのログだけが取れる。`TRACE` は、ファイルと行つきで出る。ブレークポイントがなくても (走行中 (run) でも)、ログは読める。
+- **直した 1 (`lib\vs-ide.ps1`):** 例外で止まった直後に、`debug` の `DEBUG_MODE:` が `unknown` と出た (そのあとの `status` では `break`)。ブレークポイントを待ったあと、モードが `unknown` の間は、最大 5 秒、待つようにした。
+- **直した 2:** `EXCEPTION:` に、例外の型も出す (`EXCEPTION: System.InvalidOperationException {"VO-4 test"}`)。
+- テスト: `tests/vs_once_test.sh` に 2 件。**配布が要る:** `./install/install.sh --host-only` (または全体)。ウォッチャーのフォルダを入れ替えて、再起動する。
+
 ## [2.99.1] 2026-11-19 (`--output` の不具合の修正。実機の確認 (TEST-PLAN 2-60) で見つかった。ホスト側の変更。`HOST_VERSION` 2.99.1)
 
 - **不具合 1 (`--output`):** v2.99.0 の `--output` は、デバッグのログが、出力ウィンドウに出ているのに、常に `OUTPUT_UNAVAILABLE:` だった。**原因: `$dte.ToolWindows` (`DTE2` の項目) が、PowerShell から見えない** (型情報に出ず、IDispatch の名前引きでも `DISP_E_UNKNOWNNAME`)。診断 (読み取りだけの PowerShell を、実機で、4 回) で、`Windows.Item(出力ウィンドウの種別).Object` → `OutputWindowPanes` が、名前引き (`InvokeMember`) で届くこと、ペインは **列挙** で取り出すこと (`Item(<番号>)` をプロパティとして呼ぶと `DISP_E_MEMBERNOTFOUND`)、「デバッグ」ペインの GUID が `{FC076020-078A-11D1-A7DF-00A0C9110051}` で合っていること (日本語の VS。27354 文字、末尾 `VO-7 line 1199` が読めた) を確かめた。
