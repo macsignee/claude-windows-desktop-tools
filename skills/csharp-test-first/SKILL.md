@@ -22,7 +22,7 @@ C++ のソリューションは、`cpp-test-first`。**手順の骨格は同じ�
 | WPF の型 (`Window` / `MessageBox` / `Application.Current` / `Dispatcher`) | WinForms の型 (`Control` / `Form` / `MessageBox` / `Application` / `Timer` / `Clipboard`)。Presenter では、使わない (`IDialogService` などに分ける) |
 | 組み立てる場所 (`App.xaml.cs` の `OnStartup`) | `Program.cs` (`Form` と Presenter を作って結ぶ。`ScreenModel` も渡す。`IDialogService` の実装 (`MessageBox.Show` を呼ぶ) も、ここで渡す) |
 | `wpf-check` | `winforms-check` |
-| 規約 `.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `.claude/rules/winforms-csharp.md` (WinForms 固有。`Forms/` `Presenters/` などを読むときに、読み込まれる) と `winforms-view-model.md`。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
+| 規約 `.claude/rules/wpf-csharp.md` (WPF 固有。`ViewModels/` `*.xaml` などを読むときに、読み込まれる) | `.claude/rules/winforms-csharp.md` (WinForms 固有。`*.Designer.cs`、`Forms/` を読むときに、読み込まれる) と `winforms-view-model.md` (画面モデル。`ScreenModels/` を読むときに、読み込まれる)。Presenter (任意) は、どちらも、自動では読み込まれない。**C# の共通部分 (`csharp-common.md`) は、どちらでも、`.cs` を読むときに、読み込まれる** |
 
 - **`IView` にイベントや、Presenter に依存 (`IDialogService` など) を足すと、既存のテストが、コンパイルで落ちる** (`IView` の Fake が、新しいメンバーを実装していない / `MainPresenter` のコンストラクターの引数が変わる)。**Fake と、既存のテストの呼び出し箇所 (`new MainPresenter(...)` の引数) だけを、機械的に直す。期待値とアサーションは、変えない。** 直した箇所は、Red の報告 (5.) に、書く。
 

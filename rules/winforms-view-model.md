@@ -1,8 +1,5 @@
 ---
 paths:
-  - "**/Presenters/**/*.cs"
-  - "**/*Presenter*.cs"
-  - "**/I*View.cs"
   - "**/ScreenModels/**/*.cs"
   - "**/*ScreenModel*.cs"
 ---

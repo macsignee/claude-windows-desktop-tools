@@ -1445,7 +1445,7 @@ View (WinForms アプリ) → 画面モデル (ロジック) → データ (の�
 """
     out += """
 ## 規約
-- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` と `Presenters/` の下、`*Presenter*.cs`、`I*View.cs` を扱うときに、読み込まれる) と `winforms-view-model.md` (画面モデル。`ScreenModels/`、`*ScreenModel*.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
+- 規約 (**WinForms プログラミング規約**) の全文は、ユーザー共通の `.claude/rules/winforms-csharp.md` (`*.Designer.cs`、`Forms/` の下を扱うときに、読み込まれる。Presenter (任意) を書くときは、自分で読む) と `winforms-view-model.md` (画面モデル。`ScreenModels/`、`*ScreenModel*.cs` を扱うときに、読み込まれる)。C# の共通部分 (5 / 10 / 11 / 12 / 13 / 15 / 16 / 17 章) は、`.claude/rules/csharp-common.md` を使う (`.cs` を扱うときに、自動で読み込まれる)。**WPF の規約 (`wpf-csharp.md`) は、適用しない。** 機械で判定できる項目は、`winforms-check` が確かめる。`.editorconfig` が、書式を定める。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 - Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
