@@ -197,6 +197,7 @@ ok "SKILL.md: breakpoints are placed last; only the tool's own breakpoints are c
 ok "SKILL.md: documents --output and --inspect (read-only, no VS start, what they return, and the privacy note)" "$(grep -q -- '--output' "$SKILL" && grep -q -- '--inspect' "$SKILL" && grep -q 'vs_debug_output.txt' "$SKILL" && grep -q '個人情報' "$SKILL" && echo 1 || echo 0)"
 ok "host-tools/README.md: documents the inspect and output operations and vs_debug_output.txt" "$(grep -q 'vs_debug_output.txt' "$ROOT/host-tools/README.md" && grep -q '`inspect`' "$ROOT/host-tools/README.md" && grep -q '`output' "$ROOT/host-tools/README.md" && echo 1 || echo 0)"
 ok "new_solution.py: the generated .gitignore lists vs_debug_output.txt" "$(grep -q 'vs_debug_output.txt' "$ROOT/skills/new-solution/scripts/new_solution.py" && echo 1 || echo 0)"
+ok "SKILL.md: states when the output can be read (running, stopped, and after the app ended until the next debug start; --inspect only while stopped)" "$(grep -q '終了したあと' "$SKILL" && grep -q '次のデバッグを始める前' "$SKILL" && grep -q '止まっているときだけ' "$SKILL" && echo 1 || echo 0)"
 ok "SKILL.md uses <Skill群> with the path note (skill_paths_test)" "$(grep -q 'パスの書き方' "$SKILL" && echo 1 || echo 0)"
 
 echo "PASS=$pass FAIL=$fail"
