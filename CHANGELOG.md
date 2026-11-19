@@ -2,6 +2,15 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.99.0] 2026-11-19 (`vs-debug` に、VS のデバッグ出力と、ブレーク時の状態の取り込み `--output` / `--inspect` を足す。ホスト側と Skill の変更。`HOST_VERSION` 2.99.0)
+
+- **ユーザーの要望:** VS でデバッグ実行しているときのデバッグのログを、Claude に取り込んで解析させたい。**案 A + C を採用** (DESIGN 4.93。案 B (アプリがログのファイルに書く) は、使い勝手を見てから。案 D (DebugView 型) は、VS のデバッガーが受け取るので、採らない)。ログの出し方は、`Debug.WriteLine` / `Trace` と `OutputDebugString` / `TRACE`。
+- **ホスト側 (`lib\vs-ide.ps1`、`watch_and_build.ps1`):** `trigger_vs.flag` に、操作 `inspect` (EXCEPTION: / STACK: 最大 10 / LOCALS: 最大 30) と `output <行数>` (出力ウィンドウの「デバッグ」ペインの最後の行。GUID で探す。全文は `vs_debug_output.txt`) を足した。読み取りだけ (ペインを消さない)。ペインがなければ `OUTPUT_UNAVAILABLE:`、ブレークでなければ `INSPECT_SKIP:`。VS を起動しない。
+- **Skill 側 (`vs_once.sh`):** `--inspect` と `--output [行数]` (既定 200、1〜500)。単独で指定したときは、`--status` と同じに、VS を起動せず、前面にも出さない。`--debug` と併用すると、止まる (または走る) のを待ったあとに、取り込む。標準出力には、取り込みの最後の 60 行だけを出す。
+- **文書:** `vs-debug/SKILL.md` (使い方と、「デバッグのログを見て」の手順、`Console.WriteLine` は取れないこと、ログの個人情報の注意)、`host-tools/README.md`、README の 2-8、USAGE、DESIGN 4.93、TEST-PLAN 2-60 (VO1〜VO11。すべて未)。生成する `.gitignore` に `vs_debug_output.txt` を足した。
+- **テスト:** `tests/vs_once_test.sh` に 21 件 (引数の検査、フラグの内容と順序、取り込みの表示、ホスト側の静的な検査、文書)。**PowerShell は、WSL で実行できないので、DTE の動作は、実機で確かめる (TEST-PLAN 2-60)。**
+- **配布が要る:** `./install/install.sh` (全体。ホスト側と Skill)。**ウォッチャーのフォルダを入れ替えて、再起動する。**
+
 ## [2.98.14] 2026-11-19 (規約の `paths` から、Presenter を外す。規約・Skill の変更)
 
 - **ユーザーの決定 (2026-11-19):** 画面モデルが中心になったので、規約の読み込み条件から、Presenter を外す。Presenter は、画面モデルのあとの、小さな補助の層 (任意) で、前面に出さない。

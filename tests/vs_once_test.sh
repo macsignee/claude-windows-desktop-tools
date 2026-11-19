@@ -60,6 +60,11 @@ bad --break 'C:\x\a.cpp:3';         ok "BAD_ARGS: drive letter in --break" "$([ 
 bad --break "src/a.cpp";            ok "BAD_ARGS: --break without a line number" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --status --debug;               ok "BAD_ARGS: --status cannot be combined" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --timeout abc;                  ok "BAD_ARGS: bad --timeout" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --output 0;                     ok "BAD_ARGS: --output 0 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
+bad --output 501;                   ok "BAD_ARGS: --output 501 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
+bad --output abc;                   ok "BAD_ARGS: --output abc (not a number: abc is an unknown option)" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --status --output;              ok "BAD_ARGS: --status cannot be combined with --output" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --status --inspect;             ok "BAD_ARGS: --status cannot be combined with --inspect" "$([ $RC = 2 ] && echo 1 || echo 0)"
 OUT="$(bash "$SCRIPT" "$T/none" 2>&1)"; RC=$?
 ok "BAD_ARGS: missing solution dir" "$([ $RC = 2 ] && echo 1 || echo 0)"
 ok "BAD_ARGS: no flag is written" "$([ ! -f "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
@@ -83,6 +88,7 @@ write_id() { mkdir -p "$D/.claude-logs"; printf 'run=%s\r\nwatcher=fake\r\n' "$(
 h_ok()    { { printf '%sSOLUTION: x%s\nOPEN: yes%s\nINSTANCES: 1%s\nDEBUG_MODE: design%s\nDIRTY: C:\\p\\a.cpp%s\nDIRTY_COUNT: 1%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_fail()  { { printf '%sMULTIPLE_INSTANCES: 2 Visual Studio windows have this solution open.%s\n' "$BOM" "$CR"; } > "$D/vs_error.log"; write_id; printf FAILED > "$D/vs_result.txt"; }
 h_env()   { { printf '%s[ENVIRONMENT ERROR - not a source code problem]%s\nVisual Studio (devenv.exe) was not found (vswhere.exe).%s\n' "$BOM" "$CR" "$CR"; } > "$D/vs_error.log"; write_id; printf FAILED > "$D/vs_result.txt"; }
+h_cap()   { { printf '%sSOLUTION: x%s\nDEBUG_MODE: break%s\nSTOPPED: Foo::Bar at C:\\p\\a.cpp:12%s\nOUTPUT: file=vs_debug_output.txt lines=100 total=100%s\nDIRTY_COUNT: 0%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; for i in $(seq 1 100); do printf 'debug line %s%s\n' "$i" "$CR"; done > "$D/vs_debug_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_never() { :; }
 h_weird() { write_id; printf WEIRD > "$D/vs_result.txt"; }
 run_case() {
@@ -106,6 +112,24 @@ run_case h_ok --break src/a.cpp:12 --debug
 ok "--debug comes after the breakpoints, before the final status; no debug without --debug" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:12\ndebug\nstatus')" ] && echo 1 || echo 0)"
 run_case h_ok --break src/a.cpp:12
 ok "no --debug: the flag has no debug line (placing breakpoints never runs the app)" "$(grep -q '^debug' "$D/flag.copy" && echo 0 || echo 1)"
+# --output / --inspect (v2.99.0): 読み取りだけのときは、VS を開かない (--status と同じ)。動作のモードと併用すると、open から始める
+run_case h_ok --output
+ok "--output alone: read-only (no open), default 200 lines, then status" "$([ "$(cat "$D/flag.copy")" = "$(printf 'output 200\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --output 50
+ok "--output 50: output 50 (read-only, no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'output 50\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --output 007
+ok "--output 007: leading zeros are read as decimal (7)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'output 7\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --inspect
+ok "--inspect alone: read-only (no open): inspect, status" "$([ "$(cat "$D/flag.copy")" = "$(printf 'inspect\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --output 100 --inspect
+ok "--inspect + --output: inspect first, then output, then status (no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'inspect\noutput 100\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --break src/a.cpp:12 --debug --inspect --output 80
+ok "with --debug: open, break, debug, inspect, output, status (the capture is taken after the app stops or runs)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:12\ndebug\ninspect\noutput 80\nstatus')" ] && echo 1 || echo 0)"
+run_case h_cap --output 100
+ok "the capture file is shown after the facts: header (last 60 of 100), then the last lines, CR removed" "$([ "$(has "$OUT" '=== VS debug output (last 60 of 100 captured lines')" = 1 ] && [ "$(has "$OUT" 'debug line 100')" = 1 ] && [ "$(has "$OUT" 'debug line 41')" = 1 ] && [ "$(has "$OUT" 'debug line 40')" = 0 ] && ! grep -q "$CR" <<<"$OUT" && echo 1 || echo 0)"
+ok "the facts (STOPPED: / OUTPUT:) are shown before the capture" "$([ "$(has "$OUT" 'STOPPED: Foo::Bar')" = 1 ] && [ "$(has "$OUT" 'OUTPUT: file=vs_debug_output.txt')" = 1 ] && echo 1 || echo 0)"
+run_case h_ok
+ok "no capture file -> no capture block (the default run is unchanged)" "$([ "$(has "$OUT" 'VS debug output')" = 0 ] && echo 1 || echo 0)"
 # --changes / --reload: ソリューションのフォルダが git のリポジトリのとき
 D0="$D"
 G2="$T/repo2"; mkdir -p "$G2"
@@ -130,11 +154,11 @@ run_case h_never --timeout 4
 ok "TIMEOUT: flag picked up but no marker -> rc=5" "$([ $RC = 5 ] && [ "$(head -1 <<<"$OUT")" = TIMEOUT ] && echo 1 || echo 0)"
 
 # 古い結果は、フラグを置く前に消される
-printf OK > "$D/vs_result.txt"; printf 'old output\n' > "$D/vs_output.txt"
+printf OK > "$D/vs_result.txt"; printf 'old output\n' > "$D/vs_output.txt"; printf 'old capture\n' > "$D/vs_debug_output.txt"
 fake_watcher h_ok & W=$!
 OUT="$(bash "$SCRIPT" "$D")"; RC=$?
 kill "$W" 2>/dev/null; wait "$W" 2>/dev/null; rm -f "$D"/vs_* "$D"/trigger_*
-ok "stale result removed before the wait (old output not shown)" "$([ $RC = 0 ] && [ "$(has "$OUT" 'old output')" = 0 ] && echo 1 || echo 0)"
+ok "stale result removed before the wait (old output and the old capture are not shown)" "$([ $RC = 0 ] && [ "$(has "$OUT" 'old output')" = 0 ] && [ "$(has "$OUT" 'old capture')" = 0 ] && echo 1 || echo 0)"
 
 echo "=== WATCHER_NOT_RUNNING (expect rc=3 after ~15s)"
 out="$(bash "$SCRIPT" "$D" --timeout 30 --status)"; rc=$?
@@ -150,14 +174,24 @@ ok "vs-ide.ps1: debug waits for the breakpoint hit (run -> break), and status re
 ok "vs-ide.ps1: dbgDebugMode mapping is 1=design 2=break 3=run (v2.90.2: it was swapped)" "$(grep -q '1 { "design" } 2 { "break" } 3 { "run" }' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: the path is validated (no .., stays under the solution folder)" "$(grep -q 'StartsWith(\$SolutionDir' "$PS1" && grep -q '\\\.\\\.' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: the VS version is not hard-coded (no 'VisualStudio.DTE.17.0')" "$(grep -q 'VisualStudio.DTE.17' "$PS1" && echo 0 || echo 1)"
+ok "vs-ide.ps1: the inspect and output operations are handled (v2.99.0)" "$(grep -q "'inspect'" "$PS1" && grep -q "'output'" "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: output reads the Debug pane (by GUID: the pane name is localized) through DTE OutputWindowPanes / TextDocument" "$(grep -q 'FC076020-078A-11D1-A7DF-00A0C9110051' "$PS1" && grep -q 'OutputWindowPanes' "$PS1" && grep -q 'TextDocument' "$PS1" && grep -q 'Get-VsOutputPaneText' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: output is read-only on VS (never clears the pane) and bounded (lines and characters)" "$(! grep -q '\.Clear()' "$PS1" && grep -q 'VsOutputMaxLines' "$PS1" && grep -q 'VsOutputMaxChars' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: output says so when the Debug pane does not exist yet (OUTPUT_UNAVAILABLE), instead of failing" "$(grep -q 'OUTPUT_UNAVAILABLE' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: inspect reads the stack, the locals and the exception, only in break mode (INSPECT_SKIP otherwise)" "$(grep -q 'StackFrames' "$PS1" && grep -q 'Locals' "$PS1" && grep -q '\$exception' "$PS1" && grep -q 'INSPECT_SKIP' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: inspect / output need exactly one VS that has the solution open (never start VS)" "$(grep -q "{ \$_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output') }" "$PS1" && echo 1 || echo 0)"
+ok "watch_and_build.ps1: defines VsDebugOutputFile and removes the old capture with the other vs_ files" "$(grep -q 'VsDebugOutputFile' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'vs_debug_output.txt' "$ROOT/host-tools/watch_and_build.ps1" && echo 1 || echo 0)"
 ok "watch_and_build.ps1: loads vs-ide and handles trigger_vs.flag" "$(grep -q '"vs-ide"' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'VsTriggerFile' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'Invoke-VsFlag' "$ROOT/host-tools/watch_and_build.ps1" && echo 1 || echo 0)"
 HV="$(tr -d '\r\n' < "$ROOT/host-tools/HOST_VERSION")"
-ok "HOST_VERSION is 2.90.0 or later (the watcher change must be redistributed)" "$([ "$(printf '%s\n%s\n' 2.90.0 "$HV" | sort -V | head -n 1)" = 2.90.0 ] && echo 1 || echo 0)"
+ok "HOST_VERSION is 2.99.0 or later (--output / --inspect need the new watcher)" "$([ "$(printf '%s\n%s\n' 2.99.0 "$HV" | sort -V | head -n 1)" = 2.99.0 ] && echo 1 || echo 0)"
 ok "host-tools/README.md: documents trigger_vs.flag, vs_result.txt, and the operations" "$(grep -q 'trigger_vs.flag' "$ROOT/host-tools/README.md" && grep -q 'vs_result.txt' "$ROOT/host-tools/README.md" && grep -q 'MULTIPLE_INSTANCES' "$ROOT/host-tools/README.md" && echo 1 || echo 0)"
 ok "SKILL.md: frontmatter name + triggers (デバッグを実行して / ブレークポイント)" "$(sed -n 1,4p "$SKILL" | grep -q '^name: vs-debug' && sed -n 1,4p "$SKILL" | grep -q 'デバッグを実行して' && sed -n 1,4p "$SKILL" | grep -q 'ブレークポイントを置いて' && echo 1 || echo 0)"
 ok "SKILL.md: debug runs only when the user asks; breakpoints alone never run the app" "$(grep -q 'ユーザーが、実行を求めたときだけ' "$SKILL" && grep -q 'ブレークポイントを置くだけでは、実行しない' "$SKILL" && echo 1 || echo 0)"
 ok "SKILL.md: conflict rules (pre-edit --status, DIRTY -> do not edit and ask, no edit while debugging, INSTANCES)" "$(grep -q -- '--status' "$SKILL" && grep -q 'DIRTY:' "$SKILL" && grep -q '編集しない' "$SKILL" && grep -q 'INSTANCES: 2' "$SKILL" && grep -q 'デバッグ中は、ビルド・テスト・ソースの編集をしない' "$SKILL" && echo 1 || echo 0)"
 ok "SKILL.md: breakpoints are placed last; only the tool's own breakpoints are cleared" "$(grep -q '最後に置く' "$SKILL" && grep -q 'このツールが置いた' "$SKILL" && echo 1 || echo 0)"
+ok "SKILL.md: documents --output and --inspect (read-only, no VS start, what they return, and the privacy note)" "$(grep -q -- '--output' "$SKILL" && grep -q -- '--inspect' "$SKILL" && grep -q 'vs_debug_output.txt' "$SKILL" && grep -q '個人情報' "$SKILL" && echo 1 || echo 0)"
+ok "host-tools/README.md: documents the inspect and output operations and vs_debug_output.txt" "$(grep -q 'vs_debug_output.txt' "$ROOT/host-tools/README.md" && grep -q '`inspect`' "$ROOT/host-tools/README.md" && grep -q '`output' "$ROOT/host-tools/README.md" && echo 1 || echo 0)"
+ok "new_solution.py: the generated .gitignore lists vs_debug_output.txt" "$(grep -q 'vs_debug_output.txt' "$ROOT/skills/new-solution/scripts/new_solution.py" && echo 1 || echo 0)"
 ok "SKILL.md uses <Skill群> with the path note (skill_paths_test)" "$(grep -q 'パスの書き方' "$SKILL" && echo 1 || echo 0)"
 
 echo "PASS=$pass FAIL=$fail"

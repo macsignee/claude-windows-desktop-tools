@@ -809,6 +809,7 @@ package_output.txt
 vs_result.txt
 vs_error.log
 vs_output.txt
+vs_debug_output.txt
 '''
 
 

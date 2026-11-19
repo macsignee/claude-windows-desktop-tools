@@ -9,6 +9,10 @@
 #     --changes        git の差分 (追記・変更したコードの行。hunk ごとに 1 つ、最大 10) にブレークポイントを置く (先に、このツールが置いたものを消す)
 #     --break <相対パス>:<行>   ブレークポイントを、1 つ置く (複数回指定できる)。--changes と併用できる
 #     --clear          このツールが置いたブレークポイントを消す
+#     --inspect        (v2.99.0) ブレークで止まっているときの状態: 呼び出し履歴 (STACK:)・ローカル変数 (LOCALS:)・例外 (EXCEPTION:)。読み取りだけ
+#     --output [行数]  (v2.99.0) VS の出力ウィンドウの「デバッグ」ペイン (Debug.WriteLine / Trace / OutputDebugString / TRACE) の、最後の行数 (既定 200。1〜500)。
+#                      全文は <solution_dir>/vs_debug_output.txt に残り、この標準出力には、最後の 60 行だけを出す。読み取りだけ (ペインを消さない)
+#                      --inspect / --output だけを指定したとき (動作のモードと併用しないとき) は、--status と同じに、VS を起動せず、前面にも出さない
 #     --debug          デバッグ実行を始める (ユーザーが「デバッグを実行して」と言ったときだけ)。ブレークポイントを置くだけでは、実行しない
 #   --timeout: 完了マーカーを待つ秒数 (既定 240。VS の起動とソリューションの読み込みを含む)
 #
@@ -65,7 +69,7 @@ trap '[ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
 
 shift
 TIMEOUT=240
-STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0
+STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; INSPECT=0; OUTPUT=0; OUTPUT_N=200
 BREAKS=()
 RE_PATH='^[^[:cntrl:]"<>|*?:]+$'
 while [ $# -gt 0 ]; do
@@ -76,6 +80,12 @@ while [ $# -gt 0 ]; do
         --changes) CHANGES=1; shift ;;
         --clear) CLEAR=1; shift ;;
         --debug) DEBUG=1; shift ;;
+        --inspect) INSPECT=1; shift ;;
+        --output)
+            OUTPUT=1
+            if [[ "${2:-}" =~ ^[0-9]+$ ]]; then OUTPUT_N=$((10#$2)); shift 2; else shift; fi
+            { [ "$OUTPUT_N" -ge 1 ] && [ "$OUTPUT_N" -le 500 ]; } || bad "--output needs a number of lines from 1 to 500: $OUTPUT_N"
+            ;;
         --break)
             b="${2:-}"; shift 2 || bad "--break needs <path>:<line>"
             [[ "$b" =~ ^(.+):([0-9]{1,6})$ ]] || bad "--break needs <relative path>:<line>: $b"
@@ -89,13 +99,19 @@ while [ $# -gt 0 ]; do
     esac
 done
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
-if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + ${#BREAKS[@]})) -gt 0 ]; then
+if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]})) -gt 0 ]; then
     bad "--status cannot be combined with other modes"
 fi
 
 # ---- フラグの内容 (ウォッチャーが、1 行 1 操作で、上から実行する) ----
 OPS=()
+ACTION=$((RELOAD + CHANGES + CLEAR + DEBUG + ${#BREAKS[@]}))
 if [ "$STATUS_ONLY" -eq 1 ]; then
+    OPS+=("status")
+elif [ "$ACTION" -eq 0 ] && [ $((INSPECT + OUTPUT)) -gt 0 ]; then
+    # 読み取りだけ (--status と同じ): VS を起動せず、前面にも出さない
+    [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
+    [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
     OPS+=("status")
 else
     OPS+=("open")
@@ -116,6 +132,8 @@ else
     fi
     for b in "${BREAKS[@]+"${BREAKS[@]}"}"; do OPS+=("break $b"); done
     [ "$DEBUG" -eq 1 ] && OPS+=("debug")
+    [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
+    [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
     OPS+=("status")
 fi
 CHANGE_NOTES="${CHANGE_NOTES:-}"
@@ -124,6 +142,8 @@ FLAG="$DIR/trigger_vs.flag"
 RESULT="$DIR/vs_result.txt"
 ERRLOG="$DIR/vs_error.log"
 OUTFILE="$DIR/vs_output.txt"
+CAPFILE="$DIR/vs_debug_output.txt"   # --output の全文 (ウォッチャーが書く)
+MAX_CAP=60
 
 show() {
     [ -f "$1" ] || return 0
@@ -131,6 +151,17 @@ show() {
     total=$(wc -l < "$1")
     sed 's/^\xEF\xBB\xBF//; s/\r$//' "$1" | cut -c1-400 | head -n "$MAX_OUT"
     [ "$total" -gt "$MAX_OUT" ] && echo "... ($total lines total; see $1)"
+    return 0
+}
+
+# --output の取り込み: 最後の MAX_CAP 行だけを出す (全文は、ファイルを読む)
+show_capture() {
+    [ -f "$CAPFILE" ] || return 0
+    local total shown
+    total=$(wc -l < "$CAPFILE")
+    shown=$total; [ "$shown" -gt "$MAX_CAP" ] && shown=$MAX_CAP
+    echo "=== VS debug output (last $shown of $total captured lines; full: $CAPFILE) ==="
+    sed 's/^\xEF\xBB\xBF//; s/\r$//' "$CAPFILE" | cut -c1-400 | tail -n "$MAX_CAP"
     return 0
 }
 
@@ -144,7 +175,7 @@ result_ready() {
 }
 watcher_busy() { [ -f "$BUSY_FILE" ] && [ -n "$(find "$BUSY_FILE" -mmin -60 2>/dev/null)" ]; }
 
-rm -f "$RESULT" "$ERRLOG" "$OUTFILE" "$RUN_ID_FILE"
+rm -f "$RESULT" "$ERRLOG" "$OUTFILE" "$CAPFILE" "$RUN_ID_FILE"
 { printf '# run=%s\n' "$RUN_ID"; printf '%s\n' "${OPS[@]}"; } > "$FLAG"
 if [ ! -f "$FLAG" ]; then
     echo "ENV_ERROR"
@@ -182,6 +213,7 @@ case "$STATUS" in
     OK)
         echo "OK"
         show "$OUTFILE"
+        show_capture
         notes
         exit 0
         ;;

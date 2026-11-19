@@ -1,4 +1,4 @@
-﻿# lib\vs-ide.ps1 - Visual Studio IDE operations (trigger_vs.flag: open / status / reload / clear / break / debug)
+﻿# lib\vs-ide.ps1 - Visual Studio IDE operations (trigger_vs.flag: open / status / reload / clear / break / debug / inspect / output)
 # Dot-sourced from watch_and_build.ps1 (same scope). Do not run alone.
 #
 # Each flag line is one operation (blank lines and # lines are ignored). Run in order; stop at the first failure.
@@ -8,7 +8,12 @@
 #   clear                     delete the breakpoints that this tool set (Tag = claude-vs-debug)
 #   break <path>:<line>       set a breakpoint (path relative to the solution folder); skipped if one is already there
 #   debug                     start debugging (only when VS is in design mode); report the mode and the stopped location
-# Result: <TargetDir>\vs_result.txt (OK / FAILED, written last), vs_output.txt (facts), vs_error.log (reason when FAILED).
+#   inspect                   (v2.99.0) break mode only: EXCEPTION: / STACK: (up to 10 frames) / LOCALS: (up to 30). Read only. INSPECT_SKIP: when not in break mode
+#   output <lines>            (v2.99.0) the last <lines> (1..500) of the "Debug" pane of the Output window (Debug.WriteLine / Trace / OutputDebugString / TRACE).
+#                             Full text -> <TargetDir>\vs_debug_output.txt; facts -> OUTPUT: file=... lines=... total=.... Read only: the pane is never cleared.
+#                             OUTPUT_UNAVAILABLE: when the pane does not exist yet (no debug session has run in this VS)
+#   inspect / output never start VS: they need exactly one VS that has the solution open (like reload / clear / break / debug).
+# Result: <TargetDir>\vs_result.txt (OK / FAILED, written last), vs_output.txt (facts), vs_error.log (reason when FAILED), vs_debug_output.txt (output).
 # The VS instance is found by the Running Object Table, matched by Solution.FullName (never "the first VS").
 
 $VsTag = "claude-vs-debug"
@@ -16,6 +21,12 @@ $VsMaxBreakpoints = 20
 $VsOpenWaitSec = 180
 $VsBreakWaitSec = 20   # after the app starts, wait this long for a breakpoint hit before reporting "run"
 $ReVsPath = '^[^\x00-\x1f"<>|*?:]+$'
+$VsOutputMaxLines = 500          # output <lines>: 1..500
+$VsOutputMaxChars = 200000       # the capture file is cut to the last 200000 characters
+$VsInspectMaxFrames = 10
+$VsInspectMaxLocals = 30
+$VsInspectValueMax = 200         # characters per value
+$VsDebugPaneGuid = '{FC076020-078A-11D1-A7DF-00A0C9110051}'   # the Debug pane (VSConstants.OutputWindowPaneGuid.DebugPane_guid). Found by GUID: the pane name is localized
 
 if (-not ([System.Management.Automation.PSTypeName]'VsNative').Type) {
     Add-Type -TypeDefinition @'
@@ -150,6 +161,57 @@ function Get-VsLocation($dte) {
     } catch { return "STOPPED: (location unknown)" }
 }
 
+# The "Debug" pane of the Output window. Read only (never cleared). $null when the pane does not exist yet.
+function Get-VsOutputPaneText($dte) {
+    $ow = $null
+    try { $ow = Invoke-VsRetry { $dte.ToolWindows.OutputWindow } } catch { }
+    if (-not $ow) { $ow = Invoke-VsRetry { $dte.Windows.Item('{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}').Object } }
+    $pane = $null
+    foreach ($p in @(Invoke-VsRetry { @($ow.OutputWindowPanes) })) {
+        try { if ("$($p.Guid)" -ieq $VsDebugPaneGuid) { $pane = $p; break } } catch { }
+    }
+    if (-not $pane) { return $null }
+    $td = Invoke-VsRetry { $pane.TextDocument }
+    return [string](Invoke-VsRetry { $td.StartPoint.CreateEditPoint().GetText($td.EndPoint) })
+}
+
+# One line, at most $VsInspectValueMax characters
+function Limit-VsText([string]$t) {
+    $one = ($t -replace '[\r\n]+', ' ').Trim()
+    if ($one.Length -gt $VsInspectValueMax) { return $one.Substring(0, $VsInspectValueMax) + '...' }
+    return $one
+}
+
+# Break mode: the exception, the call stack and the locals of the current frame (read only). Each part is best effort.
+function Get-VsInspectLines($dte) {
+    $lines = New-Object System.Collections.Generic.List[string]
+    try {
+        $ex = Invoke-VsRetry { $dte.Debugger.GetExpression('$exception', $false, 2000) }
+        if ($ex -and $ex.IsValidValue) { $lines.Add("EXCEPTION: $(Limit-VsText ([string]$ex.Value))") }
+    } catch { }
+    try {
+        $frames = @(Invoke-VsRetry { @($dte.Debugger.CurrentThread.StackFrames) })
+        $i = 0
+        foreach ($f in $frames) {
+            if ($i -ge $VsInspectMaxFrames) { $lines.Add("STACK_TRUNCATED: $($frames.Count - $VsInspectMaxFrames) more frames"); break }
+            $where = ""
+            try { if ($f.FileName) { $where = " at $($f.FileName):$($f.LineNumber)" } } catch { }
+            $lines.Add("STACK: #$i $($f.FunctionName)$where")
+            $i++
+        }
+    } catch { $lines.Add("STACK_UNAVAILABLE: $($_.Exception.Message)") }
+    try {
+        $frame = Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }
+        $n = 0
+        foreach ($e in @(Invoke-VsRetry { @($frame.Locals) })) {
+            if ($n -ge $VsInspectMaxLocals) { $lines.Add("LOCALS_TRUNCATED: more than $VsInspectMaxLocals"); break }
+            try { $lines.Add("LOCALS: $($e.Name) = $(Limit-VsText ([string]$e.Value))  ($($e.Type))") } catch { }
+            $n++
+        }
+    } catch { $lines.Add("LOCALS_UNAVAILABLE: $($_.Exception.Message)") }
+    return $lines.ToArray()
+}
+
 # Run the operations. Returns @{ Ok; Env; Lines }
 function Invoke-VsOps([string[]]$flagLines) {
     $out = New-Object System.Collections.Generic.List[string]
@@ -195,7 +257,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     $out.Add("ACTIVATED")
                 } catch { $out.Add("ACTIVATE_FAILED: $($_.Exception.Message)") }
             }
-            { $_ -in @('reload', 'clear', 'break', 'debug') } {
+            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output') } {
                 $targets = @(Get-VsTargets)
                 if ($targets.Count -ne 1) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("$($t[0]): Visual Studio does not have this solution open (found $($targets.Count)). Run open first.") } }
                 $dte = $targets[0].Dte
@@ -233,6 +295,29 @@ function Invoke-VsOps([string[]]$flagLines) {
                         $breaks++
                         $out.Add("BREAK_SET: $arg")
                     }
+                    'inspect' {
+                        if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("inspect takes no argument") } }
+                        $mode = Get-VsModeName $dte
+                        if ($mode -ne 'break') { $out.Add("INSPECT_SKIP: the mode is $mode (not break). Use inspect only while the app is stopped at a breakpoint or an exception.") }
+                        else { foreach ($l in (Get-VsInspectLines $dte)) { $out.Add($l) } }
+                    }
+                    'output' {
+                        if ($arg -notmatch '^[0-9]{1,3}$' -or [int]$arg -lt 1 -or [int]$arg -gt $VsOutputMaxLines) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("output: use <lines> from 1 to $($VsOutputMaxLines): $arg") } }
+                        $want = [int]$arg
+                        $text = Get-VsOutputPaneText $dte
+                        if ($null -eq $text) {
+                            $out.Add("OUTPUT_UNAVAILABLE: the Debug pane of the Output window does not exist yet (no debug session has run in this Visual Studio).")
+                        } else {
+                            $all = @($text -split "`r?`n")
+                            if ($all.Count -gt 0 -and $all[$all.Count - 1] -eq '') { $all = @($all | Select-Object -First ($all.Count - 1)) }   # the text ends with a newline
+                            $total = $all.Count
+                            $tail = @($all | Select-Object -Last $want)
+                            $body = ($tail -join "`r`n")
+                            if ($body.Length -gt $VsOutputMaxChars) { $body = $body.Substring($body.Length - $VsOutputMaxChars) }
+                            [System.IO.File]::WriteAllText($VsDebugOutputFile, $body + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+                            $out.Add("OUTPUT: file=vs_debug_output.txt lines=$($tail.Count) total=$total")
+                        }
+                    }
                     'debug' {
                         $mode = Get-VsModeName $dte
                         if ($mode -ne 'design') { $out.Add("DEBUG_MODE: $mode"); return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("debug: already running or stopped; not started again.") } }
@@ -252,7 +337,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     }
                 }
             }
-            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug)") } }
+            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output)") } }
         }
     }
     return @{ Ok = $true; Env = $false; Lines = $out.ToArray() }
