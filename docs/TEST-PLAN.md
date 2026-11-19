@@ -1256,14 +1256,14 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| VO1 | VS で、デバッグ実行 (ブレークポイントで停止) → `vs_once.sh "$SLN_DIR" --output 50` | `OK`。`OUTPUT: file=vs_debug_output.txt lines=... total=...` と、`=== VS debug output ... ===` に、`VO-1 start` の行。**VS は、前面に出ない・起動されない**。日本語の文字化けなし | 未 |
+| VO1 | VS で、デバッグ実行 (ブレークポイントで停止) → `vs_once.sh "$SLN_DIR" --output 50` | `OK`。`OUTPUT: file=vs_debug_output.txt lines=... total=...` と、`=== VS debug output ... ===` に、`VO-1 start` の行。**VS は、前面に出ない・起動されない**。日本語の文字化けなし | **不具合 → v2.99.1 で修正、再確認待ち** (2026-11-19 実機 (`ClaudePlayground\PS5`、VS 2026)。v2.99.0 の `--output` は、ブレークで止まり、ログが出ているのに、`OUTPUT_UNAVAILABLE:`。**原因: `$dte.ToolWindows` (`DTE2` の項目) が、PowerShell から見えない** (`Get-Member` に出ず、IDispatch の名前引きでも `DISP_E_UNKNOWNNAME`)。診断で、`Windows.Item(出力の種別).Object` → `OutputWindowPanes` (10 個) には、名前引きで届き、**列挙すれば**、「デバッグ」ペイン (`Guid` = `{FC076020-078A-11D1-A7DF-00A0C9110051}`、27354 文字、末尾 `VO-7 line 1199`) が読めると分かった。`Item(<番号>)` をプロパティとして呼ぶと `DISP_E_MEMBERNOTFOUND`) |
 | VO2 | 日本語の VS (ペインの名前が「デバッグ」) と、英語の VS (「Debug」) で、VO1 | どちらでも、見つかる (GUID で探すため) | 未 |
-| VO3 | デバッグを、一度も始めていない VS で、`--output` | `OK` で、`OUTPUT_UNAVAILABLE:` (失敗にならない) | 未 |
-| VO4 | ブレークで止めて、`--inspect` | `STACK:` (関数・ファイル・行)、`LOCALS:` (名前 = 値 (型))。例外ブレーク (未処理の例外) のときは、`EXCEPTION:` も | 未 |
-| VO5 | アプリが走っている間 (run) に、`--inspect` | `OK` で、`INSPECT_SKIP: the mode is run` | 未 |
-| VO6 | VS を閉じて、`--output` | `FAILED` (「Visual Studio does not have this solution open」)。**VS は、起動されない** | 未 |
+| VO3 | デバッグを、一度も始めていない VS で、`--output` | `OK` で、`OUTPUT_UNAVAILABLE:` (失敗にならない) | **合格** (2026-11-19 実機 (`ClaudePlayground\PS5`、VS 2026)。`--output` が `OK` で `OUTPUT_UNAVAILABLE:`、`--inspect` が `OK` で `INSPECT_SKIP: the mode is design`) |
+| VO4 | ブレークで止めて、`--inspect` | `STACK:` (関数・ファイル・行)、`LOCALS:` (名前 = 値 (型))。例外ブレーク (未処理の例外) のときは、`EXCEPTION:` も | **一部合格** (2026-11-19 実機 (`ClaudePlayground\PS5`、VS 2026)。ブレークで、`STOPPED:` (ファイルと行つき)・`STACK:` (最大 10 件と `STACK_TRUNCATED:`)・`LOCALS:` (`this = {PS5.Views.MainWindow}`) が出た。**`STACK:` に、ファイルと行は付かない** (`StackFrame` の `FileName` は、`DTE2` 側の項目で、PowerShell から見えない。`STOPPED:` に、同じ場所が出るので、実害は小さい)。**`EXCEPTION:` は、未確認** (例外ブレークで試す)) |
+| VO5 | アプリが走っている間 (run) に、`--inspect` | `OK` で、`INSPECT_SKIP: the mode is run` | **合格** (2026-11-19 実機 (`ClaudePlayground\PS5`、VS 2026)。走行中 (run) の `--inspect` が `INSPECT_SKIP: the mode is run`) |
+| VO6 | VS を閉じて、`--output` | `FAILED` (「Visual Studio does not have this solution open」)。**VS は、起動されない** | **合格** (2026-11-19 実機 (`ClaudePlayground\PS5`、VS 2026)。VS を閉じて `--output` → `FAILED` (`does not have this solution open (found 0)`)。VS は起動されない) |
 | VO7 | 1000 行以上のデバッグ出力のあと、`--output 500` と `--output 20` | `vs_debug_output.txt` の行数が 500 / 20。標準出力は、最後の 60 行だけ。ファイルが 200000 文字を超えない | 未 |
 | VO8 | C++ (MFC) で、`OutputDebugString` と `TRACE` | どちらも、取り込める | 未 |
 | VO9 | 取り込みのあと、VS の出力ウィンドウを見る | ログが、消えていない (読み取りだけ) | 未 |
-| VO10 | `--debug --inspect --output 100` (ブレークポイントを置いたうえで) | デバッグを始め、止まったあとに、`STOPPED:`・`STACK:`・`LOCALS:`・取り込みが、この順で出る | 未 |
+| VO10 | `--debug --inspect --output 100` (ブレークポイントを置いたうえで) | デバッグを始め、止まったあとに、`STOPPED:`・`STACK:`・`LOCALS:`・取り込みが、この順で出る | **不具合 → v2.99.1 で修正、再確認待ち** (2026-11-19 実機 (`ClaudePlayground\PS5`、VS 2026)。`--debug --inspect --output 100` を 1 回で: `debug` の直後に、モードが `unknown` になり、続く `inspect` が `found 0` で失敗した。`unknown` を過渡の状態として待ち、VS の照会を再試行するように直した。別々に実行すれば、正常だった) |
 | VO11 | **観察 (記録のみ):** 新しいデバッグの開始で、「デバッグ」ペインが消えるか | 消える場合は、「止まったあとに読めば足りる」と、DESIGN 4.93 に追記する | 未 |
