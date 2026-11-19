@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.99.6] 2026-11-19 (`rules/git-wsl.md` の実機の確認 (GW1〜GW3) の結果を記録する。文書だけ)
+
+- **TEST-PLAN 2-54:** GW1〜GW3 が、すべて合格 (`ClaudePlayground\MfcScope`。VS 2026 の「Git リポジトリの作成」で作ったリポジトリ)。GW1 = 規約が読み込まれ、設定を確認し、勝手に変更せず、ユーザーに確認を求めた。GW2 = コミットの前に確認し、変更したファイルを名前で指定してコミットした (新しいファイルは BOM 付き・CRLF)。GW3 = VS と WSL の往復で、履歴が互いに見え、`git status` は空、`index.lock` は残らず、VS で保存しても BOM と CRLF が保たれた。**規約の修正は、不要。**
+- **気づき:** VS が作るリポジトリの `.git/config` には、`core.filemode false` が入る (`core.autocrlf` は未設定で、`.gitattributes` の `eol=crlf` が決める)。同じ Claude Code のセッションを使い続けると、リポジトリ作成前の観察を再利用して、`git init` を提案した (規約の問題ではなく、実行し直せば、直る)。
+- **REMAINING-CHECKS・NEXT-STEPS・HANDOFF:** GW1〜GW3 を「未」から「確認済み」に直した。
+- 契約の変更なし。配布は要らない。
+
 ## [2.99.5] 2026-11-19 (NEXT-STEPS・REMAINING-CHECKS を、現状に合わせる。文書だけ)
 
 - **`docs/NEXT-STEPS.md`:** 冒頭を 2026-11-19 (v2.99.4) に直し、現状の引き継ぎ (`HANDOFF-2026-11-18.md`) を案内した。消えている `HANDOFF-2026-11-17.md` の参照を直した。**実機で未確認の小さなもの** (GW1〜GW3、`ExtLayerApi.h` の注意書き、ST5・UJ5・`--project` の大きいソリューションでの時間) を、「1」の先頭に足した。**判断待ち**に、混在のソリューションの正式な作成、`--project` の MSBuild の 1 回化、アプリのログのファイル規約を足した。**決定**を足した (`ScreenModel` のまま、規約の `paths` から Presenter を外した、`brainstormF` に観点を足さない、VO2 は確認しない)。完了したものに v2.97.0〜v2.99.3 を足した。

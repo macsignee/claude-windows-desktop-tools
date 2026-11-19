@@ -1,4 +1,4 @@
-# 実機の確認の状況 (2026-11-02 に作成。以降は、随時更新。最新は、TEST-PLAN と CHANGELOG を優先。2026-11-19 に、2-54〜2-60 を足した)
+# 実機の確認の状況 (2026-11-02 に作成。以降は、随時更新。最新は、TEST-PLAN と CHANGELOG を優先。2026-11-19 に、2-54〜2-60 を足した。同日に、GW1〜GW3 が合格)
 
 `docs/TEST-PLAN.md` の、実機の確認の状況を、ここに要約した (各行の手順・期待値・結果は、TEST-PLAN にある。**結果は、そちらに記録する**)。
 **項目番号 (H7・H8・U6〜U16 など) は、TEST-PLAN の節をまたいで重なる。** 更新するときは、節を限定すること。
@@ -37,6 +37,7 @@
 | テスト先行 Skill の改名 (v2.32.0) | 2-15 | CT1〜CT5、CW1、SU1・SU2、UQ1〜UQ4、LY1、BT1・BT2 | WinForms (CT1・CT2)・WPF (CT3) の依頼文から `csharp-test-first` が選ばれ、C++ (CT4) では `cpp-test-first` が選ばれ、ASP.NET Core (CT5) ではどちらも選ばれない。CW1 = v2.34.0 の読み替え表。SU1・SU2 = v2.37.0 の「セットアップ」の分離。SU1 は、足りない層の場面で `references/setup.md` を読み、`add_project.py` で層を足した。SU2 は、通常の流れで読まなかった (主な合否 ✔。(5) 報告の先頭は ✗)。BT1・BT2 = v2.40.0 の `build-test-loop` の UI テストの節の分離。BT1 は、ベースラインで `build-test-loop` が読み込まれ、`PASSED`、`references/ui-tests.md` は読まれなかった。BT2 は、`/ui-test-first` の Red → Green が通った (分離で壊れていない。`references/ui-tests.md` は読まれず、不要だった)。LY1 = v2.38.0: WPF で `--layers` を省略した質問の推奨が `data,logic`、`ViewModels` は作られない (選択肢に `viewmodel` が出るが、許容。文面は直さない)。WinForms が Presenter と `IView` の Fake で、Green まで進む (`test_guard`・`winforms-check` を含む)。v2.33.0: `/new-solution` が、WinForms・WPF・MFC ダイアログで `--ui-tests` を質問し (UQ1〜UQ3)、`csharp-dll` では質問しない (UQ4)。最初の動作は、実行ごとに揺れる (CT2 の別の実行)。CT3 は、Red 後の確認と `test_guard` が、守られなかった (TEST-PLAN の知見 4) |
 | C# の規約の 3 分割 (v2.35.0) | 2-16 | RS1〜RS4 | `paths` の絞り込みが、実機で効く (RS4: WinForms の Red → Green が、分割後の規則で進む): WinForms の Presenter = 共通 + WinForms (約 37KB)、画面と無関係の `.cs` = 共通のみ (約 13KB)、WPF の ViewModel = 共通 + WPF (約 41KB)。分割前は、どれも約 62.5KB |
 | MFC の `CObject` 派生と名前空間 (v2.89.0) | 2-55 | NS-1〜NS-3 | `NSP001` / `DEC001`。実機の確認 (2026-11-11)、PR #179 の内容は #211 で入れ直し |
+| Git を、Visual Studio と WSL の両方で操作する決まり (`rules/git-wsl.md`。v2.88.0) | 2-54 | GW1〜GW3 | 2026-11-19 (`MfcScope`。VS で作ったリポジトリ)。設定の確認 (勝手に変更しない)、コミットの前の確認 (名前を指定してステージ)、VS との往復 (改行・BOM・`index.lock` の問題なし)。**規約の修正は、不要** |
 | Visual Studio の操作 (`vs-debug`。v2.90.0) | 2-56 | VS1〜VS12、VS16 | 開く・前面・ブレークポイント・デバッグ実行・編集の競合。**VS13・VS15 は対象外、VS14 は観察のみ** (VS 2013 / 2015 は対象外。DTE のモードは 1=design / 2=break / 3=run) |
 | `UiDialogs.SetText` (v2.75.0) | 2-46 | ST1〜ST4、ST6 | ST5 (`LegacyIAccessible` で値が合わない部品のフォールバック。任意) は、未 |
 | 画面モデル (v2.92.0〜v2.96.0) | 2-57 | SM1〜SM10 | WinForms・WPF・MFC (gtest あり・層なし・MBCS) の、ビルド・単体・UI・目視。SM11 (`framework.h` 変更後の新規 MFC の実機ビルド) は SM10 で確認 |
@@ -62,7 +63,6 @@
 
 | ID | 節 | 内容 | 状況 |
 |---|---|---|---|
-| **GW1〜GW3** | 2-54 | **v2.88.0 (`rules/git-wsl.md`: VS と WSL の両方で Git を操作する決まり): 3 件とも、未。** (1) `.sln` / `.slnx` / `.gitattributes` を読むと、`git-wsl.md` が読み込まれ、WSL の `git` の設定 (`core.autocrlf false`・`core.fileMode false`) を確認する (GW1)。(2) コミットの前に、`git status --short` と `git diff --stat` を確認し、全ファイルが変更に見える状態にならない (GW2)。(3) WSL でコミット (または `git switch`) → VS で再読み込み → VS でコミット → WSL で `git log` が、同じ履歴になる (GW3)。**VS と WSL の往復が要るので、ユーザーの作業 (30 分ほど)** |
 | ExtLayerApi.h の注意書き (v2.97.0) | 2-0c ほか | MFC 拡張 DLL の公開ヘッダーのひな形に、「公開ヘッダーは、自分で `<afxwin.h>` を include する」の注意書きを足した。**実機の確認は、未** (Claude が、確認用ソリューションで行う) |
 | ST5・UJ5 (任意) | 2-46・2-59 | ST5 = `SetText` の、読み戻しが合わない部品のフォールバック。UJ5 = VS のリソース ビューで、日本語の `.rc` を開く (文字コードの確認の画面が出るか)。どちらも、任意で、未 |
 | AR (任意) | 2-32 | v2.53.0 (`add_reference.py`): AR1〜AR5 はすべて ✔ (AR3 の発見は v2.54.0 で修正し、AR3b も ✔、AR4 は 2026-11-05)。残り: Visual Studio の「参照」の画面での目視 (任意)。AP1〜AP6 (`/add-project`) も、すべて ✔ (2026-11-05) |
