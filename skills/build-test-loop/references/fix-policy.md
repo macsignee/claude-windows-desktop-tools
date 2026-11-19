@@ -19,6 +19,7 @@ git -c core.fileMode=false --no-optional-locks diff --stat
 - **直さずに、停止して報告する:**
   - Visual Studio・Windows SDK・MFC・ATL・プラットフォームツールセットの不足。
   - NuGet・vcpkg・社内ライブラリの不足 (`add-package` Skill を案内する)。
+    - **vcpkg の `requires a manifest with a specified baseline`** (`MSB3073`、`vcpkg.exe install` が失敗): `vcpkg.json` に `builtin-baseline` が、まだない (GoogleTest (vcpkg) の準備が、済んでいない)。**ソースも、`vcpkg.json` も、手で直さない** (baseline は vcpkg のコミットのハッシュで、推測で書けない)。ウォッチャー経由で `package_once.sh "$SLN_DIR" --timeout 1800 "vcpkg baseline" "vcpkg install"` を実行する (`add-package` の手順。初回は数分)。
   - 署名・証明書・ライセンス・管理者権限の問題。
   - `.vcxproj` / `.sln` / `.props` / `.targets` の大幅な変更が要るもの。
   - ABI・公開 API・データ形式に影響し得るもの。

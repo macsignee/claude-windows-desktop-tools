@@ -21,6 +21,7 @@ ok "build-test-loop SKILL.md points to fix-policy.md in the 止めどき section
 ok "auto-build SKILL.md points to fix-policy.md (loop rule and report)" "$(yes_if bash -c "[ \"\$(grep -c 'fix-policy.md' '$AB')\" -ge 2 ]")"
 ok "the pointer path in auto-build exists (skills/build-test-loop/references/fix-policy.md)" "$(yes_if bash -c "grep -o '~/.claude/skills/[a-z-]*/references/fix-policy.md' '$AB' | sed 's#~/.claude/skills#$ROOT/skills#' | while read -r p; do [ -f \"\$p\" ] || exit 1; done")"
 ok "build-test-loop SKILL.md stays small (<= 32000 bytes)" "$([ "$(wc -c < "$BTL" | tr -d ' ')" -le 32000 ] && echo 1 || echo 0)"
+ok "fix-policy.md: the vcpkg baseline error is a stop-and-run-package_once case (not a source fix; do not hand-edit vcpkg.json)" "$(yes_if bash -c "grep -q 'requires a manifest with a specified baseline' '$FP' && grep -q 'package_once.sh' '$FP' && grep -q 'vcpkg baseline' '$FP' && grep -q '手で直さない' '$FP'")"
 ok "no fictional fixed paths in fix-policy.md" "$(yes_if bash -c "! grep -E 'C:\\\\|/mnt/c/|/home/' '$FP'")"
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]
