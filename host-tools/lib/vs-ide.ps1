@@ -27,6 +27,7 @@ $VsInspectMaxFrames = 10
 $VsInspectMaxLocals = 30
 $VsInspectValueMax = 200         # characters per value
 $VsOutputWindowKind = '{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}'   # EnvDTE.Constants.vsWindowKindOutput
+$VsUnknownWaitSec = 5            # after the breakpoint wait: a stop at an exception can read as 'unknown' for a moment
 $VsTargetRetry = 3               # when no VS answers right after the app starts, ask again (2 s apart) before giving up
 $VsDebugPaneGuid = '{FC076020-078A-11D1-A7DF-00A0C9110051}'   # the Debug pane (VSConstants.OutputWindowPaneGuid.DebugPane_guid). Found by GUID: the pane name is localized
 
@@ -218,7 +219,11 @@ function Get-VsInspectLines($dte) {
     $lines = New-Object System.Collections.Generic.List[string]
     try {
         $ex = Invoke-VsRetry { $dte.Debugger.GetExpression('$exception', $false, 2000) }
-        if ($ex -and $ex.IsValidValue) { $lines.Add("EXCEPTION: $(Limit-VsText ([string]$ex.Value))") }
+        if ($ex -and $ex.IsValidValue) {
+            $exType = ""
+            try { if ($ex.Type) { $exType = "$($ex.Type) " } } catch { }
+            $lines.Add("EXCEPTION: $exType$(Limit-VsText ([string]$ex.Value))")
+        }
     } catch { }
     try {
         $frames = @(Invoke-VsRetry { @($dte.Debugger.CurrentThread.StackFrames) })
@@ -360,6 +365,8 @@ function Invoke-VsOps([string[]]$flagLines) {
                         # "run" begins when the app is launched, before it reaches the first breakpoint. Wait for break (or for the app to end).
                         $deadline = (Get-Date).AddSeconds($VsBreakWaitSec)
                         while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                        $deadline = (Get-Date).AddSeconds($VsUnknownWaitSec)
+                        while ((Get-VsModeName $dte) -eq 'unknown' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
                         Start-Sleep -Milliseconds 500
                         $mode = Get-VsModeName $dte
                         $out.Add("DEBUG_STARTED")
