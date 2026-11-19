@@ -26,6 +26,8 @@ $VsOutputMaxChars = 200000       # the capture file is cut to the last 200000 ch
 $VsInspectMaxFrames = 10
 $VsInspectMaxLocals = 30
 $VsInspectValueMax = 200         # characters per value
+$VsOutputWindowKind = '{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}'   # EnvDTE.Constants.vsWindowKindOutput
+$VsTargetRetry = 3               # when no VS answers right after the app starts, ask again (2 s apart) before giving up
 $VsDebugPaneGuid = '{FC076020-078A-11D1-A7DF-00A0C9110051}'   # the Debug pane (VSConstants.OutputWindowPaneGuid.DebugPane_guid). Found by GUID: the pane name is localized
 
 if (-not ([System.Management.Automation.PSTypeName]'VsNative').Type) {
@@ -36,6 +38,41 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
 public static class VsNative {
+    // IDispatch late binding by NAME. $dte.ToolWindows (a DTE2 member) is invisible to PowerShell and unknown to IDispatch (DISP_E_UNKNOWNNAME),
+    // but Windows.Item(<kind>).Object -> OutputWindowPanes is reachable by name (verified on VS 2026, 2026-11-19). The panes must be ENUMERATED:
+    // OutputWindowPanes.Item(<index>) as a property fails with DISP_E_MEMBERNOTFOUND.
+    static object Prop(object o, string name, params object[] args) {
+        return o.GetType().InvokeMember(name, System.Reflection.BindingFlags.GetProperty, null, o, args);
+    }
+    static object Meth(object o, string name, params object[] args) {
+        return o.GetType().InvokeMember(name, System.Reflection.BindingFlags.InvokeMethod, null, o, args);
+    }
+    // The text of the Output window pane whose GUID is paneGuid; null when there is no such pane. panes = "name=guid; ..." of all panes (for the diagnostic).
+    public static string ReadOutputPane(object dte, string windowKind, string paneGuid, out string panes) {
+        object wins = Prop(dte, "Windows");
+        object win = Prop(wins, "Item", windowKind);
+        object ow = Prop(win, "Object");
+        object col = Prop(ow, "OutputWindowPanes");
+        System.Text.StringBuilder list = new System.Text.StringBuilder();
+        string result = null;
+        foreach (object p in (System.Collections.IEnumerable)col) {
+            string name = "", guid = "";
+            try { name = Convert.ToString(Prop(p, "Name")); } catch { }
+            try { guid = Convert.ToString(Prop(p, "Guid")); } catch { }
+            if (list.Length > 0) list.Append("; ");
+            list.Append(name + "=" + guid);
+            if (result == null && string.Equals(guid, paneGuid, StringComparison.OrdinalIgnoreCase)) {
+                object td = Prop(p, "TextDocument");
+                object sp = Prop(td, "StartPoint");
+                object ep = Prop(td, "EndPoint");
+                object e = Meth(sp, "CreateEditPoint");
+                result = Convert.ToString(Meth(e, "GetText", ep));
+            }
+        }
+        panes = list.ToString();
+        return result;
+    }
+
     [DllImport("ole32.dll")] static extern int GetRunningObjectTable(int reserved, out IRunningObjectTable rot);
     [DllImport("ole32.dll")] static extern int CreateBindCtx(int reserved, out IBindCtx ctx);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -161,18 +198,12 @@ function Get-VsLocation($dte) {
     } catch { return "STOPPED: (location unknown)" }
 }
 
-# The "Debug" pane of the Output window. Read only (never cleared). $null when the pane does not exist yet.
-function Get-VsOutputPaneText($dte) {
-    $ow = $null
-    try { $ow = Invoke-VsRetry { $dte.ToolWindows.OutputWindow } } catch { }
-    if (-not $ow) { $ow = Invoke-VsRetry { $dte.Windows.Item('{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}').Object } }
-    $pane = $null
-    foreach ($p in @(Invoke-VsRetry { @($ow.OutputWindowPanes) })) {
-        try { if ("$($p.Guid)" -ieq $VsDebugPaneGuid) { $pane = $p; break } } catch { }
-    }
-    if (-not $pane) { return $null }
-    $td = Invoke-VsRetry { $pane.TextDocument }
-    return [string](Invoke-VsRetry { $td.StartPoint.CreateEditPoint().GetText($td.EndPoint) })
+# The "Debug" pane of the Output window (found by GUID; the name is localized). Read only (never cleared).
+# Returns @{ Text; Panes }. Text is $null when the pane does not exist. Panes = "name=guid; ..." of every pane (for the OUTPUT_UNAVAILABLE diagnostic).
+function Get-VsOutputPane($dte) {
+    $panes = ""
+    $text = Invoke-VsRetry { [VsNative]::ReadOutputPane($dte, $VsOutputWindowKind, $VsDebugPaneGuid, [ref]$panes) }
+    return @{ Text = $text; Panes = $panes }
 }
 
 # One line, at most $VsInspectValueMax characters
@@ -259,6 +290,7 @@ function Invoke-VsOps([string[]]$flagLines) {
             }
             { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output') } {
                 $targets = @(Get-VsTargets)
+                for ($retry = 0; $targets.Count -eq 0 -and $retry -lt $VsTargetRetry; $retry++) { Start-Sleep -Seconds 2; $targets = @(Get-VsTargets) }   # right after the app starts, VS can briefly not answer
                 if ($targets.Count -ne 1) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("$($t[0]): Visual Studio does not have this solution open (found $($targets.Count)). Run open first.") } }
                 $dte = $targets[0].Dte
                 switch ($t[0]) {
@@ -304,9 +336,10 @@ function Invoke-VsOps([string[]]$flagLines) {
                     'output' {
                         if ($arg -notmatch '^[0-9]{1,3}$' -or [int]$arg -lt 1 -or [int]$arg -gt $VsOutputMaxLines) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("output: use <lines> from 1 to $($VsOutputMaxLines): $arg") } }
                         $want = [int]$arg
-                        $text = Get-VsOutputPaneText $dte
+                        $pane = Get-VsOutputPane $dte
+                        $text = $pane.Text
                         if ($null -eq $text) {
-                            $out.Add("OUTPUT_UNAVAILABLE: the Debug pane of the Output window does not exist yet (no debug session has run in this Visual Studio).")
+                            $out.Add("OUTPUT_UNAVAILABLE: the Debug pane of the Output window was not found (no debug session has run in this Visual Studio, or its GUID differs). Panes: $($pane.Panes)")
                         } else {
                             $all = @($text -split "`r?`n")
                             if ($all.Count -gt 0 -and $all[$all.Count - 1] -eq '') { $all = @($all | Select-Object -First ($all.Count - 1)) }   # the text ends with a newline
@@ -323,7 +356,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                         if ($mode -ne 'design') { $out.Add("DEBUG_MODE: $mode"); return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("debug: already running or stopped; not started again.") } }
                         Invoke-VsRetry { $dte.Debugger.Go($false) } | Out-Null
                         $deadline = (Get-Date).AddSeconds(30)
-                        while ((Get-VsModeName $dte) -eq 'design' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                        while ((Get-VsModeName $dte) -in @('design', 'unknown') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }   # right after Go the mode can be unknown (the app is starting)
                         # "run" begins when the app is launched, before it reaches the first breakpoint. Wait for break (or for the app to end).
                         $deadline = (Get-Date).AddSeconds($VsBreakWaitSec)
                         while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }

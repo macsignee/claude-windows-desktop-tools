@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.99.1] 2026-11-19 (`--output` の不具合の修正。実機の確認 (TEST-PLAN 2-60) で見つかった。ホスト側の変更。`HOST_VERSION` 2.99.1)
+
+- **不具合 1 (`--output`):** v2.99.0 の `--output` は、デバッグのログが、出力ウィンドウに出ているのに、常に `OUTPUT_UNAVAILABLE:` だった。**原因: `$dte.ToolWindows` (`DTE2` の項目) が、PowerShell から見えない** (型情報に出ず、IDispatch の名前引きでも `DISP_E_UNKNOWNNAME`)。診断 (読み取りだけの PowerShell を、実機で、4 回) で、`Windows.Item(出力ウィンドウの種別).Object` → `OutputWindowPanes` が、名前引き (`InvokeMember`) で届くこと、ペインは **列挙** で取り出すこと (`Item(<番号>)` をプロパティとして呼ぶと `DISP_E_MEMBERNOTFOUND`)、「デバッグ」ペインの GUID が `{FC076020-078A-11D1-A7DF-00A0C9110051}` で合っていること (日本語の VS。27354 文字、末尾 `VO-7 line 1199` が読めた) を確かめた。
+- **修正 (`lib\vs-ide.ps1`):** C# の `VsNative.ReadOutputPane` を足し、`Windows.Item(種別).Object` → `OutputWindowPanes` を列挙して、GUID で選び、`TextDocument` を読む。`ToolWindows` は、使わない。ペインが見つからないときの `OUTPUT_UNAVAILABLE:` に、**見つかったペインの `名前=GUID` の一覧**を付けた (GUID が違っても、実機の値で直せる)。
+- **不具合 2 (`--debug` との併用):** `--debug --inspect --output` を 1 回で指定すると、`debug` の直後に、モードが `unknown` になり、続く `inspect` が `found 0` で失敗した (別々に実行すれば、正常)。**修正:** `debug` が、モードが `design` または `unknown` の間、待つ (そのあと、ブレークポイントに着くのを待つ)。`reload` / `clear` / `break` / `debug` / `inspect` / `output` は、VS が 0 件のとき、2 秒おきに 3 回まで、照会し直す。
+- **わかったこと (直していない):** ブレーク時の `STACK:` に、ファイルと行は付かない (`StackFrame` の `FileName` は `DTE2` 側)。`STOPPED:` に最上位の場所が出る。`EXCEPTION:` は、まだ実機で未確認。
+- **実機の確認 (2026-11-19、`ClaudePlayground\PS5`):** VO3 (ペインなし)・VO5 (走行中の `INSPECT_SKIP`)・VO6 (VS が閉じていると `FAILED`) は合格。VO4 は一部合格 (`STOPPED:`・`STACK:`・`LOCALS:`)。VO1・VO10 は、この修正の再確認待ち。
+- テスト: `tests/vs_once_test.sh` に 4 件 (列挙と GUID、一覧つきの診断、`unknown` の待ち、照会の再試行)。**PowerShell は WSL で実行できないので、実機で確かめる。**
+- **配布が要る:** `./install/install.sh --host-only` (または全体)。**ウォッチャーのフォルダを入れ替えて、再起動する。**
+
 ## [2.99.0] 2026-11-19 (`vs-debug` に、VS のデバッグ出力と、ブレーク時の状態の取り込み `--output` / `--inspect` を足す。ホスト側と Skill の変更。`HOST_VERSION` 2.99.0)
 
 - **ユーザーの要望:** VS でデバッグ実行しているときのデバッグのログを、Claude に取り込んで解析させたい。**案 A + C を採用** (DESIGN 4.93。案 B (アプリがログのファイルに書く) は、使い勝手を見てから。案 D (DebugView 型) は、VS のデバッガーが受け取るので、採らない)。ログの出し方は、`Debug.WriteLine` / `Trace` と `OutputDebugString` / `TRACE`。
