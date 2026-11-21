@@ -246,7 +246,7 @@ MFC_FILES = {
 #include "pch.h"
 
 // アプリケーション本体 (UI 層)。
-class CSampleApp : public CWinApp
+class SampleApp : public CWinApp
 {
 public:
     BOOL InitInstance() override;
@@ -259,18 +259,18 @@ public:
 #include "SampleView.h"
 #include "Resource.h"
 
-CSampleApp theApp;
+SampleApp theApp;
 
-BOOL CSampleApp::InitInstance()
+BOOL SampleApp::InitInstance()
 {
     // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
     auto* pDocTemplate = new CSingleDocTemplate(
         IDR_MAINFRAME,
-        RUNTIME_CLASS(CSampleDoc),
-        RUNTIME_CLASS(CMainFrame),
-        RUNTIME_CLASS(CSampleView));
+        RUNTIME_CLASS(SampleDoc),
+        RUNTIME_CLASS(MainFrame),
+        RUNTIME_CLASS(SampleView));
     AddDocTemplate(pDocTemplate);
 
     CCommandLineInfo cmdInfo;
@@ -288,35 +288,35 @@ BOOL CSampleApp::InitInstance()
     'MainFrame.h': '''#pragma once
 #include "pch.h"
 
-class CMainFrame : public CFrameWnd
+class MainFrame : public CFrameWnd
 {
-    DECLARE_DYNCREATE(CMainFrame)
+    DECLARE_DYNCREATE(MainFrame)
 };
 ''',
     'MainFrame.cpp': '''#include "pch.h"
 #include "MainFrame.h"
 
-IMPLEMENT_DYNCREATE(CMainFrame, CFrameWnd)
+IMPLEMENT_DYNCREATE(MainFrame, CFrameWnd)
 ''',
     'SampleDoc.h': '''#pragma once
 #include "pch.h"
 
-class CSampleDoc : public CDocument
+class SampleDoc : public CDocument
 {
-    DECLARE_DYNCREATE(CSampleDoc)
+    DECLARE_DYNCREATE(SampleDoc)
 };
 ''',
     'SampleDoc.cpp': '''#include "pch.h"
 #include "SampleDoc.h"
 
-IMPLEMENT_DYNCREATE(CSampleDoc, CDocument)
+IMPLEMENT_DYNCREATE(SampleDoc, CDocument)
 ''',
     'SampleView.h': '''#pragma once
 #include "pch.h"
 
-class CSampleView : public CView
+class SampleView : public CView
 {
-    DECLARE_DYNCREATE(CSampleView)
+    DECLARE_DYNCREATE(SampleView)
 
 public:
     void OnDraw(CDC* pDC) override;
@@ -325,9 +325,9 @@ public:
     'SampleView.cpp': '''#include "pch.h"
 #include "SampleView.h"
 
-IMPLEMENT_DYNCREATE(CSampleView, CView)
+IMPLEMENT_DYNCREATE(SampleView, CView)
 
-void CSampleView::OnDraw(CDC* pDC)
+void SampleView::OnDraw(CDC* pDC)
 {
     pDC->TextOut(10, 10, _T("@@NAME@@"));
 }
@@ -381,7 +381,7 @@ MFC_MDI_FILES = {
 #include "pch.h"
 
 // アプリケーション本体 (UI 層)。
-class CSampleApp : public CWinApp
+class SampleApp : public CWinApp
 {
 public:
     BOOL InitInstance() override;
@@ -397,27 +397,27 @@ public:
 #include "SampleView.h"
 #include "Resource.h"
 
-CSampleApp theApp;
+SampleApp theApp;
 
-BEGIN_MESSAGE_MAP(CSampleApp, CWinApp)
+BEGIN_MESSAGE_MAP(SampleApp, CWinApp)
     // 「ファイル」→「新規」。CWinApp は、この ID を割り当てない (ウィザードのアプリも、ここで割り当てている)。
     // 割り当てがないと、子ウィンドウのメニューの「New」が、押せなくなる。
     ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
 END_MESSAGE_MAP()
 
-BOOL CSampleApp::InitInstance()
+BOOL SampleApp::InitInstance()
 {
     // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
 
     auto* pDocTemplate = new CMultiDocTemplate(
         IDR_SAMPLETYPE,
-        RUNTIME_CLASS(CSampleDoc),
-        RUNTIME_CLASS(CChildFrame),
-        RUNTIME_CLASS(CSampleView));
+        RUNTIME_CLASS(SampleDoc),
+        RUNTIME_CLASS(ChildFrame),
+        RUNTIME_CLASS(SampleView));
     AddDocTemplate(pDocTemplate);
 
-    auto* pMainFrame = new CMainFrame;
+    auto* pMainFrame = new MainFrame;
     if (!pMainFrame->LoadFrame(IDR_MAINFRAME))
     {
         delete pMainFrame;
@@ -440,9 +440,9 @@ BOOL CSampleApp::InitInstance()
     'MainFrame.h': '''#pragma once
 #include "pch.h"
 
-class CMainFrame : public CMDIFrameWnd
+class MainFrame : public CMDIFrameWnd
 {
-    DECLARE_DYNAMIC(CMainFrame)
+    DECLARE_DYNAMIC(MainFrame)
 
 protected:
     BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;
@@ -451,9 +451,9 @@ protected:
     'MainFrame.cpp': '''#include "pch.h"
 #include "MainFrame.h"
 
-IMPLEMENT_DYNAMIC(CMainFrame, CMDIFrameWnd)
+IMPLEMENT_DYNAMIC(MainFrame, CMDIFrameWnd)
 
-BOOL CMainFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext*)
+BOOL MainFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext*)
 {
     // 既定の実装 (CMDIFrameWnd::OnCreateClient) は、メニューバーの「右から 2 番目」を Window メニューと推測する。
     // IDR_MAINFRAME のメニューが File だけだと、その推測が成り立たず、起動時に ASSERT で止まる (winmdi.cpp)。
@@ -465,15 +465,15 @@ BOOL CMainFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext*)
     'ChildFrame.h': '''#pragma once
 #include "pch.h"
 
-class CChildFrame : public CMDIChildWnd
+class ChildFrame : public CMDIChildWnd
 {
-    DECLARE_DYNCREATE(CChildFrame)
+    DECLARE_DYNCREATE(ChildFrame)
 };
 ''',
     'ChildFrame.cpp': '''#include "pch.h"
 #include "ChildFrame.h"
 
-IMPLEMENT_DYNCREATE(CChildFrame, CMDIChildWnd)
+IMPLEMENT_DYNCREATE(ChildFrame, CMDIChildWnd)
 ''',
     'SampleDoc.h': MFC_FILES['SampleDoc.h'],
     'SampleDoc.cpp': MFC_FILES['SampleDoc.cpp'],
@@ -547,7 +547,7 @@ MFC_DIALOG_FILES = {
 #include "ScreenModelSelector.h"
 #include "ScreenModelUi.h"
 
-CSampleApp theApp;
+SampleApp theApp;
 
 namespace
 {
@@ -573,7 +573,7 @@ namespace
     }
 }
 
-BOOL CSampleApp::InitInstance()
+BOOL SampleApp::InitInstance()
 {
     // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
     CWinApp::InitInstance();
@@ -598,7 +598,7 @@ BOOL CSampleApp::InitInstance()
     }
 
     // 画面の状態と規則は、画面モデルが持つ。ダイアログは、画面モデルを受け取って、表示と操作だけをする。
-    CSampleDlg dlg(model);
+    SampleDlg dlg(model);
     m_pMainWnd = &dlg;
     dlg.DoModal();
 
@@ -612,14 +612,14 @@ BOOL CSampleApp::InitInstance()
 #include "SampleScreenModelInterface.h"
 
 // 状態と規則は、画面モデル (SampleScreenModelInterface) が持つ。ダイアログは、状態を表示し、操作 (SetName / Clear) を呼ぶだけ。
-class CSampleDlg : public CDialog
+class SampleDlg : public CDialog
 {
-    DECLARE_DYNAMIC(CSampleDlg)
+    DECLARE_DYNAMIC(SampleDlg)
 
 public:
     enum { IDD = IDD_SAMPLE_DIALOG };
 
-    explicit CSampleDlg(@@NS@@::SampleScreenModelInterface& model, CWnd* pParent = nullptr);
+    explicit SampleDlg(@@NS@@::SampleScreenModelInterface& model, CWnd* pParent = nullptr);
 
 protected:
     void DoDataExchange(CDataExchange* pDX) override;
@@ -647,20 +647,20 @@ private:
 #include "SampleDlg.h"
 #include "ScreenModelUi.h"
 
-IMPLEMENT_DYNAMIC(CSampleDlg, CDialog)
+IMPLEMENT_DYNAMIC(SampleDlg, CDialog)
 
-CSampleDlg::CSampleDlg(@@NS@@::SampleScreenModelInterface& model, CWnd* pParent)
+SampleDlg::SampleDlg(@@NS@@::SampleScreenModelInterface& model, CWnd* pParent)
     : CDialog(IDD, pParent)
     , m_model(model)
 {
 }
 
-void CSampleDlg::DoDataExchange(CDataExchange* pDX)
+void SampleDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialog::DoDataExchange(pDX);
 }
 
-BOOL CSampleDlg::OnInitDialog()
+BOOL SampleDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
 
@@ -675,14 +675,14 @@ BOOL CSampleDlg::OnInitDialog()
     return TRUE;
 }
 
-void CSampleDlg::OnDestroy()
+void SampleDlg::OnDestroy()
 {
     // 通知の登録は、閉じるときに、必ず解除する (しないと、閉じたあとの通知で、壊れたダイアログを呼ぶ)。
     m_model.RemoveHandler(m_handlerId);
     CDialog::OnDestroy();
 }
 
-HBRUSH CSampleDlg::OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor)
+HBRUSH SampleDlg::OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor)
 {
     HBRUSH brush = CDialog::OnCtlColor(dc, wnd, ctlColor);
     // 誤りの文章は、赤字にする (色だけに頼らない。文章そのものが、誤りを伝える)。
@@ -693,7 +693,7 @@ HBRUSH CSampleDlg::OnCtlColor(CDC* dc, CWnd* wnd, UINT ctlColor)
     return brush;
 }
 
-void CSampleDlg::OnNameChanged()
+void SampleDlg::OnNameChanged()
 {
     if (m_updating)
     {
@@ -704,19 +704,19 @@ void CSampleDlg::OnNameChanged()
     m_model.SetName(ToWString(name));
 }
 
-void CSampleDlg::OnClear()
+void SampleDlg::OnClear()
 {
     m_model.Clear();
     // クリアボタンが無効になるので、フォーカスを入力欄へ戻す。
     GetDlgItem(IDC_NAME_EDIT)->SetFocus();
 }
 
-void CSampleDlg::OnModelChanged(int /*property*/)
+void SampleDlg::OnModelChanged(int /*property*/)
 {
     ApplyControls();
 }
 
-void CSampleDlg::ApplyControls()
+void SampleDlg::ApplyControls()
 {
     m_updating = true;
 
@@ -744,11 +744,11 @@ void CSampleDlg::ApplyControls()
     m_updating = false;
 }
 
-BEGIN_MESSAGE_MAP(CSampleDlg, CDialog)
+BEGIN_MESSAGE_MAP(SampleDlg, CDialog)
     ON_WM_DESTROY()
     ON_WM_CTLCOLOR()
-    ON_EN_CHANGE(IDC_NAME_EDIT, &CSampleDlg::OnNameChanged)
-    ON_BN_CLICKED(IDC_CLEAR_BUTTON, &CSampleDlg::OnClear)
+    ON_EN_CHANGE(IDC_NAME_EDIT, &SampleDlg::OnNameChanged)
+    ON_BN_CLICKED(IDC_CLEAR_BUTTON, &SampleDlg::OnClear)
 END_MESSAGE_MAP()
 ''',
 }
@@ -912,7 +912,7 @@ UI / メイン → ロジック → データ (のインターフェース)
     mfc_rule = ('- MFC を使うコード (MFC のメイン、MFC の層) は、`.claude/rules/mfc-cpp.md` も読んでから書く (ウィザード生成の `*Dlg` / `*View` / `*Doc` / `MainFrm` 以外のファイルでは、自動では読み込まれない)。\n'
                 if is_mfc else f'- このソリューションは、MFC を使わない{" (Win32 API と C++)" if kind == KIND["win32"] else ""}。MFC の規約 (`mfc-cpp.md`) は、適用しない。MFC のクラス (`CString` `CWnd` など) を、持ち込まない。\n')
     where = f'ロジック層 `{dict(layers)["logic"]}`' if 'logic' in dict(layers) else f'メイン `{name}`'
-    sm_rule = (f'- **画面の状態と規則 (挨拶の文、入力の検査、クリアの有効・無効) は、画面モデル (`SampleScreenModel`。すべての画面で必須) に置く。** {where} の `SampleScreenModel.h` / `SampleScreenModelInterface.h` / `SampleMessages.h` (ヘッダーだけ。MFC の型を使わない)。ダイアログ (`CSampleDlg`) は、`SampleScreenModelInterface&` を受け取り、状態を表示して操作を呼ぶだけ (通知は `Observable.h`。`OnInitDialog` で `AddHandler`、`OnDestroy` で `RemoveHandler`)。文字列は `std::wstring` で、MFC 側の境界で `ScreenModelUi.h` の `ToCString` / `ToWString` が変換する。規則は、単体テストで確かめ、UI テストは、つながりと主要な操作だけを確かめる。詳細は、規約 `mfc-cpp.md`。\n'
+    sm_rule = (f'- **画面の状態と規則 (挨拶の文、入力の検査、クリアの有効・無効) は、画面モデル (`SampleScreenModel`。すべての画面で必須) に置く。** {where} の `SampleScreenModel.h` / `SampleScreenModelInterface.h` / `SampleMessages.h` (ヘッダーだけ。MFC の型を使わない)。ダイアログ (`SampleDlg`) は、`SampleScreenModelInterface&` を受け取り、状態を表示して操作を呼ぶだけ (通知は `Observable.h`。`OnInitDialog` で `AddHandler`、`OnDestroy` で `RemoveHandler`)。文字列は `std::wstring` で、MFC 側の境界で `ScreenModelUi.h` の `ToCString` / `ToWString` が変換する。規則は、単体テストで確かめ、UI テストは、つながりと主要な操作だけを確かめる。詳細は、規約 `mfc-cpp.md`。\n'
                if kind == KIND['mfc-dialog'] else '')
     out += f"""
 ## 規約

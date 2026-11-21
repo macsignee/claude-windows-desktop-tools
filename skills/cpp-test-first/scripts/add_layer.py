@@ -726,7 +726,7 @@ def mfc_std_files(name, ns, uses, toolset, dg):
     info_h = f'{name}ModuleInfo.h'
     info_cpp = f'{name}ModuleInfo.cpp'
     func = f'{name}ModuleName'
-    app = f'C{name}App'
+    app = f'{name}App'   # 自作クラスに C 接頭辞を付けない (rules/cpp-common.md)
     items = [api, info_h, f'{name}.h', 'pch.h', 'framework.h', 'targetver.h', info_cpp, f'{name}.cpp', 'pch.cpp']
 
     files = {}

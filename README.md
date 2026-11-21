@@ -102,7 +102,7 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
     - `--check-git` / `--add-gitattributes`: Git の設定の点検と、最小の `.gitattributes` の追加 (→ 「2-8」)。
     - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
     - `--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
-  - **MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成は、Visual Studio のウィザードに合わせる** (v2.60.0)。`framework.h`・`targetver.h`・`pch.h`・`pch.cpp` (PCH を使う)、`res\` (`<名前>.rc2`、アプリのアイコン。SDI・MDI は文書のアイコンも)、`.vcxproj` の設定 (`MFCProj`、`Midl`、`ResourceCompile`、`LinkIncremental` など)、フィルター (ソース / ヘッダー / リソース。`res\` は `Image` と `None`)。ファイル名とクラス名 (`SampleApp` など) と、ドッキングウィンドウは、ウィザードと同じにしない。Win32 の構成は、`--platforms` で選べる (層・テスト・画面ホストは、ソリューションのプラットフォームに、そろえて作られる)。
+  - **MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成は、Visual Studio のウィザードに合わせる** (v2.60.0)。`framework.h`・`targetver.h`・`pch.h`・`pch.cpp` (PCH を使う)、`res\` (`<名前>.rc2`、アプリのアイコン。SDI・MDI は文書のアイコンも)、`.vcxproj` の設定 (`MFCProj`、`Midl`、`ResourceCompile`、`LinkIncremental` など)、フィルター (ソース / ヘッダー / リソース。`res\` は `Image` と `None`)。ファイル名とクラス名 (`SampleApp` など) と、ドッキングウィンドウは、ウィザードと同じにしない。**自作のクラスには、`C` 接頭辞を付けない** (`SampleApp`・`SampleDoc`・`SampleView`・`MainFrame`・`ChildFrame`・`SampleDlg`、標準 DLL の層の `<層の名前>App`。規約 `cpp-common.md` と同じ。MFC の標準クラス (`CWinApp`・`CDocument` など) は、そのまま)。Win32 の構成は、`--platforms` で選べる (層・テスト・画面ホストは、ソリューションのプラットフォームに、そろえて作られる)。
   - **画面は、画面モデルを通して作られる** (v2.92.0〜。設計の正本は [`docs/UI-MODEL-GUIDE.md`](docs/UI-MODEL-GUIDE.md)。例外は、MFC の SDI・MDI のメインの `CView` だけ)。画面モデルは、状態、入力の検査 (`Validate()` / `IsValid`)、操作の失敗の表示、変更の通知を持ち、フォームは、それを表示して、操作を渡すだけ。
     - **WPF:** `ViewModelBase` (検査の誤りを `ErrorTexts[欄名]` と `ScreenErrorTexts` にする。XAML は `{Binding ErrorTexts[Name]}`)、`MainMessages` (文章を 1 か所)。
     - **WinForms:** `Form` は引数なしのコンストラクターで、`Bind(IMainScreenModel)` で結ぶ。`IMainScreenModel` / `MainScreenModel` は、ロジック層の `ScreenModels/` (層がなければ、アプリの `ScreenModels/`)。`--tests mstest` で `MainScreenModelTests` が付く。Presenter は任意 (ダイアログを開く・フォーカスなど、WinForms の型が要るものだけ)。
@@ -371,7 +371,7 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 | 分類 | テスト |
 |---|---|
 | ウォッチャーと結果の変換 | `fake_watcher`、`host_tools_static`、`harness_note` (`RESULT_INFO` と `NOTE`)、`loop_hardening` (止めどき)、`summarize_build_log`、`summarize_test_log`、`gtest_once`、`uitest_once`、`project_scope` (`--project`) |
-| ソリューションの生成 | `new_solution` (C++)、`new_solution_wpf`、`new_solution_winforms`、`new_solution_csharp_dll`、`new_solution_spec_import`、`new_solutions`、`ui_tests_gen` |
+| ソリューションの生成 | `new_solution` (C++)、`mfc_class_names` (MFC の自作クラスに `C` 接頭辞を付けない)、`new_solution_wpf`、`new_solution_winforms`、`new_solution_csharp_dll`、`new_solution_spec_import`、`new_solutions`、`ui_tests_gen` |
 | 層・プロジェクトの追加 | `add_layer`、`add_project`、`add_project_skill` (`/add-project` と `solution_state.py`)、`add_reference`、`add_ui_host`、`add_common`、`win32_platform` |
 | テスト先行と、テストの検査 | `test_guard` (`snapshot` / `check` / `audit`)、`ui_test_first_skill`、`fix_policy` |
 | 静的検査 | `mfc_check`、`mfc_lib`、`mfc_cobject_rules`、`mfc_screen_model`、`mfc_wizard_layout`、`wpf_check`、`winforms_check`、`wpf_menu_note`、`ui_guideline_check` |

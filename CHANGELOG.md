@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.100.0] 2026-11-21 (MFC の生成物の、自作クラスから、C 接頭辞を外す。生成物の名前の変更。Skill・規約の変更)
+
+- **ユーザーの指摘:** `rules/cpp-common.md` の「自分で作るクラスには、`C` 接頭辞を付けない。クラスウィザードで作るクラスも同じ」と、`/new-solution` が作る MFC のひな形が、食い違っていた。
+- **変更 (生成物のクラス名):** `new_solution.py` の SDI・MDI・ダイアログのメイン: `CSampleApp` → `SampleApp`、`CSampleDoc` → `SampleDoc`、`CSampleView` → `SampleView`、`CMainFrame` → `MainFrame`、`CChildFrame` → `ChildFrame`、`CSampleDlg` → `SampleDlg`。`add_layer.py` の MFC 標準 DLL の層: `C<層の名前>App` → `<層の名前>App`。**MFC の標準クラス (`CWinApp`・`CDocument`・`CView`・`CDialog` など) は、そのまま。ファイル名は、変えない。**
+- **既存のソリューションは、変わらない** (すでに作ったものは、`C` 付きのまま。`mfc-check` などは、`C` の有無に依存しない)。
+- **規約:** `cpp-common.md` に、「`/new-solution` のひな形も、この規約に合わせてある」の一文を足した (規約そのものは、変えない)。`mfc-cpp.md` と `UI-MODEL-GUIDE.md` の例の名前を直した。
+- **テスト:** `tests/mfc_class_names_test.sh` (新規 14 件。SDI・MDI・ダイアログを生成し、自作クラスに `C` が残らないこと、マクロが新しい名前で書かれること、`mfc-check` が指摘を出さないこと)。`tests/mfc_cobject_rules_test.sh`・`tests/add_layer_test.sh` の期待を直した。先に Red (10 件) を確認してから実装した。
+- **文書:** DESIGN 4.94、TEST-PLAN 2-61 (CP1〜CP5。すべて未)、README。
+- **未確認 (実機):** 生成した MFC のソリューションが、実際にビルドでき、起動すること (TEST-PLAN 2-61)。**WSL には C++ のコンパイラがない。**
+- **配布が要る:** `./install/install.sh` (Skill と規約。`--skills-only` と `--rules-only`)。ウォッチャーの入れ替えは要らない。
+
 ## [2.99.6] 2026-11-19 (`rules/git-wsl.md` の実機の確認 (GW1〜GW3) の結果を記録する。文書だけ)
 
 - **TEST-PLAN 2-54:** GW1〜GW3 が、すべて合格 (`ClaudePlayground\MfcScope`。VS 2026 の「Git リポジトリの作成」で作ったリポジトリ)。GW1 = 規約が読み込まれ、設定を確認し、勝手に変更せず、ユーザーに確認を求めた。GW2 = コミットの前に確認し、変更したファイルを名前で指定してコミットした (新しいファイルは BOM 付き・CRLF)。GW3 = VS と WSL の往復で、履歴が互いに見え、`git status` は空、`index.lock` は残らず、VS で保存しても BOM と CRLF が保たれた。**規約の修正は、不要。**

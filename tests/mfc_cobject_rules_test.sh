@@ -69,7 +69,7 @@ for ty in mfc mfc-mdi mfc-dialog; do
 done
 python3 "$SK/cpp-test-first/scripts/add_ui_host.py" "$W/app_mfc_dialog" --name UiLayer --kind mfc-std-dll --logic none >/dev/null 2>&1
 ok "generated UI host dialog (GreetingDialog) has DECLARE_DYNAMIC / IMPLEMENT_DYNAMIC and no NSP001 / DEC001" "$(grep -q 'DECLARE_DYNAMIC(GreetingDialog)' "$W/app_mfc_dialog/UiLayer/GreetingDialog.h" && grep -q 'IMPLEMENT_DYNAMIC(GreetingDialog, CDialog)' "$W/app_mfc_dialog/UiLayer/GreetingDialog.cpp" && ! chk "$W/app_mfc_dialog" | grep -q 'NSP001\|DEC001' && echo 1 || echo 0)"
-ok "generated CSampleDlg has DECLARE_DYNAMIC / IMPLEMENT_DYNAMIC" "$(grep -q 'DECLARE_DYNAMIC(CSampleDlg)' "$W/app_mfc_dialog/app_mfc_dialog/SampleDlg.h" && grep -q 'IMPLEMENT_DYNAMIC(CSampleDlg, CDialog)' "$W/app_mfc_dialog/app_mfc_dialog/SampleDlg.cpp" && echo 1 || echo 0)"
+ok "generated SampleDlg has DECLARE_DYNAMIC / IMPLEMENT_DYNAMIC" "$(grep -q 'DECLARE_DYNAMIC(SampleDlg)' "$W/app_mfc_dialog/app_mfc_dialog/SampleDlg.h" && grep -q 'IMPLEMENT_DYNAMIC(SampleDlg, CDialog)' "$W/app_mfc_dialog/app_mfc_dialog/SampleDlg.cpp" && echo 1 || echo 0)"
 ok "NSP001 / DEC001 are documented (SKILL.md, rules/mfc-cpp.md)" "$(grep -q 'NSP001' "$SK/mfc-check/SKILL.md" && grep -q 'DEC001' "$SK/mfc-check/SKILL.md" && grep -q 'CObject 派生' "$ROOT/rules/mfc-cpp.md" && grep -q '名前空間' "$ROOT/rules/mfc-cpp.md" && echo 1 || echo 0)"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
