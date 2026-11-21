@@ -1268,3 +1268,15 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | VO10 | `--debug --inspect --output 100` (ブレークポイントを置いたうえで) | デバッグを始め、止まったあとに、`STOPPED:`・`STACK:`・`LOCALS:`・取り込みが、この順で出る | **合格** (v2.99.1 の修正後。2026-11-19 実機 (`ClaudePlayground\PS5`・`MfcScope`、VS 2026)。`--debug --inspect --output 500` を 1 回で: `DEBUG_STARTED` → `DEBUG_MODE: break` → `STOPPED:` → `STACK:` → `LOCALS:` → 取り込み、の順に出た。v2.99.0 では、`DEBUG_MODE: unknown` と `found 0` で失敗した)。例外で止めたとき、`debug` の `DEBUG_MODE:` が `unknown` と出た件は、v2.99.2 で、`unknown` を数秒待つように直した |
 | VO11 | **観察 (記録のみ):** 新しいデバッグの開始で、「デバッグ」ペインが消えるか | 消える場合は、「止まったあとに読めば足りる」と、DESIGN 4.93 に追記する | **観察: 新しいデバッグの開始で、「デバッグ」ペインは、クリアされる** (2026-11-19 実機 (`ClaudePlayground\PS5`・`MfcScope`、VS 2026)。止めて、もう一度始めても、`total=1256` で、積み重ならなかった。例外で止めたときは 1266 (例外のログ 10 行ほど))。**止まったあと、その場で読めば、今回のセッションのログだけが取れる** |
 | VO12 | **終了直後:** アプリを終了させて (または Shift+F5 で止めて)、デザインモードで、`--output 100` | `OK`、`DEBUG_MODE: design`。**ログが残っていて、読める** (最後に、`プログラム '[...] xxx.exe' はコード 0 (0x0) で終了しました。` の行。落ちたときは、その終了コード)。`--inspect` は、`INSPECT_SKIP: the mode is design` | **合格** (2026-11-19 実機 (`ClaudePlayground\MfcScope`、VS 2026)。`DEBUG_MODE: design` で、`OUTPUT: lines=67 total=67`。前回のセッションの `VO-8 OutputDebugString`・`VO-8 TRACE` と、最後の `プログラム '[0xF4A8] MfcScope.exe' はコード 0 (0x0) で終了しました。` まで、読めた)。**次のデバッグを始める前なら、終了したあとでも、読める** (VO11 のとおり、始めるとクリアされる)。落ちたときの、終了コードと最後のログの解析に使える |
+
+### 2-61. MFC の生成物の自作クラスに、C 接頭辞を付けない (v2.100.0)
+
+準備: マージして、`install/install.sh` で配布する。**静的な検査 (`tests/mfc_class_names_test.sh`) は通っている。WSL には C++ のコンパイラがないので、生成物のコンパイルは、すべて未確認。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| CP1 | **SDI:** 新しいフォルダで `/new-solution --type mfc --layers logic,data --tests gtest` → ビルド (`build_test_once.sh`) → 起動 | ビルド `SUCCESS` / `PASSED`。起動して、ウィンドウが出る。ソースに、`SampleApp`・`SampleDoc`・`SampleView`・`MainFrame` (`C` なし)。`mfc-check` は、指摘なし | 未 |
+| CP2 | **MDI:** `--type mfc-mdi` → ビルド → 起動 → 「ファイル」→「新規作成」 | ビルド `SUCCESS`。子ウィンドウが開く (`ChildFrame`)。起動時の ASSERT が出ない (MDI001 の件) | 未 |
+| CP3 | **ダイアログ:** `--type mfc-dialog` → ビルド → UI テスト (`uitest_once.sh`) | ビルド `SUCCESS`。ダイアログが開き、UI テストが `PASSED` (`SampleDlg`) | 未 |
+| CP4 | **標準 DLL の層:** `--layer-kind mfc-std-dll` の層を足す (`/add-project layer`) → ビルド | `StdLogic`・`LogicLayer` などの層で、`<層の名前>App` (`C` なし) が、ビルドできる | 未 |
+| CP5 | **既存のソリューションへの影響:** `C` 付きの既存の MFC ソリューション (`MfcScope` など) に、`/add-project layer` で層を足し、`mfc-check` を実行 | 既存の `CSampleApp` などは、そのまま。層は、`C` なしで足される。`mfc-check` は、指摘なし | 未 |

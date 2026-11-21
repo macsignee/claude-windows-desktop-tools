@@ -43,7 +43,7 @@ paths:
 - **取得する関数には `Get`、述語には `Is` / `Can` / `Has` を付ける** (`GetErrors()`、`IsValid()`、`CanSave()`。MFC の `GetSize` / `IsEmpty` と同じ)。
 - **ファイル名は、クラス名と一致させる** (例: クラス `ImageLoader` は、`ImageLoader.h` / `ImageLoader.cpp`)。
 - **`C` で始めてよいのは、MFC / ATL の既存のクラスだけ** (`CWnd` `CString` `CDialog` `CArray`、ATL の `CComPtr` `CImage` `CHandle` など)。
-  - 自分で作るクラスには、`C` 接頭辞を付けない。**クラスウィザードで作るクラスも同じ** (ウィザードの「クラス名」を、`C` なしの名前に直してから作る。例: `CMyDialog` ではなく `MyDialog`)。
+  - 自分で作るクラスには、`C` 接頭辞を付けない。**クラスウィザードで作るクラスも同じ** (ウィザードの「クラス名」を、`C` なしの名前に直してから作る。例: `CMyDialog` ではなく `MyDialog`。`/new-solution` のひな形 (`SampleApp`・`MainFrame`・`SampleDlg` など) も、この規約に合わせてある)。
   - MFC のクラスから派生しても、自分のクラスなら `C` を付けない (例: `CObject` 派生の `Shape`)。
   - `Chain` `Cache` `Color` `Circle` のように、**単語そのものが `C` で始まる名前は、そのまま使う** (接頭辞ではないため)。判断に迷うときは、「`C` を外しても意味が通るか」で見る (`CircleShape` は、外せない = 単語の一部。`CImageSerializer` は `ImageSerializer` として通じる = 接頭辞)。
   - 既存の `C` 付きの自作クラス (ウィザード生成の `CMainFrame` など) は、触らない限り、そのまま。リネームは、`m_` と同様に、別のコミットで行う。
