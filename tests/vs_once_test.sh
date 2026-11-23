@@ -65,6 +65,19 @@ bad --output 501;                   ok "BAD_ARGS: --output 501 (1..500 lines)" "
 bad --output abc;                   ok "BAD_ARGS: --output abc (not a number: abc is an unknown option)" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --status --output;              ok "BAD_ARGS: --status cannot be combined with --output" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --status --inspect;             ok "BAD_ARGS: --status cannot be combined with --inspect" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --step;                         ok "BAD_ARGS: --step needs over / into / out" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --step sideways;                ok "BAD_ARGS: --step sideways (not over / into / out)" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --step over 0;                  ok "BAD_ARGS: --step over 0 (1..30 steps)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 30')" = 1 ] && echo 1 || echo 0)"
+bad --step over 31;                 ok "BAD_ARGS: --step over 31 (1..30 steps)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 30')" = 1 ] && echo 1 || echo 0)"
+bad --step over 20 --step into 11;  ok "BAD_ARGS: the steps of one run add up to more than 30" "$([ $RC = 2 ] && [ "$(has "$OUT" '30')" = 1 ] && echo 1 || echo 0)"
+bad --status --step over;           ok "BAD_ARGS: --status cannot be combined with --step" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --eval "";                      ok "BAD_ARGS: --eval needs an expression" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --eval "x = 5";                 ok "BAD_ARGS: --eval rejects an assignment (read-only)" "$([ $RC = 2 ] && [ "$(has "$OUT" 'read-only')" = 1 ] && echo 1 || echo 0)"
+bad --eval "x += 1";                ok "BAD_ARGS: --eval rejects a compound assignment" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --eval "i++";                   ok "BAD_ARGS: --eval rejects ++" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --eval "--i";                   ok "BAD_ARGS: --eval rejects --" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --eval "a; b";                  ok "BAD_ARGS: --eval rejects a semicolon (one expression only)" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --eval "$(printf 'x%.0s' $(seq 1 201))"; ok "BAD_ARGS: --eval rejects an expression longer than 200 characters" "$([ $RC = 2 ] && echo 1 || echo 0)"
 OUT="$(bash "$SCRIPT" "$T/none" 2>&1)"; RC=$?
 ok "BAD_ARGS: missing solution dir" "$([ $RC = 2 ] && echo 1 || echo 0)"
 ok "BAD_ARGS: no flag is written" "$([ ! -f "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
@@ -89,6 +102,7 @@ h_ok()    { { printf '%sSOLUTION: x%s\nOPEN: yes%s\nINSTANCES: 1%s\nDEBUG_MODE: 
 h_fail()  { { printf '%sMULTIPLE_INSTANCES: 2 Visual Studio windows have this solution open.%s\n' "$BOM" "$CR"; } > "$D/vs_error.log"; write_id; printf FAILED > "$D/vs_result.txt"; }
 h_env()   { { printf '%s[ENVIRONMENT ERROR - not a source code problem]%s\nVisual Studio (devenv.exe) was not found (vswhere.exe).%s\n' "$BOM" "$CR" "$CR"; } > "$D/vs_error.log"; write_id; printf FAILED > "$D/vs_result.txt"; }
 h_cap()   { { printf '%sSOLUTION: x%s\nDEBUG_MODE: break%s\nSTOPPED: Foo::Bar at C:\\p\\a.cpp:12%s\nOUTPUT: file=vs_debug_output.txt lines=100 total=100%s\nDIRTY_COUNT: 0%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; for i in $(seq 1 100); do printf 'debug line %s%s\n' "$i" "$CR"; done > "$D/vs_debug_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
+h_steps() { { printf '%sSTEP 1: C:\\p\\a.cpp:10  int x = f(a);%s\nCHANGED: a = 1 -> 2%s\n' "$BOM" "$CR" "$CR"; for i in $(seq 2 60); do printf 'STEP %s: C:\\p\\a.cpp:%s  line %s%s\nCHANGED: n = %s -> %s%s\n' "$i" "$((9+i))" "$i" "$CR" "$((i-1))" "$i" "$CR"; done; printf 'STEP_DONE: 60/60%s\nDEBUG_MODE: break%s\n' "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_never() { :; }
 h_weird() { write_id; printf WEIRD > "$D/vs_result.txt"; }
 run_case() {
@@ -130,6 +144,29 @@ ok "the capture file is shown after the facts: header (last 60 of 100), then the
 ok "the facts (STOPPED: / OUTPUT:) are shown before the capture" "$([ "$(has "$OUT" 'STOPPED: Foo::Bar')" = 1 ] && [ "$(has "$OUT" 'OUTPUT: file=vs_debug_output.txt')" = 1 ] && echo 1 || echo 0)"
 run_case h_ok
 ok "no capture file -> no capture block (the default run is unchanged)" "$([ "$(has "$OUT" 'VS debug output')" = 0 ] && echo 1 || echo 0)"
+# --step / --continue / --pause / --eval (v2.101.0): 読み取りだけのときは、VS を開かない。実行系の操作は、指定した順
+run_case h_ok --step over
+ok "--step over: step over 1, then status (read-only: no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'step over 1\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --step into 3
+ok "--step into 3: step into 3 (no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'step into 3\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --step out
+ok "--step out: step out 1" "$([ "$(cat "$D/flag.copy")" = "$(printf 'step out 1\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --continue
+ok "--continue: continue (F5), then status (no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'continue\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --pause
+ok "--pause: pause, then status (no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'pause\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --eval "i + 1"
+ok "--eval: the expression is kept as one flag line (spaces included)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'eval i + 1\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --eval "a == b"
+ok "--eval: a comparison (==) is not an assignment" "$([ "$(cat "$D/flag.copy")" = "$(printf 'eval a == b\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --eval "a <= b && c != d"
+ok "--eval: <= and != are not assignments" "$([ "$(cat "$D/flag.copy")" = "$(printf 'eval a <= b && c != d\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --step over 2 --eval "i" --step into
+ok "the run operations keep the order given on the command line" "$([ "$(cat "$D/flag.copy")" = "$(printf 'step over 2\neval i\nstep into 1\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --break src/a.cpp:3 --debug --step over 2 --inspect --output 50
+ok "with --debug: open, break, debug, step, inspect, output, status" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:3\ndebug\nstep over 2\ninspect\noutput 50\nstatus')" ] && echo 1 || echo 0)"
+run_case h_steps --step over 30
+ok "a 30-step trace (about 120 lines) is shown in full (no truncation of the trace)" "$([ "$(has "$OUT" 'STEP 60:')" = 1 ] && [ "$(has "$OUT" 'STEP_DONE: 60/60')" = 1 ] && [ "$(has "$OUT" 'lines total')" = 0 ] && echo 1 || echo 0)"
 # --changes / --reload: ソリューションのフォルダが git のリポジトリのとき
 D0="$D"
 G2="$T/repo2"; mkdir -p "$G2"
@@ -184,7 +221,7 @@ ok "vs-ide.ps1: the VS lookup for reload / clear / break / debug / inspect / out
 ok "vs-ide.ps1: output is read-only on VS (never clears the pane) and bounded (lines and characters)" "$(! grep -q '\.Clear()' "$PS1" && grep -q 'VsOutputMaxLines' "$PS1" && grep -q 'VsOutputMaxChars' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: output says so when the Debug pane does not exist yet (OUTPUT_UNAVAILABLE), instead of failing" "$(grep -q 'OUTPUT_UNAVAILABLE' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: inspect reads the stack, the locals and the exception, only in break mode (INSPECT_SKIP otherwise)" "$(grep -q 'StackFrames' "$PS1" && grep -q 'Locals' "$PS1" && grep -q '\$exception' "$PS1" && grep -q 'INSPECT_SKIP' "$PS1" && echo 1 || echo 0)"
-ok "vs-ide.ps1: inspect / output need exactly one VS that has the solution open (never start VS)" "$(grep -q "{ \$_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output') }" "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: inspect / output need exactly one VS that has the solution open (never start VS)" "$(grep -q "{ \$_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output', 'step', 'continue', 'pause', 'eval') }" "$PS1" && echo 1 || echo 0)"
 ok "watch_and_build.ps1: defines VsDebugOutputFile and removes the old capture with the other vs_ files" "$(grep -q 'VsDebugOutputFile' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'vs_debug_output.txt' "$ROOT/host-tools/watch_and_build.ps1" && echo 1 || echo 0)"
 ok "watch_and_build.ps1: loads vs-ide and handles trigger_vs.flag" "$(grep -q '"vs-ide"' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'VsTriggerFile' "$ROOT/host-tools/watch_and_build.ps1" && grep -q 'Invoke-VsFlag' "$ROOT/host-tools/watch_and_build.ps1" && echo 1 || echo 0)"
 HV="$(tr -d '\r\n' < "$ROOT/host-tools/HOST_VERSION")"
@@ -198,6 +235,15 @@ ok "SKILL.md: documents --output and --inspect (read-only, no VS start, what the
 ok "host-tools/README.md: documents the inspect and output operations and vs_debug_output.txt" "$(grep -q 'vs_debug_output.txt' "$ROOT/host-tools/README.md" && grep -q '`inspect`' "$ROOT/host-tools/README.md" && grep -q '`output' "$ROOT/host-tools/README.md" && echo 1 || echo 0)"
 ok "new_solution.py: the generated .gitignore lists vs_debug_output.txt" "$(grep -q 'vs_debug_output.txt' "$ROOT/skills/new-solution/scripts/new_solution.py" && echo 1 || echo 0)"
 ok "SKILL.md: states when the output can be read (running, stopped, and after the app ended until the next debug start; --inspect only while stopped)" "$(grep -q '終了したあと' "$SKILL" && grep -q '次のデバッグを始める前' "$SKILL" && grep -q '止まっているときだけ' "$SKILL" && echo 1 || echo 0)"
+ok "vs-ide.ps1: the step / continue / pause / eval operations are handled (v2.101.0)" "$(for op in step continue pause eval; do grep -q "'$op'" "$PS1" || echo bad; done | grep -q bad && echo 0 || echo 1)"
+ok "vs-ide.ps1: steps and Go / Break do not block (WaitForBreakOrEnd = false) and poll the mode with a timeout (a modal dialog must not freeze the watcher)" "$(grep -q 'StepOver($false)' "$PS1" && grep -q 'StepInto($false)' "$PS1" && grep -q 'StepOut($false)' "$PS1" && grep -q 'Break($false)' "$PS1" && grep -q 'STEP_TIMEOUT' "$PS1" && grep -q 'STEP_END' "$PS1" && grep -q 'VsStepWaitSec' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: a run is capped at 30 steps (VsStepMax), and step / continue / pause / eval need the right mode (break / run)" "$(grep -q 'VsStepMax' "$PS1" && grep -q 'not in break mode' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: eval is read-only: it rejects an assignment and ++ / -- again on the host (EVAL_REJECTED), and reads the value with GetExpression" "$(grep -q 'EVAL_REJECTED' "$PS1" && grep -q 'GetExpression' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: no stop operation (stopping is the user's: Shift+F5). No Debugger.Stop / TerminateAll / DetachAll / SetNextStatement / ExecuteStatement" "$(! grep -v -E '^ *(#|//)' "$PS1" | grep -q -E 'Debugger\.(Stop|TerminateAll|DetachAll|SetNextStatement|ExecuteStatement)' && echo 1 || echo 0)"
+ok "vs-ide.ps1: each step reports STEP n: <file>:<line> <source line> and the CHANGED: locals" "$(grep -q 'STEP ' "$PS1" && grep -q 'CHANGED: ' "$PS1" && grep -q 'STEP_DONE' "$PS1" && echo 1 || echo 0)"
+ok "HOST_VERSION is 2.101.0 or later (--step / --eval need the new watcher)" "$([ "$(printf '%s\n%s\n' 2.101.0 "$(tr -d '\r\n' < "$ROOT/host-tools/HOST_VERSION")" | sort -V | head -n 1)" = "2.101.0" ] && echo 1 || echo 0)"
+ok "SKILL.md: the step-through bug hunt (user asks only, 30 steps, 3 visits to one place, read-only eval, no function calls without consent, no editing while debugging, stop is the user's)" "$(grep -q -- '--step' "$SKILL" && grep -q -- '--eval' "$SKILL" && grep -q -- '--continue' "$SKILL" && grep -q '30 歩' "$SKILL" && grep -q '3 回' "$SKILL" && grep -q '関数の呼び出し' "$SKILL" && grep -q 'ユーザーが、求めたとき' "$SKILL" && echo 1 || echo 0)"
+ok "host-tools/README.md: documents the step / continue / pause / eval operations, and that there is no stop" "$(grep -q '`step ' "$ROOT/host-tools/README.md" && grep -q '`eval ' "$ROOT/host-tools/README.md" && grep -q '`continue`' "$ROOT/host-tools/README.md" && echo 1 || echo 0)"
 ok "SKILL.md uses <Skill群> with the path note (skill_paths_test)" "$(grep -q 'パスの書き方' "$SKILL" && echo 1 || echo 0)"
 
 echo "PASS=$pass FAIL=$fail"

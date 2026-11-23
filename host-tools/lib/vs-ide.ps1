@@ -1,4 +1,4 @@
-﻿# lib\vs-ide.ps1 - Visual Studio IDE operations (trigger_vs.flag: open / status / reload / clear / break / debug / inspect / output)
+﻿# lib\vs-ide.ps1 - Visual Studio IDE operations (trigger_vs.flag: open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval)
 # Dot-sourced from watch_and_build.ps1 (same scope). Do not run alone.
 #
 # Each flag line is one operation (blank lines and # lines are ignored). Run in order; stop at the first failure.
@@ -12,6 +12,12 @@
 #   output <lines>            (v2.99.0) the last <lines> (1..500) of the "Debug" pane of the Output window (Debug.WriteLine / Trace / OutputDebugString / TRACE).
 #                             Full text -> <TargetDir>\vs_debug_output.txt; facts -> OUTPUT: file=... lines=... total=.... Read only: the pane is never cleared.
 #                             OUTPUT_UNAVAILABLE: when the pane does not exist yet (no debug session has run in this VS)
+#   step <over|into|out> <n>  (v2.101.0) F10 / F11 / Shift+F11, n steps (1..30). Break mode only. Per step: STEP i: <file>:<line>  <source line>, then CHANGED: (locals that changed) or FRAME: + LOCALS:
+#                             when the function changed. STEP_DONE: / STEP_END: (the program ended) / STEP_TIMEOUT: (still running: a modal dialog, or waiting for input)
+#   continue                  (v2.101.0) F5 (Debugger.Go). Break mode only. Waits for the next break / the end (up to VsBreakWaitSec)
+#   pause                     (v2.101.0) Debugger.Break. Run mode only
+#   eval <expression>         (v2.101.0) the value of an expression (watch). READ-ONLY: an assignment, ++, --, ';' are rejected (EVAL_REJECTED). Break mode only. Function calls are NOT blocked here (a side effect is possible): the Skill tells Claude not to use them without the user's consent
+#   There is NO stop operation (Shift+F5 is the user's). Steps / Go / Break do not block (WaitForBreakOrEnd = false) and the mode is polled with a timeout, so a modal dialog cannot freeze the watcher.
 #   inspect / output never start VS: they need exactly one VS that has the solution open (like reload / clear / break / debug).
 # Result: <TargetDir>\vs_result.txt (OK / FAILED, written last), vs_output.txt (facts), vs_error.log (reason when FAILED), vs_debug_output.txt (output).
 # The VS instance is found by the Running Object Table, matched by Solution.FullName (never "the first VS").
@@ -28,6 +34,10 @@ $VsInspectMaxLocals = 30
 $VsInspectValueMax = 200         # characters per value
 $VsOutputWindowKind = '{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}'   # EnvDTE.Constants.vsWindowKindOutput
 $VsUnknownWaitSec = 5            # after the breakpoint wait: a stop at an exception can read as 'unknown' for a moment
+$VsStepMax = 30                 # steps per step operation (the Skill also limits one run to 30 in total)
+$VsStepWaitSec = 15              # a step that has not stopped after this long is reported as STEP_TIMEOUT
+$VsPauseWaitSec = 10
+$VsStepChangedMax = 10           # CHANGED: / LOCALS: lines per step
 $VsTargetRetry = 3               # when no VS answers right after the app starts, ask again (2 s apart) before giving up
 $VsDebugPaneGuid = '{FC076020-078A-11D1-A7DF-00A0C9110051}'   # the Debug pane (VSConstants.OutputWindowPaneGuid.DebugPane_guid). Found by GUID: the pane name is localized
 
@@ -248,6 +258,70 @@ function Get-VsInspectLines($dte) {
     return $lines.ToArray()
 }
 
+# The place where a stopped program is: @{ File; Line; Func }
+function Get-VsPosition($dte) {
+    $func = ""; $file = ""; $line = 0
+    try { $frame = Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }; $func = [string]$frame.FunctionName } catch { }
+    try { $doc = $dte.ActiveDocument; if ($doc) { $file = [string]$doc.FullName; $line = [int]$doc.Selection.CurrentLine } } catch { }
+    return @{ File = $file; Line = $line; Func = $func }
+}
+
+# The text of a source line, read from the file (not from VS: no COM call, and no change to VS)
+function Get-VsSourceText([string]$file, [int]$line) {
+    if (-not $file -or $line -lt 1 -or -not (Test-Path -LiteralPath $file)) { return "" }
+    try { return (Limit-VsText ([string]([System.IO.File]::ReadLines($file) | Select-Object -Skip ($line - 1) -First 1))) } catch { return "" }
+}
+
+# name -> value of the locals of the current frame (up to VsInspectMaxLocals)
+function Get-VsLocalsMap($dte) {
+    $m = [ordered]@{}
+    try {
+        $frame = Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }
+        $n = 0
+        foreach ($e in @(Invoke-VsRetry { @($frame.Locals) })) {
+            if ($n -ge $VsInspectMaxLocals) { break }
+            try { $m[[string]$e.Name] = Limit-VsText ([string]$e.Value) } catch { }
+            $n++
+        }
+    } catch { }
+    return ,$m
+}
+
+# One step (F10 / F11 / Shift+F11) without blocking. Returns the mode afterwards.
+# Right after the command, the mode can still read "break" before the debugger has resumed, so: wait until the mode leaves break,
+# or the place changes, or a short time has passed (a step that lands on the same line); then, if it is running, wait for break / the end.
+function Invoke-VsStepOnce($dte, [string]$kind, $before) {
+    $d = $dte.Debugger
+    switch ($kind) {
+        'over' { Invoke-VsRetry { $d.StepOver($false) } | Out-Null }
+        'into' { Invoke-VsRetry { $d.StepInto($false) } | Out-Null }
+        'out'  { Invoke-VsRetry { $d.StepOut($false) } | Out-Null }
+    }
+    $deadline = (Get-Date).AddSeconds($VsStepWaitSec)
+    $quick = (Get-Date).AddMilliseconds(1500)
+    $left = $false
+    while ((Get-Date) -lt $deadline) {
+        $mode = Get-VsModeName $dte
+        if ($mode -eq 'design') { break }
+        if ($mode -ne 'break') { $left = $true }
+        else {
+            if ($left) { break }
+            $pos = Get-VsPosition $dte
+            if ($pos.File -ne $before.File -or $pos.Line -ne $before.Line -or $pos.Func -ne $before.Func) { break }
+            if ((Get-Date) -gt $quick) { break }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    return (Get-VsModeName $dte)
+}
+
+# eval is read-only: an assignment (=, +=, <<= ...), ++ and -- are not allowed. == != <= >= are comparisons.
+function Test-VsAssignment([string]$e) {
+    if ($e -match '<<=|>>=') { return $true }
+    $t = $e -replace '==|!=|<=|>=', '  '
+    return ($t -match '=')
+}
+
 # Run the operations. Returns @{ Ok; Env; Lines }
 function Invoke-VsOps([string[]]$flagLines) {
     $out = New-Object System.Collections.Generic.List[string]
@@ -293,7 +367,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     $out.Add("ACTIVATED")
                 } catch { $out.Add("ACTIVATE_FAILED: $($_.Exception.Message)") }
             }
-            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output') } {
+            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output', 'step', 'continue', 'pause', 'eval') } {
                 $targets = @(Get-VsTargets)
                 for ($retry = 0; $targets.Count -eq 0 -and $retry -lt $VsTargetRetry; $retry++) { Start-Sleep -Seconds 2; $targets = @(Get-VsTargets) }   # right after the app starts, VS can briefly not answer
                 if ($targets.Count -ne 1) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("$($t[0]): Visual Studio does not have this solution open (found $($targets.Count)). Run open first.") } }
@@ -331,6 +405,80 @@ function Invoke-VsOps([string[]]$flagLines) {
                         foreach ($b in @($added)) { try { $b.Tag = $VsTag } catch { } }
                         $breaks++
                         $out.Add("BREAK_SET: $arg")
+                    }
+                    'step' {
+                        if ($arg -notmatch '^(over|into|out) ([0-9]{1,2})$') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("step: use <over|into|out> <steps>: $arg") } }
+                        $kind = $Matches[1]; $count = [int]$Matches[2]
+                        if ($count -lt 1 -or $count -gt $VsStepMax) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("step: steps must be 1 to $($VsStepMax): $arg") } }
+                        $mode = Get-VsModeName $dte
+                        if ($mode -ne 'break') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("step: not in break mode (mode: $mode). Stepping needs the program stopped at a breakpoint or an exception.") } }
+                        $prevPos = Get-VsPosition $dte
+                        $prevLocals = Get-VsLocalsMap $dte
+                        $done = 0; $stop = $false
+                        for ($i = 1; $i -le $count; $i++) {
+                            $mode = Invoke-VsStepOnce $dte $kind $prevPos
+                            if ($mode -eq 'design') { $out.Add("STEP_END: the program ended after $done step(s)."); $stop = $true; break }
+                            if ($mode -ne 'break') { $out.Add("STEP_TIMEOUT: still running after ${VsStepWaitSec}s at step $i (a modal dialog, or the program is waiting for input?). Check with status, or ask the user."); $stop = $true; break }
+                            $pos = Get-VsPosition $dte
+                            $out.Add("STEP ${i}: $($pos.File):$($pos.Line)  $(Get-VsSourceText $pos.File $pos.Line)")
+                            $locals = Get-VsLocalsMap $dte
+                            $shown = 0
+                            if ($pos.Func -ne $prevPos.Func) {
+                                $out.Add("FRAME: $($pos.Func)")
+                                foreach ($k in $locals.Keys) { if ($shown -ge $VsStepChangedMax) { break }; $out.Add("LOCALS: $k = $($locals[$k])"); $shown++ }
+                            } else {
+                                foreach ($k in $locals.Keys) {
+                                    if ($shown -ge $VsStepChangedMax) { break }
+                                    if (-not $prevLocals.Contains($k)) { $out.Add("CHANGED: $k = (new) -> $($locals[$k])"); $shown++ }
+                                    elseif ($prevLocals[$k] -ne $locals[$k]) { $out.Add("CHANGED: $k = $($prevLocals[$k]) -> $($locals[$k])"); $shown++ }
+                                }
+                            }
+                            $prevPos = $pos; $prevLocals = $locals; $done++
+                        }
+                        if (-not $stop) { $out.Add("STEP_DONE: $done/$count") }
+                    }
+                    'continue' {
+                        if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("continue takes no argument") } }
+                        $mode = Get-VsModeName $dte
+                        if ($mode -ne 'break') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("continue: not in break mode (mode: $mode).") } }
+                        Invoke-VsRetry { $dte.Debugger.Go($false) } | Out-Null
+                        $quick = (Get-Date).AddMilliseconds(1500)
+                        while ((Get-VsModeName $dte) -eq 'break' -and (Get-Date) -lt $quick) { Start-Sleep -Milliseconds 100 }   # right after Go, the mode can still read break
+                        $deadline = (Get-Date).AddSeconds($VsBreakWaitSec)
+                        while ((Get-VsModeName $dte) -in @('run', 'unknown') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                        $mode = Get-VsModeName $dte
+                        $out.Add("CONTINUED: DEBUG_MODE: $mode")
+                        if ($mode -eq 'break') { $out.Add((Get-VsLocation $dte)) }
+                        if ($mode -eq 'run') { $out.Add("NOTE: no break within ${VsBreakWaitSec}s. The program is running (waiting for the user, or no breakpoint is on its path). Use status or pause.") }
+                        if ($mode -eq 'design') { $out.Add("CONTINUE_END: the program ended.") }
+                    }
+                    'pause' {
+                        if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("pause takes no argument") } }
+                        $mode = Get-VsModeName $dte
+                        if ($mode -ne 'run') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("pause: the program is not running (mode: $mode).") } }
+                        Invoke-VsRetry { $dte.Debugger.Break($false) } | Out-Null
+                        $deadline = (Get-Date).AddSeconds($VsPauseWaitSec)
+                        while ((Get-VsModeName $dte) -in @('run', 'unknown') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
+                        $mode = Get-VsModeName $dte
+                        $out.Add("PAUSED: DEBUG_MODE: $mode")
+                        if ($mode -eq 'break') { $out.Add((Get-VsLocation $dte)) }
+                    }
+                    'eval' {
+                        if (-not $arg -or $arg.Length -gt 200 -or $arg -match '[;\r\n]' -or $arg -match '\+\+|--' -or (Test-VsAssignment $arg)) {
+                            return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("EVAL_REJECTED: only a read-only expression is allowed (no assignment, ++, --, ';'; 200 characters or less): $arg") }
+                        }
+                        $mode = Get-VsModeName $dte
+                        if ($mode -ne 'break') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("eval: not in break mode (mode: $mode).") } }
+                        $ex = Invoke-VsRetry { $dte.Debugger.GetExpression($arg, $false, 5000) }
+                        if ($ex -and $ex.IsValidValue) {
+                            $exType = ""
+                            try { if ($ex.Type) { $exType = "  ($($ex.Type))" } } catch { }
+                            $out.Add("EVAL: $arg = $(Limit-VsText ([string]$ex.Value))$exType")
+                        } else {
+                            $exMsg = ""
+                            try { $exMsg = Limit-VsText ([string]$ex.Value) } catch { }
+                            $out.Add("EVAL_ERROR: $arg : $exMsg")
+                        }
                     }
                     'inspect' {
                         if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("inspect takes no argument") } }
@@ -377,7 +525,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     }
                 }
             }
-            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output)") } }
+            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval)") } }
         }
     }
     return @{ Ok = $true; Env = $false; Lines = $out.ToArray() }
