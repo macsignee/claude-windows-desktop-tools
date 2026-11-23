@@ -26,7 +26,8 @@ Claude (WSL) は、リモートの認証 (Windows の Git Credential Manager。V
    ```bash
    bash <Skill群>/git-remote/scripts/git_once.sh <ソリューションのフォルダ> --push
    ```
-   - **初めての push (`UPSTREAM: (none)`)** は、`--set-upstream` を付ける (リモートに、同じ名前のブランチを作る。ユーザーに、一言、確認する)。
+   - **初めての push (リモートに、同じ名前のブランチがない)** は、`--set-upstream` を付ける (リモートに、ブランチを作る。ユーザーに、一言、確認する)。リモートに、同じ名前のブランチが、すでにあるなら、`--set-upstream` なしでも push できる (`UPSTREAM: (not set; the branch origin/<名前> exists ...)` と出る。比べる先は、その `origin/<名前>`)。
+   - **`UPSTREAM_PENDING:` と出たら:** push は成功している。上流 (`.git/config` への書き込み) は、**このコマンドの実行中は書けない** (Claude Code のサンドボックスが、`.git/config` への書き込みを禁じていて、実行中は `config.lock` が見える)。ウォッチャーが、**結果を返したあと**に、自分で設定する (数秒)。**数秒待って、`--status` で、`UPSTREAM:` を確かめる。** `.git/config.lock` を、消さない (本物のファイルではない)。
    - **リモートが複数ある・`origin` 以外のとき:** `--remote <名前>` (設定済みのリモート名だけ。URL は、受け付けない)。
    - **`main` / `master` へ push するとき:** ユーザーが、「main に push してよい」と、はっきり言ったときだけ `--allow-main` を付ける。言われていなければ、付けない (作業ブランチを切る案内をする)。
 3. **fetch する (取り込みの要否の確認):** `--fetch` (すべてのリモート) または `--fetch <リモート名>`。作業フォルダは、変わらない。続けて、返ってきた `BEHIND:` を見る。
@@ -37,7 +38,7 @@ Claude (WSL) は、リモートの認証 (Windows の Git Credential Manager。V
 ## 結果の読み方 (標準出力の 1 行目と終了コード)
 | 1 行目 | rc | 意味と対応 |
 |---|---|---|
-| `OK` | 0 | 成功。`PUSHED:` / `FETCHED:` / `NOTHING_TO_PUSH:` と、状態が続く |
+| `OK` | 0 | 成功。`PUSHED:` / `FETCHED:` / `NOTHING_TO_PUSH:` と、状態が続く。`UPSTREAM_PENDING:` があれば、上は、そのあとの確認 |
 | `FAILED` | 1 | 失敗。理由が続く (HEAD が切り離されている・上流がない・リモートがない、など)。理由に従って直すか、ユーザーに聞く |
 | `BAD_ARGS` | 2 | 引数の形が不正 (強制 push などの引数は、ここで断られる) |
 | `WATCHER_NOT_RUNNING` | 3 | ウォッチャーが動いていない、または古い (HOST_VERSION 2.102.0 以降が必要)。ユーザーに、`install.sh` での再配布と、ウォッチャーの再起動を頼む |

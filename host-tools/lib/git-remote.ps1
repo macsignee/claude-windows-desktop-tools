@@ -102,6 +102,18 @@ function Get-GitLine([string]$gitExe, [string[]]$gitArgs) {
     return [string]$r.Out[0]
 }
 
+# 同じ名前のリモート追跡ブランチ (origin/<ブランチ>) を探す。上流 (branch.<名>.*) が、設定されていないときの、比べる先
+# (上流の設定は、.git/config への書き込みで、Claude Code のサンドボックスの実行中は、失敗する。下の Invoke-GitPushOp を参照)
+function Get-GitSameNameRef([string]$gitExe, [string]$branch, [string[]]$remoteNames) {
+    if (-not $branch) { return "" }
+    foreach ($rn in $remoteNames) {
+        if ($rn -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { continue }
+        $v = Get-GitLine $gitExe @("rev-parse", "--verify", "-q", "refs/remotes/$rn/$branch")
+        if ($v) { return "$rn/$branch" }
+    }
+    return ""
+}
+
 function Get-GitStateLines([string]$gitExe) {
     $lines = @()
     $top = Get-GitLine $gitExe @("rev-parse", "--show-toplevel")
@@ -109,19 +121,24 @@ function Get-GitStateLines([string]$gitExe) {
     $lines += "REPO: $top"
     $branch = Get-GitLine $gitExe @("symbolic-ref", "--short", "-q", "HEAD")
     $lines += "BRANCH: $(if ($branch) { $branch } else { '(detached HEAD)' })"
-    $up = Get-GitLine $gitExe @("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-    $lines += "UPSTREAM: $(if ($up) { $up } else { '(none)' })"
     $remotes = Invoke-GitProc $gitExe @("remote")
+    $up = Get-GitLine $gitExe @("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    $base = $up
+    if ($up) { $lines += "UPSTREAM: $up" }
+    else {
+        $base = Get-GitSameNameRef $gitExe $branch @($remotes.Out)
+        if ($base) { $lines += "UPSTREAM: (not set; the branch $base exists, and is used for AHEAD / BEHIND)" } else { $lines += "UPSTREAM: (none)" }
+    }
     foreach ($rn in $remotes.Out) {
         if ($rn -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { continue }
         $url = Get-GitLine $gitExe @("remote", "get-url", $rn)
         $lines += "REMOTE: $rn $(Hide-GitUrlSecret $url)"
     }
     if ($remotes.Out.Count -eq 0) { $lines += "REMOTE: (none)" }
-    if ($up) {
-        $cnt = Get-GitLine $gitExe @("rev-list", "--left-right", "--count", "HEAD...@{u}")
+    if ($base) {
+        $cnt = Get-GitLine $gitExe @("rev-list", "--left-right", "--count", "HEAD...$base")
         if ($cnt -match '^(\d+)\s+(\d+)$') { $lines += "AHEAD: $($Matches[1])"; $lines += "BEHIND: $($Matches[2])" }
-        $log = Invoke-GitProc $gitExe @("log", "--oneline", "-n", "20", "@{u}..HEAD")
+        $log = Invoke-GitProc $gitExe @("log", "--oneline", "-n", "20", "$base..HEAD")
     } else {
         $log = Invoke-GitProc $gitExe @("log", "--oneline", "-n", "20", "HEAD", "--not", "--remotes")
     }
@@ -172,19 +189,28 @@ function Invoke-GitPushOp([string]$gitExe, [string]$remote, [bool]$setUpstream, 
     if ($remote -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or ($remoteNames -notcontains $remote)) {
         return (New-GitResult $false "FAILED" @("FAILED: '$remote' is not a configured remote (remotes: $($remoteNames -join ', ')). A URL is not accepted."))
     }
+    $base = $upstream
     if ($upstream) {
         $merge = Get-GitLine $gitExe @("config", "--get", "branch.$branch.merge")
         if ($merge -and $merge -ne "refs/heads/$branch") {
             return (New-GitResult $false "FAILED" @("FAILED: the upstream branch name differs from the local one ($upstream). Push it from Visual Studio, or fix the upstream."))
         }
-        $cnt = Get-GitLine $gitExe @("rev-list", "--left-right", "--count", "HEAD...@{u}")
-        if ($cnt -match '^0\s+') { return (New-GitResult $true "OK" @("NOTHING_TO_PUSH: $branch is not ahead of $upstream")) }
-    } elseif (-not $setUpstream) {
-        return (New-GitResult $false "FAILED" @("FAILED: '$branch' has no upstream. Push it for the first time with --set-upstream (it creates the branch on '$remote')."))
+    } else {
+        $base = Get-GitSameNameRef $gitExe $branch @($remote)
+        if (-not $base -and -not $setUpstream) {
+            return (New-GitResult $false "FAILED" @("FAILED: '$branch' has no upstream and does not exist on '$remote' yet. Push it for the first time with --set-upstream (it creates the branch on '$remote')."))
+        }
     }
-    $pushArgs = @("push")
-    if ($setUpstream) { $pushArgs += "-u" }
-    $pushArgs += @($remote, "refs/heads/${branch}:refs/heads/${branch}")
+    if ($base) {
+        $cnt = Get-GitLine $gitExe @("rev-list", "--left-right", "--count", "HEAD...$base")
+        if ($cnt -match '^0\s+') {
+            if ($setUpstream -and -not $upstream) { $script:GitDeferredUpstream = @{ Remote = $remote; Branch = $branch } }
+            $nothing = @("NOTHING_TO_PUSH: $branch is not ahead of $base")
+            if ($script:GitDeferredUpstream) { $nothing += "UPSTREAM_PENDING: the upstream is set right after this result is returned (run --status to check)." }
+            return (New-GitResult $true "OK" $nothing)
+        }
+    }
+    $pushArgs = @("push", $remote, "refs/heads/${branch}:refs/heads/${branch}")
     $r = Invoke-GitProc $gitExe $pushArgs
     $text = ($r.Out -join "`n")
     if ($r.TimedOut) { return (New-GitResult $false "FAILED" @("FAILED: git push did not finish within $($script:GitTimeoutSec) s (network or sign-in?). Check whether it reached the remote before pushing again.")) }
@@ -199,11 +225,16 @@ function Invoke-GitPushOp([string]$gitExe, [string]$remote, [bool]$setUpstream, 
     }
     $done = @("PUSHED: $remote $branch")
     if ($setUpstream) {
-        # push -u が、上流を設定しないことがあった (実機 GR4: PUSHED のあとも UPSTREAM: (none))。明示して、設定する。失敗しても、push は成功しているので、警告にする
+        # 上流の設定は、.git/config への書き込み。Claude Code のサンドボックスは、.git/config (と config.lock) への書き込みを禁じていて、
+        # git_once.sh が結果を待っている間は、config.lock が見える (/dev/null の重ね合わせ)。そのため、ここでは失敗する (実機 GR4: could not lock config file)。
+        # 1 回だけ試し、だめなら、結果を返したあと (git_once.sh が終わったあと) に、再試行する (Complete-GitUpstream)。
         $setup = Invoke-GitProc $gitExe @("branch", "--set-upstream-to=$remote/$branch", $branch)
         $now = Get-GitLine $gitExe @("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
         if ($now) { $done[0] = "PUSHED: $remote $branch (upstream set: $now)" }
-        else { $done += "WARN: the push succeeded, but the upstream could not be set (exit $($setup.Code)): $(($setup.Out | Select-Object -First 2) -join ' ')" }
+        else {
+            $script:GitDeferredUpstream = @{ Remote = $remote; Branch = $branch }
+            $done += "UPSTREAM_PENDING: the push succeeded; the upstream could not be written while this command was running (.git/config is locked; $(($setup.Out | Select-Object -First 1) -join ' ')). It is set right after this result is returned. Run --status to check."
+        }
     }
     return (New-GitResult $true "OK" $done)
 }
@@ -251,15 +282,35 @@ function Invoke-GitOps([string[]]$flagLines) {
     return @{ Ok = $true; Marker = "OK"; Lines = $out }
 }
 
+# 結果を返したあとの、上流の設定。git_once.sh が終わると、サンドボックスの config.lock の重ね合わせが消える。最大 30 秒、1 秒おきに試す。
+function Complete-GitUpstream {
+    $d = $script:GitDeferredUpstream
+    $script:GitDeferredUpstream = $null
+    if (-not $d) { return }
+    $gitExe = Find-GitExe
+    if (-not $gitExe) { return }
+    for ($try = 1; $try -le 30; $try++) {
+        Start-Sleep -Seconds 1
+        $r = Invoke-GitProc $gitExe @("branch", "--set-upstream-to=$($d.Remote)/$($d.Branch)", $d.Branch)
+        $now = Get-GitLine $gitExe @("rev-parse", "--abbrev-ref", "--symbolic-full-name", "$($d.Branch)@{u}")
+        if ($now) { Write-Host "[git] upstream set: $($d.Branch) -> $now (after $try s)" -ForegroundColor DarkGray; return }
+    }
+    Write-Host "[git] the upstream of $($d.Branch) could not be set within 30 s: $(($r.Out | Select-Object -First 1) -join ' ')" -ForegroundColor Yellow
+}
+
 function Invoke-GitFlag([string[]]$flagLines) {
+    $script:GitDeferredUpstream = $null
     try {
         $r = Invoke-GitOps $flagLines
     } catch {
         $r = @{ Ok = $false; Marker = "FAILED"; Env = $true; Lines = @("git operation failed: $($_.Exception.Message)") }
     }
     $r.Lines | Out-File $GitOutputFile -Encoding utf8
-    if ($r.Ok) { Write-GitMarker "OK"; return }
-    $head = if ($r.Env) { @("[ENVIRONMENT ERROR - not a source code problem]") } else { @() }
-    ($head + $r.Lines) | Out-File $GitErrorLog -Encoding utf8
-    Write-GitMarker $r.Marker
+    if ($r.Ok) { Write-GitMarker "OK" }
+    else {
+        $head = if ($r.Env) { @("[ENVIRONMENT ERROR - not a source code problem]") } else { @() }
+        ($head + $r.Lines) | Out-File $GitErrorLog -Encoding utf8
+        Write-GitMarker $r.Marker
+    }
+    Complete-GitUpstream
 }
