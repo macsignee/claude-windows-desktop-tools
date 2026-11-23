@@ -134,6 +134,7 @@ ok "host: a detached HEAD is refused; the branch name is checked against a safe 
 ok "host: the outcome is classified (AUTH_REQUIRED / REJECTED / FAILED) from git's output" "$([ "$(has "$P" 'AUTH_REQUIRED')" = 1 ] && [ "$(has "$P" 'REJECTED')" = 1 ] && [ "$(has "$P" 'non-fast-forward')" = 1 ] && [ "$(has "$P" 'Authentication failed')" = 1 ] && echo 1 || echo 0)"
 ok "host: credentials in a remote URL are masked before they are shown" "$([ "$(has "$P" 'REMOTE:')" = 1 ] && grep -qE '\*\*\*|://\$' <<<"$P" && echo 1 || echo 0)"
 ok "host: git.exe is looked up on PATH, then in the usual install folders" "$([ "$(has "$P" 'git.exe')" = 1 ] && [ "$(has "$P" 'Program Files')" = 1 ] && echo 1 || echo 0)"
+ok "host: after push -u, the upstream is set explicitly (git branch --set-upstream-to) and checked, because push -u alone left UPSTREAM: (none) on a real machine (GR4)" "$([ "$(has "$P" '--set-upstream-to=')" = 1 ] && [ "$(has "$P" 'upstream could not be set')" = 1 ] && echo 1 || echo 0)"
 ok "host: HOST_VERSION is 2.102.0 or later" "$([ "$(printf '%s\n%s\n' 2.102.0 "$(tr -d '\r\n' < "$ROOT/host-tools/HOST_VERSION")" | sort -V | head -n 1)" = "2.102.0" ] && echo 1 || echo 0)"
 
 # ---------------------------------------------------------------- Skill・規約・文書

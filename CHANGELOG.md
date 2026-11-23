@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.102.1] 2026-11-23 (`git-remote`: `--set-upstream` で、上流が設定されない不具合を直す。ホスト側の変更。`HOST_VERSION` 2.102.1)
+
+- **実機 (GR4、`ImageSampleApp`) で見つけた不具合:** `--push --set-upstream` が `PUSHED: origin gr-test (upstream set)` で成功しても、`.git/config` に `branch.gr-test.*` がなく、続く状態が `UPSTREAM: (none)` だった (push 自体は、成功し、`origin/gr-test` はできた)。
+- **修正 (`lib\git-remote.ps1`):** push のあと、`git branch --set-upstream-to=<リモート>/<ブランチ>` で、上流を明示して設定し、`@{u}` で確かめる。設定できなければ、`WARN:` を出す (push は成功しているので、失敗にはしない)。表示は `PUSHED: ... (upstream set: origin/gr-test)`。
+- テスト: `tests/git_once_test.sh` に、1 件足した。実機での再確認が要る (TEST-PLAN 2-64 の GR4)。
+
 ## [2.102.0] 2026-11-23 (`git-remote` Skill: Windows の `git.exe` で、push・fetch・状態の確認を、ウォッチャーに頼む。ホスト側と Skill の変更。`HOST_VERSION` 2.102.0)
 
 - **ユーザーの要望:** `.slnx` のソリューションの Git のリモート操作 (push) を、VS だけでなく、Claude からも、できるようにしたい。リモートは GitHub とは限らない。
