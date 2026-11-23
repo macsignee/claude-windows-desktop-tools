@@ -1271,26 +1271,26 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 ### 2-61. MFC の生成物の自作クラスに、C 接頭辞を付けない (v2.100.0)
 
-準備: マージして、`install/install.sh` で配布する。**静的な検査 (`tests/mfc_class_names_test.sh`) は通っている。WSL には C++ のコンパイラがないので、生成物のコンパイルは、すべて未確認。**
+準備: マージして、`install/install.sh` で配布する。**静的な検査 (`tests/mfc_class_names_test.sh`) は通っている。CP1〜CP5 は、すべて、実機で合格 (2026-11-23)。**
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| CP1 | **SDI:** 新しいフォルダで `/new-solution --type mfc --layers logic,data --tests gtest` → ビルド (`build_test_once.sh`) → 起動 | ビルド `SUCCESS` / `PASSED`。起動して、ウィンドウが出る。ソースに、`SampleApp`・`SampleDoc`・`SampleView`・`MainFrame` (`C` なし)。`mfc-check` は、指摘なし | 未 |
-| CP2 | **MDI:** `--type mfc-mdi` → ビルド → 起動 → 「ファイル」→「新規作成」 | ビルド `SUCCESS`。子ウィンドウが開く (`ChildFrame`)。起動時の ASSERT が出ない (MDI001 の件) | 未 |
-| CP3 | **ダイアログ:** `--type mfc-dialog` → ビルド → UI テスト (`uitest_once.sh`) | ビルド `SUCCESS`。ダイアログが開き、UI テストが `PASSED` (`SampleDlg`) | 未 |
-| CP4 | **標準 DLL の層:** `--layer-kind mfc-std-dll` の層を足す (`/add-project layer`) → ビルド | `StdLogic`・`LogicLayer` などの層で、`<層の名前>App` (`C` なし) が、ビルドできる | 未 |
-| CP5 | **既存のソリューションへの影響:** `C` 付きの既存の MFC ソリューション (`MfcScope` など) に、`/add-project layer` で層を足し、`mfc-check` を実行 | 既存の `CSampleApp` などは、そのまま。層は、`C` なしで足される。`mfc-check` は、指摘なし | 未 |
+| CP1 | **SDI:** 新しいフォルダで `/new-solution --type mfc --layers logic,data --tests gtest` → ビルド (`build_test_once.sh`) → 起動 | ビルド `SUCCESS` / `PASSED`。起動して、ウィンドウが出る。ソースに、`SampleApp`・`SampleDoc`・`SampleView`・`MainFrame` (`C` なし)。`mfc-check` は、指摘なし | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0))。A2 (`MfcSdi`: `--layers none`) と A4 (`MfcStd`: `--layers logic,data --tests gtest`、標準 DLL の層) で確認。ビルド `SUCCESS`、テスト `PASSED`、ウィンドウが開く。`SampleApp`・`MainFrame`・`SampleDoc`・`SampleView` に `C` なし、旧名の残り 0。`mfc-check` は 0/0 |
+| CP2 | **MDI:** `--type mfc-mdi` → ビルド → 起動 → 「ファイル」→「新規作成」 | ビルド `SUCCESS`。子ウィンドウが開く (`ChildFrame`)。起動時の ASSERT が出ない (MDI001 の件) | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0)。`MfcMdi`)。ビルド `SUCCESS`。ウィンドウが開き、「新規作成」で子ウィンドウ (`ChildFrame`) が開く。起動時の ASSERT なし。`OnCreateClient` の上書きあり。`mfc-check` は 0/0 |
+| CP3 | **ダイアログ:** `--type mfc-dialog` → ビルド → UI テスト (`uitest_once.sh`) | ビルド `SUCCESS`。ダイアログが開き、UI テストが `PASSED` (`SampleDlg`) | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0))。A1 (`MfcDlg`: ダイアログが開き、入力・クリアが動いた) と A5 (`MfcDlgUi`: `--layers logic --layer-kind mfc-std-dll --ui-tests flaui`。gtest 9 件 `PASSED`、`uitest_once.sh --separate` で UI テスト 5 件すべて合格、9 秒)。`SampleDlg` に `C` なし |
+| CP4 | **標準 DLL の層:** `--layer-kind mfc-std-dll` の層を足す (`/add-project layer`) → ビルド | `StdLogic`・`LogicLayer` などの層で、`<層の名前>App` (`C` なし) が、ビルドできる | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0)。`MfcStd`)。`DataLayerApp`・`LogicLayerApp` (`C` なし) がビルドでき、テスト exe が標準 DLL を読み込んで `PASSED`。`mfc-check` は 0/0 (3 プロジェクト) |
+| CP5 | **既存のソリューションへの影響:** `C` 付きの既存の MFC ソリューション (`MfcScope` など) に、`/add-project layer` で層を足し、`mfc-check` を実行 | 既存の `CSampleApp` などは、そのまま。層は、`C` なしで足される。`mfc-check` は、指摘なし | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0)。`MfcScope`、`C` 付きの既存の SDI)。`NewLayer` (dll、gtest あり、`MfcScope` から参照) を足して、ビルド `SUCCESS`、テスト `PASSED`。既存の `CMainFrame`・`CSampleApp`・`CSampleDoc`・`CSampleView`・`CUiLayerApp` は、`C` 付きのまま。新しい層に `C` 付きなし。`MfcScope.vcxproj` に `NewLayer` への `ProjectReference` が増えた。`mfc-check` は 0/0 (6 プロジェクト) |
 
 ### 2-62. MFC の SDI: 「開く」「新規作成」が、グレーアウトしない (v2.100.1)
 
-準備: マージして、`install/install.sh --skills-only` で配布する。**静的な検査 (`tests/mfc_app_commands_test.sh`) は通っている。WSL には C++ のコンパイラがないので、ビルドは、未確認。** 報告元 (`AlphaStampSample`) では、同じ差分で、実機の確認済み。
+準備: マージして、`install/install.sh --skills-only` で配布する。**静的な検査 (`tests/mfc_app_commands_test.sh`) は通っている。MO3・MO4 は、実機で合格 (2026-11-23)。** 報告元 (`AlphaStampSample`) では、同じ差分で、実機の確認済み。
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
 | MO1 | **SDI:** 新しいフォルダで `/new-solution --type mfc --layers none --tests none` → ビルド → 起動 | ビルド `SUCCESS`。起動して、ウィンドウが出る。`SampleApp.cpp` に、`BEGIN_MESSAGE_MAP(SampleApp, CWinApp)` と `ID_FILE_NEW` / `ID_FILE_OPEN` | **確認済みのため、この一覧から除外** (報告元の `AlphaStampSample` で、同じ差分を適用し、実機で確認済み。ユーザーの判断、2026-11-23) |
 | MO2 | **「開く」を足す:** MO1 の `.rc` の「ファイル」メニューに、`MENUITEM "開く(&O)...", ID_FILE_OPEN` と `MENUITEM "新規作成(&N)", ID_FILE_NEW` を足して、ビルド → 起動 | **起動直後から、「開く」「新規作成」が、有効** (グレーアウトしない)。「開く」で、ファイルを選ぶダイアログが出る | **確認済みのため、この一覧から除外** (報告元の `AlphaStampSample` で、同じ差分を適用し、実機で確認済み。ユーザーの判断、2026-11-23)。「開く」が、起動直後から有効になることを確認 |
-| MO3 | **ダイアログ ベース:** `--type mfc-dialog --layers none --tests none` → ビルド → 起動 | ビルド `SUCCESS` (**リンクエラー (`MAP004` の種類) が出ない**)。ダイアログが開く。`SampleApp.h` に `DECLARE_MESSAGE_MAP` がない | 未 |
-| MO4 | **MDI:** `--type mfc-mdi` → ビルド → 起動 → 「ファイル」→「新規作成」 | 変更なし。ビルド `SUCCESS`。子ウィンドウが開く | 未 |
+| MO3 | **ダイアログ ベース:** `--type mfc-dialog --layers none --tests none` → ビルド → 起動 | ビルド `SUCCESS` (**リンクエラー (`MAP004` の種類) が出ない**)。ダイアログが開く。`SampleApp.h` に `DECLARE_MESSAGE_MAP` がない | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0)。`MfcDlg`)。ビルド `SUCCESS` (リンクエラーなし)。ダイアログが開く。`SampleApp.h` に `DECLARE_MESSAGE_MAP` なし |
+| MO4 | **MDI:** `--type mfc-mdi` → ビルド → 起動 → 「ファイル」→「新規作成」 | 変更なし。ビルド `SUCCESS`。子ウィンドウが開く | **合格** (2026-11-23 実機 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0)。`MfcMdi`)。変更なし。ビルド `SUCCESS`。子ウィンドウが開く |
 
 ### 2-63. ステップ実行で、バグを探す (`vs-debug` の `--step` / `--continue` / `--pause` / `--eval`。v2.101.0)
 
