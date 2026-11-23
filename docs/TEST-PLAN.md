@@ -1280,3 +1280,14 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | CP3 | **ダイアログ:** `--type mfc-dialog` → ビルド → UI テスト (`uitest_once.sh`) | ビルド `SUCCESS`。ダイアログが開き、UI テストが `PASSED` (`SampleDlg`) | 未 |
 | CP4 | **標準 DLL の層:** `--layer-kind mfc-std-dll` の層を足す (`/add-project layer`) → ビルド | `StdLogic`・`LogicLayer` などの層で、`<層の名前>App` (`C` なし) が、ビルドできる | 未 |
 | CP5 | **既存のソリューションへの影響:** `C` 付きの既存の MFC ソリューション (`MfcScope` など) に、`/add-project layer` で層を足し、`mfc-check` を実行 | 既存の `CSampleApp` などは、そのまま。層は、`C` なしで足される。`mfc-check` は、指摘なし | 未 |
+
+### 2-62. MFC の SDI: 「開く」「新規作成」が、グレーアウトしない (v2.100.1)
+
+準備: マージして、`install/install.sh --skills-only` で配布する。**静的な検査 (`tests/mfc_app_commands_test.sh`) は通っている。WSL には C++ のコンパイラがないので、ビルドは、未確認。** 報告元 (`AlphaStampSample`) では、同じ差分で、実機の確認済み。
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| MO1 | **SDI:** 新しいフォルダで `/new-solution --type mfc --layers none --tests none` → ビルド → 起動 | ビルド `SUCCESS`。起動して、ウィンドウが出る。`SampleApp.cpp` に、`BEGIN_MESSAGE_MAP(SampleApp, CWinApp)` と `ID_FILE_NEW` / `ID_FILE_OPEN` | **確認済みのため、この一覧から除外** (報告元の `AlphaStampSample` で、同じ差分を適用し、実機で確認済み。ユーザーの判断、2026-11-23) |
+| MO2 | **「開く」を足す:** MO1 の `.rc` の「ファイル」メニューに、`MENUITEM "開く(&O)...", ID_FILE_OPEN` と `MENUITEM "新規作成(&N)", ID_FILE_NEW` を足して、ビルド → 起動 | **起動直後から、「開く」「新規作成」が、有効** (グレーアウトしない)。「開く」で、ファイルを選ぶダイアログが出る | **確認済みのため、この一覧から除外** (報告元の `AlphaStampSample` で、同じ差分を適用し、実機で確認済み。ユーザーの判断、2026-11-23)。「開く」が、起動直後から有効になることを確認 |
+| MO3 | **ダイアログ ベース:** `--type mfc-dialog --layers none --tests none` → ビルド → 起動 | ビルド `SUCCESS` (**リンクエラー (`MAP004` の種類) が出ない**)。ダイアログが開く。`SampleApp.h` に `DECLARE_MESSAGE_MAP` がない | 未 |
+| MO4 | **MDI:** `--type mfc-mdi` → ビルド → 起動 → 「ファイル」→「新規作成」 | 変更なし。ビルド `SUCCESS`。子ウィンドウが開く | 未 |

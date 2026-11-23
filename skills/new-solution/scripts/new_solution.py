@@ -250,6 +250,8 @@ class SampleApp : public CWinApp
 {
 public:
     BOOL InitInstance() override;
+
+    DECLARE_MESSAGE_MAP()
 };
 ''',
     'SampleApp.cpp': '''#include "pch.h"
@@ -260,6 +262,13 @@ public:
 #include "Resource.h"
 
 SampleApp theApp;
+
+BEGIN_MESSAGE_MAP(SampleApp, CWinApp)
+    // 「ファイル」→「新規作成」「開く」。CWinApp は、この 2 つの ID を割り当てない (ウィザードのアプリも、ここで割り当てている。TN022)。
+    // 割り当てがないと、コマンドが App まで届いても、ハンドラーが見つからず、メニュー項目が、常に、グレーアウトする。
+    ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
+    ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
+END_MESSAGE_MAP()
 
 BOOL SampleApp::InitInstance()
 {
@@ -539,7 +548,18 @@ MFC_DIALOG_FILES = {
 #define IDC_CLEAR_BUTTON        1003
 #define IDC_ERROR_TEXT          1004
 ''',
-    'SampleApp.h': MFC_FILES['SampleApp.h'],
+    # ダイアログ ベースは、ドキュメントを持たず、File メニューの「新規作成」「開く」を要らない: メッセージマップを持たない。
+    # SDI の SampleApp.h を共有しない (共有すると、DECLARE_MESSAGE_MAP だけが入り、BEGIN_MESSAGE_MAP がなく、リンクエラー = MAP004)。
+    'SampleApp.h': '''#pragma once
+#include "pch.h"
+
+// アプリケーション本体 (UI 層)。
+class SampleApp : public CWinApp
+{
+public:
+    BOOL InitInstance() override;
+};
+''',
     'SampleApp.cpp': '''#include "pch.h"
 #include "SampleApp.h"
 #include "SampleDlg.h"

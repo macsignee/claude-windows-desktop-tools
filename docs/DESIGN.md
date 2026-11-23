@@ -1402,3 +1402,10 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **既存のソリューション:** 変わらない (すでに作ったものは、`C` 付きのまま。規約の「既存の `C` 付きの自作クラスは、触らない限り、そのまま。リネームは別のコミット」に従う)。`mfc-check` などは、`C` の有無に依存しないので、新旧どちらも、扱える。
 - **テスト:** `tests/mfc_class_names_test.sh` (新規。SDI・MDI・ダイアログを生成し、自作クラスに `C` が残らないこと、マクロ (`DECLARE_DYNCREATE`・`IMPLEMENT_DYNCREATE`・`RUNTIME_CLASS`・メッセージマップ) が新しい名前で書かれること、`mfc-check` が指摘を出さないこと)。`tests/mfc_cobject_rules_test.sh`・`tests/add_layer_test.sh` の期待を新しい名前に直した。
 - **未確認 (実機。TEST-PLAN 2-61):** 生成した MFC のソリューションが、**実際にビルドでき**、起動すること。**WSL には C++ のコンパイラがなく、まだコンパイルしていない** (`DECLARE_DYNCREATE(MainFrame)` などのマクロは、名前から内部の名前を作るが、`C` の有無には依存しない)。
+
+### 4.95 MFC の SDI のひな形: ID_FILE_NEW / ID_FILE_OPEN を、SampleApp のメッセージマップに結びつける (v2.100.1)
+- **きっかけ:** 別の作業 (`AlphaStampSample`、MFC SDI) の実機で、SDI に「開く」のメニュー項目を足すと、常にグレーアウトした (引き継ぎ文書)。
+- **原因:** `CWinApp` は `ID_FILE_NEW` / `ID_FILE_OPEN` を割り当てない (TN022)。派生クラスのメッセージマップに `ON_COMMAND` が要る。MDI のひな形は `ID_FILE_NEW` を、すでに結びつけていた (v2.60.1)。SDI には、横展開されていなかった。`ID_FILE_SAVE` / `ID_FILE_SAVE_AS` は `CDocument` が処理する。
+- **決定:** SDI の `SampleApp` に、メッセージマップを持たせ、`ID_FILE_NEW` と `ID_FILE_OPEN` を結びつける。**ダイアログ ベースは、SDI の `SampleApp.h` を共有しない** (メッセージマップを持たない元の `SampleApp.h` を、直接持つ)。共有のまま `DECLARE_MESSAGE_MAP()` を足すと、ダイアログ側に `BEGIN_MESSAGE_MAP` がなく、リンクエラー (`MAP004`) になる。MDI は、自分専用の `SampleApp` を、すでに持っている。
+- **今回は、やらない (任意の改善):** MDI にも `ID_FILE_OPEN` を予防的に足す。`mfc-check` に、`CWinApp` 派生クラスのメッセージマップが、`.rc` のメニューの標準 ID を結びつけているかの検査 (`APP001`) を足す (`mfc-check` は、標準 ID を、`afxres.h` を読まず、接頭辞で「見つかった」扱いにするので、今回の不具合を見逃した。誤検出と限界)。
+- **未確認 (実機。TEST-PLAN 2-62):** 修正した SDI のビルドと、「開く」が有効になること。ダイアログ ベースのビルド。
