@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.102.3] 2026-11-23 (文書だけ。`git-remote` の実機の確認 (TEST-PLAN 2-64) の結果の記録。ホスト側の変更なし)
+
+- **実機で合格 (`ImageSampleApp`、GitHub、ウォッチャー 2.102.2):** GR1〜GR5、GR8、GR9 (前半)、GR10、GR11、GR12 (強制終了を除く)、GR13、GR14。
+- **未確認のまま:** GR6・GR7 (GitHub 以外のリモート、未サインイン。リモートがない。ユーザーの判断)、GR9 の後半 (`--allow-main`)、GR12 の 120 秒の強制終了。
+- **付随して見つけた問題 (`git-remote` とは別):** Claude Code のサンドボックスの空ファイル (`.bashrc`・`.gitconfig`・`.mcp.json`・`.vscode`・`.idea`・`.claude/*`) が、VS の「すべてコミット」で、コミットに入る (実機: 23 件。DESIGN 4.97 の末尾)。規約への追記は、ユーザーの判断待ち。
+- **文書:** TEST-PLAN 2-64、REMAINING-CHECKS、NEXT-STEPS、DESIGN 4.97、HANDOFF (PR #240〜#243 の行と、main の版)。
+
 ## [2.102.2] 2026-11-23 (`git-remote`: 上流の設定が、Claude Code のサンドボックスの `config.lock` で失敗するのを、結果を返したあとの設定で防ぐ。ホスト側と Skill の変更。`HOST_VERSION` 2.102.2)
 
 - **実機 (GR4 のやり直し、`ImageSampleApp`) で見つけた原因 (確定):** push は成功するのに、上流 (`.git/config` への書き込み) が、`could not lock config file .git/config: File exists` で失敗した。**Claude Code のサンドボックス (bubblewrap) が、`.git/config` (と `config.lock`) への書き込みを禁じるため、`/dev/null` を `.git/config.lock` に重ねている** (`/proc/self/mountinfo` で確認)。`git_once.sh` が結果を待つ間だけ、Windows の `git` にも、`config.lock` が、見える。Windows のターミナルからは、成功し、ロックのファイルも、あとには、残っていなかった。**v2.102.0 の `push -u` の失敗も、同じ原因** (`push -u` は、上流の書き込みに失敗しても、push が成功するため、結果に出なかった)。
