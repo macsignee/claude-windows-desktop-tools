@@ -190,6 +190,9 @@ package_output.txt
 vs_result.txt
 vs_error.log
 vs_output.txt
+git_result.txt
+git_error.log
+git_output.txt
 # vcpkg (C++ を混ぜる場合) と、取得したソース
 vcpkg_installed/
 '''

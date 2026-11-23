@@ -12,6 +12,7 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
   trigger_uitest.flag (UI テスト)
   trigger_gtest.flag (GoogleTest の取得)
   trigger_package.flag (NuGet / vcpkg / ソースの取り込み)
+  trigger_git.flag (Git のリモートの操作: 状態・fetch・push。Windows の git.exe)
   trigger_vs.flag (Visual Studio の操作: 開く・前面・ブレークポイント・デバッグ実行・ブレーク時の状態・出力ウィンドウ)
                                              └─ build-windows.cmd ─▶ MSBuild
                                              └─ (テスト時) xxxTest.exe (GoogleTest)
@@ -102,6 +103,7 @@ Claude (Skill) が、プロジェクトフォルダに、フラグファイル�
 | `trigger_gtest.flag` | GoogleTest のソースの取得 (下記) | `new-solution/scripts/gtest_once.sh` |
 | `trigger_package.flag` | NuGet / vcpkg / ソースの取り込み (4 の表) | `add-package/scripts/package_once.sh` |
 | `trigger_vs.flag` | Visual Studio の操作 (下記) | `vs-debug/scripts/vs_once.sh` |
+| `trigger_git.flag` | Git のリモートの操作 (状態・fetch・push。Windows の `git.exe`) | `git-remote/scripts/git_once.sh` |
 
 手動でも、空のフラグ (ファイル) を、プロジェクトフォルダに置けば、動かせます。
 
@@ -227,6 +229,7 @@ build-windows.cmd <target> <Platform> [Configuration] [MSBuildTarget] [LogDir] [
 | `trigger_gtest.flag` | Claude | GoogleTest のソースの取得を依頼 (3.3) |
 | `trigger_package.flag` | Claude | パッケージの操作を依頼。各行が 1 つの操作 (下の表) |
 | `trigger_vs.flag` | Claude | Visual Studio の操作を依頼。各行が 1 つの操作 (3.3 の「Visual Studio の操作」) |
+| `trigger_git.flag` | Claude | Git のリモートの操作を依頼。1 行 1 操作: `status` / `fetch [<リモート名>]` / `push [remote=<名前>] [set-upstream] [allow-main]`。結果は `git_result.txt` (`OK` / `AUTH_REQUIRED` / `REJECTED` / `FAILED`)・`git_output.txt`・`git_error.log`。強制 push・削除・pull は、持たない。入力待ちをしない (`GIT_TERMINAL_PROMPT=0`・`GCM_INTERACTIVE=never`)。1 コマンド 120 秒で、強制終了 |
 | `build_result.txt` | ウォッチャー | ビルド終了時に `SUCCESS` / `FAILED`。**ビルドのみの完了マーカー** |
 | `build_error.log` | ウォッチャー | ビルド失敗時のみ。エラー行 (相対パス) |
 | `test_result.txt` | ウォッチャー | **ビルド + テストの完了マーカー (最後に書かれる)**。下の表 |

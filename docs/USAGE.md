@@ -35,6 +35,7 @@
 | MFC / WPF / WinForms の、実行時に壊れる所を、静的に調べたい | 「`mfc-check` して」など (`mfc-check` / `wpf-check` / `winforms-check`) |
 | ライブラリ (NuGet・vcpkg・GitHub のソース) を、足したい | 「○○を追加して」(`add-package`) |
 | Visual Studio で、ソリューションを開く・ブレークポイントを置く・デバッグ実行する | 「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」(`vs-debug`) |
+| コミットしたものを、リモートに push したい (fetch・状態の確認も) | 「push して」「fetch して」(`git-remote`) |
 | 画面を、UI ガイドラインに沿って、設計・レビューしたい | 「画面をレビューして」(`ui-design-review`) |
 | 旧い構成 (Presenter 中心) の WinForms の画面を、画面モデルの構成へ移したい | [`MIGRATION-SCREEN-MODEL.md`](MIGRATION-SCREEN-MODEL.md) の手順で、1 画面ずつ頼む (**移さなくても動く。急がない**) |
 
@@ -113,6 +114,17 @@ OK、この案で足してください
 
 ### それでも解決しないとき
 状況を、そのまま、会話で伝える (「テストが○○で落ちる」「案のここが不安」)。エラーの原文を、貼ると、次の一手を、提案できる。
+
+### リモートに push する・fetch する (`git-remote`)
+
+「push して」「fetch して」「リモートの状態を見て」と頼みます (ウォッチャー 2.102.0 以降。ウォッチャーの再起動が要ります)。
+
+- **Windows の `git.exe` で実行します。** 認証は、Visual Studio の Git と同じ (Git Credential Manager) なので、GitHub 以外のリモートでも通ります。WSL の `git` の認証は、使いません。
+- **push は、あなたが頼んだときだけ**です。実行の前に、Claude は、状態 (ブランチ・リモート・push される予定のコミット) を、伝えます。
+- **`AUTH_REQUIRED` と返ってきたら:** Visual Studio の「Git > プッシュ」で、1 回、サインインしてください (以降は、Claude からも通ります)。Claude は、認証情報を探したり、作ったりしません。
+- **`main` / `master` へは、push しません** (「main に push してよい」と言ったときを除く)。強制 push・ブランチやタグの削除は、持ちません。
+- **pull・merge・rebase は、Claude は、しません。** `BEHIND:` (リモートの先行) が出たら、VS で、取り込みます。
+- 結果のファイル (`git_result.txt` など) は、ソリューションのフォルダに作られます (`/new-solution` が作る `.gitignore` に入っています。既存のものには、手で足します)。
 
 ### Visual Studio を、Claude に操作させるとき (`vs-debug`)
 

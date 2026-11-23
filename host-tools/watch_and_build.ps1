@@ -64,6 +64,11 @@
       完了マーカー <TargetDir>\package_result.txt (OK / FAILED。最後に書く)
     - 環境の問題 (ネットワーク・vcpkg / dotnet が見つからない) の失敗は、package_error.log の先頭が [ENVIRONMENT ERROR ...]
 
+  [Git のリモートの操作]  <TargetDir>\trigger_git.flag  (ビルド・テストとは独立。WSL の git からは、Windows の Git Credential Manager (VS と同じ認証) が見えないため)
+    - 1 行 1 操作 (上から実行。失敗したら止める): status / fetch [<リモート名>] / push [remote=<名前>] [set-upstream] [allow-main]。コメント行 `# run=<ID>` は、実行 ID。
+    - 強制 push・削除・tags・mirror・pull・merge・rebase は、持たない (書かれても断る)。main / master への push は、allow-main がなければ断る。
+    - 入力待ちをしない (GIT_TERMINAL_PROMPT=0、GCM_INTERACTIVE=never)。認証が要るときは、AUTH_REQUIRED で返す。1 コマンド 120 秒で、強制終了。
+    - 結果は <TargetDir>\git_output.txt (事実)、失敗時のみ git_error.log、完了マーカー <TargetDir>\git_result.txt (OK / AUTH_REQUIRED / REJECTED / FAILED。最後に書く)
   [Visual Studio の操作]  <TargetDir>\trigger_vs.flag  (ビルド・テストとは独立。WSL からは、Windows の Visual Studio を操作できないため)
     - フラグの各行が、1 つの操作 (空行と # 行は無視)。上から順に実行し、最初の失敗で止まる。許可する形:
         open                      ソリューションを VS で開く (開いていれば、前面に出す)。VS は、Running Object Table から、ソリューションのパスで探す
@@ -356,10 +361,14 @@ $VsResultFile  = Join-Path $TargetDir "vs_result.txt"
 $VsErrorLog    = Join-Path $TargetDir "vs_error.log"
 $VsOutputFile  = Join-Path $TargetDir "vs_output.txt"
 $VsDebugOutputFile = Join-Path $TargetDir "vs_debug_output.txt"   # output <lines>: the Debug pane of the Output window (v2.99.0)
+$GitTriggerFile = Join-Path $TargetDir "trigger_git.flag"   # status / fetch / push with the Windows git.exe (v2.102.0)
+$GitResultFile  = Join-Path $TargetDir "git_result.txt"
+$GitErrorLog    = Join-Path $TargetDir "git_error.log"
+$GitOutputFile  = Join-Path $TargetDir "git_output.txt"
 
 # ---------- 機能ごとの関数 (lib\*.ps1。同じスコープに読み込む) ----------
 $LibDir = Join-Path $PSScriptRoot "lib"
-foreach ($libName in @("gtest", "package", "vs-ide", "common", "build", "test-results", "ui-settings", "uitest-desktop", "tests")) {
+foreach ($libName in @("gtest", "package", "vs-ide", "git-remote", "common", "build", "test-results", "ui-settings", "uitest-desktop", "tests")) {
     $libPath = Join-Path $LibDir "$libName.ps1"
     if (-not (Test-Path -LiteralPath $libPath)) {
         Write-Host "ERROR: library script not found: $libPath (copy the whole host-tools folder, including lib\)" -ForegroundColor Red
@@ -399,7 +408,7 @@ Write-Host " Solution     : $SolutionKind  (build features: $BuildFeatures)" -Fo
 Write-Host " Build        : $Configuration|$Platform  /t:$MSBuildTarget" -ForegroundColor Cyan
 Write-Host " Build script : $BuildScript" -ForegroundColor Cyan
 Write-Host " Logs         : $LogDir" -ForegroundColor Cyan
-Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch) / trigger_vs.flag (Visual Studio)" -ForegroundColor Cyan
+Write-Host " Triggers     : trigger_build.flag (build) / trigger_test.flag (build + test) / trigger_uitest.flag (build + UI test) / trigger_gtest.flag (fetch GoogleTest) / trigger_package.flag (NuGet / vcpkg / fetch) / trigger_vs.flag (Visual Studio) / trigger_git.flag (git status / fetch / push)" -ForegroundColor Cyan
 Write-Host " Scope        : flag line project=<name> builds / tests only <name> and its test project (<name>Test, <name>.Tests, <name>.UITests); without it, the whole solution" -ForegroundColor Cyan
 Write-Host " Test exe     : $TestExePattern (GoogleTest, timeout ${TestTimeoutSec}s)" -ForegroundColor Cyan
 Write-Host " UI test      : trigger_uitest.flag (desktop: $UiTestDesktop [auto = uitest.settings of the UI test project, else separate; override per run with desktop=visible|separate in the flag], timeout ${UiTestTimeoutSec}s, slow-motion: ${UiTestSlowMoMs}ms)" -ForegroundColor Cyan
@@ -474,6 +483,23 @@ while ($true) {
         Remove-Item -LiteralPath $VsTriggerFile, $VsResultFile, $VsErrorLog, $VsOutputFile, $VsDebugOutputFile -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
         Invoke-VsFlag $vsLines
+        Clear-WatcherBusy
+        Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
+    }
+
+    # Git のリモートの操作 (状態・fetch・push。Windows の git.exe。認証は Visual Studio と同じ)。ビルド・テストとは独立
+    if (Test-Path -LiteralPath $GitTriggerFile) {
+        Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Trigger detected (git)!" -ForegroundColor Yellow
+        Set-WatcherBusy "git"
+        Start-Sleep -Milliseconds 500   # Claude 側の書き込み完了待ち
+        $gitLines = @()
+        $script:CurrentRunId = Get-RunIdFromFlag $GitTriggerFile
+        $script:CurrentKind = "git"
+        Set-WatcherBusy "git run=$($script:CurrentRunId)"
+        try { $gitLines = @(Get-Content -LiteralPath $GitTriggerFile -ErrorAction Stop) } catch { }
+        Remove-Item -LiteralPath $GitTriggerFile, $GitResultFile, $GitErrorLog, $GitOutputFile -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+        Invoke-GitFlag $gitLines
         Clear-WatcherBusy
         Write-Host "Waiting for next trigger..." -ForegroundColor Cyan
     }

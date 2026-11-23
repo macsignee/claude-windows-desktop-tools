@@ -1310,3 +1310,22 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SP10 | 同じ行に止まる 1 行の `for` などで、`--step over` を続ける | 1.5 秒以内に返る (固まらない)。場所の取り違えがない | 未 |
 | SP11 | ソースのない外部コード (フレームワークの内部) への `--step into` | 場所が空か、外部コードの扱いになる。**何が出るかを記録する** (観察) | 未 |
 | SP12 | **通し:** 意図したバグ (例: ループの境界の 1 つのずれ) を仕込み、Claude に「バグを探して」と頼む | 30 歩以内で、トレースの値の変化から、原因 (ファイル・行・値) を報告する。**ソースを勝手に直さない。停止は、ユーザーに頼む** | 未 |
+
+### 2-64. Git のリモートの操作 (`git-remote` Skill。push・fetch・状態。v2.102.0)
+
+準備: マージして、`install/install.sh` (全体) で配布し、**ウォッチャーを再起動する** (`HOST_VERSION` 2.102.0)。起動の画面に `trigger_git.flag` が出て、`lib\git-remote.ps1` の読み込みでエラーが出ないこと。確認用に、リモートのある、作業用のリポジトリ (できれば、GitHub のものと、GitHub 以外のもの (Azure DevOps・GitLab・社内サーバー) の両方) を用意する。**静的な検査と疑似ウォッチャーの検査 (`tests/git_once_test.sh`) は通っている。PowerShell は、WSL から実行できないので、`git.exe` の起動・認証・結果の分類は、すべて未確認。**
+
+| # | 手順 | 期待結果 | 状況 |
+|---|---|---|---|
+| GR1 | ウォッチャーを再起動する | エラーなく起動し、画面に `trigger_git.flag` が出る (`lib\git-remote.ps1` の構文エラーがない) | 未 |
+| GR2 | VS で作ったリポジトリで `git_once.sh <フォルダ> --status` | `OK`。`BRANCH:`・`UPSTREAM:`・`REMOTE:` (URL に認証情報があれば `***@` に伏せる)・`AHEAD:`・`BEHIND:`・`UNCOMMITTED:` が、VS の表示と合う。VS を開いたままでも通る | 未 |
+| GR3 | `--fetch` (リモートに、別のクローンから、コミットを足したあと) | `OK`、`FETCHED:`。続く `BEHIND:` が増える。作業フォルダは変わらない | 未 |
+| GR4 | 作業ブランチを切り、WSL の `git` でコミットして、`--push --set-upstream` (GitHub のリモート) | `OK`、`PUSHED: origin <ブランチ> (upstream set)`。リモートに、ブランチとコミットがある。VS の「Git の変更」で、先行 0 | 未 |
+| GR5 | もう一度、`--push` | `OK`、`NOTHING_TO_PUSH:` | 未 |
+| GR6 | **GitHub 以外のリモート** (Azure DevOps・GitLab・社内サーバー) で、GR4 と同じ | `OK`、リモートに、ブランチがある (VS と同じ認証で通る) | 未 |
+| GR7 | **未サインインのリモートで、`--push`** | **`AUTH_REQUIRED` (rc=6)**。ダイアログが出て、ウォッチャーが固まることはない。VS で、1 回、プッシュしてサインインしたあと、同じ `--push` が `OK` | 未 |
+| GR8 | リモートが先行している (別のクローンから、同じブランチに push した) 状態で `--push` | **`REJECTED` (rc=7)** (non-fast-forward)。強制 push は、されない。リモートは、そのまま | 未 |
+| GR9 | `main` で、`--push` / `--push --allow-main` (確認用のリポジトリで) | 前者は `REJECTED` (protected)。後者は、push される | 未 |
+| GR10 | HEAD を切り離して (`git switch --detach`)、`--push` | `FAILED` (detached HEAD) | 未 |
+| GR11 | VS で同じリポジトリを開き、`--push` の前後で、WSL の `git status` と、VS の Git 操作 (コミット・ブランチ切り替え) | `index.lock` が出ない。インデックスが壊れない。改行コードの差分が、全行変更に見えない (`.gitattributes` のある場合) | 未 |
+| GR12 | ネットワークを切って (または、届かないリモートで)、`--fetch` | 120 秒以内に `FAILED` (終了させた旨)。**ウォッチャーは固まらない** (続けて `--status` が通る) | 未 |
