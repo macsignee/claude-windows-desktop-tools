@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.102.0] 2026-11-23 (`git-remote` Skill: Windows の `git.exe` で、push・fetch・状態の確認を、ウォッチャーに頼む。ホスト側と Skill の変更。`HOST_VERSION` 2.102.0)
+
+- **ユーザーの要望:** `.slnx` のソリューションの Git のリモート操作 (push) を、VS だけでなく、Claude からも、できるようにしたい。リモートは GitHub とは限らない。
+- **決定 (ユーザー、2026-11-23):** (1) **方法 A: ウォッチャーが、Windows の `git.exe` を実行する** (VS の Git を、DTE で操作する案 B は、成否が読めないため、採らない)。(2) **範囲は、push と fetch (と状態)。pull は、含めない** (ユーザーが、引き続き検討する)。
+- **ホスト側 (`lib\git-remote.ps1` (新規)、`watch_and_build.ps1`):** `trigger_git.flag` (1 行 1 操作: `status` / `fetch [<リモート名>]` / `push [remote=<名前>] [set-upstream] [allow-main]`)。結果は `git_result.txt` (`OK` / `AUTH_REQUIRED` / `REJECTED` / `FAILED`。最後に書く)・`git_output.txt`・`git_error.log`。入力待ちをしない (`GIT_TERMINAL_PROMPT=0`・`GCM_INTERACTIVE=never`。認証が要るときは、`AUTH_REQUIRED`)。1 コマンド 120 秒で強制終了。強制 push・削除・`--tags`・`--mirror`・pull・merge・rebase は、持たない (書かれても断る)。`main` / `master` への push は、`allow-main` がなければ断る。push は `refs/heads/<ブランチ>:refs/heads/<ブランチ>` だけ。リモートは、設定済みの名前だけ (URL は不可)。リモートの URL の認証情報は、伏せる。
+- **Skill 側 (`git-remote`、`scripts/git_once.sh`):** `--status` / `--fetch [<リモート名>]` / `--push [--remote <名前>] [--set-upstream] [--allow-main]`。強制 push などの引数は、フラグを置く前に断る (`BAD_ARGS`)。終了コード: 0 `OK`・1 `FAILED`・2 `BAD_ARGS`・3 `WATCHER_NOT_RUNNING`・4 `ENV_ERROR`・5 `TIMEOUT`・**6 `AUTH_REQUIRED`**・**7 `REJECTED`**。
+- **規約 (`rules/git-wsl.md`):** 「プッシュ・取得・PR・マージは、ユーザー (VS)」を改め、push・fetch・状態は `git-remote`、pull・merge・rebase・PR・マージは、ユーザー (VS)、とした。
+- **`.gitignore`:** `/new-solution` (C++) と `/add-project` (.NET) が作る `.gitignore` に、`git_result.txt`・`git_error.log`・`git_output.txt` を足した (既存のものは、変えない)。
+- **文書:** DESIGN 4.97、README (Skill 15 個)・USAGE・`host-tools/README.md`、TEST-PLAN 2-64 (GR1〜GR12。すべて未)。テスト: `tests/git_once_test.sh`。
+- **未確認 (実機):** PowerShell (`git-remote.ps1`) は、WSL から実行できない。`git.exe` の起動・認証・分類は、実機で確認する (TEST-PLAN 2-64)。
+
 ## [2.101.1] 2026-11-23 (文書だけ。MFC の生成物の実機の確認 (TEST-PLAN 2-61・2-62) の結果の記録。ホスト側の変更なし)
 
 - **実機で合格 (`ClaudePlayground`、VS 2026、ウォッチャー 2.101.0):** v2.100.0 (自作クラスに `C` 接頭辞を付けない) の CP1〜CP5 と、v2.100.1 (SDI の `ID_FILE_OPEN`) の MO3・MO4。SDI・MDI・ダイアログ、標準 DLL の層 + gtest、ダイアログの UI テスト (FlaUI、`--separate`、5 件)、既存の `C` 付き `MfcScope` に層を足す。不具合は、見つからなかった。MO1・MO2 は、報告元で確認済み。

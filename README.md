@@ -33,7 +33,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 | フォルダ | 内容 | 配布先 |
 |---|---|---|
-| [`skills/`](skills/) | Claude Code の Skill (14 個。→ 「2」) | `~/.claude/skills/` (WSL)、またはプロジェクトの `.claude/skills/` |
+| [`skills/`](skills/) | Claude Code の Skill (15 個。→ 「2」) | `~/.claude/skills/` (WSL)、またはプロジェクトの `.claude/skills/` |
 | [`rules/`](rules/) | ユーザー共通のコーディング規約 (7 つ。→ 「3」) | `~/.claude/rules/` (WSL)、またはプロジェクトの `.claude/rules/` |
 | [`templates/`](templates/) | 規約が参照する、設定ファイルのひな形 (→ 「3」) | `~/.claude/templates/` (WSL)、またはプロジェクトの `.claude/templates/` |
 | [`scripts/`](scripts/) | 規約が参照する道具 (→ 「3」) | `~/.claude/scripts/` (WSL)、またはプロジェクトの `.claude/scripts/` |
@@ -51,7 +51,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 
 ### 2-1. 早見
 
-Skill は 14 個ある。**スラッシュで打って起動するもの**と、**依頼文に合わせて Claude が選ぶもの**がある (→ 「2-2」)。
+Skill は 15 個ある。**スラッシュで打って起動するもの**と、**依頼文に合わせて Claude が選ぶもの**がある (→ 「2-2」)。
 
 - **`/new-solution`** (スラッシュ): ソリューションを 1 つ作る。
 - **`/new-solutions`** (スラッシュ): 種類違いの候補を、まとめて作って比べる。
@@ -67,6 +67,7 @@ Skill は 14 個ある。**スラッシュで打って起動するもの**と、
 - **`ui-design-review`** (依頼文 / スラッシュ): 画面を、UI ガイドラインに沿って、設計・レビューする。
 - **`add-package`** (依頼文): NuGet・vcpkg・GitHub のソースで、ライブラリを足す。
 - **`vs-debug`** (依頼文): Visual Studio で、ソリューションを開く・前面に出す・ブレークポイントを置く・デバッグ実行する。VS の未保存の編集と、ぶつからないように、編集の前に確認する (→ 「2-8」)。
+- **`git-remote`** (依頼文): 「push して」「fetch して」。**Windows の `git.exe` を、ウォッチャーに実行させる** (認証は VS の Git と同じ。GitHub 以外のリモートでも通る)。強制 push・削除・pull・merge は、持たない。コミットは、WSL の `git` (ユーザーが頼んだとき)。
 
 ### 2-2. 起動のしかた
 

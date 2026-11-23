@@ -830,6 +830,9 @@ vs_result.txt
 vs_error.log
 vs_output.txt
 vs_debug_output.txt
+git_result.txt
+git_error.log
+git_output.txt
 '''
 
 

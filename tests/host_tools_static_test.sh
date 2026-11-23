@@ -15,7 +15,7 @@ ps() { for f in "$PS" $LIBS; do tr -d '\r' < "$f" | sed '1s/^\xef\xbb\xbf//'; do
 cnt() { ps | grep -c -- "$1"; }
 
 ok "ps1: UTF-8 BOM + CRLF (main and every lib\\*.ps1)" "$(r=1; for f in "$PS" $LIBS; do [ "$(head -c3 "$f" | xxd -p)" = efbbbf ] && [ "$(grep -vc $'\r$' "$f")" = 0 ] || r=0; done; echo $r)"
-ok "ps1: lib has the 9 function files, and the main script dot-sources each one (exit 2 when one is missing)" "$(r=1; for n in gtest package vs-ide common build test-results ui-settings uitest-desktop tests; do [ -f "$ROOT/host-tools/lib/$n.ps1" ] && grep -q "\"$n\"" "$PS" || r=0; done; [ "$(ls "$ROOT"/host-tools/lib/*.ps1 | wc -l)" = 9 ] && grep -qF '. $libPath' "$PS" && tr -d '\r' < "$PS" | awk '/library script not found/{f=1} f&&/exit 2/{print "y"; exit}' | grep -q y || r=0; echo $r)"
+ok "ps1: lib has the 10 function files, and the main script dot-sources each one (exit 2 when one is missing)" "$(r=1; for n in gtest package vs-ide git-remote common build test-results ui-settings uitest-desktop tests; do [ -f "$ROOT/host-tools/lib/$n.ps1" ] && grep -q "\"$n\"" "$PS" || r=0; done; [ "$(ls "$ROOT"/host-tools/lib/*.ps1 | wc -l)" = 10 ] && grep -qF '. $libPath' "$PS" && tr -d '\r' < "$PS" | awk '/library script not found/{f=1} f&&/exit 2/{print "y"; exit}' | grep -q y || r=0; echo $r)"
 ok "ps1: the main script keeps no feature function (they live in lib)" "$(! tr -d '\r' < "$PS" | grep -E '^function (Invoke-Tests|Invoke-PackageOps|Invoke-GtestFetch|Invoke-BuildScript|Initialize-UiDesktopRunner|Resolve-UiRun)' | grep -q . && echo 1 || echo 0)"
 ok "ps1: -SolutionPath is optional (no Mandatory on it)" "$(ps | awk '/^param\(/,/\[string\]\$Platform/' | grep -B1 '\[string\]\$SolutionPath' | grep -q Mandatory && echo 0 || echo 1)"
 ok "ps1: TargetDir is still mandatory" "$(ps | awk '/^param\(/,/\[string\]\$SolutionPath/' | grep -B1 '\[string\]\$TargetDir' | grep -q 'Mandatory=\$true' && echo 1 || echo 0)"
@@ -93,7 +93,7 @@ INS="$ROOT/install/install.sh"
 ok "install.sh: the default host folder is claude-watcher" "$(grep -q '^HOST_DIR="/mnt/c/tools/claude-watcher"' "$INS" && echo 1 || echo 0)"
 HT="${TMPDIR:-/tmp}/ht_$$"; mkdir -p "$HT"
 bash "$INS" --host-only --host-dir "$HT/new" >/dev/null 2>&1
-ok "install.sh --host-only copies the 3 watcher files, lib\\*.ps1 (9 files) and VERSION to the given folder" "$([ "$(ls "$HT"/new/lib/*.ps1 2>/dev/null | wc -l)" = 9 ] && [ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
+ok "install.sh --host-only copies the 3 watcher files, lib\\*.ps1 (10 files) and VERSION to the given folder" "$([ "$(ls "$HT"/new/lib/*.ps1 2>/dev/null | wc -l)" = 10 ] && [ -f "$HT/new/watch_and_build.ps1" ] && [ -f "$HT/new/run_watcher.cmd" ] && [ -f "$HT/new/build-windows.cmd" ] && [ -f "$HT/new/VERSION" ] && echo 1 || echo 0)"
 rm -rf "$HT" 2>/dev/null
 
 echo "PASS: $pass / FAIL: $fail"

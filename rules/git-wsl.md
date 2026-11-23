@@ -27,4 +27,6 @@ paths:
 ## 同時に、触らない
 - **VS が Git を操作している間 (コミット・ブランチの切り替え・取得) は、WSL の `git` を動かさない** (`index.lock`)。`Unable to create '.git/index.lock'` が出たら、VS の操作の終わりを待つ。ロックファイルは、`git` のプロセスが動いていないと、確かめてから、消す。
 - WSL で `git switch` / `git restore` したら、**VS で「すべて再読み込み」し、Git の変更ウィンドウを更新するよう、ユーザーに伝える。**
-- サンドボックスから GitHub へは、届かない。**`git commit` は、ユーザーが頼んだときだけ。プッシュ・取得・PR・マージは、ユーザー (VS)。**
+- **`git commit` は、ユーザーが頼んだときだけ。**
+- **プッシュ・fetch・リモートの状態の確認は、`git-remote` Skill (`git_once.sh`) で行う。** WSL の `git` では、リモートの認証 (Windows の Git Credential Manager。VS と同じ) が見えず、サンドボックスからも、リモートへ届かない。Skill は、ウォッチャーに、Windows の `git.exe` で実行させる (GitHub 以外のリモートでも、VS と同じ認証で通る)。**プッシュは、ユーザーが頼んだときだけ。** 強制プッシュ・削除・`main` / `master` への直接のプッシュ (ユーザーが言ったときを除く) は、しない。
+- **pull・merge・rebase・PR・マージは、ユーザー (VS)。** 作業フォルダを書き換えるため (改行コードと `index.lock` の問題)。`git-remote` の結果に `BEHIND:` があれば、ユーザーに、案内する。
