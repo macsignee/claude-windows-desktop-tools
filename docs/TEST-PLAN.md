@@ -1317,10 +1317,10 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 手順 | 期待結果 | 状況 |
 |---|---|---|---|
-| GR1 | ウォッチャーを再起動する | エラーなく起動し、画面に `trigger_git.flag` が出る (`lib\git-remote.ps1` の構文エラーがない) | 未 |
-| GR2 | VS で作ったリポジトリで `git_once.sh <フォルダ> --status` | `OK`。`BRANCH:`・`UPSTREAM:`・`REMOTE:` (URL に認証情報があれば `***@` に伏せる)・`AHEAD:`・`BEHIND:`・`UNCOMMITTED:` が、VS の表示と合う。VS を開いたままでも通る | 未 |
+| GR1 | ウォッチャーを再起動する | エラーなく起動し、画面に `trigger_git.flag` が出る (`lib\git-remote.ps1` の構文エラーがない) | **合格** (2026-11-23 実機。エラーなく起動し、`trigger_git.flag` を処理した) |
+| GR2 | VS で作ったリポジトリで `git_once.sh <フォルダ> --status` | `OK`。`BRANCH:`・`UPSTREAM:`・`REMOTE:` (URL に認証情報があれば `***@` に伏せる)・`AHEAD:`・`BEHIND:`・`UNCOMMITTED:` が、VS の表示と合う。VS を開いたままでも通る | **合格** (2026-11-23 実機 (`ImageSampleApp`、GitHub)。`GIT:` から `UNCOMMITTED:` まで出た。認証情報つきの URL の伏せ字は、未確認) |
 | GR3 | `--fetch` (リモートに、別のクローンから、コミットを足したあと) | `OK`、`FETCHED:`。続く `BEHIND:` が増える。作業フォルダは変わらない | 未 |
-| GR4 | 作業ブランチを切り、WSL の `git` でコミットして、`--push --set-upstream` (GitHub のリモート) | `OK`、`PUSHED: origin <ブランチ> (upstream set)`。リモートに、ブランチとコミットがある。VS の「Git の変更」で、先行 0 | 未 |
+| GR4 | 作業ブランチを切り、WSL の `git` でコミットして、`--push --set-upstream` (GitHub のリモート) | `OK`、`PUSHED: origin <ブランチ> (upstream set)`。リモートに、ブランチとコミットがある。VS の「Git の変更」で、先行 0 | **一部合格、不具合 1 件** (2026-11-23 実機 (`ImageSampleApp`、GitHub)。push は成功し、`origin/gr-test` ができた。**ただし、上流が設定されず、`UPSTREAM: (none)`** (`push -u` が効かなかった)。v2.102.1 で、`git branch --set-upstream-to` を明示して直した。再確認が要る) |
 | GR5 | もう一度、`--push` | `OK`、`NOTHING_TO_PUSH:` | 未 |
 | GR6 | **GitHub 以外のリモート** (Azure DevOps・GitLab・社内サーバー) で、GR4 と同じ | `OK`、リモートに、ブランチがある (VS と同じ認証で通る) | 未 |
 | GR7 | **未サインインのリモートで、`--push`** | **`AUTH_REQUIRED` (rc=6)**。ダイアログが出て、ウォッチャーが固まることはない。VS で、1 回、プッシュしてサインインしたあと、同じ `--push` が `OK` | 未 |

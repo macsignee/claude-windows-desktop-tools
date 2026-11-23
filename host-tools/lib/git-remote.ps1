@@ -197,7 +197,15 @@ function Invoke-GitPushOp([string]$gitExe, [string]$remote, [bool]$setUpstream, 
         }
         return (New-GitResult $false $kind (@($head) + @($r.Out | Select-Object -Last 15 | ForEach-Object { Hide-GitUrlSecret $_ })))
     }
-    return (New-GitResult $true "OK" @("PUSHED: $remote $branch$(if ($setUpstream) { ' (upstream set)' })"))
+    $done = @("PUSHED: $remote $branch")
+    if ($setUpstream) {
+        # push -u が、上流を設定しないことがあった (実機 GR4: PUSHED のあとも UPSTREAM: (none))。明示して、設定する。失敗しても、push は成功しているので、警告にする
+        $setup = Invoke-GitProc $gitExe @("branch", "--set-upstream-to=$remote/$branch", $branch)
+        $now = Get-GitLine $gitExe @("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+        if ($now) { $done[0] = "PUSHED: $remote $branch (upstream set: $now)" }
+        else { $done += "WARN: the push succeeded, but the upstream could not be set (exit $($setup.Code)): $(($setup.Out | Select-Object -First 2) -join ' ')" }
+    }
+    return (New-GitResult $true "OK" $done)
 }
 
 # フラグの行を、上から実行する。失敗したら、そこで止める。戻り値: @{ Ok; Marker; Lines }
