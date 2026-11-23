@@ -166,7 +166,13 @@ Claude: trigger_gtest.flag を置く (1 行目に、タグ。例: v1.17.0。空�
 | `break <パス>:<行>` | ブレークポイントを置く (同じ場所にあれば `BREAK_EXISTS:`。最大 20 件)。パスは、ソリューションのフォルダの下の相対パス (`..` と絶対パスは断る) |
 | `inspect` | **ブレークで止まっているときの状態** (v2.99.0)。`EXCEPTION:` (`$exception`)・`STACK:` (`CurrentThread.StackFrames`。最大 10)・`LOCALS:` (現在のフレームの `Locals`。最大 30。値は 200 文字まで)。読み取りだけ。ブレークでなければ `INSPECT_SKIP:`。`reload` などと同じく、**VS を起動しない** (このソリューションを開いている VS が、ちょうど 1 つ要る) |
 | `output <行数>` | **出力ウィンドウの「デバッグ」ペイン** (`Debug.WriteLine`・`Trace`・`OutputDebugString`・MFC の `TRACE`) の、最後の `<行数>` (1〜500) (v2.99.0)。全文 (最大 200000 文字) は `vs_debug_output.txt` に書き、`vs_output.txt` に `OUTPUT: file=vs_debug_output.txt lines=<件数> total=<全体の行数>`。ペインは、**`Windows.Item(出力ウィンドウの種別).Object` → `OutputWindowPanes` を列挙し、GUID (`{FC076020-078A-11D1-A7DF-00A0C9110051}`) で探す** (名前は、VS の表示言語で変わるため。`$dte.ToolWindows` は、PowerShell から見えないので使わない。実機の確認、2026-11-19)。見つからなければ `OUTPUT_UNAVAILABLE:` (失敗にはしない。**見つかったペインの `名前=GUID` の一覧を付ける**)。読み取りだけ (ペインを消さない)。VS を起動しない。**ログには、個人情報などが含まれうる** (`vs_debug_output.txt` は、生成するソリューションの `.gitignore` に入れてある) |
+| `step <over\|into\|out> <歩数>` | **ステップ実行** (F10 / F11 / Shift+F11。`StepOver` / `StepInto` / `StepOut`) (v2.101.0)。歩数は 1〜30。ブレークのときだけ。1 歩ごとに `STEP i: <ファイル>:<行>  <ソースの行>` と `CHANGED: <名前> = <前> -> <後>` (関数が変わったときは `FRAME:` と `LOCALS:`)。`STEP_DONE: n/N` / `STEP_END:` (アプリが終了) / `STEP_TIMEOUT:` (15 秒たっても止まらない)。**ブロックしない** (`WaitForBreakOrEnd = false`) で、モードを確認する。直後にモードが `break` のままに見える一瞬を、避ける |
+| `continue` | 続行 (F5。`Debugger.Go`)。ブレークのときだけ。次のブレーク・終了まで待つ (最大 20 秒)。`CONTINUED:` / `CONTINUE_END:` |
+| `pause` | 走っているアプリを止める (`Debugger.Break`)。走行中のときだけ。`PAUSED:` |
+| `eval <式>` | 式の値 (ウォッチ。`Debugger.GetExpression`)。**読み取りだけ: 代入・`++`・`--`・`;` は `EVAL_REJECTED:`。** ブレークのときだけ。`EVAL:` / `EVAL_ERROR:`。関数の呼び出しは、ここでは断らない (副作用がありうる。Skill が、了承なしに使わないよう指示する) |
 | `debug` | デバッグ実行を始める (`DTE.Debugger.Go`)。デザインモードのときだけ。アプリの起動後、ブレークポイントに着くのを最大 20 秒待つ。`DEBUG_STARTED` / `DEBUG_MODE:` / break で止まれば `STOPPED:`。20 秒でも `run` なら `NOTE:` (`status` で、もう一度確かめる) |
+
+**停止の操作 (`Debugger.Stop` など) は、持たない** (Shift+F5 は、ユーザーの操作)。
 
 結果は `vs_output.txt` (事実)、`output` のときの全文は `vs_debug_output.txt`、失敗時のみ `vs_error.log` (環境の問題は、先頭が `[ENVIRONMENT ERROR - not a source code problem]`)、完了マーカー `vs_result.txt` (`OK` / `FAILED`。最後に書く)。VS が、ダイアログを出して待っていると、COM の呼び出しが拒否され、`TIMEOUT` になることがあります。
 

@@ -13,6 +13,12 @@
 #     --output [行数]  (v2.99.0) VS の出力ウィンドウの「デバッグ」ペイン (Debug.WriteLine / Trace / OutputDebugString / TRACE) の、最後の行数 (既定 200。1〜500)。
 #                      全文は <solution_dir>/vs_debug_output.txt に残り、この標準出力には、最後の 60 行だけを出す。読み取りだけ (ペインを消さない)
 #                      --inspect / --output だけを指定したとき (動作のモードと併用しないとき) は、--status と同じに、VS を起動せず、前面にも出さない
+#     --step over|into|out [歩数]  (v2.101.0) ステップ実行 (F10 / F11 / Shift+F11)。歩数は 1〜30 (既定 1)。1 歩ごとに `STEP n: ファイル:行  ソースの行` と、変わった変数 (`CHANGED:`) を返す。
+#                      1 回の実行の合計は 30 歩まで (複数回の指定の合計)。ブレークで止まっているときだけ。VS を起動せず、前面にも出さない
+#     --continue       (v2.101.0) 続行 (F5)。次のブレークポイントか、終了まで (最大 20 秒待つ)
+#     --pause          (v2.101.0) 走っているアプリを止める (ブレークにする)
+#     --eval "<式>"    (v2.101.0) 式の値を返す (ウォッチ)。読み取りだけ: 代入・++・--・; を断る。200 文字まで、1 回の実行で 10 個まで。止まっているときだけ
+#                      実行系 (--step / --continue / --pause / --eval) は、指定した順に実行する。--debug と併用すると、デバッグを始めたあとに実行する。デバッグの停止 (Shift+F5) は、ユーザーの操作 (操作を持たない)
 #     --debug          デバッグ実行を始める (ユーザーが「デバッグを実行して」と言ったときだけ)。ブレークポイントを置くだけでは、実行しない
 #   --timeout: 完了マーカーを待つ秒数 (既定 240。VS の起動とソリューションの読み込みを含む)
 #
@@ -25,7 +31,7 @@
 #   BAD_ARGS             rc=2  引数の形が不正
 set -u
 
-MAX_OUT=80
+MAX_OUT=150   # 30 歩のトレース (1 歩 = 2〜4 行) が、切れないように
 PICKUP_WAIT="${CLAUDE_PICKUP_WAIT:-15}"
 bad() { echo "BAD_ARGS: $*"; exit 2; }
 
@@ -70,6 +76,7 @@ trap '[ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
 shift
 TIMEOUT=240
 STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; INSPECT=0; OUTPUT=0; OUTPUT_N=200
+RUNOPS=(); STEPS_TOTAL=0; EVALS=0   # 実行系の操作 (step / continue / pause / eval)。指定した順
 BREAKS=()
 RE_PATH='^[^[:cntrl:]"<>|*?:]+$'
 while [ $# -gt 0 ]; do
@@ -81,6 +88,32 @@ while [ $# -gt 0 ]; do
         --clear) CLEAR=1; shift ;;
         --debug) DEBUG=1; shift ;;
         --inspect) INSPECT=1; shift ;;
+        --continue) RUNOPS+=("continue"); shift ;;
+        --pause) RUNOPS+=("pause"); shift ;;
+        --step)
+            kind="${2:-}"
+            case "$kind" in over|into|out) ;; *) bad "--step needs over / into / out: ${kind:-(none)}" ;; esac
+            shift 2
+            n=1
+            if [[ "${1:-}" =~ ^[0-9]+$ ]]; then n=$((10#$1)); shift; fi
+            { [ "$n" -ge 1 ] && [ "$n" -le 30 ]; } || bad "--step needs a number of steps from 1 to 30: $n"
+            STEPS_TOTAL=$((STEPS_TOTAL + n))
+            [ "$STEPS_TOTAL" -le 30 ] || bad "the steps of one run must add up to 30 or less (stepping is limited to 30 steps per request): $STEPS_TOTAL"
+            RUNOPS+=("step $kind $n")
+            ;;
+        --eval)
+            e="${2:-}"; shift 2 || bad "--eval needs an expression"
+            [ -n "$e" ] || bad "--eval needs an expression"
+            [ "${#e}" -le 200 ] || bad "--eval: the expression must be 200 characters or less"
+            case "$e" in *$'\n'*|*';'*) bad "--eval: one expression only (no newline, no ';')" ;; esac
+            t="${e//==/  }"; t="${t//!=/  }"; t="${t//<=/  }"; t="${t//>=/  }"
+            case "$e" in *'<<='*|*'>>='*) bad "--eval is read-only: an assignment is not allowed: $e" ;; esac
+            case "$t" in *=*) bad "--eval is read-only: an assignment is not allowed: $e" ;; esac
+            case "$e" in *'++'*|*'--'*) bad "--eval is read-only: ++ / -- are not allowed: $e" ;; esac
+            EVALS=$((EVALS + 1))
+            [ "$EVALS" -le 10 ] || bad "--eval: up to 10 expressions per run"
+            RUNOPS+=("eval $e")
+            ;;
         --output)
             OUTPUT=1
             if [[ "${2:-}" =~ ^[0-9]+$ ]]; then OUTPUT_N=$((10#$2)); shift 2; else shift; fi
@@ -99,7 +132,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
-if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]})) -gt 0 ]; then
+if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
     bad "--status cannot be combined with other modes"
 fi
 
@@ -108,8 +141,9 @@ OPS=()
 ACTION=$((RELOAD + CHANGES + CLEAR + DEBUG + ${#BREAKS[@]}))
 if [ "$STATUS_ONLY" -eq 1 ]; then
     OPS+=("status")
-elif [ "$ACTION" -eq 0 ] && [ $((INSPECT + OUTPUT)) -gt 0 ]; then
-    # 読み取りだけ (--status と同じ): VS を起動せず、前面にも出さない
+elif [ "$ACTION" -eq 0 ] && [ $((INSPECT + OUTPUT + ${#RUNOPS[@]})) -gt 0 ]; then
+    # 読み取り・実行系だけ (--status と同じ): VS を起動せず、前面にも出さない
+    for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
     [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
     [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
     OPS+=("status")
@@ -132,6 +166,7 @@ else
     fi
     for b in "${BREAKS[@]+"${BREAKS[@]}"}"; do OPS+=("break $b"); done
     [ "$DEBUG" -eq 1 ] && OPS+=("debug")
+    for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
     [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
     [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
     OPS+=("status")
