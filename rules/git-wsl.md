@@ -23,6 +23,11 @@ paths:
 1. `git status --short` と `git diff --stat`。
 2. **ほとんど全部のファイルが「変更」に見えるとき:** 改行かモードの違い。`git ls-files --eol <ファイル>` (正しい状態は `i/lf w/crlf`)、`git diff --ignore-cr-at-eol --stat` (差が消えるなら、改行だけ) で確かめる。**そのまま、コミットしない。まとめて直さない** (`git add --renormalize .` も同じ)。ユーザーに聞く。
 3. 新しく作ったファイルは、LF・BOM なしになる。**規約 (UTF-8 BOM 付き・CRLF) に合わせる** (C++ の `.cpp` / `.h` / `.rc` は、ビルド前に、自動で BOM 付きになる)。`git add` の警告 (`LF will be replaced by CRLF`) は、無害だが、作業フォルダには LF が残る。
+4. **Claude Code のサンドボックスの空ファイルを、コミットに入れない。** サンドボックスは、書き込みを禁じるファイル (`.bashrc`・`.bash_profile`・`.zshrc`・`.zprofile`・`.profile`・`.gitconfig`・`.gitmodules`・`.ripgreprc`・`.mcp.json`・`.vscode`・`.idea`・`.claude/*` など) に `/dev/null` を重ねる。**Claude Code のコマンドが動いている間は、これらが、作業フォルダに、空 (0 バイト) のファイルとして見える** (`git status` に、`??` や `D` で出る)。
+   - ステージは、**名前を指定して**する (`git add -A` / `git add .` を使わない)。
+   - **`git status` に、これらが出ていたら、ユーザーに伝える。** VS の「すべてコミット」では、空のファイルが、コミットに入る (実機: 23 件が入り、push された)。
+   - すでにコミットされて `D` になっているときは、**「元に戻す」を押さず**、削除をコミットする。再発の防止は、そのクローンの `.git/info/exclude` に、その名前を足す。
+   - そのプロジェクトが、`.mcp.json` や `.vscode` を、本当に管理しているとき (中身のあるファイル) は、対象外。
 
 ## 同時に、触らない
 - **VS が Git を操作している間 (コミット・ブランチの切り替え・取得) は、WSL の `git` を動かさない** (`index.lock`)。`Unable to create '.git/index.lock'` が出たら、VS の操作の終わりを待つ。ロックファイルは、`git` のプロセスが動いていないと、確かめてから、消す。
