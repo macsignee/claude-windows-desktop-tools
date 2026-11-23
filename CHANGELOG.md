@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.100.1] 2026-11-23 (MFC の SDI のひな形: 「開く」「新規作成」のメニュー項目が、常にグレーアウトする不具合の修正。Skill の変更)
+
+- **不具合 (別の作業 (`AlphaStampSample`、MFC SDI) の実機で見つかり、引き継ぎ文書で報告された):** SDI のひな形 (`--type mfc`) に、`ID_FILE_OPEN` (「開く」) のメニュー項目を足すと、何をしても、常にグレーアウトする。`ID_FILE_SAVE` / `ID_FILE_SAVE_AS` は、`CDocument` が処理するので、正常。
+- **原因:** `ID_FILE_NEW` / `ID_FILE_OPEN` は、`CWinApp::OnFileNew` / `OnFileOpen` という実体を持つが、**`CWinApp` は、この 2 つの ID を割り当てない** (TN022)。派生クラス (`SampleApp`) のメッセージマップに `ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)` がないと、コマンドが App まで届いても、ハンドラーが見つからない。生成直後の `.rc` には、「開く」がなく (メニューは「終了」だけ)、ユーザーが、メニューを足して、初めて症状が出る。MDI のひな形には、`ID_FILE_NEW` の同じ修正が、すでにあった (SDI に、横展開されていなかった)。
+- **修正 (`new_solution.py`):** SDI の `SampleApp.h` に `DECLARE_MESSAGE_MAP()`、`SampleApp.cpp` に `BEGIN_MESSAGE_MAP(SampleApp, CWinApp)` と `ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)`・`ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)` を足した (理由のコメントつき)。
+- **ダイアログ ベースへの影響を防いだ:** ダイアログ ベース (`mfc-dialog`) は、SDI の `SampleApp.h` を共有していた (`MFC_FILES['SampleApp.h']` を参照)。そのまま `DECLARE_MESSAGE_MAP()` を足すと、ダイアログ側に `BEGIN_MESSAGE_MAP` がなく、リンクエラー (`mfc-check` の `MAP004`) になる。**ダイアログ ベースが、元の `SampleApp.h` (メッセージマップなし) を、直接持つようにした。** ダイアログ ベースは、ドキュメントを持たないので、File メニューの「新規作成」「開く」は、要らない。
+- **テスト:** `tests/mfc_app_commands_test.sh` (新規 14 件。SDI のメッセージマップ、理由のコメント、並び、MDI が変わらないこと、ダイアログ ベースにメッセージマップがないこと、3 種類とも `DECLARE` と `BEGIN` が対応すること、`mfc-check` が `MAP004` を出さないこと)。先に Red (6 件) を確認してから実装した。
+- **実機の確認 (TEST-PLAN 2-62):** SDI (MO1・MO2) は、報告元の `AlphaStampSample` で、同じ差分を適用し、実機で確認済みなので、一覧から除外した (ユーザーの判断)。**未確認:** ダイアログ ベースが、ビルドできること (MO3。リンクエラー `MAP004` が出ないこと)、MDI が変わらないこと (MO4)。**WSL には C++ のコンパイラがない。**
+- **今回は、やらなかったもの (引き継ぎ文書の「任意の改善」。別の作業):** (1) MDI のメッセージマップにも、`ID_FILE_OPEN` を、予防的に足す。(2) `mfc-check` に、`CWinApp` 派生クラスのメッセージマップが、`.rc` のメニューの標準 ID (`ID_FILE_NEW` / `ID_FILE_OPEN` ほか) を、結びつけているかを見る検査 (`APP001`) を足す。NEXT-STEPS に、候補として記録した。
+- **配布が要る:** `./install/install.sh --skills-only` (Skill 側だけ。ウォッチャーの入れ替えは要らない)。
+
 ## [2.100.0] 2026-11-21 (MFC の生成物の、自作クラスから、C 接頭辞を外す。生成物の名前の変更。Skill・規約の変更)
 
 - **ユーザーの指摘:** `rules/cpp-common.md` の「自分で作るクラスには、`C` 接頭辞を付けない。クラスウィザードで作るクラスも同じ」と、`/new-solution` が作る MFC のひな形が、食い違っていた。
