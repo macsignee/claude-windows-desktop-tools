@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.102.2] 2026-11-23 (`git-remote`: 上流の設定が、Claude Code のサンドボックスの `config.lock` で失敗するのを、結果を返したあとの設定で防ぐ。ホスト側と Skill の変更。`HOST_VERSION` 2.102.2)
+
+- **実機 (GR4 のやり直し、`ImageSampleApp`) で見つけた原因 (確定):** push は成功するのに、上流 (`.git/config` への書き込み) が、`could not lock config file .git/config: File exists` で失敗した。**Claude Code のサンドボックス (bubblewrap) が、`.git/config` (と `config.lock`) への書き込みを禁じるため、`/dev/null` を `.git/config.lock` に重ねている** (`/proc/self/mountinfo` で確認)。`git_once.sh` が結果を待つ間だけ、Windows の `git` にも、`config.lock` が、見える。Windows のターミナルからは、成功し、ロックのファイルも、あとには、残っていなかった。**v2.102.0 の `push -u` の失敗も、同じ原因** (`push -u` は、上流の書き込みに失敗しても、push が成功するため、結果に出なかった)。
+- **修正 (`lib\git-remote.ps1`):** (1) `push` から `-u` を外し、上流は `git branch --set-upstream-to` で設定する。(2) 実行中に設定できなければ、`UPSTREAM_PENDING:` を返し、**結果のマーカーを書いたあと** (`git_once.sh` が終わり、重ね合わせが消えたあと) に、ウォッチャーが、1 秒おきに、最大 30 秒、再試行する (`Complete-GitUpstream`)。(3) 上流がなくても、同じ名前のリモート追跡ブランチ (`origin/<ブランチ>`) があれば、それと比べて `AHEAD` / `BEHIND` / `TO_PUSH` を出し、`--set-upstream` なしでも push できる。
+- **Skill (`SKILL.md`):** `UPSTREAM_PENDING:` のときは、数秒待って `--status` で確かめる。`.git/config.lock` を、消さない (本物のファイルではない)。
+- テスト: `tests/git_once_test.sh` に、検査を足した。実機での再確認が要る (TEST-PLAN 2-64 の GR4・GR13)。
+
 ## [2.102.1] 2026-11-23 (`git-remote`: `--set-upstream` で、上流が設定されない不具合を直す。ホスト側の変更。`HOST_VERSION` 2.102.1)
 
 - **実機 (GR4、`ImageSampleApp`) で見つけた不具合:** `--push --set-upstream` が `PUSHED: origin gr-test (upstream set)` で成功しても、`.git/config` に `branch.gr-test.*` がなく、続く状態が `UPSTREAM: (none)` だった (push 自体は、成功し、`origin/gr-test` はできた)。
