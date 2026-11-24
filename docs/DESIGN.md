@@ -1452,3 +1452,10 @@ C++ / MFC に加えて、WPF / WinForms / C# のクラスライブラリ、規�
 - **実装:** `new_solution.py` の `MFC_FILES` (SDI) と `MFC_RC` を、ウィザードの構成に差し替えた。MDI が使っていた文書とビューは、`MFC_PLAIN_DOCVIEW` に分けた。ビットマップは、`make_bmp` で作る (24 ビット、背景は透過色の RGB(192, 192, 192)。置き場所の確保用で、あとで差し替える)。`IDR_HELP_MENU` は、ウィザードでは未定義 (名前付きリソース) だが、ここでは `Resource.h` に定義した (`afxres.h` にはない)。
 - **ツール バーのコードを、そのまま使った:** ウィザードのフレームは、ツール バーとステータス バーを、コードで作る。画面モデルの規約 (`rules/mfc-cpp.md`) は、メインの `CView` を例外としており、フレームの扱いは、いまのところ規約の対象外。ぶつかる箇所が出たら、そのとき洗い出す。
 - **次:** MDI を、同じ方針で寄せる (ユーザーの指示を待つ)。実機の確認 (TEST-PLAN 2-65)。
+
+### 4.99 MFC の MDI のひな形を、ウィザードの見た目と操作に寄せる (v2.104.0)
+- **きっかけ:** 4.98 (SDI) の続き。基準の実物は、ユーザーが VS のウィザードで作った `ClaudePlayground\MFCMdiTemplate` (MDI、メニュー バーとツール バー、ステータス バー。クラス名は `MainFrame`・`ChildFrame`・`SampleDoc`・`SampleView`)。
+- **差分の調査:** SDI のウィザードとの違いは、フレーム (`CMDIFrameWndEx` と `CMDIChildWndEx`)、アプリの文書テンプレート (`CMultiDocTemplate`)、メニュー 2 つ、ウィンドウ関連の文字列だけ。文書・ビュー・`framework.h`・`pch`・`Resource.h` (`ID_WINDOW_MANAGER` を除く) は同一。このため、MDI の定義は、SDI の定義から導く形にした。
+- **`OnCreateClient` の上書きをやめた理由:** `CMDIFrameWndEx::OnCreateClient` (MFC のソース `afxmdiframewndex.cpp`) が、基底の呼び出しのあとで、クライアント領域をサブクラス化する。v2.60.1 の上書きは、`CreateClient(lpcs, nullptr)` を直接呼ぶので、これを飛ばす。ウィザードの `IDR_MAINFRAME` のメニューは 3 項目で、既定の推測 (右から 2 番目 = 表示) が成り立つ。ひな形も同じ構成にして、上書きを消した。**v2.60.1 の ASSERT の再発防止は、メニューの項目数 (3 項目) と `mfc-check` の MDI001 で守る。**
+- **決定 (SDI と共通):** 寄せなかったもの (理由つき) は、`CHANGELOG.md` の 2.104.0。ウィザードの `ChildFreme.cpp` は綴りの誤りなので、`ChildFrame.cpp` にした。
+- **次:** 実機の確認 (TEST-PLAN 2-66)。SDI (2-65) と同じ手順で。

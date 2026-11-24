@@ -121,15 +121,24 @@ PYX
     if python3 "$MFC_CHK" "$D" --all 2>&1 | grep -q 'error 0 / warning 0'; then ok "$t: mfc-check が error 0 / warning 0"; else ng "$t: mfc-check が指摘を出した"; fi
 done
 
-# MDI: メインフレームは OnCreateClient を上書きして、Window メニューを推測させない (既定の実装は、IDR_MAINFRAME のメニューが
-# File だけだと、起動時に winmdi.cpp の ASSERT で止まる。v2.60.1。実機で見つかった)
+# MDI: メインフレームは CMDIFrameWndEx。OnCreateClient は上書きしない (v2.104.0。CMDIFrameWndEx::OnCreateClient は、クライアント領域を
+# サブクラス化するので、上書きして CreateClient(lpcs, nullptr) を直接呼ぶと、それを飛ばす)。既定の実装は、IDR_MAINFRAME のメニューの
+# 「右から 2 番目」を Window メニューと推測するので、IDR_MAINFRAME のメニューは 3 項目 (ファイル・表示・ヘルプ。ウィザードと同じ)。
+# 1 項目だと、起動時に winmdi.cpp の ASSERT で止まる (v2.60.1。実機で見つかった。mfc-check の MDI001)
 M="$WORK/W_mfc_mdi/W_mfc_mdi"
-if grep -q 'OnCreateClient' "$M/MainFrame.h" && grep -q 'CreateClient(lpcs, nullptr)' "$M/MainFrame.cpp"; then
-    ok "mfc-mdi: MainFrame が OnCreateClient を上書きし、Window メニューを推測しない"
+if ! grep -q 'OnCreateClient' "$M/MainFrame.h" && grep -q 'class MainFrame : public CMDIFrameWndEx' "$M/MainFrame.h" \
+   && python3 - "$M/W_mfc_mdi.rc" <<'PYX'
+import re, sys
+t = open(sys.argv[1], encoding='utf-8-sig').read()
+m = re.search(r'^IDR_MAINFRAME MENU\s*\nBEGIN\n(.*?)\nEND\n', t, re.S | re.M)
+sys.exit(0 if m and len(re.findall(r'^    POPUP ', m.group(1), re.M)) >= 2 else 1)
+PYX
+then
+    ok "mfc-mdi: MainFrame は OnCreateClient を上書きせず、IDR_MAINFRAME のメニューは 2 項目以上 (起動時の ASSERT を避ける)"
 else
-    ng "mfc-mdi: MainFrame が OnCreateClient を上書きしていない (起動時に ASSERT で止まる)"
+    ng "mfc-mdi: MainFrame が OnCreateClient を上書きしている、または IDR_MAINFRAME のメニューが 1 項目 (起動時に ASSERT で止まる)"
 fi
-if grep -q 'DECLARE_MESSAGE_MAP' "$M/SampleApp.h" && grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)' "$M/SampleApp.cpp" && grep -q 'ID_FILE_NEW' "$M/W_mfc_mdi.rc"; then
+if grep -q 'DECLARE_MESSAGE_MAP' "$M/SampleApp.h" && grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinAppEx::OnFileNew)' "$M/SampleApp.cpp" && grep -q 'ID_FILE_NEW' "$M/W_mfc_mdi.rc"; then
     ok "mfc-mdi: メニューの File→New (ID_FILE_NEW) を、アプリが割り当てている (CWinApp は割り当てない。なければ、New が押せない)"
 else
     ng "mfc-mdi: ID_FILE_NEW の割り当てがない (子ウィンドウのメニューの New が、押せなくなる)"

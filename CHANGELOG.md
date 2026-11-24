@@ -2,6 +2,17 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.104.0] 2026-11-24 (`/new-solution --type mfc-mdi` (MDI) の初期状態を、Visual Studio のウィザードの見た目と操作に寄せる。SDI (v2.103.0) の続き。ダイアログは変えない)
+
+- **基準:** ウィザードの MDI (`ClaudePlayground\MFCMdiTemplate`。MFC アプリケーション、MDI、メニュー バーとツール バー、ステータス バー、タブ付き MDI)。文書・ビュー・`framework.h`・`pch`・`Resource.h` は、SDI のウィザードと同一だった。
+- **寄せたもの:** SDI と同じもの (`CWinAppEx`、MRU、各マネージャー、`AboutDlg`、メニュー バー・ツール バー・ステータス バー、アクセラレータ、ビットマップ、文字列、`Serialize`、右クリック メニュー) に加えて、MDI 固有のもの: `CMDIFrameWndEx` (タブ付き MDI = `CMDITabInfo` と `EnableMDITabbedGroups`、`EnableWindowsDialog` と `OnWindowManager`、`FWS_PREFIXTITLE`)、`CMDIChildWndEx` (ウィザードの `PreCreateWindow` のスタイル)、2 つのメニュー (`IDR_MAINFRAME` = 子ウィンドウがないとき。ファイル・表示・ヘルプ / `IDR_SAMPLETYPE` = 子ウィンドウがあるとき。ファイル・編集・表示・ウィンドウ・ヘルプ)、ウィンドウの文字列 (`ID_WINDOW_*`・`AFX_IDS_MDICHILD`・`ID_WINDOW_MANAGER`)。`CMultiDocTemplate(IDR_SAMPLETYPE, ...)` と `LoadFrame(IDR_MAINFRAME)` と `ParseCommandLine`。
+- **`MainFrame` の `OnCreateClient` の上書きをやめた (重要):** v2.60.1 の上書き (`CreateClient(lpcs, nullptr)`) は、素の `CMDIFrameWnd` のためのものだった。`CMDIFrameWndEx::OnCreateClient` は、MDI のクライアント領域をサブクラス化する (`m_wndClientArea.SubclassWindow`。MFC のソース `afxmdiframewndex.cpp`) ので、上書きすると、それを飛ばし、タブ付き MDI が壊れる。代わりに、`IDR_MAINFRAME` のメニューを 3 項目 (ウィザードと同じ) にして、既定の実装の「右から 2 番目」の推測を満たす (`mfc-check` の MDI001 も出ない)。
+- **`ID_FILE_OPEN` の結びつけ:** MDI にも足した (NEXT-STEPS の E(1) 「MDI の `ID_FILE_OPEN`」を、これで済ませた)。
+- **寄せなかったもの (SDI と同じ決定):** `C` 接頭辞、x64 のみ、印刷・プレビュー (ツール バーの印刷ボタンも省略)、OLE、`SHARED_HANDLERS`、`l.JPN` の `afxres.rc`、ウィザードの未使用の `CSplitterWndEx` のメンバー。ファイル名は `ChildFrame.cpp` (ウィザードは、綴りの誤りの `ChildFreme.cpp`)。
+- **実装:** `new_solution.py` の `MFC_MDI_FILES` と `MFC_MDI_RC` を、SDI の定義から導く形にした (共通部分は SDI のものを使い、違う部分だけ書く)。`MFC_PLAIN_DOCVIEW` は、使わなくなったので、消した。
+- **テスト:** `tests/mfc_mdi_wizard_look_test.sh` を足した (先に Red を確認。33 件)。`mfc_wizard_layout_test.sh` (MDI は `OnCreateClient` を上書きしない、メニューは 2 項目以上)・`mfc_app_commands_test.sh`・`mfc_class_names_test.sh`・`mfc_sdi_wizard_look_test.sh` を合わせた。
+- **未確認 (実機。TEST-PLAN 2-66):** 生成した MDI のビルドと、起動した画面 (タブ付き MDI、2 つのメニュー、「ウィンドウ」ダイアログ)。WSL には C++ のコンパイラがない。
+
 ## [2.103.0] 2026-11-24 (`/new-solution --type mfc` (SDI) の初期状態を、Visual Studio のウィザードの見た目と操作に寄せる。MDI・ダイアログは変えない)
 
 - **決定 (ユーザー、2026-11-24):** 方針 A「見た目を寄せる」。基準は、ウィザードの SDI (`ClaudePlayground\MFCSDITemplate`。MFC アプリケーション、SDI、メニュー バーとツール バー、ステータス バー)。
