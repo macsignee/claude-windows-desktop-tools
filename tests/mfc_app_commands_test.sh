@@ -19,14 +19,14 @@ C() { echo "$W/$1/$1/SampleApp.cpp"; }
 
 # SDI: ID_FILE_NEW と ID_FILE_OPEN を、SampleApp のメッセージマップで結びつける
 ok "SDI: SampleApp.h declares the message map" "$(grep -q 'DECLARE_MESSAGE_MAP()' "$(H app_mfc)" && echo 1 || echo 0)"
-ok "SDI: SampleApp.cpp has BEGIN_MESSAGE_MAP(SampleApp, CWinApp) ... END_MESSAGE_MAP()" "$(grep -q 'BEGIN_MESSAGE_MAP(SampleApp, CWinApp)' "$(C app_mfc)" && grep -q 'END_MESSAGE_MAP()' "$(C app_mfc)" && echo 1 || echo 0)"
-ok "SDI: ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew) and ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen) are in the map" "$(grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)' "$(C app_mfc)" && grep -q 'ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)' "$(C app_mfc)" && echo 1 || echo 0)"
+ok "SDI: SampleApp.cpp has BEGIN_MESSAGE_MAP(SampleApp, CWinAppEx) ... END_MESSAGE_MAP()" "$(grep -q 'BEGIN_MESSAGE_MAP(SampleApp, CWinAppEx)' "$(C app_mfc)" && grep -q 'END_MESSAGE_MAP()' "$(C app_mfc)" && echo 1 || echo 0)"
+ok "SDI: ON_COMMAND(ID_FILE_NEW, &CWinAppEx::OnFileNew) and ON_COMMAND(ID_FILE_OPEN, &CWinAppEx::OnFileOpen) are in the map" "$(grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinAppEx::OnFileNew)' "$(C app_mfc)" && grep -q 'ON_COMMAND(ID_FILE_OPEN, &CWinAppEx::OnFileOpen)' "$(C app_mfc)" && echo 1 || echo 0)"
 ok "SDI: the comment explains why (CWinApp does not assign these IDs; the menu item stays grayed out; TN022)" "$(grep -q 'TN022' "$(C app_mfc)" && grep -q 'グレーアウト' "$(C app_mfc)" && echo 1 || echo 0)"
-ok "SDI: the map is placed after theApp and before InitInstance (readable order, same as the MDI template)" "$(python3 - "$(C app_mfc)" <<'PYEOF' && echo 1 || echo 0
+ok "SDI: the map is placed before InitInstance (same order as the wizard)" "$(python3 - "$(C app_mfc)" <<'PYEOF' && echo 1 || echo 0
 import sys,re
 t=open(sys.argv[1],encoding='utf-8-sig').read()
-a=t.index('SampleApp theApp;'); b=t.index('BEGIN_MESSAGE_MAP'); c=t.index('BOOL SampleApp::InitInstance')
-sys.exit(0 if a<b<c else 1)
+b=t.index('BEGIN_MESSAGE_MAP'); c=t.index('BOOL SampleApp::InitInstance')
+sys.exit(0 if b<c else 1)
 PYEOF
 )"
 
