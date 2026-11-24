@@ -1333,3 +1333,17 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | GR12 | ネットワークを切って (または、届かないリモートで)、`--fetch` | 120 秒以内に `FAILED` (終了させた旨)。**ウォッチャーは固まらない** (続けて `--status` が通る) | **合格 (強制終了の経路を除く)** (2026-11-23 実機 (`ImageSampleApp`、GitHub、ウォッチャー 2.102.2))。届かないリモート (`https://10.255.255.1/x.git`) の `--fetch dead`: git 自身の接続の時間切れで、21 秒で `FAILED: git fetch failed (exit 128)`。続けての `--status` は、8 秒で通った (ウォッチャーは固まらない)。**120 秒での強制終了は、git の時間切れが先に働くため、実機では、確認できていない** |
 | GR13 | **上流の設定 (v2.102.2):** 新しいブランチ (`gr-test3` など) に、空のコミットをして、Claude Code から `git-remote` で `--push --set-upstream` | `OK`、`PUSHED: ...`、**`UPSTREAM_PENDING:`** (実行中は、`.git/config` に書けない)。数秒後、`--status` が `UPSTREAM: origin/<ブランチ>`、`AHEAD: 0`。**ウォッチャーの画面に `[git] upstream set: ...` が出る。** `.git/config` に `branch.<名>.*` がある。`.git/config.lock` は、残らない | **合格** (2026-11-23 実機 (`ImageSampleApp`、GitHub、ウォッチャー 2.102.2)。`gr-test4` で、`PUSHED:` と `UPSTREAM_PENDING:` が出て、数秒後の `--status` が `UPSTREAM: origin/gr-test4`、`AHEAD: 0`、`BEHIND: 0`。`.git/config` に `branch.gr-test4.remote` / `.merge` が書かれ、`config.lock` は残っていない) |
 | GR14 | **上流なしで push (v2.102.2):** GR13 のあとで、`git config --unset branch.<名>.remote` などで、上流を外し (または、上流なしで作った、同じ名前のブランチ)、コミットを足して、`--push` (`--set-upstream` なし) | `OK`、`PUSHED:`。`--status` の `UPSTREAM:` は `(not set; the branch origin/<名前> exists ...)`、`AHEAD` / `BEHIND` は、`origin/<名前>` との比較 | **合格** (2026-11-23 実機 (`ImageSampleApp`、GitHub、ウォッチャー 2.102.2))。上流を外して (`git config --unset branch.gr-test5.remote` / `.merge`) コミットを足し、`--push` (`--set-upstream` なし): `OK`、`PUSHED: origin gr-test5`、`UPSTREAM: (not set; the branch origin/gr-test5 exists, and is used for AHEAD / BEHIND)`、`UPSTREAM_PENDING` なし |
+
+### 2-65. MFC の SDI: ウィザードの見た目と操作 (v2.103.0)
+`/new-solution` (`--type mfc`、既定のレイヤー) で作った SDI を、VS で開いて確認する。確認用フォルダ (新規) で Claude Code を起動し、「`new-solution` の Skill で、`MfcSdiLook` という名前で、MFC (SDI) のソリューションを作って」と頼む。**fork には任せず、直接実行して。出力を省略せずに示して。**
+
+| # | 手順 | 期待 | 結果 |
+|---|---|---|---|
+| WL1 | `build-test-loop` の Skill で、ビルド | `SUCCESS` (エラー 0。警告があれば、内容を貼る)。リソースのコンパイル (`.rc`・ビットマップ・ツール バー) が通る | 未確認 |
+| WL2 | 起動 (VS の F5、または `vs-debug` の Skill) | メニュー バー (ファイル・編集・表示・ヘルプ)、ツール バー (7 ボタン)、ステータス バー (準備完了、CAP・NUM・SCRL) が出る。タイトルは `無題 - MfcSdiLook` | 未確認 |
+| WL3 | 「ファイル」メニュー | 新規作成・開く・上書き保存・名前を付けて保存が有効。「最近使ったファイル」はグレー。Ctrl+N / O / S が効く | 未確認 |
+| WL4 | 「ヘルプ」→「MfcSdiLook について」 | バージョン情報のダイアログが出て、OK で閉じる | 未確認 |
+| WL5 | ビューを右クリック | 「編集」のポップアップ (切り取り・コピー・貼り付け) が出る | 未確認 |
+| WL6 | 「表示」→「ステータス バー」、ツール バーの右端のカスタマイズ | 表示の切り替えができる。カスタマイズのダイアログが開く | 未確認 |
+| WL7 | 名前を付けて保存 → 閉じる → 再び起動して、「最近使ったファイル」 | 保存でき、MRU に出る (空のドキュメントなので、中身はない) | 未確認 |
+| WL8 | ウィザードの実物 (`MFCSDITemplate`) と、並べて見る | 見た目の差が、ボタンの絵 (置き場所の絵) と、印刷ボタンのないことだけ | 未確認 |

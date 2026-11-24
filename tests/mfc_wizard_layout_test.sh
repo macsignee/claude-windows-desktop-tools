@@ -96,7 +96,7 @@ need(re.search(r'<ClInclude Include="framework.h">\s*<Filter>ヘッダー ファ
 rc_b = open(os.path.join(p, n + '.rc'), 'rb').read()
 rc2 = open(os.path.join(p, 'res', n + '.rc2'), 'rb').read()
 rc = rc_b
-need(b'IDR_MAINFRAME ICON "res\\\\' + n.encode() + b'.ico"' in rc, '.rc がアイコンを読んでいない')
+need(re.search(rb'IDR_MAINFRAME +ICON +"res\\\\' + n.encode() + rb'\.ico"', rc) is not None, '.rc がアイコンを読んでいない')
 need(b'#include "res\\' + n.encode() + b'.rc2"' in rc, '.rc が rc2 を読んでいない')
 need(rc_b.startswith(b'\xef\xbb\xbf'), '.rc は UTF-8 の BOM 付き')
 need(b'#pragma code_page(65001)' in rc_b, '.rc に #pragma code_page(65001) がない')
@@ -111,7 +111,7 @@ if t == 'mfc-mdi':
     need('ウィンドウ(&W)' in rc_text and '新規作成(&N)' in rc_text, 'MDI のメニューが日本語でない')
 need(all(c < 0x80 for c in rc2) and not rc2.startswith(b'\xef\xbb\xbf'), '.rc2 は、ASCII だけ・BOM なし')
 if t != 'mfc-dialog':
-    need(b'IDR_SAMPLETYPE ICON' in rc, '.rc が文書のアイコンを読んでいない')
+    need(re.search(rb'IDR_SAMPLETYPE +ICON', rc) is not None, '.rc が文書のアイコンを読んでいない')
     need(b'IDR_SAMPLETYPE' in open(os.path.join(p, 'Resource.h'), 'rb').read(), 'Resource.h に IDR_SAMPLETYPE がない')
 need(b'IDR_MAINFRAME' in open(os.path.join(p, 'Resource.h'), 'rb').read(), 'Resource.h に IDR_MAINFRAME がない')
 print('\n'.join(errs))

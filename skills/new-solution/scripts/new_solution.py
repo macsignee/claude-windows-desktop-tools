@@ -233,80 +233,17 @@ def make_ico(rgb):
     return struct.pack('<HHH', 0, 1, 1) + entry + body
 
 
-MFC_FILES = {
-    'targetver.h': MFC_TARGETVER_H,
-    'framework.h': MFC_FRAMEWORK_H,
-    'pch.h': MFC_PCH_H,
-    'pch.cpp': MFC_PCH_CPP,
-    'Resource.h': '''#pragma once
-#define IDR_MAINFRAME           128
-#define IDR_SAMPLETYPE          129
-''',
-    'SampleApp.h': '''#pragma once
-#include "pch.h"
+# ---- MFC SDI (ウィザードの「MFC アプリケーション」SDI、メニュー バーとツール バー、ステータス バーの見た目と操作) ----
+# 寄せる: CWinAppEx / CFrameWndEx、メニュー バー・ツール バー・ステータス バー、メニュー、アクセラレータ、バージョン情報、MRU、右クリック メニュー。
+# 寄せない (決定済み): C 接頭辞 (AboutDlg)、x64 のみ、印刷・プレビュー、OLE、SHARED_HANDLERS、Win32 の構成。
+# コードは、raw 文字列 (r''') で書く (TRACE0 の "\n" などを、そのまま出力するため)。
+MFC_SDI_FRAMEWORK_H = MFC_FRAMEWORK_H.replace(
+    '#endif\n\n// Common Controls 6.0',
+    '#endif\n\n#include <afxcontrolbars.h>     // MFC におけるリボンとコントロール バーのサポート\n\n// Common Controls 6.0')
+assert MFC_SDI_FRAMEWORK_H != MFC_FRAMEWORK_H, 'framework.h の置換に失敗した'
 
-// アプリケーション本体 (UI 層)。
-class SampleApp : public CWinApp
-{
-public:
-    BOOL InitInstance() override;
-
-    DECLARE_MESSAGE_MAP()
-};
-''',
-    'SampleApp.cpp': '''#include "pch.h"
-#include "SampleApp.h"
-#include "MainFrame.h"
-#include "SampleDoc.h"
-#include "SampleView.h"
-#include "Resource.h"
-
-SampleApp theApp;
-
-BEGIN_MESSAGE_MAP(SampleApp, CWinApp)
-    // 「ファイル」→「新規作成」「開く」。CWinApp は、この 2 つの ID を割り当てない (ウィザードのアプリも、ここで割り当てている。TN022)。
-    // 割り当てがないと、コマンドが App まで届いても、ハンドラーが見つからず、メニュー項目が、常に、グレーアウトする。
-    ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
-    ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
-END_MESSAGE_MAP()
-
-BOOL SampleApp::InitInstance()
-{
-    // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
-    CWinApp::InitInstance();
-
-    auto* pDocTemplate = new CSingleDocTemplate(
-        IDR_MAINFRAME,
-        RUNTIME_CLASS(SampleDoc),
-        RUNTIME_CLASS(MainFrame),
-        RUNTIME_CLASS(SampleView));
-    AddDocTemplate(pDocTemplate);
-
-    CCommandLineInfo cmdInfo;
-    cmdInfo.m_nShellCommand = CCommandLineInfo::FileNew;
-    if (!ProcessShellCommand(cmdInfo))
-    {
-        return FALSE;
-    }
-
-    m_pMainWnd->ShowWindow(SW_SHOW);
-    m_pMainWnd->UpdateWindow();
-    return TRUE;
-}
-''',
-    'MainFrame.h': '''#pragma once
-#include "pch.h"
-
-class MainFrame : public CFrameWnd
-{
-    DECLARE_DYNCREATE(MainFrame)
-};
-''',
-    'MainFrame.cpp': '''#include "pch.h"
-#include "MainFrame.h"
-
-IMPLEMENT_DYNCREATE(MainFrame, CFrameWnd)
-''',
+# MDI が使う、素の文書とビュー (SDI は、下の MFC_FILES で、ウィザードの構成)
+MFC_PLAIN_DOCVIEW = {
     'SampleDoc.h': '''#pragma once
 #include "pch.h"
 
@@ -343,6 +280,596 @@ void SampleView::OnDraw(CDC* pDC)
 ''',
 }
 
+MFC_FILES = {
+    'targetver.h': MFC_TARGETVER_H,
+    'framework.h': MFC_SDI_FRAMEWORK_H,
+    'pch.h': MFC_PCH_H,
+    'pch.cpp': MFC_PCH_CPP,
+    'Resource.h': r'''#pragma once
+//{{NO_DEPENDENCIES}}
+// ウィザードが生成する Resource.h と同じ ID (IDR_SAMPLETYPE は、ウィザードの IDR_<名前>TYPE の代わり)。
+
+#define IDD_ABOUTBOX                100
+#define IDR_POPUP_EDIT              119
+#define ID_STATUSBAR_PANE1          120
+#define ID_STATUSBAR_PANE2          121
+#define IDS_STATUS_PANE1            122
+#define IDS_STATUS_PANE2            123
+#define IDS_TOOLBAR_STANDARD        124
+#define IDS_TOOLBAR_CUSTOMIZE       125
+#define ID_VIEW_CUSTOMIZE           126
+#define IDR_MAINFRAME               128
+#define IDR_MAINFRAME_256           129
+#define IDR_SAMPLETYPE              130
+#define IDR_HELP_MENU               131
+#define IDS_EDIT_MENU               306
+
+// 新しいオブジェクトの次の既定値
+//
+#ifdef APSTUDIO_INVOKED
+#ifndef APSTUDIO_READONLY_SYMBOLS
+#define _APS_NEXT_RESOURCE_VALUE    310
+#define _APS_NEXT_CONTROL_VALUE     1000
+#define _APS_NEXT_SYMED_VALUE       310
+#define _APS_NEXT_COMMAND_VALUE     32771
+#endif
+#endif
+''',
+    'SampleApp.h': r'''#pragma once
+#include "pch.h"
+
+// アプリケーション本体 (UI 層)。ウィザードの MFC アプリ (SDI) と同じ構成 (CWinAppEx)。
+class SampleApp : public CWinAppEx
+{
+public:
+    SampleApp() noexcept;
+
+    BOOL InitInstance() override;
+
+    BOOL  m_bHiColorIcons;
+
+    virtual void PreLoadState();
+    virtual void LoadCustomState();
+    virtual void SaveCustomState();
+
+    afx_msg void OnAppAbout();
+    DECLARE_MESSAGE_MAP()
+};
+
+extern SampleApp theApp;
+''',
+    'SampleApp.cpp': r'''#include "pch.h"
+#include "afxwinappex.h"
+#include "afxdialogex.h"
+#include "SampleApp.h"
+#include "MainFrame.h"
+#include "SampleDoc.h"
+#include "SampleView.h"
+#include "Resource.h"
+
+BEGIN_MESSAGE_MAP(SampleApp, CWinAppEx)
+    ON_COMMAND(ID_APP_ABOUT, &SampleApp::OnAppAbout)
+    // 標準のファイル基本ドキュメント コマンド。
+    // CWinApp は、ID_FILE_NEW と ID_FILE_OPEN を割り当てない (ウィザードのアプリも、ここで割り当てている。TN022)。
+    // 割り当てがないと、コマンドが App まで届いても、ハンドラーが見つからず、メニュー項目が、常に、グレーアウトする。
+    ON_COMMAND(ID_FILE_NEW, &CWinAppEx::OnFileNew)
+    ON_COMMAND(ID_FILE_OPEN, &CWinAppEx::OnFileOpen)
+END_MESSAGE_MAP()
+
+SampleApp::SampleApp() noexcept
+{
+    m_bHiColorIcons = TRUE;
+
+    // TODO: 下のアプリケーション ID 文字列を一意の ID 文字列で置換する。推奨される
+    // 文字列の形式は CompanyName.ProductName.SubProduct.VersionInformation。
+    SetAppID(_T("@@NAME@@.AppID.NoVersion"));
+}
+
+// 唯一の SampleApp オブジェクト
+SampleApp theApp;
+
+BOOL SampleApp::InitInstance()
+{
+    // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
+
+    // ビジュアル スタイル (ComCtl32.dll Version 6 以降) のために、InitCommonControlsEx() が要る。
+    INITCOMMONCONTROLSEX InitCtrls;
+    InitCtrls.dwSize = sizeof(InitCtrls);
+    InitCtrls.dwICC = ICC_WIN95_CLASSES;
+    InitCommonControlsEx(&InitCtrls);
+
+    CWinAppEx::InitInstance();
+
+    EnableTaskbarInteraction(FALSE);
+
+    // 設定が格納されているレジストリ キーを変更する。
+    // TODO: 会社名または組織名などの適切な文字列に、この文字列を変更する。
+    SetRegistryKey(_T("アプリケーション ウィザードで生成されたローカル アプリケーション"));
+    LoadStdProfileSettings(4);  // 標準の INI ファイルのオプションをロードする (MRU を含む)
+
+    InitContextMenuManager();
+
+    InitKeyboardManager();
+
+    InitTooltipManager();
+    CMFCToolTipInfo ttParams;
+    ttParams.m_bVislManagerTheme = TRUE;
+    theApp.GetTooltipManager()->SetTooltipParams(AFX_TOOLTIP_TYPE_ALL,
+        RUNTIME_CLASS(CMFCToolTipCtrl), &ttParams);
+
+    // アプリケーション用のドキュメント テンプレートを登録する。ドキュメント テンプレートは、
+    // ドキュメント、フレーム ウィンドウ、ビューを結合する。
+    auto* pDocTemplate = new CSingleDocTemplate(
+        IDR_MAINFRAME,
+        RUNTIME_CLASS(SampleDoc),
+        RUNTIME_CLASS(MainFrame),       // メイン SDI フレーム ウィンドウ
+        RUNTIME_CLASS(SampleView));
+    AddDocTemplate(pDocTemplate);
+
+    // DDE、file open など標準のシェル コマンドのコマンド ラインを解析する。
+    CCommandLineInfo cmdInfo;
+    ParseCommandLine(cmdInfo);
+
+    // コマンド ラインで指定されたディスパッチ コマンドを処理する。
+    if (!ProcessShellCommand(cmdInfo))
+    {
+        return FALSE;
+    }
+
+    // メイン ウィンドウが初期化されたので、表示と更新を行う。
+    m_pMainWnd->ShowWindow(SW_SHOW);
+    m_pMainWnd->UpdateWindow();
+    return TRUE;
+}
+
+// アプリケーションのバージョン情報に使われる AboutDlg ダイアログ (ウィザードでは C 付きの名前。自作クラスには C を付けない)
+class AboutDlg : public CDialogEx
+{
+    DECLARE_DYNAMIC(AboutDlg)
+
+public:
+    AboutDlg() noexcept;
+
+    // ダイアログ データ
+#ifdef AFX_DESIGN_TIME
+    enum { IDD = IDD_ABOUTBOX };
+#endif
+
+protected:
+    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV サポート
+
+    DECLARE_MESSAGE_MAP()
+};
+
+IMPLEMENT_DYNAMIC(AboutDlg, CDialogEx)
+
+AboutDlg::AboutDlg() noexcept : CDialogEx(IDD_ABOUTBOX)
+{
+}
+
+void AboutDlg::DoDataExchange(CDataExchange* pDX)
+{
+    CDialogEx::DoDataExchange(pDX);
+}
+
+BEGIN_MESSAGE_MAP(AboutDlg, CDialogEx)
+END_MESSAGE_MAP()
+
+// ダイアログを実行するためのアプリケーション コマンド
+void SampleApp::OnAppAbout()
+{
+    AboutDlg aboutDlg;
+    aboutDlg.DoModal();
+}
+
+// SampleApp のカスタマイズの読み込みと保存方法
+
+void SampleApp::PreLoadState()
+{
+    BOOL bNameValid;
+    CString strName;
+    bNameValid = strName.LoadString(IDS_EDIT_MENU);
+    ASSERT(bNameValid);
+    GetContextMenuManager()->AddMenu(strName, IDR_POPUP_EDIT);
+}
+
+void SampleApp::LoadCustomState()
+{
+}
+
+void SampleApp::SaveCustomState()
+{
+}
+''',
+    'MainFrame.h': r'''#pragma once
+#include "pch.h"
+
+class MainFrame : public CFrameWndEx
+{
+protected: // シリアル化からのみ作成する。
+    MainFrame() noexcept;
+    DECLARE_DYNCREATE(MainFrame)
+
+public:
+    virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+
+    // 実装
+public:
+    virtual ~MainFrame();
+#ifdef _DEBUG
+    virtual void AssertValid() const;
+    virtual void Dump(CDumpContext& dc) const;
+#endif
+
+protected:  // コントロール バー用メンバー
+    CMFCMenuBar       m_wndMenuBar;
+    CMFCToolBar       m_wndToolBar;
+    CMFCStatusBar     m_wndStatusBar;
+
+    // 生成された、メッセージ割り当て関数
+protected:
+    afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+    afx_msg void OnViewCustomize();
+    afx_msg LRESULT OnToolbarCreateNew(WPARAM wp, LPARAM lp);
+    DECLARE_MESSAGE_MAP()
+};
+''',
+    'MainFrame.cpp': r'''#include "pch.h"
+#include "SampleApp.h"
+#include "MainFrame.h"
+#include "Resource.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+IMPLEMENT_DYNCREATE(MainFrame, CFrameWndEx)
+
+BEGIN_MESSAGE_MAP(MainFrame, CFrameWndEx)
+    ON_WM_CREATE()
+    ON_COMMAND(ID_VIEW_CUSTOMIZE, &MainFrame::OnViewCustomize)
+    ON_REGISTERED_MESSAGE(AFX_WM_CREATETOOLBAR, &MainFrame::OnToolbarCreateNew)
+END_MESSAGE_MAP()
+
+static UINT indicators[] =
+{
+    ID_SEPARATOR,           // ステータス ライン インジケーター
+    ID_INDICATOR_CAPS,
+    ID_INDICATOR_NUM,
+    ID_INDICATOR_SCRL,
+};
+
+// MainFrame コンストラクション/デストラクション
+
+MainFrame::MainFrame() noexcept
+{
+}
+
+MainFrame::~MainFrame()
+{
+}
+
+int MainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+    if (CFrameWndEx::OnCreate(lpCreateStruct) == -1)
+        return -1;
+
+    BOOL bNameValid;
+
+    if (!m_wndMenuBar.Create(this))
+    {
+        TRACE0("メニュー バーを作成できませんでした\n");
+        return -1;      // 作成できない場合
+    }
+
+    m_wndMenuBar.SetPaneStyle(m_wndMenuBar.GetPaneStyle() | CBRS_SIZE_DYNAMIC | CBRS_TOOLTIPS | CBRS_FLYBY);
+
+    // アクティブになったときメニュー バーにフォーカスを移動しない
+    CMFCPopupMenu::SetForceMenuFocus(FALSE);
+
+    if (!m_wndToolBar.CreateEx(this, TBSTYLE_FLAT, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_GRIPPER | CBRS_TOOLTIPS | CBRS_FLYBY | CBRS_SIZE_DYNAMIC) ||
+        !m_wndToolBar.LoadToolBar(theApp.m_bHiColorIcons ? IDR_MAINFRAME_256 : IDR_MAINFRAME))
+    {
+        TRACE0("ツール バーの作成に失敗しました。\n");
+        return -1;      // 作成できない場合
+    }
+
+    CString strToolBarName;
+    bNameValid = strToolBarName.LoadString(IDS_TOOLBAR_STANDARD);
+    ASSERT(bNameValid);
+    m_wndToolBar.SetWindowText(strToolBarName);
+
+    CString strCustomize;
+    bNameValid = strCustomize.LoadString(IDS_TOOLBAR_CUSTOMIZE);
+    ASSERT(bNameValid);
+    m_wndToolBar.EnableCustomizeButton(TRUE, ID_VIEW_CUSTOMIZE, strCustomize);
+
+    if (!m_wndStatusBar.Create(this))
+    {
+        TRACE0("ステータス バーの作成に失敗しました。\n");
+        return -1;      // 作成できない場合
+    }
+    m_wndStatusBar.SetIndicators(indicators, sizeof(indicators) / sizeof(UINT));
+
+    // TODO: ツール バーおよびメニュー バーをドッキング可能にしない場合は、この 5 つの行を削除する
+    m_wndMenuBar.EnableDocking(CBRS_ALIGN_ANY);
+    m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
+    EnableDocking(CBRS_ALIGN_ANY);
+    DockPane(&m_wndMenuBar);
+    DockPane(&m_wndToolBar);
+
+    // Visual Studio 2005 スタイルのドッキング ウィンドウ動作を有効にする
+    CDockingManager::SetDockingMode(DT_SMART);
+    // Visual Studio 2005 スタイルのドッキング ウィンドウの自動非表示動作を有効にする
+    EnableAutoHidePanes(CBRS_ALIGN_ANY);
+
+    // すべてのユーザー インターフェイス要素の描画に使用される、ビジュアル マネージャーを設定する
+    CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerVS2008));
+
+    // ツール バーとドッキング ウィンドウ メニューの配置変更を有効にする
+    EnablePaneMenu(TRUE, ID_VIEW_CUSTOMIZE, strCustomize, ID_VIEW_TOOLBAR);
+
+    // ツール バーのクイック (Alt キーを押しながらドラッグ) カスタマイズを有効にする
+    CMFCToolBar::EnableQuickCustomization();
+
+    return 0;
+}
+
+BOOL MainFrame::PreCreateWindow(CREATESTRUCT& cs)
+{
+    if (!CFrameWndEx::PreCreateWindow(cs))
+        return FALSE;
+    // TODO: この位置で CREATESTRUCT cs を修正して Window クラスまたはスタイルを修正する。
+
+    return TRUE;
+}
+
+// MainFrame の診断
+
+#ifdef _DEBUG
+void MainFrame::AssertValid() const
+{
+    CFrameWndEx::AssertValid();
+}
+
+void MainFrame::Dump(CDumpContext& dc) const
+{
+    CFrameWndEx::Dump(dc);
+}
+#endif //_DEBUG
+
+// MainFrame メッセージ ハンドラー
+
+void MainFrame::OnViewCustomize()
+{
+    CMFCToolBarsCustomizeDialog* pDlgCust = new CMFCToolBarsCustomizeDialog(this, TRUE /* メニューをスキャンする */);
+    pDlgCust->Create();
+}
+
+LRESULT MainFrame::OnToolbarCreateNew(WPARAM wp, LPARAM lp)
+{
+    LRESULT lres = CFrameWndEx::OnToolbarCreateNew(wp, lp);
+    if (lres == 0)
+    {
+        return 0;
+    }
+
+    CMFCToolBar* pUserToolbar = (CMFCToolBar*)lres;
+    ASSERT_VALID(pUserToolbar);
+
+    BOOL bNameValid;
+    CString strCustomize;
+    bNameValid = strCustomize.LoadString(IDS_TOOLBAR_CUSTOMIZE);
+    ASSERT(bNameValid);
+
+    pUserToolbar->EnableCustomizeButton(TRUE, ID_VIEW_CUSTOMIZE, strCustomize);
+    return lres;
+}
+''',
+    'SampleDoc.h': r'''#pragma once
+#include "pch.h"
+
+class SampleDoc : public CDocument
+{
+protected: // シリアル化からのみ作成する。
+    SampleDoc() noexcept;
+    DECLARE_DYNCREATE(SampleDoc)
+
+    // オーバーライド
+public:
+    virtual BOOL OnNewDocument();
+    virtual void Serialize(CArchive& ar);
+
+    // 実装
+public:
+    virtual ~SampleDoc();
+#ifdef _DEBUG
+    virtual void AssertValid() const;
+    virtual void Dump(CDumpContext& dc) const;
+#endif
+
+    // 生成された、メッセージ割り当て関数
+protected:
+    DECLARE_MESSAGE_MAP()
+};
+''',
+    'SampleDoc.cpp': r'''#include "pch.h"
+#include "SampleApp.h"
+#include "SampleDoc.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+IMPLEMENT_DYNCREATE(SampleDoc, CDocument)
+
+BEGIN_MESSAGE_MAP(SampleDoc, CDocument)
+END_MESSAGE_MAP()
+
+// SampleDoc コンストラクション/デストラクション
+
+SampleDoc::SampleDoc() noexcept
+{
+    // TODO: この位置に 1 度だけ呼ばれる構築用のコードを追加する。
+}
+
+SampleDoc::~SampleDoc()
+{
+}
+
+BOOL SampleDoc::OnNewDocument()
+{
+    if (!CDocument::OnNewDocument())
+        return FALSE;
+
+    // TODO: この位置に再初期化処理を追加する。
+    // (SDI ドキュメントはこのドキュメントを再利用する。)
+
+    return TRUE;
+}
+
+// SampleDoc のシリアル化
+
+void SampleDoc::Serialize(CArchive& ar)
+{
+    if (ar.IsStoring())
+    {
+        // TODO: 格納するコードをここに追加する。
+    }
+    else
+    {
+        // TODO: 読み込むコードをここに追加する。
+    }
+}
+
+// SampleDoc の診断
+
+#ifdef _DEBUG
+void SampleDoc::AssertValid() const
+{
+    CDocument::AssertValid();
+}
+
+void SampleDoc::Dump(CDumpContext& dc) const
+{
+    CDocument::Dump(dc);
+}
+#endif //_DEBUG
+''',
+    'SampleView.h': r'''#pragma once
+#include "pch.h"
+#include "SampleDoc.h"
+
+class SampleView : public CView
+{
+protected: // シリアル化からのみ作成する。
+    SampleView() noexcept;
+    DECLARE_DYNCREATE(SampleView)
+
+    // 属性
+public:
+    SampleDoc* GetDocument() const;
+
+    // オーバーライド
+public:
+    virtual void OnDraw(CDC* pDC);  // このビューを描画するためにオーバーライドされる。
+
+    // 実装
+public:
+    virtual ~SampleView();
+#ifdef _DEBUG
+    virtual void AssertValid() const;
+    virtual void Dump(CDumpContext& dc) const;
+#endif
+
+    // 生成された、メッセージ割り当て関数
+protected:
+    afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
+    afx_msg void OnContextMenu(CWnd* pWnd, CPoint point);
+    DECLARE_MESSAGE_MAP()
+};
+
+#ifndef _DEBUG  // SampleView.cpp のデバッグ バージョン
+inline SampleDoc* SampleView::GetDocument() const
+{
+    return reinterpret_cast<SampleDoc*>(m_pDocument);
+}
+#endif
+''',
+    'SampleView.cpp': r'''#include "pch.h"
+#include "SampleApp.h"
+#include "SampleDoc.h"
+#include "SampleView.h"
+#include "Resource.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+IMPLEMENT_DYNCREATE(SampleView, CView)
+
+BEGIN_MESSAGE_MAP(SampleView, CView)
+    ON_WM_CONTEXTMENU()
+    ON_WM_RBUTTONUP()
+END_MESSAGE_MAP()
+
+// SampleView コンストラクション/デストラクション
+
+SampleView::SampleView() noexcept
+{
+    // TODO: 構築コードをここに追加する。
+}
+
+SampleView::~SampleView()
+{
+}
+
+// SampleView の描画
+
+void SampleView::OnDraw(CDC* pDC)
+{
+    SampleDoc* pDoc = GetDocument();
+    ASSERT_VALID(pDoc);
+    if (!pDoc)
+        return;
+
+    // TODO: この場所にネイティブ データ用の描画コードを追加する。
+    pDC->TextOut(10, 10, _T("@@NAME@@"));
+}
+
+void SampleView::OnRButtonUp(UINT /* nFlags */, CPoint point)
+{
+    ClientToScreen(&point);
+    OnContextMenu(this, point);
+}
+
+void SampleView::OnContextMenu(CWnd* /* pWnd */, CPoint point)
+{
+    theApp.GetContextMenuManager()->ShowPopupMenu(IDR_POPUP_EDIT, point.x, point.y, this, TRUE);
+}
+
+// SampleView の診断
+
+#ifdef _DEBUG
+void SampleView::AssertValid() const
+{
+    CView::AssertValid();
+}
+
+void SampleView::Dump(CDumpContext& dc) const
+{
+    CView::Dump(dc);
+}
+
+SampleDoc* SampleView::GetDocument() const // デバッグ以外のバージョンはインラインである。
+{
+    ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(SampleDoc)));
+    return (SampleDoc*)m_pDocument;
+}
+#endif //_DEBUG
+''',
+}
+
 MFC_RC_TAIL = '''
 #ifndef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -351,30 +878,321 @@ MFC_RC_TAIL = '''
 #endif
 '''
 
-MFC_RC = '''#include "Resource.h"
+MFC_MRU_STRINGS = ''.join(f'    ID_FILE_MRU_FILE{i:<8}"指定のドキュメントを開く"\n' for i in range(1, 17))
+
+MFC_RC = r'''#include "Resource.h"
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
 #include "afxres.h"
+#include "verrsrc.h"
 
 // この .rc は、UTF-8 (BOM 付き) で書く。リソース コンパイラーに、UTF-8 だと伝える (日本語の文言を含むため)。
 #pragma code_page(65001)
 
 LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 
-IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
-IDR_SAMPLETYPE ICON "res\\\\@@NAME@@Doc.ico"
+/////////////////////////////////////////////////////////////////////////////
+//
+// アイコン
+//
+
+// アプリケーションのアイコンをすべてのシステム上で維持するために、最も小さい ID 値のアイコンが最初に配置される。
+IDR_MAINFRAME           ICON         "res\\@@NAME@@.ico"
+IDR_SAMPLETYPE          ICON         "res\\@@NAME@@Doc.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ビットマップ
+//
+
+IDR_MAINFRAME           BITMAP                  "res\\Toolbar.bmp"
+IDR_MAINFRAME_256       BITMAP                  "res\\Toolbar256.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ツール バー
+//
+
+IDR_MAINFRAME TOOLBAR 16, 15
+BEGIN
+    BUTTON      ID_FILE_NEW
+    BUTTON      ID_FILE_OPEN
+    BUTTON      ID_FILE_SAVE
+    SEPARATOR
+    BUTTON      ID_EDIT_CUT
+    BUTTON      ID_EDIT_COPY
+    BUTTON      ID_EDIT_PASTE
+    SEPARATOR
+    BUTTON      ID_APP_ABOUT
+END
+
+IDR_MAINFRAME_256 TOOLBAR 16, 15
+BEGIN
+    BUTTON      ID_FILE_NEW
+    BUTTON      ID_FILE_OPEN
+    BUTTON      ID_FILE_SAVE
+    SEPARATOR
+    BUTTON      ID_EDIT_CUT
+    BUTTON      ID_EDIT_COPY
+    BUTTON      ID_EDIT_PASTE
+    SEPARATOR
+    BUTTON      ID_APP_ABOUT
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// メニュー
+//
 
 IDR_MAINFRAME MENU
 BEGIN
     POPUP "ファイル(&F)"
     BEGIN
-        MENUITEM "アプリケーションの終了(&X)",   ID_APP_EXIT
+        MENUITEM "新規作成(&N)\tCtrl+N",                ID_FILE_NEW
+        MENUITEM "開く(&O)...\tCtrl+O",                 ID_FILE_OPEN
+        MENUITEM "上書き保存(&S)\tCtrl+S",              ID_FILE_SAVE
+        MENUITEM "名前を付けて保存(&A)...",             ID_FILE_SAVE_AS
+        MENUITEM SEPARATOR
+        MENUITEM "最近使ったファイル",                  ID_FILE_MRU_FILE1,GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "アプリケーションの終了(&X)",          ID_APP_EXIT
     END
+    POPUP "編集(&E)"
+    BEGIN
+        MENUITEM "元に戻す(&U)\tCtrl+Z",                ID_EDIT_UNDO
+        MENUITEM SEPARATOR
+        MENUITEM "切り取り(&T)\tCtrl+X",                ID_EDIT_CUT
+        MENUITEM "コピー(&C)\tCtrl+C",                  ID_EDIT_COPY
+        MENUITEM "貼り付け(&P)\tCtrl+V",                ID_EDIT_PASTE
+    END
+    POPUP "表示(&V)"
+    BEGIN
+        POPUP "ツール バーとドッキング ウィンドウ(&T)"
+        BEGIN
+            MENUITEM "<placeholder>",                   ID_VIEW_TOOLBAR
+        END
+        MENUITEM "ステータス バー(&S)",                 ID_VIEW_STATUS_BAR
+    END
+    POPUP "ヘルプ(&H)"
+    BEGIN
+        MENUITEM "@@NAME@@について(&A)...",            ID_APP_ABOUT
+    END
+END
+
+IDR_POPUP_EDIT MENU
+BEGIN
+    POPUP "編集"
+    BEGIN
+        MENUITEM "切り取り(&T)\tCtrl+X",                ID_EDIT_CUT
+        MENUITEM "コピー(&C)\tCtrl+C",                  ID_EDIT_COPY
+        MENUITEM "貼り付け(&P)\tCtrl+V",                ID_EDIT_PASTE
+    END
+END
+
+IDR_HELP_MENU MENU
+BEGIN
+    MENUITEM "@@NAME@@について(&A)...",                ID_APP_ABOUT
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// アクセラレータ
+//
+
+IDR_MAINFRAME ACCELERATORS
+BEGIN
+    "N",            ID_FILE_NEW,            VIRTKEY,CONTROL
+    "O",            ID_FILE_OPEN,           VIRTKEY,CONTROL
+    "S",            ID_FILE_SAVE,           VIRTKEY,CONTROL
+    "Z",            ID_EDIT_UNDO,           VIRTKEY,CONTROL
+    "X",            ID_EDIT_CUT,            VIRTKEY,CONTROL
+    "C",            ID_EDIT_COPY,           VIRTKEY,CONTROL
+    "V",            ID_EDIT_PASTE,          VIRTKEY,CONTROL
+    VK_BACK,        ID_EDIT_UNDO,           VIRTKEY,ALT
+    VK_DELETE,      ID_EDIT_CUT,            VIRTKEY,SHIFT
+    VK_INSERT,      ID_EDIT_COPY,           VIRTKEY,CONTROL
+    VK_INSERT,      ID_EDIT_PASTE,          VIRTKEY,SHIFT
+    VK_F6,          ID_NEXT_PANE,           VIRTKEY
+    VK_F6,          ID_PREV_PANE,           VIRTKEY,SHIFT
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ダイアログ
+//
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "@@NAME@@ について"
+FONT 9, "MS UI Gothic"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    LTEXT           "@@NAME@@、バージョン 1.0",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "Copyright (C) 2026",IDC_STATIC,42,26,114,8
+    DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// バージョン
+//
+
+VS_VERSION_INFO     VERSIONINFO
+  FILEVERSION       1,0,0,1
+  PRODUCTVERSION    1,0,0,1
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+ FILEFLAGS VS_FF_DEBUG
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041104B0"
+        BEGIN
+            VALUE "CompanyName", "TODO: <会社名>"
+            VALUE "FileDescription", "@@NAME@@"
+            VALUE "FileVersion",     "1.0.0.1"
+            VALUE "InternalName",    "@@NAME@@.exe"
+            VALUE "LegalCopyright", "TODO: (c) <Company name>.  All rights reserved."
+            VALUE "OriginalFilename","@@NAME@@.exe"
+            VALUE "ProductName", "TODO: <製品名>"
+            VALUE "ProductVersion",  "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0411, 1200
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ストリング テーブル
+//
+
+STRINGTABLE
+BEGIN
+    IDR_MAINFRAME           "@@NAME@@\n\n@@NAME@@\n\n\n@@NAME@@.Document\n@@NAME@@ Document"
 END
 
 STRINGTABLE
 BEGIN
-    IDR_MAINFRAME           "@@NAME@@\\n\\n@@NAME@@\\n\\n\\n@@NAME@@.Document\\n@@NAME@@ Document"
+    AFX_IDS_APP_TITLE       "@@NAME@@"
+    AFX_IDS_IDLEMESSAGE     "準備完了"
 END
-''' + MFC_RC_TAIL
+
+STRINGTABLE
+BEGIN
+    ID_INDICATOR_EXT        "EXT"
+    ID_INDICATOR_CAPS       "CAP"
+    ID_INDICATOR_NUM        "NUM"
+    ID_INDICATOR_SCRL       "SCRL"
+    ID_INDICATOR_OVR        "OVR"
+    ID_INDICATOR_REC        "REC"
+END
+
+STRINGTABLE
+BEGIN
+    ID_FILE_NEW             "新しいドキュメントを作成\n新規作成"
+    ID_FILE_OPEN            "既存のドキュメントを開く\n開く"
+    ID_FILE_CLOSE           "作業中のドキュメントを閉じる\n閉じる"
+    ID_FILE_SAVE            "作業中のドキュメントを上書きして保存\n保存"
+    ID_FILE_SAVE_AS         "作業中のドキュメントを新しい名前で保存\n名前をつけて保存"
+    ID_APP_ABOUT            "プログラム情報、バージョン、著作権を表示します。\nバージョン情報"
+    ID_APP_EXIT             "アプリケーションを終了し、ドキュメントの保存を指示\n終了"
+@@MRU@@    ID_NEXT_PANE            "次のウィンドウに切り替える\n次のペイン"
+    ID_PREV_PANE            "前のウィンドウに切り替える\n前のペイン"
+    ID_WINDOW_SPLIT         "作業中のウィンドウを分割\n分割"
+    ID_EDIT_CLEAR           "選択範囲を消去\n消去"
+    ID_EDIT_CLEAR_ALL       "すべて消去\nすべて消去"
+    ID_EDIT_COPY            "選択範囲をコピーしてクリップボードに保存\nコピー"
+    ID_EDIT_CUT             "選択範囲を切り取ってクリップボードに保存\n切り取り"
+    ID_EDIT_FIND            "指定した文字列の検索\n検索"
+    ID_EDIT_PASTE           "クリップボードの内容を貼り付け\n貼り付け"
+    ID_EDIT_REPEAT          "直前に行った動作を繰り返す\n繰り返し"
+    ID_EDIT_REPLACE         "指定した文字列を他の文字列で置換\n置換"
+    ID_EDIT_SELECT_ALL      "ファイル内のすべてを選択\nすべて選択"
+    ID_EDIT_UNDO            "直前に行った動作を元に戻す\n元に戻す"
+    ID_EDIT_REDO            "取り消した操作をやり直す\nやり直す"
+    ID_VIEW_STATUS_BAR      "ステータス バーの表示/非表示\nステータス バーの表示切り替え"
+END
+
+STRINGTABLE
+BEGIN
+    AFX_IDS_SCSIZE          "ウィンドウのサイズを変更"
+    AFX_IDS_SCMOVE          "ウィンドウの位置を変更"
+    AFX_IDS_SCMINIMIZE      "ウィンドウを最小化する"
+    AFX_IDS_SCMAXIMIZE      "ウィンドウを最大化する"
+    AFX_IDS_SCNEXTWINDOW    "次のドキュメント ウィンドウに切り替える"
+    AFX_IDS_SCPREVWINDOW    "前のドキュメント ウィンドウに切り替える"
+    AFX_IDS_SCCLOSE         "作業中のウィンドウを閉じ、変更したドキュメントの保存を指示"
+    AFX_IDS_SCRESTORE       "ウィンドウを通常のサイズに戻す"
+    AFX_IDS_SCTASKLIST      "タスク一覧をアクティブにする"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_STATUS_PANE1        "ペイン 1"
+    IDS_STATUS_PANE2        "ペイン 2"
+    IDS_TOOLBAR_STANDARD    "標準"
+    IDS_TOOLBAR_CUSTOMIZE   "カスタマイズ..."
+    IDS_EDIT_MENU           "編集"
+END
+'''.replace('@@MRU@@', MFC_MRU_STRINGS) + MFC_RC_TAIL
+
+
+def make_bmp(width, height, pixel):
+    """24 ビットの BMP (下の行から、各行は 4 バイトの倍数)。pixel(x, y) -> (r, g, b)。y は上から数える。"""
+    import struct
+    row = (width * 3 + 3) // 4 * 4
+    body = bytearray()
+    for y in range(height - 1, -1, -1):
+        line = bytearray()
+        for x in range(width):
+            r, g, b = pixel(x, y)
+            line += bytes((b, g, r))
+        body += line + bytes(row - len(line))
+    head = b'BM' + struct.pack('<IHHI', 54 + len(body), 0, 0, 54) \
+        + struct.pack('<IiiHHIIiiII', 40, width, height, 1, 24, 0, len(body), 0, 0, 0, 0)
+    return head + bytes(body)
+
+
+# ツール バーのボタンの絵 (16 x 15)。背景は、ウィザードと同じ RGB(192, 192, 192) (透過色)。あとで、本物の絵に差し替える (置き場所の確保用)。
+_TB_BG = (192, 192, 192)
+_TB_ICONS = [  # (x0, y0, x1, y1, 色) の四角 (外側の枠 + 中身)。新規作成・開く・保存・切り取り・コピー・貼り付け・バージョン情報
+    [(3, 1, 12, 13, (60, 60, 60)), (4, 2, 11, 12, (255, 255, 255))],
+    [(1, 4, 14, 13, (120, 90, 0)), (2, 5, 13, 12, (240, 200, 70))],
+    [(2, 1, 13, 13, (30, 50, 120)), (4, 2, 11, 6, (255, 255, 255)), (5, 9, 10, 13, (150, 160, 190))],
+    [(3, 1, 5, 8, (170, 30, 30)), (10, 1, 12, 8, (170, 30, 30)), (4, 8, 11, 13, (90, 90, 90))],
+    [(2, 1, 9, 9, (60, 60, 60)), (3, 2, 8, 8, (255, 255, 255)), (6, 5, 13, 13, (60, 60, 60)), (7, 6, 12, 12, (255, 255, 255))],
+    [(3, 3, 12, 13, (110, 70, 20)), (5, 1, 10, 4, (90, 90, 90)), (4, 5, 11, 12, (255, 255, 255))],
+    [(2, 2, 13, 13, (30, 70, 160)), (3, 3, 12, 12, (90, 150, 230)), (7, 5, 8, 6, (255, 255, 255)), (7, 8, 8, 11, (255, 255, 255))],
+]
+
+
+def make_toolbar_bmp():
+    def pixel(x, y):
+        icon, cx = x // 16, x % 16
+        c = _TB_BG
+        for x0, y0, x1, y1, col in _TB_ICONS[icon]:
+            if x0 <= cx <= x1 and y0 <= y <= y1:
+                c = col
+        return c
+    return make_bmp(16 * len(_TB_ICONS), 15, pixel)
+
+
+def make_user_images_bmp(n=11):
+    """userimages.bmp (ウィザードの構成。ツール バーのカスタマイズで、利用者が使う絵の置き場所)。16 x 15 の絵が、n 個。"""
+    def pixel(x, y):
+        cx = x % 16
+        return (90, 150, 230) if 3 <= cx <= 12 and 3 <= y <= 11 else _TB_BG
+    return make_bmp(16 * n, 15, pixel)
 
 # ---- MFC MDI ----
 MFC_MDI_FILES = {
@@ -484,10 +1302,10 @@ class ChildFrame : public CMDIChildWnd
 
 IMPLEMENT_DYNCREATE(ChildFrame, CMDIChildWnd)
 ''',
-    'SampleDoc.h': MFC_FILES['SampleDoc.h'],
-    'SampleDoc.cpp': MFC_FILES['SampleDoc.cpp'],
-    'SampleView.h': MFC_FILES['SampleView.h'],
-    'SampleView.cpp': MFC_FILES['SampleView.cpp'],
+    'SampleDoc.h': MFC_PLAIN_DOCVIEW['SampleDoc.h'],
+    'SampleDoc.cpp': MFC_PLAIN_DOCVIEW['SampleDoc.cpp'],
+    'SampleView.h': MFC_PLAIN_DOCVIEW['SampleView.h'],
+    'SampleView.cpp': MFC_PLAIN_DOCVIEW['SampleView.cpp'],
 }
 
 MFC_MDI_RC = '''#include "Resource.h"
@@ -1307,6 +2125,11 @@ def main_files(name, mtype, ns, toolset, guid, sm_in_main=True, incs=()):
         if mtype != 'mfc-dialog':
             binaries[f'{name}/res/{name}Doc.ico'] = make_ico((0x3A, 0x8F, 0x4E))
             res_items.append(f'res\\{name}Doc.ico')
+        if mtype == 'mfc':   # SDI: ウィザードと同じ、ツール バーのビットマップ (置き場所の確保用の絵)
+            for bmp, data in (('Toolbar.bmp', make_toolbar_bmp()), ('Toolbar256.bmp', make_toolbar_bmp()),
+                              ('userimages.bmp', make_user_images_bmp())):
+                binaries[f'{name}/res/{bmp}'] = data
+                res_items.append(f'res\\{bmp}')
         res_items.append(f'res\\{name}.rc2')
         items = list(mfc_files) + extra + [rc] + res_items
         files[f'{name}/{name}.vcxproj'] = AL.vcxproj(name, guid, 'Application', toolset, items, [], list(incs), '_WINDOWS;', 'Windows', mfc=True, wizard=True)

@@ -18,7 +18,7 @@ done
 own() { # $1=フォルダ。生成された .h / .cpp の、C で始まる識別子のうち、MFC の標準クラスでないもの
     find "$1" -type f \( -name '*.h' -o -name '*.cpp' \) -not -path '*/vcpkg_installed/*' -print0 \
       | xargs -0 grep -ohE '\bC[A-Z][A-Za-z0-9]+\b' 2>/dev/null | sort -u \
-      | grep -vxE 'CWinApp|CWinAppEx|CDocument|CView|CFormView|CFrameWnd|CMDIFrameWnd|CMDIChildWnd|CDialog|CDialogEx|CWnd|CObject|CString|CStringA|CStringW|CDC|CRect|CPoint|CSize|CEdit|CButton|CStatic|CCmdUI|CCmdTarget|CDataExchange|CRuntimeClass|CCommandLineInfo|CSingleDocTemplate|CMultiDocTemplate|CDocTemplate|CCreateContext|CDynLinkLibrary|CPaintDC|CClientDC|CBrush|CFont|CMenu|CToolBar|CStatusBar|CMemoryException|CException|CWaitCursor|CFile|CArchive|CTime|CPtrArray|CObArray|CMap|CArray|CList|CStringArray|CTypedPtrArray|CComPtr|CCriticalSection|CSingleLock|CWinThread|CMFCButton|CShellManager|CAfx[A-Za-z]*|CMFC[A-Za-z]*|CRT|CTL'
+      | grep -vxE 'CWinApp|CWinAppEx|CDocument|CView|CFormView|CFrameWnd|CMDIFrameWnd|CMDIChildWnd|CDialog|CDialogEx|CWnd|CObject|CString|CStringA|CStringW|CDC|CRect|CPoint|CSize|CEdit|CButton|CStatic|CCmdUI|CCmdTarget|CDataExchange|CRuntimeClass|CCommandLineInfo|CSingleDocTemplate|CMultiDocTemplate|CDocTemplate|CCreateContext|CDynLinkLibrary|CPaintDC|CClientDC|CBrush|CFont|CMenu|CToolBar|CStatusBar|CMemoryException|CException|CWaitCursor|CFile|CArchive|CTime|CPtrArray|CObArray|CMap|CArray|CList|CStringArray|CTypedPtrArray|CComPtr|CCriticalSection|CSingleLock|CWinThread|CMFCButton|CShellManager|CAfx[A-Za-z]*|CMFC[A-Za-z0-9]*|CFrameWndEx|CDockingManager|CDumpContext|CREATESTRUCT|CRT|CTL'
 }
 for ty in mfc mfc-mdi mfc-dialog; do
   n="app_${ty//-/_}"

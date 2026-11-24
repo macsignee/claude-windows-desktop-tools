@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.103.0] 2026-11-24 (`/new-solution --type mfc` (SDI) の初期状態を、Visual Studio のウィザードの見た目と操作に寄せる。MDI・ダイアログは変えない)
+
+- **決定 (ユーザー、2026-11-24):** 方針 A「見た目を寄せる」。基準は、ウィザードの SDI (`ClaudePlayground\MFCSDITemplate`。MFC アプリケーション、SDI、メニュー バーとツール バー、ステータス バー)。
+- **寄せたもの:** `CWinAppEx` (`m_bHiColorIcons`、`PreLoadState` 系、MRU = `LoadStdProfileSettings(4)`、コンテキスト メニュー・キーボード・ツールヒントの各マネージャー、`ParseCommandLine`)、`CFrameWndEx` (`CMFCMenuBar`・`CMFCToolBar`・`CMFCStatusBar`、ドッキング、`CMFCVisualManagerVS2008`、カスタマイズ)、メニュー (ファイル・編集・表示・ヘルプ、右クリックの編集メニュー)、アクセラレータ、バージョン情報 (`AboutDlg`)、バージョン リソース、文字列リソース (日本語)、`Resource.h` の ID、`res\Toolbar.bmp`・`Toolbar256.bmp`・`userimages.bmp` (置き場所の確保用の絵)、文書の `Serialize`、ビューの右クリック メニューと `GetDocument()`。`framework.h` に `afxcontrolbars.h`。
+- **寄せなかったもの (決定済み):** `C` 接頭辞 (バージョン情報も `AboutDlg`)、x64 のみ (Win32 の構成なし)、印刷・印刷プレビュー (ツール バーの印刷ボタンも省いた。ボタンは 7 個)、OLE (`AfxOleInit`・`afxdisp.h`)、`SHARED_HANDLERS`、ローカライズされた `afxres.rc` の取り込み (`l.JPN`。言語パックがない環境で、ビルドが失敗しないように)。
+- **変えなかったもの:** DPI 認識 (`.vcxproj`)、`ID_FILE_NEW` / `ID_FILE_OPEN` の結びつけ (TN022 のコメントごと)、`.rc` は UTF-8 (BOM 付き)、`DECLARE_DYNAMIC` (`mfc-check` DEC001)。
+- **MDI・ダイアログ:** 変えない。MDI は、素の文書とビュー (`MFC_PLAIN_DOCVIEW`) を使う。
+- **テスト:** `tests/mfc_sdi_wizard_look_test.sh` を足した (先に Red を確認。47 件)。`mfc_app_commands_test.sh` (`CWinAppEx`、メッセージマップの位置)・`mfc_class_names_test.sh` (標準クラスの許可リスト)・`mfc_wizard_layout_test.sh` (`.rc` の空白) を、新しい SDI に合わせた。
+- **未確認 (実機。TEST-PLAN 2-65):** 生成した SDI のビルドと、起動した画面 (メニュー・ツール バー・ステータス バー・バージョン情報・「開く」「保存」)。WSL に C++ のコンパイラがないため、WSL では確認していない。
+
 ## [2.102.7] 2026-11-24 (引き継ぎ文書 `docs/HANDOFF-2026-11-24.md` を足す。文書だけ)
 
 - 2026-11-23〜24 の作業 (v2.100.0〜v2.102.6、PR #237〜#247) の引き継ぎ。約束事の追加分 (ブランチの確認、Red 先行、PowerShell は WSL で実行できない、確認の進め方、Skill を名前で呼ぶ)、現在の状態 (実機の確認)、決定事項、残り、技術メモ (サンドボックスの `config.lock` と空ファイル、ステップ実行の動き、`git-remote`)、次のセッションの最初の依頼文。
