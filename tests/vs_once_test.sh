@@ -256,5 +256,7 @@ ok "vs-ide.ps1: still has the UTF-8 BOM after the edit" "$([ "$(head -c 3 "$PS1"
 ok "vs-ide.ps1 (a): inspect right after debug waits extra for break when the app is still running (VsInspectExtraWaitSec), only when debug was started in the same run" "$(grep -q 'VsInspectExtraWaitSec' "$PS1" && grep -q 'debugStarted' "$PS1" && [ "$(grep -c 'debugStarted' "$PS1")" -ge 3 ] && echo 1 || echo 0)"
 ok "vs-ide.ps1 (a): the extra wait is bounded (a while loop with a deadline, not an endless wait)" "$(grep -A4 'VsInspectExtraWaitSec)' "$PS1" | grep -q 'Get-Date' && echo 1 || echo 0)"
 
+ok "vs-ide.ps1 (a): the extra wait also waits through 'unknown' (the mode reads unknown for a moment just before break; 実機 2026-11-24 v2.104.2)" "$(grep -A4 'VsInspectExtraWaitSec)' "$PS1" | grep -q "in @('run', 'unknown')" && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

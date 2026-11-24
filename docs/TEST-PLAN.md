@@ -1379,4 +1379,4 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
-| IM7 | VS で、デバッグを止めてから、「`--debug --inspect` を実行して」を、起動が遅くなる状況 (ビルド直後、初回) で数回 | 20 秒でブレークに届かなくても、`INSPECT_SKIP` にならず、`NOTE: the app was still starting` のあとに、`LOCALS:` などが出る。ブレークポイントがない場合は、40 秒待って、`INSPECT_SKIP:` になる | 未確認 |
+| IM7 | VS で、デバッグを止めてから、「`--debug --inspect` を実行して」を、起動が遅くなる状況 (ビルド直後、初回) で数回 | 20 秒でブレークに届かなくても、`INSPECT_SKIP` にならず、`NOTE: the app was still starting` のあとに、`LOCALS:` などが出る。ブレークポイントがない場合は、40 秒待って、`INSPECT_SKIP:` になる | 1 回目 (v2.104.2): 待ちに入ったが、ブレーク直前の `unknown` で待ちを終え、`INSPECT_SKIP: the mode is unknown` になった。v2.104.3 で直した。**再確認は未** |
