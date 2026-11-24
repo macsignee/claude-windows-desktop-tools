@@ -37,6 +37,7 @@ $VsUnknownWaitSec = 5            # after the breakpoint wait: a stop at an excep
 $VsStepMax = 30                 # steps per step operation (the Skill also limits one run to 30 in total)
 $VsStepWaitSec = 15              # a step that has not stopped after this long is reported as STEP_TIMEOUT
 $VsPauseWaitSec = 10
+$VsInspectExtraWaitSec = 40      # inspect right after debug: if the app is still starting (mode run), wait this long more for the break
 $VsLocationWaitSec = 3           # STOPPED: waits this long for the stack frame to be ready (right after a continue it can be empty)
 $VsStepChangedMax = 10           # CHANGED: / LOCALS: lines per step
 $VsTargetRetry = 3               # when no VS answers right after the app starts, ask again (2 s apart) before giving up
@@ -366,6 +367,7 @@ function Invoke-VsOps([string[]]$flagLines) {
     if ($ops.Count -eq 0) { return @{ Ok = $false; Env = $false; Lines = @("no operation given") } }
     if (-not $SolutionPath) { return @{ Ok = $false; Env = $true; Lines = @("no .sln / .slnx found in $TargetDir") } }
     $breaks = 0
+    $debugStarted = $false
     foreach ($op in $ops) {
         $t = $op -split '\s+', 2
         $arg = if ($t.Count -gt 1) { $t[1].Trim() } else { "" }
@@ -523,6 +525,13 @@ function Invoke-VsOps([string[]]$flagLines) {
                     'inspect' {
                         if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("inspect takes no argument") } }
                         $mode = Get-VsModeName $dte
+                        if ($mode -eq 'run' -and $debugStarted) {
+                            # The first start of an app can take longer than the break wait of debug. Wait more, only when this run started the debug.
+                            $deadline = (Get-Date).AddSeconds($VsInspectExtraWaitSec)
+                            while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                            $mode = Get-VsModeName $dte
+                            $out.Add("NOTE: the app was still starting; inspect waited for the break (up to ${VsInspectExtraWaitSec}s more). The mode is now $mode.")
+                        }
                         if ($mode -ne 'break') { $out.Add("INSPECT_SKIP: the mode is $mode (not break). Use inspect only while the app is stopped at a breakpoint or an exception.") }
                         else { foreach ($l in (Get-VsInspectLines $dte)) { $out.Add($l) } }
                     }
@@ -557,6 +566,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                         while ((Get-VsModeName $dte) -eq 'unknown' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
                         Start-Sleep -Milliseconds 500
                         $mode = Get-VsModeName $dte
+                        $debugStarted = $true
                         $out.Add("DEBUG_STARTED")
                         $out.Add("DEBUG_MODE: $mode")
                         if ($mode -eq 'break') { $out.Add((Get-VsLocation $dte)) }

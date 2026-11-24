@@ -252,5 +252,9 @@ ok "vs-ide.ps1 (c): values are read in decimal (HexDisplayMode off while reading
 ok "vs-ide.ps1 (d): STOPPED: takes the place from the stack frame (FileName / LineNumber) and retries a moment when it is not ready" "$(grep -q 'VsLocationWaitSec' "$PS1" && grep -q '\$frame.FileName' "$PS1" && grep -q '\$frame.LineNumber' "$PS1" && echo 1 || echo 0)"
 ok "vs-ide.ps1: still has the UTF-8 BOM after the edit" "$([ "$(head -c 3 "$PS1")" = "$BOM" ] && echo 1 || echo 0)"
 
+# v2.104.2: --debug --inspect で、起動が遅く、20 秒で break に届かなかったとき、inspect の前に、追加で待つ ((a)。実機 2026-11-24 に再現)
+ok "vs-ide.ps1 (a): inspect right after debug waits extra for break when the app is still running (VsInspectExtraWaitSec), only when debug was started in the same run" "$(grep -q 'VsInspectExtraWaitSec' "$PS1" && grep -q 'debugStarted' "$PS1" && [ "$(grep -c 'debugStarted' "$PS1")" -ge 3 ] && echo 1 || echo 0)"
+ok "vs-ide.ps1 (a): the extra wait is bounded (a while loop with a deadline, not an endless wait)" "$(grep -A4 'VsInspectExtraWaitSec)' "$PS1" | grep -q 'Get-Date' && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]
