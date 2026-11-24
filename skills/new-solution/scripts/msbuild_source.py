@@ -142,9 +142,9 @@ def reference_note(src):
     return s
 
 
-_NOTE_BODY_DOTNET = "- 共通の .NET の設定 (`Nullable` / `ImplicitUsings` / `LangVersion`) は、共通ファイルの `Dotnet.props`。`TargetFramework` は、各 `.csproj` に置く。\n"
-_NOTE_BODY_CHECK = "- コンパイルの前に、プロジェクトの設定だけで判定できる検査 (層の参照の向き LAY003、ロジック層・データ層の WPF / WinForms 依存 LAY001、MFC の DLL の設定 DLL001〜DLL003) を行い、違反は**警告**に出る (`warnings.log`)。層の役割は、プロジェクトの名前から決まる (決まらないときは、`.csproj` / `.vcxproj` に `<ClaudeLayerRole>data|logic|viewmodel|ui|other</ClaudeLayerRole>`)。エラーにするには `/p:ClaudeCheck=error`、止めるには `/p:ClaudeCheck=off` (または `<ClaudeCheck>` を各プロジェクトに書く)。ソースの中身の検査は、種類ごとの check Skill が行う。\n"
-_NOTE_BODY_INFO = "- ビルドの情報 (構成・Platform・出力ファイル) は、`/p:ClaudeBuildInfo=true` を渡したときだけ、中間出力フォルダの `claude-build-info.txt` に書かれる (既定では、何もしない)。\n"
+_NOTE_BODY_DOTNET = "- .NET の共通設定 (`Nullable` / `ImplicitUsings` / `LangVersion`) は、`Dotnet.props`。`TargetFramework` は、各 `.csproj`。\n"
+_NOTE_BODY_CHECK = "- ビルド前の静的な検査 (LAY001・LAY003・DLL001〜DLL003) の違反は、**警告** (`warnings.log`)。層の役割は、プロジェクト名から決まる (決まらないときは `<ClaudeLayerRole>data|logic|viewmodel|ui|other</ClaudeLayerRole>`)。`/p:ClaudeCheck=error` でエラー、`off` で止める。\n"
+_NOTE_BODY_INFO = "- ビルド情報は、`/p:ClaudeBuildInfo=true` のときだけ `claude-build-info.txt` に出る。\n"
 
 
 def claude_note(dotnet, mode, src=None):
@@ -152,13 +152,12 @@ def claude_note(dotnet, mode, src=None):
     s = f"\n{SECTION}\n\n"
     if mode == 'reference':
         s += (f"- {LINE_KEY}: {src}\n"
-              f"- ソリューション直下の `Directory.Build.props` / `Directory.Build.targets` (薄いファイル) が、上の**外の正本** (`msbuild-common`) を参照する。**コピーしない。** "
-              f"MSBuild (Visual Studio とウォッチャー) は、Windows 側の環境変数 `{ENV_NAME}` で、正本を探す (WSL 側のパスと、同じフォルダを指して設定する。Visual Studio は、設定後に再起動する)。"
-              f"設定されていないと、ビルドは `__MSBUILD_COMMON_DIR_NOT_SET__\\Common.props was not found` のエラーで止まる。\n"
-              f"- **正本の中身は、Claude が決めない。** 読んで、ソリューションに合わせて置くだけ (書き換えない)。直すときは、正本の管理者に頼む。\n")
+              f"- ソリューション直下の `Directory.Build.props` / `.targets` (薄いファイル) が、この**外の正本**を参照する。**コピーしない。** "
+              f"Windows 側の環境変数 `{ENV_NAME}` (WSL 側と同じフォルダ) で探す。未設定だと、ビルドは `__MSBUILD_COMMON_DIR_NOT_SET__\\Common.props was not found` で止まる。\n"
+              f"- **正本の中身は、Claude が決めない** (読んで置くだけ。直すのは管理者)。\n")
     else:
-        s += ("- ソリューション直下の `Directory.Build.props` / `Directory.Build.targets` (薄いファイル) が、`build\\common\\` の共通ファイル (`msbuild-common`。版は `build\\common\\VERSION`) を読む。"
-              "**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で、差し替える)。\n")
+        s += ("- ソリューション直下の `Directory.Build.props` / `.targets` (薄いファイル) が、`build\\common\\` の共通ファイル (版は `build\\common\\VERSION`) を読む。"
+              "**`build\\common\\` は、コピー。手で編集しない** (更新は、新しい版で差し替える)。\n")
     if dotnet:
         s += _NOTE_BODY_DOTNET
     return s + _NOTE_BODY_CHECK + _NOTE_BODY_INFO

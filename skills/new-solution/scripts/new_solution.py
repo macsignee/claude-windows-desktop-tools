@@ -2452,7 +2452,7 @@ View (WPF アプリ) → ViewModel → ロジック → データ (のインタ�
 """
     out += """
 ## 規約
-- 規約は、ユーザー共通の `.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`.claude/rules/wpf-csharp.md` (**WPF プログラミング規約**の、WPF / XAML / MVVM の部分。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs` を扱うときに、読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。機械で判定できる項目は、`wpf-check` が確かめる。
+- 規約は、ユーザー共通の `.claude/rules/csharp-common.md` (C# の共通部分。`.cs` を扱うときに、自動で読み込まれる) と、`.claude/rules/wpf-csharp.md` (**WPF プログラミング規約**の、WPF / XAML / MVVM の部分。`.xaml`、`ViewModels/` `Views/` の下、`*ViewModel*.cs` を扱うときに、読み込まれる)。`.editorconfig` が、書式を定める。機械で判定できる項目は、`wpf-check` が確かめる。
 - ファイルは UTF-8 (BOM 付き)、改行は CRLF、インデントはスペース 4 (`.csproj` は 2)。括弧は Allman。コメントは日本語。
 - `git commit` / `git push` は、ユーザーの指示があるときだけ。
 - Git を、Visual Studio (Windows) と WSL の両方で操作するときは、`.claude/rules/git-wsl.md` を読む (改行は `.gitattributes` が決める。WSL の `git` は `core.autocrlf false` / `core.fileMode false`。コミットの前に、`git status --short` と `git diff --stat` で、全ファイルが変更に見えないか確かめる)。
