@@ -31,7 +31,7 @@ PYEOF
 )"
 
 # MDI: 変えない (ID_FILE_NEW は、すでにある)
-ok "MDI: ID_FILE_NEW is still tied (unchanged)" "$(grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)' "$(C app_mfc_mdi)" && grep -q 'DECLARE_MESSAGE_MAP()' "$(H app_mfc_mdi)" && echo 1 || echo 0)"
+ok "MDI: ID_FILE_NEW and ID_FILE_OPEN are tied (v2.104.0: same as SDI)" "$(grep -q 'ON_COMMAND(ID_FILE_NEW, &CWinAppEx::OnFileNew)' "$(C app_mfc_mdi)" && grep -q 'ON_COMMAND(ID_FILE_OPEN, &CWinAppEx::OnFileOpen)' "$(C app_mfc_mdi)" && grep -q 'DECLARE_MESSAGE_MAP()' "$(H app_mfc_mdi)" && echo 1 || echo 0)"
 
 # ダイアログ ベース: メッセージマップを持たない。DECLARE と BEGIN の数が、合っている (0 と 0)
 d_decl=$(grep -c 'DECLARE_MESSAGE_MAP' "$(H app_mfc_dialog)"); d_begin=$(grep -c 'BEGIN_MESSAGE_MAP(SampleApp' "$(C app_mfc_dialog)")

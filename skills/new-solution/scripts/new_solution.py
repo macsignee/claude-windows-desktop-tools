@@ -242,44 +242,6 @@ MFC_SDI_FRAMEWORK_H = MFC_FRAMEWORK_H.replace(
     '#endif\n\n#include <afxcontrolbars.h>     // MFC におけるリボンとコントロール バーのサポート\n\n// Common Controls 6.0')
 assert MFC_SDI_FRAMEWORK_H != MFC_FRAMEWORK_H, 'framework.h の置換に失敗した'
 
-# MDI が使う、素の文書とビュー (SDI は、下の MFC_FILES で、ウィザードの構成)
-MFC_PLAIN_DOCVIEW = {
-    'SampleDoc.h': '''#pragma once
-#include "pch.h"
-
-class SampleDoc : public CDocument
-{
-    DECLARE_DYNCREATE(SampleDoc)
-};
-''',
-    'SampleDoc.cpp': '''#include "pch.h"
-#include "SampleDoc.h"
-
-IMPLEMENT_DYNCREATE(SampleDoc, CDocument)
-''',
-    'SampleView.h': '''#pragma once
-#include "pch.h"
-
-class SampleView : public CView
-{
-    DECLARE_DYNCREATE(SampleView)
-
-public:
-    void OnDraw(CDC* pDC) override;
-};
-''',
-    'SampleView.cpp': '''#include "pch.h"
-#include "SampleView.h"
-
-IMPLEMENT_DYNCREATE(SampleView, CView)
-
-void SampleView::OnDraw(CDC* pDC)
-{
-    pDC->TextOut(10, 10, _T("@@NAME@@"));
-}
-''',
-}
-
 MFC_FILES = {
     'targetver.h': MFC_TARGETVER_H,
     'framework.h': MFC_SDI_FRAMEWORK_H,
@@ -1194,56 +1156,31 @@ def make_user_images_bmp(n=11):
         return (90, 150, 230) if 3 <= cx <= 12 and 3 <= y <= 11 else _TB_BG
     return make_bmp(16 * n, 15, pixel)
 
-# ---- MFC MDI ----
-MFC_MDI_FILES = {
-    'targetver.h': MFC_TARGETVER_H,
-    'framework.h': MFC_FRAMEWORK_H,
-    'pch.h': MFC_PCH_H,
-    'pch.cpp': MFC_PCH_CPP,
-    'Resource.h': '''#pragma once
-#define IDR_MAINFRAME           128
-#define IDR_SAMPLETYPE          129
-''',
-    'SampleApp.h': '''#pragma once
-#include "pch.h"
+# ---- MFC MDI (ウィザードの「MFC アプリケーション」MDI、タブ付き MDI、メニュー バーとツール バー、ステータス バー) ----
+# SDI と同じもの (framework.h・pch・SampleApp.h・文書・ビュー) は、SDI の定義を使う。違うもの (アプリの文書テンプレート、フレーム 2 種、メニュー 2 種) だけ書く。
+# 注意: CMDIFrameWndEx::OnCreateClient は、MDI のクライアント領域をサブクラス化する。MainFrame が OnCreateClient を上書きして
+#       CreateClient(lpcs, nullptr) を呼ぶと、それを飛ばす (v2.60.1 の上書きは、CMDIFrameWnd の素のひな形のためのもので、やめた)。
+#       既定の実装は、IDR_MAINFRAME のメニューの「右から 2 番目」を Window メニューと推測するので、IDR_MAINFRAME のメニューは、3 項目 (ファイル・表示・ヘルプ) にする (ウィザードと同じ。mfc-check の MDI001)。
+def _replace_once(text, old, new):
+    assert text.count(old) == 1, f'ひな形の置換に失敗した: {old[:40]!r}'
+    return text.replace(old, new)
 
-// アプリケーション本体 (UI 層)。
-class SampleApp : public CWinApp
-{
-public:
-    BOOL InitInstance() override;
 
-    DECLARE_MESSAGE_MAP()
-};
-''',
-    'SampleApp.cpp': '''#include "pch.h"
-#include "SampleApp.h"
-#include "MainFrame.h"
-#include "ChildFrame.h"
-#include "SampleDoc.h"
-#include "SampleView.h"
-#include "Resource.h"
-
-SampleApp theApp;
-
-BEGIN_MESSAGE_MAP(SampleApp, CWinApp)
-    // 「ファイル」→「新規」。CWinApp は、この ID を割り当てない (ウィザードのアプリも、ここで割り当てている)。
-    // 割り当てがないと、子ウィンドウのメニューの「New」が、押せなくなる。
-    ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
-END_MESSAGE_MAP()
-
-BOOL SampleApp::InitInstance()
-{
-    // DPI 認識モードは、.vcxproj のマニフェストツールの設定 (EnableDpiAwareness) で、宣言している (UI-DPI-002)。
-    CWinApp::InitInstance();
-
-    auto* pDocTemplate = new CMultiDocTemplate(
+_mdi_app = _replace_once(MFC_FILES['SampleApp.cpp'], '#include "MainFrame.h"\n', '#include "MainFrame.h"\n#include "ChildFrame.h"\n')
+_mdi_app = _replace_once(_mdi_app, r'''    auto* pDocTemplate = new CSingleDocTemplate(
+        IDR_MAINFRAME,
+        RUNTIME_CLASS(SampleDoc),
+        RUNTIME_CLASS(MainFrame),       // メイン SDI フレーム ウィンドウ
+        RUNTIME_CLASS(SampleView));
+    AddDocTemplate(pDocTemplate);
+''', r'''    auto* pDocTemplate = new CMultiDocTemplate(
         IDR_SAMPLETYPE,
         RUNTIME_CLASS(SampleDoc),
-        RUNTIME_CLASS(ChildFrame),
+        RUNTIME_CLASS(ChildFrame),      // カスタム MDI 子フレーム
         RUNTIME_CLASS(SampleView));
     AddDocTemplate(pDocTemplate);
 
+    // メイン MDI フレーム ウィンドウを作成する。
     auto* pMainFrame = new MainFrame;
     if (!pMainFrame->LoadFrame(IDR_MAINFRAME))
     {
@@ -1251,79 +1188,339 @@ BOOL SampleApp::InitInstance()
         return FALSE;
     }
     m_pMainWnd = pMainFrame;
-
-    CCommandLineInfo cmdInfo;
-    cmdInfo.m_nShellCommand = CCommandLineInfo::FileNew;
-    if (!ProcessShellCommand(cmdInfo))
-    {
-        return FALSE;
-    }
-
-    m_pMainWnd->ShowWindow(SW_SHOW);
+''')
+_mdi_app = _replace_once(_mdi_app, r'''    m_pMainWnd->ShowWindow(SW_SHOW);
     m_pMainWnd->UpdateWindow();
-    return TRUE;
-}
-''',
-    'MainFrame.h': '''#pragma once
+''', r'''    pMainFrame->ShowWindow(m_nCmdShow);
+    pMainFrame->UpdateWindow();
+''')
+
+MFC_MDI_FILES = {k: MFC_FILES[k] for k in ('targetver.h', 'framework.h', 'pch.h', 'pch.cpp', 'SampleApp.h')}
+MFC_MDI_FILES.update({
+    'Resource.h': _replace_once(MFC_FILES['Resource.h'], '#define IDS_EDIT_MENU               306\n',
+                                '#define IDS_EDIT_MENU               306\n#define ID_WINDOW_MANAGER           132\n'),
+    'SampleApp.cpp': _mdi_app,
+    'MainFrame.h': r'''#pragma once
 #include "pch.h"
 
-class MainFrame : public CMDIFrameWnd
+class MainFrame : public CMDIFrameWndEx
 {
     DECLARE_DYNAMIC(MainFrame)
+public:
+    MainFrame() noexcept;
 
+    // オーバーライド
+public:
+    virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+
+    // 実装
+public:
+    virtual ~MainFrame();
+#ifdef _DEBUG
+    virtual void AssertValid() const;
+    virtual void Dump(CDumpContext& dc) const;
+#endif
+
+protected:  // コントロール バー用メンバー
+    CMFCMenuBar       m_wndMenuBar;
+    CMFCToolBar       m_wndToolBar;
+    CMFCStatusBar     m_wndStatusBar;
+
+    // 生成された、メッセージ割り当て関数
 protected:
-    BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;
+    afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+    afx_msg void OnWindowManager();
+    afx_msg void OnViewCustomize();
+    afx_msg LRESULT OnToolbarCreateNew(WPARAM wp, LPARAM lp);
+    DECLARE_MESSAGE_MAP()
 };
 ''',
-    'MainFrame.cpp': '''#include "pch.h"
+    'MainFrame.cpp': r'''#include "pch.h"
+#include "SampleApp.h"
 #include "MainFrame.h"
+#include "Resource.h"
 
-IMPLEMENT_DYNAMIC(MainFrame, CMDIFrameWnd)
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
 
-BOOL MainFrame::OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext*)
+// MainFrame
+
+IMPLEMENT_DYNAMIC(MainFrame, CMDIFrameWndEx)
+
+BEGIN_MESSAGE_MAP(MainFrame, CMDIFrameWndEx)
+    ON_WM_CREATE()
+    ON_COMMAND(ID_WINDOW_MANAGER, &MainFrame::OnWindowManager)
+    ON_COMMAND(ID_VIEW_CUSTOMIZE, &MainFrame::OnViewCustomize)
+    ON_REGISTERED_MESSAGE(AFX_WM_CREATETOOLBAR, &MainFrame::OnToolbarCreateNew)
+END_MESSAGE_MAP()
+
+static UINT indicators[] =
 {
-    // 既定の実装 (CMDIFrameWnd::OnCreateClient) は、メニューバーの「右から 2 番目」を Window メニューと推測する。
-    // IDR_MAINFRAME のメニューが File だけだと、その推測が成り立たず、起動時に ASSERT で止まる (winmdi.cpp)。
-    // ここでは、Window メニューを指定せずに、MDI のクライアント領域を作る。
-    // 子ウィンドウが開いたあとの Window メニューは、IDR_SAMPLETYPE のメニューから、MFC が見つける。
-    return CreateClient(lpcs, nullptr);
+    ID_SEPARATOR,           // ステータス ライン インジケーター
+    ID_INDICATOR_CAPS,
+    ID_INDICATOR_NUM,
+    ID_INDICATOR_SCRL,
+};
+
+// MainFrame コンストラクション/デストラクション
+
+MainFrame::MainFrame() noexcept
+{
+}
+
+MainFrame::~MainFrame()
+{
+}
+
+int MainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+    if (CMDIFrameWndEx::OnCreate(lpCreateStruct) == -1)
+        return -1;
+
+    BOOL bNameValid;
+
+    CMDITabInfo mdiTabParams;
+    mdiTabParams.m_style = CMFCTabCtrl::STYLE_3D_ONENOTE; // 使用可能なその他の視覚スタイル...
+    mdiTabParams.m_bActiveTabCloseButton = TRUE;      // タブ領域の右部に [閉じる] ボタンを配置するには、FALSE に設定する
+    mdiTabParams.m_bTabIcons = FALSE;    // MDI タブでドキュメント アイコンを有効にするには、TRUE に設定する
+    mdiTabParams.m_bAutoColor = TRUE;    // MDI タブの自動色設定を無効にするには、FALSE に設定する
+    mdiTabParams.m_bDocumentMenu = TRUE; // タブ領域の右端にあるドキュメント メニューを有効にする
+    EnableMDITabbedGroups(TRUE, mdiTabParams);
+
+    if (!m_wndMenuBar.Create(this))
+    {
+        TRACE0("メニュー バーを作成できませんでした\n");
+        return -1;      // 作成できない場合
+    }
+
+    m_wndMenuBar.SetPaneStyle(m_wndMenuBar.GetPaneStyle() | CBRS_SIZE_DYNAMIC | CBRS_TOOLTIPS | CBRS_FLYBY);
+
+    // アクティブになったときメニュー バーにフォーカスを移動しない
+    CMFCPopupMenu::SetForceMenuFocus(FALSE);
+
+    if (!m_wndToolBar.CreateEx(this, TBSTYLE_FLAT, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_GRIPPER | CBRS_TOOLTIPS | CBRS_FLYBY | CBRS_SIZE_DYNAMIC) ||
+        !m_wndToolBar.LoadToolBar(theApp.m_bHiColorIcons ? IDR_MAINFRAME_256 : IDR_MAINFRAME))
+    {
+        TRACE0("ツール バーの作成に失敗しました。\n");
+        return -1;      // 作成できない場合
+    }
+
+    CString strToolBarName;
+    bNameValid = strToolBarName.LoadString(IDS_TOOLBAR_STANDARD);
+    ASSERT(bNameValid);
+    m_wndToolBar.SetWindowText(strToolBarName);
+
+    CString strCustomize;
+    bNameValid = strCustomize.LoadString(IDS_TOOLBAR_CUSTOMIZE);
+    ASSERT(bNameValid);
+    m_wndToolBar.EnableCustomizeButton(TRUE, ID_VIEW_CUSTOMIZE, strCustomize);
+
+    if (!m_wndStatusBar.Create(this))
+    {
+        TRACE0("ステータス バーの作成に失敗しました。\n");
+        return -1;      // 作成できない場合
+    }
+    m_wndStatusBar.SetIndicators(indicators, sizeof(indicators) / sizeof(UINT));
+
+    // TODO: ツール バーおよびメニュー バーをドッキング可能にしない場合は、この 5 つの行を削除する
+    m_wndMenuBar.EnableDocking(CBRS_ALIGN_ANY);
+    m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
+    EnableDocking(CBRS_ALIGN_ANY);
+    DockPane(&m_wndMenuBar);
+    DockPane(&m_wndToolBar);
+
+    // Visual Studio 2005 スタイルのドッキング ウィンドウ動作を有効にする
+    CDockingManager::SetDockingMode(DT_SMART);
+    // Visual Studio 2005 スタイルのドッキング ウィンドウの自動非表示動作を有効にする
+    EnableAutoHidePanes(CBRS_ALIGN_ANY);
+
+    // すべてのユーザー インターフェイス要素の描画に使用される、ビジュアル マネージャーを設定する
+    CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerVS2008));
+
+    // 拡張ウィンドウ管理ダイアログ ボックスを有効にする
+    EnableWindowsDialog(ID_WINDOW_MANAGER, ID_WINDOW_MANAGER, TRUE);
+
+    // ツール バーとドッキング ウィンドウ メニューの配置変更を有効にする
+    EnablePaneMenu(TRUE, ID_VIEW_CUSTOMIZE, strCustomize, ID_VIEW_TOOLBAR);
+
+    // ツール バーのクイック (Alt キーを押しながらドラッグ) カスタマイズを有効にする
+    CMFCToolBar::EnableQuickCustomization();
+
+    // ウィンドウ タイトル バーでドキュメント名とアプリケーション名の順序を切り替える。これにより、
+    // ドキュメント名を縮小版で表示できるため、タスク バーの使用性が向上する。
+    ModifyStyle(0, FWS_PREFIXTITLE);
+
+    return 0;
+}
+
+BOOL MainFrame::PreCreateWindow(CREATESTRUCT& cs)
+{
+    if (!CMDIFrameWndEx::PreCreateWindow(cs))
+        return FALSE;
+    // TODO: この位置で CREATESTRUCT cs を修正して Window クラスまたはスタイルを修正する。
+
+    return TRUE;
+}
+
+// MainFrame の診断
+
+#ifdef _DEBUG
+void MainFrame::AssertValid() const
+{
+    CMDIFrameWndEx::AssertValid();
+}
+
+void MainFrame::Dump(CDumpContext& dc) const
+{
+    CMDIFrameWndEx::Dump(dc);
+}
+#endif //_DEBUG
+
+// MainFrame メッセージ ハンドラー
+
+void MainFrame::OnWindowManager()
+{
+    ShowWindowsDialog();
+}
+
+void MainFrame::OnViewCustomize()
+{
+    CMFCToolBarsCustomizeDialog* pDlgCust = new CMFCToolBarsCustomizeDialog(this, TRUE /* メニューをスキャンする */);
+    pDlgCust->Create();
+}
+
+LRESULT MainFrame::OnToolbarCreateNew(WPARAM wp, LPARAM lp)
+{
+    LRESULT lres = CMDIFrameWndEx::OnToolbarCreateNew(wp, lp);
+    if (lres == 0)
+    {
+        return 0;
+    }
+
+    CMFCToolBar* pUserToolbar = (CMFCToolBar*)lres;
+    ASSERT_VALID(pUserToolbar);
+
+    BOOL bNameValid;
+    CString strCustomize;
+    bNameValid = strCustomize.LoadString(IDS_TOOLBAR_CUSTOMIZE);
+    ASSERT(bNameValid);
+
+    pUserToolbar->EnableCustomizeButton(TRUE, ID_VIEW_CUSTOMIZE, strCustomize);
+    return lres;
 }
 ''',
-    'ChildFrame.h': '''#pragma once
+    'ChildFrame.h': r'''#pragma once
 #include "pch.h"
 
-class ChildFrame : public CMDIChildWnd
+class ChildFrame : public CMDIChildWndEx
 {
     DECLARE_DYNCREATE(ChildFrame)
+public:
+    ChildFrame() noexcept;
+
+    // オーバーライド
+public:
+    virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+
+    // 実装
+public:
+    virtual ~ChildFrame();
+#ifdef _DEBUG
+    virtual void AssertValid() const;
+    virtual void Dump(CDumpContext& dc) const;
+#endif
+
+    // 生成された、メッセージ割り当て関数
+protected:
+    DECLARE_MESSAGE_MAP()
 };
 ''',
-    'ChildFrame.cpp': '''#include "pch.h"
+    'ChildFrame.cpp': r'''#include "pch.h"
+#include "SampleApp.h"
 #include "ChildFrame.h"
 
-IMPLEMENT_DYNCREATE(ChildFrame, CMDIChildWnd)
-''',
-    'SampleDoc.h': MFC_PLAIN_DOCVIEW['SampleDoc.h'],
-    'SampleDoc.cpp': MFC_PLAIN_DOCVIEW['SampleDoc.cpp'],
-    'SampleView.h': MFC_PLAIN_DOCVIEW['SampleView.h'],
-    'SampleView.cpp': MFC_PLAIN_DOCVIEW['SampleView.cpp'],
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+// ChildFrame
+
+IMPLEMENT_DYNCREATE(ChildFrame, CMDIChildWndEx)
+
+BEGIN_MESSAGE_MAP(ChildFrame, CMDIChildWndEx)
+END_MESSAGE_MAP()
+
+// ChildFrame コンストラクション/デストラクション
+
+ChildFrame::ChildFrame() noexcept
+{
+    // TODO: メンバー初期化コードをここに追加する。
 }
 
-MFC_MDI_RC = '''#include "Resource.h"
-#include "afxres.h"
+ChildFrame::~ChildFrame()
+{
+}
 
-// この .rc は、UTF-8 (BOM 付き) で書く。リソース コンパイラーに、UTF-8 だと伝える (日本語の文言を含むため)。
-#pragma code_page(65001)
+BOOL ChildFrame::PreCreateWindow(CREATESTRUCT& cs)
+{
+    // TODO: CREATESTRUCT cs を変更して、Window クラスまたはスタイルを変更する。
+    if (!CMDIChildWndEx::PreCreateWindow(cs))
+        return FALSE;
 
-LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
+    cs.style = WS_CHILD | WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU
+        | FWS_ADDTOTITLE | WS_THICKFRAME;
 
-IDR_MAINFRAME ICON "res\\\\@@NAME@@.ico"
-IDR_SAMPLETYPE ICON "res\\\\@@NAME@@Doc.ico"
+    return TRUE;
+}
 
-IDR_MAINFRAME MENU
+// ChildFrame の診断
+
+#ifdef _DEBUG
+void ChildFrame::AssertValid() const
+{
+    CMDIChildWndEx::AssertValid();
+}
+
+void ChildFrame::Dump(CDumpContext& dc) const
+{
+    CMDIChildWndEx::Dump(dc);
+}
+#endif //_DEBUG
+''',
+    'SampleDoc.h': MFC_FILES['SampleDoc.h'],
+    'SampleDoc.cpp': MFC_FILES['SampleDoc.cpp'],
+    'SampleView.h': MFC_FILES['SampleView.h'],
+    'SampleView.cpp': MFC_FILES['SampleView.cpp'],
+})
+
+# MDI の .rc: SDI の .rc から、メニュー・文書の文字列・ウィンドウの文字列だけを差し替える。
+# メニューは 2 つ: IDR_MAINFRAME (子ウィンドウがないとき。ファイル・表示・ヘルプ) と、IDR_SAMPLETYPE (子ウィンドウがあるとき。ファイル・編集・表示・ウィンドウ・ヘルプ)。
+_sdi_menu_start = MFC_RC.index('IDR_MAINFRAME MENU\n')
+_sdi_menu_end = MFC_RC.index('IDR_POPUP_EDIT MENU\n')
+_mdi_menus = r'''IDR_MAINFRAME MENU
 BEGIN
     POPUP "ファイル(&F)"
     BEGIN
-        MENUITEM "アプリケーションの終了(&X)",   ID_APP_EXIT
+        MENUITEM "新規作成(&N)\tCtrl+N",                ID_FILE_NEW
+        MENUITEM "開く(&O)...\tCtrl+O",                 ID_FILE_OPEN
+        MENUITEM "閉じる(&C)",                          ID_FILE_CLOSE
+        MENUITEM SEPARATOR
+        MENUITEM "最近使ったファイル",                  ID_FILE_MRU_FILE1,GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "アプリケーションの終了(&X)",          ID_APP_EXIT
+    END
+    POPUP "表示(&V)"
+    BEGIN
+        POPUP "ツール バーとドッキング ウィンドウ(&T)"
+        BEGIN
+            MENUITEM "<placeholder>",                   ID_VIEW_TOOLBAR
+        END
+        MENUITEM "ステータス バー(&S)",                 ID_VIEW_STATUS_BAR
+    END
+    POPUP "ヘルプ(&H)"
+    BEGIN
+        MENUITEM "@@NAME@@について(&A)...",            ID_APP_ABOUT
     END
 END
 
@@ -1331,26 +1528,59 @@ IDR_SAMPLETYPE MENU
 BEGIN
     POPUP "ファイル(&F)"
     BEGIN
-        MENUITEM "新規作成(&N)\\tCtrl+N",        ID_FILE_NEW
-        MENUITEM "閉じる(&C)",                   ID_FILE_CLOSE
+        MENUITEM "新規作成(&N)\tCtrl+N",                ID_FILE_NEW
+        MENUITEM "開く(&O)...\tCtrl+O",                 ID_FILE_OPEN
+        MENUITEM "閉じる(&C)",                          ID_FILE_CLOSE
+        MENUITEM "上書き保存(&S)\tCtrl+S",              ID_FILE_SAVE
+        MENUITEM "名前を付けて保存(&A)...",             ID_FILE_SAVE_AS
         MENUITEM SEPARATOR
-        MENUITEM "アプリケーションの終了(&X)",   ID_APP_EXIT
+        MENUITEM "最近使ったファイル",                  ID_FILE_MRU_FILE1,GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "アプリケーションの終了(&X)",          ID_APP_EXIT
+    END
+    POPUP "編集(&E)"
+    BEGIN
+        MENUITEM "元に戻す(&U)\tCtrl+Z",                ID_EDIT_UNDO
+        MENUITEM SEPARATOR
+        MENUITEM "切り取り(&T)\tCtrl+X",                ID_EDIT_CUT
+        MENUITEM "コピー(&C)\tCtrl+C",                  ID_EDIT_COPY
+        MENUITEM "貼り付け(&P)\tCtrl+V",                ID_EDIT_PASTE
+    END
+    POPUP "表示(&V)"
+    BEGIN
+        POPUP "ツール バーとドッキング ウィンドウ(&T)"
+        BEGIN
+            MENUITEM "<placeholder>",                   ID_VIEW_TOOLBAR
+        END
+        MENUITEM "ステータス バー(&S)",                 ID_VIEW_STATUS_BAR
     END
     POPUP "ウィンドウ(&W)"
     BEGIN
-        MENUITEM "新しいウィンドウ(&N)",         ID_WINDOW_NEW
-        MENUITEM "重ねて表示(&C)",               ID_WINDOW_CASCADE
-        MENUITEM "上下に並べて表示(&T)",         ID_WINDOW_TILE_HORZ
-        MENUITEM "アイコンの整列(&A)",           ID_WINDOW_ARRANGE
+        MENUITEM "新しいウィンドウを開く(&N)",         ID_WINDOW_NEW
+    END
+    POPUP "ヘルプ(&H)"
+    BEGIN
+        MENUITEM "@@NAME@@について(&A)...",            ID_APP_ABOUT
     END
 END
 
-STRINGTABLE
-BEGIN
-    IDR_MAINFRAME           "@@NAME@@"
-    IDR_SAMPLETYPE          "\\n@@NAME@@\\n@@NAME@@\\n\\n\\n@@NAME@@.Document\\n@@NAME@@ Document"
-END
-''' + MFC_RC_TAIL
+'''
+MFC_MDI_RC = MFC_RC[:_sdi_menu_start] + _mdi_menus + MFC_RC[_sdi_menu_end:]
+MFC_MDI_RC = _replace_once(MFC_MDI_RC,
+    r'''    IDR_MAINFRAME           "@@NAME@@\n\n@@NAME@@\n\n\n@@NAME@@.Document\n@@NAME@@ Document"''',
+    r'''    IDR_MAINFRAME           "@@NAME@@"
+    IDR_SAMPLETYPE          "\n@@NAME@@\n@@NAME@@\n\n\n@@NAME@@.Document\n@@NAME@@ Document"''')
+MFC_MDI_RC = _replace_once(MFC_MDI_RC, '    ID_NEXT_PANE ', r'''    ID_WINDOW_NEW           "作業中のドキュメントが表示された新しいウィンドウを表示\n新規ウィンドウ"
+    ID_WINDOW_ARRANGE       "ウィンドウの下部にアイコンを整列\nアイコンの整列"
+    ID_WINDOW_CASCADE       "ウィンドウを重ねて表示\n重ねて表示"
+    ID_WINDOW_TILE_HORZ     "ウィンドウを並べて表示\n並べて表示"
+    ID_WINDOW_TILE_VERT     "ウィンドウを並べて表示\n並べて表示"
+    ID_NEXT_PANE ''')
+MFC_MDI_RC = _replace_once(MFC_MDI_RC, '    AFX_IDS_SCTASKLIST      "タスク一覧をアクティブにする"\n',
+    '    AFX_IDS_SCTASKLIST      "タスク一覧をアクティブにする"\n    AFX_IDS_MDICHILD        "ウィンドウをアクティブにする"\n')
+MFC_MDI_RC = _replace_once(MFC_MDI_RC, '    IDS_EDIT_MENU           "編集"\n',
+    '    IDS_EDIT_MENU           "編集"\n    ID_WINDOW_MANAGER       "ウィンドウ(&W)..."\n')
+
 
 # ---- MFC ダイアログベース ----
 MFC_DIALOG_FILES = {
@@ -2125,7 +2355,7 @@ def main_files(name, mtype, ns, toolset, guid, sm_in_main=True, incs=()):
         if mtype != 'mfc-dialog':
             binaries[f'{name}/res/{name}Doc.ico'] = make_ico((0x3A, 0x8F, 0x4E))
             res_items.append(f'res\\{name}Doc.ico')
-        if mtype == 'mfc':   # SDI: ウィザードと同じ、ツール バーのビットマップ (置き場所の確保用の絵)
+        if mtype in ('mfc', 'mfc-mdi'):   # SDI・MDI: ウィザードと同じ、ツール バーのビットマップ (置き場所の確保用の絵)
             for bmp, data in (('Toolbar.bmp', make_toolbar_bmp()), ('Toolbar256.bmp', make_toolbar_bmp()),
                               ('userimages.bmp', make_user_images_bmp())):
                 binaries[f'{name}/res/{bmp}'] = data

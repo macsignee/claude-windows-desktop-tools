@@ -4,7 +4,7 @@
 # 寄せる: CWinAppEx / CFrameWndEx、メニュー バー・ツール バー・ステータス バー、メニュー (ファイル・編集・表示・ヘルプ)、
 #         アクセラレータ、バージョン情報、MRU、ツール バーのビットマップ、文字列リソース、右クリック メニュー。
 # 寄せない (決定済み): C 接頭辞 (自作クラスは付けない)、x64 のみ、印刷・プレビュー、OLE、SHARED_HANDLERS、Win32 の構成。
-# MDI・ダイアログのひな形は、変えない。
+# ダイアログのひな形は、変えない。MDI は、v2.104.0 で寄せた (mfc_mdi_wizard_look_test.sh)。
 # Usage: tests/mfc_sdi_wizard_look_test.sh      終了コード: 0 すべて OK / 1 失敗あり
 export LC_ALL=C.UTF-8
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -112,11 +112,9 @@ out="$(python3 "$SK/mfc-check/scripts/mfc_check.py" "$W/app_mfc" 2>&1)"; rc=$?
 ok "SDI: mfc-check has no error ($(grep -cE '^(ERROR|エラー)' <<<"$out") errors)" "$([ $rc = 0 ] && echo 1 || echo 0)"
 ok "SDI: mfc-check reports no MAP / RES / DEC / NSP finding" "$(! grep -qE 'MAP00|RES00|DEC001|NSP001' <<<"$out" && echo 1 || echo 0)"
 
-# --- MDI・ダイアログは、変えない ---
-M="$W/app_mfc_mdi/app_mfc_mdi"; G="$W/app_mfc_dialog/app_mfc_dialog"
-ok "MDI is unchanged: CWinApp / CMDIFrameWnd, no control bars header" "$([ "$(has 'class SampleApp : public CWinApp' "$M/SampleApp.h")" = 1 ] && [ "$(has 'CMDIFrameWnd' "$M/MainFrame.h")" = 1 ] && [ "$(has 'afxcontrolbars.h' "$M/framework.h")" = 0 ] && echo 1 || echo 0)"
+# --- ダイアログは、変えない (MDI は、v2.104.0 で寄せた。mfc_mdi_wizard_look_test.sh) ---
+G="$W/app_mfc_dialog/app_mfc_dialog"
 ok "dialog-based is unchanged: no control bars header, no Toolbar.bmp" "$([ "$(has 'afxcontrolbars.h' "$G/framework.h")" = 0 ] && [ ! -e "$G/res/Toolbar.bmp" ] && echo 1 || echo 0)"
-ok "MDI has no Toolbar.bmp (unchanged)" "$([ ! -e "$M/res/Toolbar.bmp" ] && echo 1 || echo 0)"
 
 # --- 文書 ---
 ok "CHANGELOG.md records the SDI wizard look (2.103.0)" "$(grep -q '2.103.0' "$ROOT/CHANGELOG.md" && grep -q 'ウィザード' "$ROOT/CHANGELOG.md" && echo 1 || echo 0)"
