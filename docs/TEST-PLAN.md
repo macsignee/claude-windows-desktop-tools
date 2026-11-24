@@ -1371,7 +1371,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | IM1 | ウォッチャーを再起動して、`--status` | ウォッチャーが起動し、`OK` が返る (`vs-ide.ps1` の構文に誤りがない) | **合格** (2026-11-24。watcher=2.104.1) |
 | IM2 | VS の「16 進表示」を、オンにして (デバッグ → ウィンドウ → ... またはツール バーの 16 進ボタン)、ブレークで止めて `--inspect` と `--eval "sum"` | `int` が 10 進 (`sum = 3`) で出る。配列は `{int[4]}`。**実行後も、VS の 16 進表示は、オンのまま** | **合格** (2026-11-24。16 進表示オンで、`sum = 0`・`values = {int[4]}`。実行後もオン) |
 | IM3 | 16 進表示がオフのとき、同じ操作 | 今までと同じ (10 進) | **合格** (2026-11-24。オフのまま 10 進。実行後もオフ) |
-| IM4 | Release (最適化) でビルドした実行ファイルで、ブレークして `--inspect` | 読めない変数は `NAME = (unavailable)  (型)` の 1 行になり、VS の長い文面は出ない | 未確認 |
+| IM4 | Release (最適化) でビルドした実行ファイルで、ブレークして `--inspect` | 読めない変数は `NAME = (unavailable)  (型)` の 1 行になり、VS の長い文面は出ない | **再現せず** (2026-11-24)。C# (WPF) の Release で `--debug --inspect`: `sum`・`i`・`values` が普通に読めた (`(unavailable)` の変数は出なかった)。`(unavailable)` の判定 (`IsValidValue` が false) の実機確認は、最適化された C++ のモジュールで、いずれ行う (保留) |
 | IM5 | ブレークで止めて、`--continue` で次のブレークポイントへ | `CONTINUED: DEBUG_MODE: break` のあとの `STOPPED:` に、`at <ファイル>:<行>` が付く (最大 3 秒待つ)。数回繰り返す | **合格** (2026-11-24。4 回とも `STOPPED:` に `MainWindow.xaml.cs:19` が付いた) |
 | IM6 | `--debug --inspect` を、数回 | 回帰がない (`INSPECT_SKIP` が出る場合は、生の出力を残す。(a) の調査用) | **合格** (2026-11-24)。1 回目に、(a) の `INSPECT_SKIP` が再現した (起動が 20 秒を超えた)。単独の `--inspect` は正常。直しは v2.104.2 (IM7) |
 
@@ -1379,4 +1379,4 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
-| IM7 | VS で、デバッグを止めてから、「`--debug --inspect` を実行して」を、起動が遅くなる状況 (ビルド直後、初回) で数回 | 20 秒でブレークに届かなくても、`INSPECT_SKIP` にならず、`NOTE: the app was still starting` のあとに、`LOCALS:` などが出る。ブレークポイントがない場合は、40 秒待って、`INSPECT_SKIP:` になる | 1 回目 (v2.104.2): 待ちに入ったが、ブレーク直前の `unknown` で待ちを終え、`INSPECT_SKIP: the mode is unknown` になった。v2.104.3 で直した。**再確認は未** |
+| IM7 | VS で、デバッグを止めてから、「`--debug --inspect` を実行して」を、起動が遅くなる状況 (ビルド直後、初回) で数回 | 20 秒でブレークに届かなくても、`INSPECT_SKIP` にならず、`NOTE: the app was still starting` のあとに、`LOCALS:` などが出る。ブレークポイントがない場合は、40 秒待って、`INSPECT_SKIP:` になる | **合格** (2026-11-24、v2.104.3)。1 回目 (v2.104.2): 待ちに入ったが、ブレーク直前の `unknown` で待ちを終え、`INSPECT_SKIP: the mode is unknown` になった → v2.104.3 で直した。クリーン直後の再確認: `DEBUG_MODE: run` が 20 秒を超え、`NOTE: the app was still starting` のあと `The mode is now break.` で、`STACK:`・`LOCALS:` が出た |
