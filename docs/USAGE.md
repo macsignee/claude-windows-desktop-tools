@@ -154,3 +154,36 @@ OK、この案で足してください
 - **同時に、触りません。** VS が Git を操作している間は、WSL の `git` を動かさない (`index.lock`)。WSL でブランチを切り替えたら、VS で「すべて再読み込み」します。
 - **プッシュ・取得・PR・マージは、あなたが、VS で行います** (サンドボックスから、GitHub へは、届きません)。Claude が、コミットするのは、頼んだときだけです。
 
+## 4. Token を使いすぎるとき
+
+ウォッチャーと連携して作業すると、Token が、想定より多く出ることがある。**測った結果 (2026-11-24、WPF の TDD の Red まで、14 ターン)** と、効く順の対処を、まとめる。
+
+### どこで使うか (測定)
+- **費用の中心は、「文脈の大きさ × ターン数」**。Claude は、毎ターン、これまでの全部を読み直す (単価は安いが、量が大きい)。1 つのセッションに、いくつも作業を詰めると、後半ほど、1 ターンが重くなる (この開発のセッションは、219 ターンで、文脈が 30 万トークンまで伸びた)。
+- **新しいセッションの直後が、約 45〜49k トークン**。うち約 31k は、Claude Code 本体 (システムとツール) で、減らせない。残りは、Skill の一覧 (約 8〜10k)、エージェントの一覧 (約 3k)、プロジェクトの `CLAUDE.md` (約 3〜5k)。
+- **作業を始めると、固定の読み込みが入る。** Skill の本文 (`csharp-test-first` で約 11.6k)、規約 (`.cs` を読むと `csharp-common.md` が約 5.9k)。Red までの増加の約 77% は、これだった (実際の作業は約 5k)。
+
+### 効く順の対処
+1. **作業ごとに、新しいセッションを始める** (または `/clear`)。文脈が 10 万トークンを超える前に区切ると、読み直しが、小さく済む。確認用フォルダの作業は、「1 機能 = 1 セッション」が目安。
+2. **確認用フォルダでは、使わないプラグインを止める。** そのフォルダの `.claude/settings.json` に書くと、**そのフォルダだけ**に効く (ほかには、影響しない)。実測で、新しいセッションの直後が、**49.3k → 45.1k (約 8.5% 減)** になった (Skill 72 → 54 本、エージェント 18 → 0 本)。
+
+   ```json
+   {
+     "enabledPlugins": {
+       "superpowers@anthropic-plugin-directory": false,
+       "pr-review-toolkit@anthropic-plugin-directory": false,
+       "feature-dev@anthropic-plugin-directory": false,
+       "code-simplifier@anthropic-plugin-directory": false,
+       "claude-security@anthropic-plugin-directory": false,
+       "playwright@anthropic-plugin-directory": false,
+       "context7@anthropic-plugin-directory": false
+     }
+   }
+   ```
+
+   止めるものは、あなたが使うものに合わせて選ぶ (上は、TDD・ビルド・デバッグだけを行うフォルダの例。名前は、`~/.claude/settings.json` の `enabledPlugins` にある)。
+3. **古い `CLAUDE.md` は、長いまま。** v2.105.0 から、`/new-solution` が作る `CLAUDE.md` は短い (WPF + ロジック層 + UI テストで、7,034 → 4,498 文字)。すでにあるソリューションの「UI テスト (FlaUI)」の節は、`add_ui_tests.py --refresh-claude-md` で、新しい版にできる。
+4. **ウォッチャーを、先に起動しておく。** 起動していないと、`WATCHER_NOT_RUNNING` のあとの報告と再実行で、4 ターンほど増える (測定では、14 ターンのうち 4 ターン)。
+
+### 測り方
+- 新しいセッションの直後に `/context` を実行すると、内訳 (System prompt / System tools / Memory files / Skills / Messages) が見える。作業のあとに、もう一度実行すると、増えた分が分かる。**Claude が 1 回の依頼で自動で進んでいる最中は、`/context` を打てない**ので、途中の量が知りたいときは、セッションのログ (`~/.claude/projects/<フォルダ>/*.jsonl`) の、ターンごとの `usage` を集計する。
