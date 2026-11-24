@@ -2,6 +2,12 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.104.2] 2026-11-24 (`vs-debug` の `--debug --inspect`: 起動が遅いとき、`INSPECT_SKIP` にならず、ブレークを待つ。ホスト側 (`vs-ide.ps1`) が変わるので、`install.sh` の再配布とウォッチャーの再起動が要る。契約は変えない)
+
+- **実機で再現した (TEST-PLAN 2-67 の IM6、2026-11-24):** 1 回目の `--debug --inspect` が、`DEBUG_STARTED` のあと、20 秒以内にブレークせず、`DEBUG_MODE: run` と `INSPECT_SKIP: the mode is run` になった。約 30 秒後の `--inspect` 単独では、ブレークで止まっていて、正常に読めた。初回の起動が遅かっただけ (v2.101.0 から未解決だった (a))。
+- **直し方:** 同じ実行で `--debug` を始めて、`--inspect` の時点でも、まだ `run` のとき、`$VsInspectExtraWaitSec` (40 秒) まで、ブレークを待つ。`NOTE: the app was still starting; ...` を付ける。`--inspect` だけの実行は、待たない (今までどおり)。`--debug` だけの待ち (20 秒) も、変えない。
+- **確認:** `vs_once_test.sh` の静的な検査 2 件。実機の確認は、TEST-PLAN 2-67 の IM7 (未確認)。
+
 ## [2.104.1] 2026-11-24 (`vs-debug` のステップ実行の小さな改善 3 件。ホスト側 (`vs-ide.ps1`) が変わるので、`install.sh` の再配布とウォッチャーの再起動が要る。契約は変えない)
 
 - **(b) 読めない値を短く:** `LOCALS:` と `CHANGED:` で、VS が値を読めないとき (`IsValidValue` が false。最適化された Release のモジュールの変数など) は、VS の長い文面ではなく、`(unavailable)` と出す。
