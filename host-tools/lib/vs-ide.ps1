@@ -37,6 +37,7 @@ $VsUnknownWaitSec = 5            # after the breakpoint wait: a stop at an excep
 $VsStepMax = 30                 # steps per step operation (the Skill also limits one run to 30 in total)
 $VsStepWaitSec = 15              # a step that has not stopped after this long is reported as STEP_TIMEOUT
 $VsPauseWaitSec = 10
+$VsLocationWaitSec = 3           # STOPPED: waits this long for the stack frame to be ready (right after a continue it can be empty)
 $VsStepChangedMax = 10           # CHANGED: / LOCALS: lines per step
 $VsTargetRetry = 3               # when no VS answers right after the app starts, ask again (2 s apart) before giving up
 $VsDebugPaneGuid = '{FC076020-078A-11D1-A7DF-00A0C9110051}'   # the Debug pane (VSConstants.OutputWindowPaneGuid.DebugPane_guid). Found by GUID: the pane name is localized
@@ -200,13 +201,26 @@ function Get-VsStatusLines {
 }
 
 function Get-VsLocation($dte) {
-    try {
-        $frame = Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }
-        $doc = $dte.ActiveDocument
-        $where = ""
-        if ($doc) { $where = " at $($doc.FullName):$($doc.Selection.CurrentLine)" }
-        return "STOPPED: $($frame.FunctionName)$where"
-    } catch { return "STOPPED: (location unknown)" }
+    $deadline = (Get-Date).AddSeconds($VsLocationWaitSec)
+    $func = ""; $where = ""
+    do {
+        try {
+            $frame = Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }
+            $func = [string]$frame.FunctionName
+            $file = ""; $line = 0
+            try { $file = [string]$frame.FileName; $line = [int]$frame.LineNumber } catch { }
+            if ($file -and $line -gt 0) { $where = " at ${file}:$line" }
+            else {
+                $doc = $dte.ActiveDocument
+                if ($doc) { $where = " at $($doc.FullName):$($doc.Selection.CurrentLine)" }
+            }
+        } catch { }
+        if ($func -and $where) { break }
+        if ((Get-Date) -ge $deadline) { break }
+        Start-Sleep -Milliseconds 200
+    } while ($true)
+    if (-not $func -and -not $where) { return "STOPPED: (location unknown)" }
+    return "STOPPED: $func$where"
 }
 
 # The "Debug" pane of the Output window (found by GUID; the name is localized). Read only (never cleared).
@@ -224,9 +238,29 @@ function Limit-VsText([string]$t) {
     return $one
 }
 
+# A value for output. When VS cannot read it (IsValidValue is false: an optimized-away variable in a Release module, for example),
+# VS puts a long message in Value. Show a short mark instead.
+function Format-VsValue($e) {
+    try { if (-not $e.IsValidValue) { return "(unavailable)" } } catch { }
+    return (Limit-VsText ([string]$e.Value))
+}
+
+# Values are read in decimal: VS's "hexadecimal display" setting turns int 3 into 0x00000003. Turn it off while reading, then give it back.
+function Use-VsDecimal($dte) {
+    try {
+        $prev = [bool]$dte.Debugger.HexDisplayMode
+        if ($prev) { $dte.Debugger.HexDisplayMode = $false }
+        return $prev
+    } catch { return $false }
+}
+function Restore-VsHex($dte, [bool]$prev) {
+    if ($prev) { try { $dte.Debugger.HexDisplayMode = $true } catch { } }
+}
+
 # Break mode: the exception, the call stack and the locals of the current frame (read only). Each part is best effort.
 function Get-VsInspectLines($dte) {
     $lines = New-Object System.Collections.Generic.List[string]
+    $hex = Use-VsDecimal $dte
     try {
         $ex = Invoke-VsRetry { $dte.Debugger.GetExpression('$exception', $false, 2000) }
         if ($ex -and $ex.IsValidValue) {
@@ -251,10 +285,11 @@ function Get-VsInspectLines($dte) {
         $n = 0
         foreach ($e in @(Invoke-VsRetry { @($frame.Locals) })) {
             if ($n -ge $VsInspectMaxLocals) { $lines.Add("LOCALS_TRUNCATED: more than $VsInspectMaxLocals"); break }
-            try { $lines.Add("LOCALS: $($e.Name) = $(Limit-VsText ([string]$e.Value))  ($($e.Type))") } catch { }
+            try { $lines.Add("LOCALS: $($e.Name) = $(Format-VsValue $e)  ($($e.Type))") } catch { }
             $n++
         }
     } catch { $lines.Add("LOCALS_UNAVAILABLE: $($_.Exception.Message)") }
+    Restore-VsHex $dte $hex
     return $lines.ToArray()
 }
 
@@ -275,15 +310,17 @@ function Get-VsSourceText([string]$file, [int]$line) {
 # name -> value of the locals of the current frame (up to VsInspectMaxLocals)
 function Get-VsLocalsMap($dte) {
     $m = [ordered]@{}
+    $hex = Use-VsDecimal $dte
     try {
         $frame = Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }
         $n = 0
         foreach ($e in @(Invoke-VsRetry { @($frame.Locals) })) {
             if ($n -ge $VsInspectMaxLocals) { break }
-            try { $m[[string]$e.Name] = Limit-VsText ([string]$e.Value) } catch { }
+            try { $m[[string]$e.Name] = Format-VsValue $e } catch { }
             $n++
         }
     } catch { }
+    Restore-VsHex $dte $hex
     return ,$m
 }
 
@@ -469,6 +506,8 @@ function Invoke-VsOps([string[]]$flagLines) {
                         }
                         $mode = Get-VsModeName $dte
                         if ($mode -ne 'break') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("eval: not in break mode (mode: $mode).") } }
+                        $hex = Use-VsDecimal $dte
+                        try {
                         $ex = Invoke-VsRetry { $dte.Debugger.GetExpression($arg, $false, 5000) }
                         if ($ex -and $ex.IsValidValue) {
                             $exType = ""
@@ -479,6 +518,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                             try { $exMsg = Limit-VsText ([string]$ex.Value) } catch { }
                             $out.Add("EVAL_ERROR: $arg : $exMsg")
                         }
+                        } finally { Restore-VsHex $dte $hex }
                     }
                     'inspect' {
                         if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("inspect takes no argument") } }
