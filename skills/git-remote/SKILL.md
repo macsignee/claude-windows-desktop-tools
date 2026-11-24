@@ -49,7 +49,7 @@ Claude (WSL) は、リモートの認証 (Windows の Git Credential Manager。V
 
 ## 持たない操作 (頼まれても、この Skill では、しない)
 - **強制 push** (`--force`・`--force-with-lease`)、ブランチ・タグの**削除**、`--tags`、`--mirror`: 引数として、断られる。必要な場面は、ユーザーが、VS で、判断して行う。
-- **pull・merge・rebase:** 作業フォルダを書き換え、改行コード (`.gitattributes`) や `index.lock` の問題が絡むため、持たない。ユーザーが、VS で行う (`BEHIND:` が 0 より大きいときは、そう案内する)。
+- **pull・merge・rebase:** 作業フォルダを書き換え、改行コード (`.gitattributes`) や `index.lock` の問題が絡むため、持たない。ユーザーが、VS で行う (`BEHIND:` が 0 より大きいときは、そう案内する)。 **見送り (ユーザーの決定、2026-11-24)。運用は、`rules/git-wsl.md` の「取り込み (pull・merge・rebase) は、ユーザーが VS で行う。運用」** (`BEHIND:` を伝える、「pull した」と言われたら読み直す、など)。
 - **PR の作成・マージ:** この Skill の対象外 (リモートの種類ごとに違う)。
 
 ## なぜ、WSL の git と併用しても、安全か
