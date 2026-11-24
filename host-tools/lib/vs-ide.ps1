@@ -528,7 +528,8 @@ function Invoke-VsOps([string[]]$flagLines) {
                         if ($mode -eq 'run' -and $debugStarted) {
                             # The first start of an app can take longer than the break wait of debug. Wait more, only when this run started the debug.
                             $deadline = (Get-Date).AddSeconds($VsInspectExtraWaitSec)
-                            while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                            while ((Get-VsModeName $dte) -in @('run', 'unknown') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }   # just before break, the mode can read unknown for a moment
+                            Start-Sleep -Milliseconds 500
                             $mode = Get-VsModeName $dte
                             $out.Add("NOTE: the app was still starting; inspect waited for the break (up to ${VsInspectExtraWaitSec}s more). The mode is now $mode.")
                         }
