@@ -246,5 +246,11 @@ ok "SKILL.md: the step-through bug hunt (user asks only, 30 steps, 3 visits to o
 ok "host-tools/README.md: documents the step / continue / pause / eval operations, and that there is no stop" "$(grep -q '`step ' "$ROOT/host-tools/README.md" && grep -q '`eval ' "$ROOT/host-tools/README.md" && grep -q '`continue`' "$ROOT/host-tools/README.md" && echo 1 || echo 0)"
 ok "SKILL.md uses <Skill群> with the path note (skill_paths_test)" "$(grep -q 'パスの書き方' "$SKILL" && echo 1 || echo 0)"
 
+# v2.104.1: ステップ実行の改善 (b)(c)(d)。PowerShell は WSL で動かせないので、形を静的に確かめる (実機は TEST-PLAN 2-67)
+ok "vs-ide.ps1 (b): a value VS cannot read (IsValidValue false, e.g. an optimized-away variable) is shown short, not as VS's long message" "$(grep -q 'function Format-VsValue' "$PS1" && grep -q 'IsValidValue' "$PS1" && grep -q '(unavailable)' "$PS1" && grep -q 'Format-VsValue \$e' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1 (c): values are read in decimal (HexDisplayMode off while reading, then restored to what the user had)" "$(grep -q 'function Use-VsDecimal' "$PS1" && grep -q 'function Restore-VsHex' "$PS1" && grep -q 'HexDisplayMode' "$PS1" && [ "$(grep -c 'Use-VsDecimal \$dte' "$PS1")" -ge 3 ] && [ "$(grep -c 'Restore-VsHex \$dte' "$PS1")" -ge 3 ] && echo 1 || echo 0)"
+ok "vs-ide.ps1 (d): STOPPED: takes the place from the stack frame (FileName / LineNumber) and retries a moment when it is not ready" "$(grep -q 'VsLocationWaitSec' "$PS1" && grep -q '\$frame.FileName' "$PS1" && grep -q '\$frame.LineNumber' "$PS1" && echo 1 || echo 0)"
+ok "vs-ide.ps1: still has the UTF-8 BOM after the edit" "$([ "$(head -c 3 "$PS1")" = "$BOM" ] && echo 1 || echo 0)"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ]

@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.104.1] 2026-11-24 (`vs-debug` のステップ実行の小さな改善 3 件。ホスト側 (`vs-ide.ps1`) が変わるので、`install.sh` の再配布とウォッチャーの再起動が要る。契約は変えない)
+
+- **(b) 読めない値を短く:** `LOCALS:` と `CHANGED:` で、VS が値を読めないとき (`IsValidValue` が false。最適化された Release のモジュールの変数など) は、VS の長い文面ではなく、`(unavailable)` と出す。
+- **(c) `int` を 10 進で:** 値を読むあいだ、VS の「16 進表示」(`Debugger.HexDisplayMode`) を一時的にオフにし、読み終わったら、ユーザーの設定に戻す (`--inspect`・`--eval`・ステップ後の変数)。
+- **(d) `STOPPED:` に場所:** 場所は、スタック フレームの `FileName` / `LineNumber` から取る (取れなければ、今までどおり、アクティブなドキュメント)。続行の直後で、まだ取れないときは、最大 3 秒 (`$VsLocationWaitSec`)、待って、取り直す。
+- **(a) は、直さなかった:** `INSPECT_SKIP: the mode is run` は、再現しておらず、生の出力もない。次に出たときに、生の出力を残してから直す。
+- **確認:** `vs_once_test.sh` の静的な検査 4 件。PowerShell は WSL で動かせないので、実機の確認は TEST-PLAN 2-67 (IM1〜IM6、未確認)。
+
 ## [2.104.0] 2026-11-24 (`/new-solution --type mfc-mdi` (MDI) の初期状態を、Visual Studio のウィザードの見た目と操作に寄せる。SDI (v2.103.0) の続き。ダイアログは変えない)
 
 - **基準:** ウィザードの MDI (`ClaudePlayground\MFCMdiTemplate`。MFC アプリケーション、MDI、メニュー バーとツール バー、ステータス バー、タブ付き MDI)。文書・ビュー・`framework.h`・`pch`・`Resource.h` は、SDI のウィザードと同一だった。
