@@ -246,6 +246,24 @@ function Format-VsValue($e) {
     return (Limit-VsText ([string]$e.Value))
 }
 
+# The type name of a local, for output. VS leaves Type empty for a value it cannot read (an optimized-away variable),
+# so ask for the name as an expression (the type is known from the symbols even when the value is not). Empty when neither gives one.
+function Get-VsTypeName($dte, $e) {
+    $t = ""
+    try { $t = [string]$e.Type } catch { }
+    if (-not $t) {
+        try { $x = $dte.Debugger.GetExpression([string]$e.Name, $false, 1000); if ($x) { $t = [string]$x.Type } } catch { }
+    }
+    return $t.Trim()
+}
+
+# " (type)" after a local's value, or nothing when the type is not known (no empty "()")
+function Format-VsTypeSuffix($dte, $e) {
+    $t = Get-VsTypeName $dte $e
+    if ($t) { return "  ($t)" }
+    return ""
+}
+
 # Values are read in decimal: VS's "hexadecimal display" setting turns int 3 into 0x00000003. Turn it off while reading, then give it back.
 function Use-VsDecimal($dte) {
     try {
@@ -286,7 +304,7 @@ function Get-VsInspectLines($dte) {
         $n = 0
         foreach ($e in @(Invoke-VsRetry { @($frame.Locals) })) {
             if ($n -ge $VsInspectMaxLocals) { $lines.Add("LOCALS_TRUNCATED: more than $VsInspectMaxLocals"); break }
-            try { $lines.Add("LOCALS: $($e.Name) = $(Format-VsValue $e)  ($($e.Type))") } catch { }
+            try { $lines.Add("LOCALS: $($e.Name) = $(Format-VsValue $e)$(Format-VsTypeSuffix $dte $e)") } catch { }
             $n++
         }
     } catch { $lines.Add("LOCALS_UNAVAILABLE: $($_.Exception.Message)") }
