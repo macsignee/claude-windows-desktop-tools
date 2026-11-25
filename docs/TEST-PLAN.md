@@ -1393,3 +1393,15 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | EA4 | 追加分を元に戻して、ビルドとテスト | ベースラインと同じ | **合格** (2026-11-25。`PASSED`、10 件) |
 
 **結論:** 注意書きは正しい (修正は不要)。利用側にプリコンパイル済みヘッダーがないと、公開ヘッダーが自分で `<afxwin.h>` を include しない限り、`AFX_EXT_CLASS` が未定義になる。
+
+### 2-69. `vs-debug` の読めない変数の型名 (v2.105.1)
+
+`vs-ide.ps1` (ホスト側) を変えたので、`install.sh` の再配布と、ウォッチャーの再起動が要る。**PowerShell は WSL で動かせないので、静的なテスト (`vs_once_test.sh`) だけが済んでいる。** 確認は、2-67 の IM4 と同じ条件 (`ClaudePlayground\MfcScope`、C++、Release x64、VS で手でビルド。自動ビルドは、常に Debug)。一時コード (`// SP-TEMP`) は、確認のあとに戻す。
+
+| # | 操作 | 期待 | 結果 |
+|---|---|---|---|
+| TN1 | ウォッチャーを再起動して、`--status` | `OK`。`watcher=2.105.1` (`vs-ide.ps1` の構文に誤りがない) | |
+| TN2 | IM4 と同じ手順で、`--debug --inspect` | 読めない変数は、`NAME = (unavailable)  (型)` (型が取れた) か、`NAME = (unavailable)` (型が取れない。**空の `()` は出ない**)。VS の長い文面は出ない。どちらになったか (型名が取れたか) を、記録する | |
+| TN3 | 同じブレークで、読める変数 (`cmdInfo` など) | `NAME = 値  (型)` のまま (回帰なし) | |
+| TN4 | Debug 構成で、`--debug --inspect` | 今までと同じ (すべて読めて、型つき) | |
+
