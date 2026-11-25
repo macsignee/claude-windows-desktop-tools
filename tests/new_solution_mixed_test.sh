@@ -67,5 +67,12 @@ for f in "$ROOT/README.md" "$ROOT/docs/USAGE.md" "$ASK"; do
   ok "$(basename "$f"): P/Invoke は、自分で書く (禁止ではない)" "$(has_f "$f" 'P/Invoke は、自分で書く')"
 done
 
+# v2.105.4: 再確認 (2-70 の MX1) で、v2.105.3 の文言だけでは、Claude が質問に進んだ。手順の最初に、スクリプトに検査させる
+l0="$(grep -n '^0\. \*\*まず、引数を、スクリプトに検査させる' "$NSK" | head -1 | cut -d: -f1)"
+l1="$(grep -n '^1\. \*\*引数を読み、省略した項目を質問する' "$NSK" | head -1 | cut -d: -f1)"
+ok "new-solution SKILL: 手順 0 (引数を、まず、--dry-run でスクリプトに検査させる) が、手順 1 (質問) より前にある" "$([ -n "$l0" ] && [ -n "$l1" ] && [ "$l0" -lt "$l1" ] && echo 1 || echo 0)"
+ok "new-solution SKILL: 手順 0 は、終了コード 2 の文を、そのまま伝えて止まる (質問で直さない)" "$(sed -n "${l0:-1},$((${l0:-1}+4))p" "$NSK" | grep -q '終了コード 2' && sed -n "${l0:-1},$((${l0:-1}+4))p" "$NSK" | grep -q 'そのまま' && echo 1 || echo 0)"
+ok "new-solution SKILL: 「矛盾する組み合わせは、どちらかを変えてもらう」は、言語が混ざる指定を含まない (手順 0 へ)" "$(grep -n '矛盾する組み合わせ' "$NSK" | grep -q '言語が混ざる' && echo 1 || echo 0)"
+
 echo "new_solution_mixed_test: pass=$pass fail=$fail"
 [ "$fail" = 0 ]
