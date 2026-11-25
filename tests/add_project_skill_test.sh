@@ -82,7 +82,17 @@ python3 "$NEW" "$D" --type wpf --layers data,logic,viewmodel --tests mstest >/de
 out="$(python3 "$SS" "$D" 2>&1)"
 ok "wpf: KIND=dotnet、wpf-app、ViewModels は viewmodel (画面の層 ui と、取り違えない)" "$([ "$(has "$out" 'KIND: dotnet')" = 1 ] && [ "$(has "$out" 'PROJECT: Wpf | wpf-app | main')" = 1 ] && [ "$(has "$out" 'PROJECT: ViewModels | classlib | viewmodel | ViewModels.Tests')" = 1 ] && echo 1 || echo 0)"
 ok "wpf: 参照の向きの違反なし、MISMATCH なし、SUGGEST_REF なし (アプリが、すべての層を参照している)" "$([ "$(lines "$out" '^REF_ISSUES')" = 0 ] && [ "$(lines "$out" '^MISMATCH')" = 0 ] && [ "$(lines "$out" '^SUGGEST_REF')" = 0 ] && echo 1 || echo 0)"
-ok "wpf: ADDABLE は add_project.py (層)、UI テスト。C++ 用 (add_layer.py / add_ui_host.py) は出ない" "$([ "$(has "$out" 'add_project.py "<SLN_DIR>" <Name>')" = 1 ] && [ "$(has "$out" 'ui-tests:Wpf |')" = 1 ] && [ "$(has "$out" 'add_layer.py')" = 0 ] && [ "$(has "$out" 'ui-host')" = 0 ] && echo 1 || echo 0)"
+ok "wpf: ADDABLE は add_project.py (層)、UI テスト。C++ の画面ホスト (ui-host) は出ない" "$([ "$(has "$out" 'add_project.py "<SLN_DIR>" <Name>')" = 1 ] && [ "$(has "$out" 'ui-tests:Wpf |')" = 1 ] && [ "$(has "$out" 'ui-host')" = 0 ] && echo 1 || echo 0)"
+# v2.105.6: 混在の最初の 1 歩。片方の言語だけのソリューションに、もう片方の層を足す道が、ADDABLE にある (実機 2-70 で、ないことが分かった)
+ok "wpf: もう片方の言語の層 (layer:cpp、add_layer.py。混在になる) も、ADDABLE に出る" "$([ "$(has "$out" 'ADDABLE: layer:cpp |')" = 1 ] && [ "$(has "$out" 'add_layer.py "<SLN_DIR>" <Name>')" = 1 ] && [ "$(has "$out" '混在')" = 1 ] && echo 1 || echo 0)"
+out_cpp="$(python3 "$SS" "$T/Cpp" 2>&1)"
+ok "cpp: もう片方の言語の層 (layer:dotnet、add_project.py。混在になる) も、ADDABLE に出る。layer:cpp は出ない" "$([ "$(has "$out_cpp" 'ADDABLE: layer:dotnet |')" = 1 ] && [ "$(has "$out_cpp" 'add_project.py "<SLN_DIR>" <Name>')" = 1 ] && [ "$(has "$out_cpp" 'ADDABLE: layer:cpp |')" = 0 ] && echo 1 || echo 0)"
+D="$T/MixSt"; mkdir -p "$D"
+python3 "$NEW" "$D" --type wpf --layers logic --tests mstest >/dev/null 2>&1
+python3 "$AL" "$D" NativeLayer --kind dll --tests gtest >/dev/null 2>&1
+out_mix="$(python3 "$SS" "$D" 2>&1)"
+ok "混在: layer (C++) と layer:dotnet (.NET) の両方が、ADDABLE に出る。layer:cpp は出ない (layer が C++)" "$([ "$(has "$out_mix" 'KIND: mixed')" = 1 ] && [ "$(has "$out_mix" 'ADDABLE: layer |')" = 1 ] && [ "$(has "$out_mix" 'ADDABLE: layer:dotnet |')" = 1 ] && [ "$(has "$out_mix" 'ADDABLE: layer:cpp |')" = 0 ] && echo 1 || echo 0)"
+ok "SKILL.md: 層を足すときは、名前の次に、言語を質問する (layer:cpp / layer:dotnet があるとき。既定は、今と同じ言語。もう片方は、混在になる)" "$(grep -q '名前の次に、言語を質問する' "$SK" && grep -q 'layer:cpp' "$SK" && grep -q 'layer:dotnet' "$SK" && echo 1 || echo 0)"
 D="$T/Wf"; mkdir -p "$D"
 python3 "$NEW" "$D" --type winforms --layers data,logic --tests none >/dev/null 2>&1
 out="$(python3 "$SS" "$D" 2>&1)"
@@ -181,7 +191,7 @@ python3 "$AL" "$D" NoteData --tests-only >/dev/null 2>&1
 printf -- '- 追加した層: `NoteData` (dll)。データ役割。テストなし。\n' >> "$D/CLAUDE.md"
 out="$(python3 "$SS" "$D" 2>&1)"
 ok "tick: 名前をバッククォートで囲んだ「追加した層」の行も、テストの食い違いを検出する" "$(has "$out" 'MISMATCH: CLAUDE.md の「追加した層: NoteData」が「テストなし」だが')"
-ok "SKILL.md: 層を足すときの質問の順 (名前 → 役割 → 種類 → --uses → テスト → 使う側)。名前を聞かずに既定の名前で案を出さない" "$(grep -q '名前 → 役割 → 種類 → 参照する層' "$SK" && grep -q '名前を聞かずに、既定の名前で案を出さない' "$SK" && echo 1 || echo 0)"
+ok "SKILL.md: 層を足すときの質問の順 (名前 → 言語 → 役割 → 種類 → --uses → テスト → 使う側)。名前を聞かずに既定の名前で案を出さない" "$(grep -q '名前 → \*\*言語\*\* → 役割 → 種類 → 参照する層' "$SK" && grep -q '名前を聞かずに、既定の名前で案を出さない' "$SK" && echo 1 || echo 0)"
 ok "SKILL.md: 「その他」の層の使う側の既定はメイン (「いまはどこからも参照しない」は、ユーザーが選んだときだけ)" "$(grep -q '使う側の既定は、メイン' "$SK" && echo 1 || echo 0)"
 ok "SKILL.md: 切り出し (名前空間の衝突の検出、範囲外の変更として案に書く、削除の前に diff、同一でなければ削除せず止まる)" "$(r=1; for k in '切り出し: アプリの中に' '範囲外の変更として、別に書く' '削除の前に、アプリ側のファイルが' '同一でないファイル' '削除せず、止まって'; do grep -qF -- "$k" "$SK" || r=0; done; echo $r)"
 ok "SKILL.md: 「追加した層」の行の名前は、バッククォートで囲まない" "$(grep -qF '行の名前は、`` ` `` で囲まない' "$SK" && echo 1 || echo 0)"

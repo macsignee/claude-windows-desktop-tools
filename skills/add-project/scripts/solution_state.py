@@ -341,6 +341,13 @@ def addables(sln_dir, projects, kind, main_name):
             if p['kind'] == 'classlib' and n not in tests:
                 out.append((f'tests-for:{n}', f'{n} に、テスト (MSTest) を後付けする',
                             f'python3 {SCRIPTS}/csharp-test-first/scripts/add_project.py "{sd}" {n} --tests-only --dry-run'))
+    # もう片方の言語の層 (混在になる)。片方の言語だけのソリューションから、混在への最初の 1 歩 (実機 2-70 で、この道がないことが分かった)
+    if cpp:
+        out.append(('layer:dotnet', '.NET の層 (クラスライブラリ) と、そのテストを足す (混在になる。C++ と C# の間の参照は、足さない)',
+                    f'python3 {SCRIPTS}/csharp-test-first/scripts/add_project.py "{sd}" <Name> [--kind lib|data|logic|viewmodel] [--tests mstest|none] --dry-run'))
+    else:
+        out.append(('layer:cpp', 'C++ の層 (DLL ほか) と、そのテストを足す (混在になる。C++ と C# の間の参照は、足さない)',
+                    f'python3 {SCRIPTS}/cpp-test-first/scripts/add_layer.py "{sd}" <Name> [--kind dll|lib] [--tests gtest|none] --dry-run'))
     try:
         import add_common
         plan_rows, c_src, _origin, c_mode = add_common.plan(sln_dir)

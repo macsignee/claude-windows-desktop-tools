@@ -1432,3 +1432,12 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | MX4b | MX1c のあと、同じフォルダで、`/new-solution --type wpf --layers logic --tests mstest` → `/add-project layer` (C++ の `NativeLayer`、テストあり、役割は「その他」) | `CLAUDE.md` の層の表に、`NativeLayer` の行が入る (表の下の箇条書きではない)。`SUGGEST_REF` が出ない | |
 | MX1d | v2.105.5 を配布し、新しい空フォルダ (`MixCheck4`) で、MX1c と同じ操作 | 質問せず、最初の 1 文 (「言語が混ざるソリューション (.NET + C++) は、/new-solution では作らない。片方で作り、/add-project で、もう片方の層を足す」) が伝えられて止まる。**出なくても、ここで区切る** | |
 
+**2-70 の再々確認 (v2.105.5 を配布したあと、2026-11-25、`MixCheck3`・`MixCheck4`):**
+
+| # | 操作 | 期待 | 結果 |
+|---|---|---|---|
+| MX1d | v2.105.5 で、`/new-solution --type wpf --layers logic --tests gtest` (`MixCheck4`) | 質問せず、案内の文が、そのまま伝えられて止まる | **合格** (2026-11-25)。質問は出ず、エラー文 (案内が先頭) が、そのまま伝えられて止まった。「mstest か none を指定して、もう一度」 |
+| MX4c | WPF のソリューション (`MixCheck3`) で、`/add-project layer` を打ち、C++ の層を足したい | 名前の次に、**言語**が質問され、C++ を選べる。C++ の層 (`add_layer.py`) の流れに進む | **不合格** (v2.105.5)。言語の質問が、どこにもなく、名前、役割 (その他)、テスト (**MSTest**) と、.NET の層の流れに進んだ。**原因:** `solution_state.py` の `ADDABLE` が、今の言語の層だけを出す (.NET だけなら、`add_project.py` だけ)。混在の最初の 1 歩が、通らなかった (MX3 で通ったのは、チャットで「C++ の層」と書いて頼み、Claude が `add_layer.py` を手で選んだため)。**v2.105.2 で「`/add-project` は、すでに混在に対応」と判断したのは、`KIND: mixed` の判定だけを見た誤り。** → v2.105.6 で、`ADDABLE` に `layer:cpp` / `layer:dotnet` を足し、SKILL に「名前の次に、言語を質問する」を足した |
+| MX4d | v2.105.6 を配布し、新しい空フォルダ (`MixCheck5`) で、`/new-solution --type wpf --layers logic --tests mstest` → `/add-project layer` | 名前の次に、言語が質問される。「C++ (混在になる)」を選び、役割は「その他」、種類は DLL、テストあり (GoogleTest) | |
+| MX4e | MX4d のあと、`CLAUDE.md` の層の表 | `NativeLayer` の行が、表に入る (`C++ DLL`)。`SUGGEST_REF` が出ない | |
+
