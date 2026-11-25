@@ -1,5 +1,7 @@
 # 引き継ぎ: 残作業 (2026-11-24 夜。別セッションで行う)
 
+> **最新の引き継ぎは `docs/HANDOFF-2026-11-25.md`** (2026-11-25 に、R2〜R6 が済み、main は v2.105.6)。この文書は、残作業の一覧 (R1〜R20) として、使う。
+
 リポジトリ: `macsignee/claude-windows-desktop-tools` (WSL: `~/src/claude-windows-desktop-tools`)。**main は v2.105.0** (配布済み)。
 **この文書は、残作業だけを、詳しく並べたもの。** 作業の経緯と、マージしたものは `docs/HANDOFF-2026-11-24-evening.md`、約束事 (作業の進め方) は `docs/HANDOFF-2026-11-24.md` の第 1 節と、`docs/HANDOFF-2026-11-18.md` の第 1 節。
 

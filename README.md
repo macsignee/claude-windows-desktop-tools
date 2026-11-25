@@ -395,7 +395,8 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 - [`UI-MODEL-GUIDE.md`](docs/UI-MODEL-GUIDE.md): UI と画面モデルの開発の手引き (WPF・WinForms・MFC 共通の考え方。契約、Fake、検査、MFC の通知)。設計の正本。
 - [`MIGRATION-SCREEN-MODEL.md`](docs/MIGRATION-SCREEN-MODEL.md): 旧 Presenter 構成のソリューションを、画面モデルへ移す手順 (移さなくてもよい)。
 - [`NEXT-STEPS.md`](docs/NEXT-STEPS.md): 次の作業 (現状と残り。2026-11-25 時点 (v2.105.1) で、実機の確認はすべて終わり、判断待ちのものだけ)。
-- [`HANDOFF-2026-11-24-remaining.md`](docs/HANDOFF-2026-11-24-remaining.md): 引き継ぎ (最新。残作業の一覧、前提、決定済みのこと)。新しいセッションで、最初に読む。
+- [`HANDOFF-2026-11-25.md`](docs/HANDOFF-2026-11-25.md): 引き継ぎ (最新。2026-11-25 にやったこと、決定済みのこと、残作業、落とし穴)。新しいセッションで、最初に読む。
+- [`HANDOFF-2026-11-24-remaining.md`](docs/HANDOFF-2026-11-24-remaining.md): 残作業の一覧 (R1〜R20。R2〜R6 は、2026-11-25 に済んだ)。
 - [`HANDOFF-2026-11-24-evening.md`](docs/HANDOFF-2026-11-24-evening.md): 2026-11-24 夜の引き継ぎ (Token 削減の測定と結論、マージしたもの、技術メモ)。
 - [`HANDOFF-2026-11-24.md`](docs/HANDOFF-2026-11-24.md): 2026-11-23〜24 の引き継ぎ (作業、決定事項、サンドボックスの落とし穴)。
 - [`HANDOFF-2026-11-18.md`](docs/HANDOFF-2026-11-18.md): 旧版の引き継ぎ (作業の約束事、画面モデルの採用までの経緯)。第 1 節の約束事は、今も有効。
