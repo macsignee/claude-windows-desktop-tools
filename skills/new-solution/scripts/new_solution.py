@@ -64,7 +64,8 @@ import add_ui_host as AUH   # noqa: E402  (画面モデルのひな形。mfc-dia
 
 die = AL.die
 
-# 言語が混ざる指定 (.NET に C++ の層、C++ に .NET のテスト) で止めるときの案内。混在は /new-solution では作らない (正式な手順は /add-project)
+# 言語が混ざる指定 (.NET に C++ の層、C++ に .NET のテスト) で止めるときの案内。混在は /new-solution では作らない (正式な手順は /add-project)。
+# エラー文の先頭に置く (文頭に「mstest に変える」があると、Claude が、その選択肢を出してしまう。TEST-PLAN 2-70 の MX1c)
 MIX_HINT = '言語が混ざるソリューション (.NET + C++) は、/new-solution では作らない。片方で作り、/add-project で、もう片方の層を足す'
 KIND = {'wpf': 'WPF (MVVM)', 'winforms': 'WinForms (ScreenModel)', 'csharp-dll': 'C# クラスライブラリ', 'mfc': 'MFC SDI', 'mfc-mdi': 'MFC MDI', 'mfc-dialog': 'MFC ダイアログ', 'mfc-lib': 'MFC 静的ライブラリ', 'mfc-ext-dll': 'MFC 拡張 DLL', 'mfc-std-dll': 'MFC 標準 DLL', 'win32': 'Win32 デスクトップ', 'console': 'コンソール', 'dll': 'DLL', 'lib': '静的ライブラリ'}
 DOTNET_TYPES = ('wpf', 'winforms', 'csharp-dll')
@@ -2596,9 +2597,9 @@ def create_wpf(a, folder, name):
     if missing:
         die(f'新規作成には、{" / ".join(missing)} が必要 (省略した項目は、ユーザーに質問して、決めること)')
     if a.tests == 'gtest':
-        die('--tests gtest は C++ 用。WPF (.NET) は、--tests mstest (または none)。' + MIX_HINT)
+        die(MIX_HINT + '。(--tests gtest は C++ 用。WPF (.NET) は、--tests mstest (または none))')
     if a.layer_kind or a.gtest or a.gtest_from or a.toolset:
-        die('--layer-kind / --gtest / --toolset は C++ 用。WPF では、指定できない。' + MIX_HINT)
+        die(MIX_HINT + '。(--layer-kind / --gtest / --toolset は C++ 用。WPF では、指定できない)')
     if dll and a.ui_tests == 'flaui':
         die('--ui-tests flaui は、画面のあるアプリ (wpf) 用。csharp-dll には、画面がない')
     if dll or winforms:
@@ -2781,7 +2782,7 @@ def create_mode(a, folder, name):
         create_wpf(a, folder, name)
         return
     if a.tests == 'mstest':
-        die('--tests mstest は .NET (wpf / csharp-dll) 用。C++ は、--tests gtest。' + MIX_HINT)
+        die(MIX_HINT + '。(--tests mstest は .NET (wpf / csharp-dll) 用。C++ は、--tests gtest)')
     if a.tfm or a.mstest_version or a.testsdk_version:
         die('--tfm / --mstest-version / --testsdk-version は WPF (.NET) 用')
     missing = [k for k, v in (('--type', a.type), ('--layers', a.layers), ('--tests', a.tests)) if v is None]
@@ -3092,11 +3093,11 @@ def main():
         dotnet = has_dotnet_projects(folder)
         if a.tests == 'mstest':
             if not dotnet:
-                die('--tests mstest は、.NET (WPF) のソリューション用。このソリューションには、.csproj のプロジェクトがない。C++ は --tests gtest。' + MIX_HINT)
+                die(MIX_HINT + '。(--tests mstest は、.NET (WPF) のソリューション用。このソリューションには、.csproj のプロジェクトがない。C++ は --tests gtest)')
             add_tests_wpf(a, folder, name, sols[0])
         elif a.tests == 'gtest':
             if dotnet:
-                die('--tests gtest は、C++ 用。.NET (WPF) のソリューションは、--tests mstest。' + MIX_HINT)
+                die(MIX_HINT + '。(--tests gtest は、C++ 用。.NET (WPF) のソリューションは、--tests mstest)')
             add_tests_mode(a, folder, name, sols[0])
         else:
             die(f'すでにソリューションがある ({sols[0]})。何も書いていない。テストを後付けするなら、--tests gtest (C++) か --tests mstest (.NET) だけを指定する', 3)
