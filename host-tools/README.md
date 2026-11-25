@@ -41,7 +41,7 @@ Claude Code (WSL/サンドボックス)            Windows (このツール)
 |---|---|---|
 | `run_watcher.cmd` | 入口。プロジェクトフォルダを指定して ps1 を起動する (ダブルクリック / ドラッグ&ドロップ可) | ○ |
 | `watch_and_build.ps1` | **ウォッチャー本体。** 引数、パス解決、ソリューションの判定、二重起動の防止、フラグの監視ループ。機能ごとの関数は、`lib\*.ps1` を読み込む | ○ |
-| `lib\*.ps1` (8 ファイル) | `watch_and_build.ps1` が読み込む、機能ごとの関数。`common` (共通)、`build` (ビルドの呼び出し)、`tests` (テストの実行)、`test-results` (結果の解析)、`gtest` (GoogleTest の取得)、`package` (nuget / vcpkg / fetch)、`ui-settings` (`uitest.settings`)、`uitest-desktop` (UI テストのデスクトップ基盤) | ○ |
+| `lib\*.ps1` (10 ファイル) | `watch_and_build.ps1` が読み込む、機能ごとの関数。`common` (共通)、`build` (ビルドの呼び出し)、`tests` (テストの実行)、`test-results` (結果の解析)、`gtest` (GoogleTest の取得)、`package` (nuget / vcpkg / fetch)、`ui-settings` (`uitest.settings`)、`uitest-desktop` (UI テストのデスクトップ基盤)、`vs-ide` (Visual Studio の操作)、`git-remote` (Git のリモートの操作) | ○ |
 | `build-windows.cmd` | VS の環境を読み込んで MSBuild を実行する (C++ ツールの要求と NuGet の復元は、第 6 引数で切り替える)。単体でも使える | ○ |
 | `run_watcher_visible.cmd` | `run_watcher.cmd` と同じ引数。UI テストを、**ユーザーのデスクトップ**で、操作の間に待ちを入れて実行する (目で確かめるとき。3.3) | 任意 |
 | `run_watchers.cmd` | 作業フォルダの下の、候補ごとに、ウォッチャーを起動する (3.2) | 任意 |
