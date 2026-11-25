@@ -1413,11 +1413,13 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
-| MX1 | `/new-solution --type wpf --layers logic --tests gtest` のように、混ざる指定 (WPF に `--tests gtest`) を打つ | **何も作られず**、「言語が混ざるソリューション (.NET + C++) は、/new-solution では作らない。片方で作り、/add-project で、もう片方の層を足す」と案内される | |
-| MX2 | `/new-solution --type wpf --layers logic --tests mstest` で、WPF を作る (ウォッチャーを起動) | 作成され、ビルドとテストが通る | |
-| MX3 | `/add-project layer` で、C++ の DLL (`NativeLayer`、テストあり) を足す。案が示され、承認する | 案に、C++ の層と、そのテスト (`NativeLayerTest`)、`.slnx` の `x64` の構成が含まれる。作成のあと、`solution_state.py` が `KIND: mixed` | |
-| MX4 | MX3 のあと、`CLAUDE.md` を見る | 「- 層:」の行か、構成の表に、**C++ の層が書かれている** (`MISMATCH` が残らない) | |
-| MX5 | C++ のテスト (vcpkg) を使うとき、作成のあとに、`builtin-baseline` の固定と取得が、案内される | 案内され (または実行され)、ビルドとテストが `PASSED` | |
-| MX6 | MX3 のあとに、WPF から `NativeLayer` への参照を、頼んでみる (「WPF から NativeLayer を呼べるようにして」) | `add_reference.py` が断る (C++ と C# の間の参照は、扱わない)。理由が、そのまま伝えられる | |
-| MX7 | 回帰: `/new-solution --type mfc-dialog --layers none --tests none --ui-tests flaui` | 止まらずに、作られる (C++ + .NET の UI テストは、作れる混在) | |
+| MX1 | `/new-solution --type wpf --layers logic --tests gtest` のように、混ざる指定 (WPF に `--tests gtest`) を打つ | **何も作られず**、「言語が混ざるソリューション (.NET + C++) は、/new-solution では作らない。片方で作り、/add-project で、もう片方の層を足す」と案内される |  **部分** (2026-11-25)。何も作られなかった (混在は作られない)。ただし、スクリプトの前に Claude が矛盾に気づき、「mstest か none か」を質問した。**`/add-project` の案内は出なかった** (案内は、スクリプトが実行されたときだけ出る。`mstest` を選ぶと、C++ の層が、黙って消える)。→ v2.105.3 で、`new-solution` の SKILL に「言語が混ざる指定は、質問で直さず、止めて案内する」を足した |
+| MX2 | `/new-solution --type wpf --layers logic --tests mstest` で、WPF を作る (ウォッチャーを起動) | 作成され、ビルドとテストが通る |  **合格** (2026-11-25。`MixCheck`)。WPF + `LogicLayer` + `LogicLayer.Tests`。ビルドとテストが `PASSED` (1 件) |
+| MX3 | `/add-project layer` で、C++ の DLL (`NativeLayer`、テストあり) を足す。案が示され、承認する | 案に、C++ の層と、そのテスト (`NativeLayerTest`)、`.slnx` の `x64` の構成が含まれる。作成のあと、`solution_state.py` が `KIND: mixed` |  **合格** (2026-11-25)。質問で「C++ と C# の間の参照は作らない」と、先に伝えられた。案は `NativeLayer` + `NativeLayerTest` (vcpkg)。作成後、`KIND: mixed`、`.slnx` に `x64` の構成 (案には書かれないが、足された)。**観察:** `SUGGEST_REF: MixCheck -> NativeLayer` が、ずっと出る → v2.105.3 で、言語が違う組は出さないようにした |
+| MX4 | MX3 のあと、`CLAUDE.md` を見る | 「- 層:」の行か、構成の表に、**C++ の層が書かれている** (`MISMATCH` が残らない) |  **合格** (2026-11-25)。`MISMATCH` なし。`- テスト:` が `あり (MSTest, GoogleTest)` になった。**観察:** C++ の層が、層の表の行ではなく、表の下の「追加した層」の箇条書きに入った (SKILL は、表があれば 1 行足す、と書いていた) → v2.105.3 で、混在でも表に 1 行足す、と明記した |
+| MX5 | C++ のテスト (vcpkg) を使うとき、作成のあとに、`builtin-baseline` の固定と取得が、案内される | 案内され (または実行され)、ビルドとテストが `PASSED` |  **合格** (2026-11-25)。`builtin-baseline` の固定と gtest の取得 (`package_once.sh`) が行われ、ビルドとテストが `PASSED` (`LogicLayer.Tests` 1 件、`NativeLayerTest` 1 件)。`wpf-check` の指摘は 0 件 |
+| MX6 | MX3 のあとに、WPF から `NativeLayer` への参照を、頼んでみる (「WPF から NativeLayer を呼べるようにして」) | `add_reference.py` が断る (C++ と C# の間の参照は、扱わない)。理由が、そのまま伝えられる |  **期待が誤り** (2026-11-25)。「WPF から NativeLayer を呼べるようにして」に、Claude は断らず、P/Invoke の実装を提案した (`add_reference.py` を通らない、通常の実装の依頼)。実装は、Esc で中断した。**P/Invoke は、禁止ではなく、ひな形・自動の参照・検査が、ないだけ** → v2.105.3 で、文書の「扱わない」を、そう書き直した |
+| MX7 | 回帰: `/new-solution --type mfc-dialog --layers none --tests none --ui-tests flaui` | 止まらずに、作られる (C++ + .NET の UI テストは、作れる混在) |  **合格** (2026-11-25。`MixCheck7`)。`/new-solution --type mfc-dialog --layers none --tests none --ui-tests flaui` が止まらず、案が出て、作成された。ビルドは `SUCCESS` (警告なし)。`MixCheck7.UITests` が含まれた |
+
+**2-70 の結論 (2026-11-25):** 混在は、`/add-project` で作れる (MX2〜MX5)。見つかった点 4 つ (MX1・MX3・MX4・MX6) は、v2.105.3 で直した。**直したあとの再確認は、MX1・MX4 を、新しいフォルダで (任意)**。
 

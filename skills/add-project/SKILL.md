@@ -91,8 +91,8 @@ python3 <このSkillのフォルダ>/scripts/add_reference.py "$SLN_DIR" --from 
 
 ## 混在のソリューション (.NET + C++)
 - **混在は、この Skill が正式な作り方** (`KIND: mixed`)。`/new-solution` は、言語が混ざる指定を止めて、ここへ案内する。WPF に C++ の層を足すときは `add_layer.py`、C++ に C# の層を足すときは `add_project.py` を使う (どちらも、`KIND` と `MAIN` で決まる)。
-- **C++ と C# の間の参照は、足さない** (`add_reference.py` が断る。WPF から C++ を呼ぶ形 (P/Invoke など) は、扱わない)。断られたら、理由をそのまま伝える。
-- **`CLAUDE.md` に、足した言語の層を書く** (手順 6)。書かないと、`solution_state.py` が `MISMATCH` で知らせる。C++ の層のテスト (vcpkg) は、作成のあとに、`builtin-baseline` の固定と取得 (`package_once.sh`) が要る。
+- **C++ と C# の間の参照 (`ProjectReference`) は、足さない** (`add_reference.py` が断る)。**WPF から C++ を呼ぶこと (P/Invoke など) は、禁止ではない**。ひな形・自動の参照・検査が、ないだけで、P/Invoke は、自分で書く (ユーザーが、実装を頼んだときは、通常の実装として行う)。参照の追加を頼まれて断られたら、理由をそのまま伝える。`solution_state.py` は、言語が違う組の `SUGGEST_REF` を出さない。
+- **`CLAUDE.md` に、足した言語の層を書く** (手順 6)。**混在でも、層の表に 1 行足す** (種類は `C++ DLL` など。表の下の箇条書きにしない。`- 層:` の行は、変えない)。書かないと、`solution_state.py` が `MISMATCH` で知らせる。C++ の層のテスト (vcpkg) は、作成のあとに、`builtin-baseline` の固定と取得 (`package_once.sh`) が要る。
 
 ### 6. CLAUDE.md を、実際の構成に合わせる
 **書き換えるのは、次の場所だけ** (`- 層:` の行、層の表または「追加した層」の行、`- テスト:` の行。ほかの節は、触らない)。`CLAUDE.md` がなければ、作らず、ユーザーに伝える。

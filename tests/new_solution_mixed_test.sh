@@ -47,5 +47,25 @@ ok "README: 混在は /add-project が正式な手順" "$(has_f "$ROOT/README.md
 ok "USAGE: 混在は /add-project が正式な手順" "$(has_f "$ROOT/docs/USAGE.md" '混在のソリューションは、`/add-project` で作る')"
 ok "add-project SKILL: 混在の節 (C++ と C# の間の参照は扱わない)" "$(has_f "$ROOT/skills/add-project/SKILL.md" '混在のソリューション')"
 
+# v2.105.3: 実機 (TEST-PLAN 2-70、MX1〜MX6) で見つけた点の修正
+AL="$ROOT/skills/cpp-test-first/scripts/add_layer.py"
+SS="$ROOT/skills/add-project/scripts/solution_state.py"
+# (3) 混在: 言語が違う組には、SUGGEST_REF を出さない (C++ と C# の間は、参照を作らない)
+mkdir -p "$T/MixH"; python3 "$NS" "$T/MixH" --type wpf --layers logic --tests mstest >/dev/null 2>&1
+python3 "$AL" "$T/MixH" NativeLayer --kind dll --tests gtest >/dev/null 2>&1
+out="$(python3 "$SS" "$T/MixH" 2>&1)"
+ok "混在: KIND は mixed" "$(has "$out" 'KIND: mixed')"
+ok "混在: 言語が違う組 (WPF -> C++ の層) に、SUGGEST_REF を出さない" "$([ "$(grep -c '^SUGGEST_REF' <<<"$out")" = 0 ] && echo 1 || echo 0)"
+# (1) new-solution の SKILL: 言語が混ざる指定は、質問で直さず、止めて /add-project を案内する
+NSK="$ROOT/skills/new-solution/SKILL.md"
+ok "new-solution SKILL: 言語が混ざる指定は、質問で直さず、/add-project を案内して止める" "$(has_f "$NSK" '言語が混ざる指定は、質問で直さず')"
+# (2) add-project の SKILL: 混在でも、層の表に 1 行 (種類は C++ DLL)
+ASK="$ROOT/skills/add-project/SKILL.md"
+ok "add-project SKILL: 混在でも、層の表に 1 行足す (表の下の箇条書きにしない)" "$(has_f "$ASK" '混在でも、層の表に 1 行')"
+# (4) 「扱わない」の書き方: できない、ではない。ひな形・自動の参照・検査がないだけで、P/Invoke は、自分で書く
+for f in "$ROOT/README.md" "$ROOT/docs/USAGE.md" "$ASK"; do
+  ok "$(basename "$f"): P/Invoke は、自分で書く (禁止ではない)" "$(has_f "$f" 'P/Invoke は、自分で書く')"
+done
+
 echo "new_solution_mixed_test: pass=$pass fail=$fail"
 [ "$fail" = 0 ]

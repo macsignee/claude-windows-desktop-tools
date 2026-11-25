@@ -250,7 +250,8 @@ def ref_issues(projects):
 
 
 def suggest_refs(projects):
-    """どこからも参照されていない層 (data / logic / viewmodel / ui / other) と、参照するのが自然なプロジェクト。"""
+    """どこからも参照されていない層 (data / logic / viewmodel / ui / other) と、参照するのが自然なプロジェクト。
+    使う側は、同じ言語から選ぶ (C++ と C# の間の参照は、add_reference.py が断るので、提案しない)。"""
     referenced = set()
     for n, p in projects.items():
         if p['role'] in ('test', 'uitest'):
@@ -262,13 +263,13 @@ def suggest_refs(projects):
     for n, p in projects.items():
         if p['role'] not in ('data', 'logic', 'viewmodel', 'ui', 'other') or n in referenced:
             continue
-        if p['role'] == 'other':               # 役割の語がない層: 順位がないので、使う側の既定は、メイン
-            if main:
+        if p['role'] == 'other':               # 役割の語がない層: 順位がないので、使う側の既定は、メイン (言語が違うときは、参照しない)
+            if main and projects[main]['lang'] == p['lang']:
                 out.append(f'{main} -> {n}')
             continue
         rank = RANK[p['role']]
         cands = [(RANK[q['role']], m) for m, q in projects.items()
-                 if q['role'] in RANK and RANK[q['role']] < rank and m != n]
+                 if q['role'] in RANK and RANK[q['role']] < rank and m != n and q['lang'] == p['lang']]   # C++ と C# の間は、参照しない
         if not cands:
             continue
         best = max(r for r, _ in cands)       # すぐ上の層。同じ高さが複数なら、名前順の先頭
