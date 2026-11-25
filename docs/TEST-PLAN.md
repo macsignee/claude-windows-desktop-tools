@@ -1407,3 +1407,17 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 **2-69 の結論 (2026-11-25):** 空の `()` は、出なくなった (目的は達成)。型名の補完は、効かなかった (`GetExpression(名前)` は、読めない変数の型を返さない)。補完のコード (`Get-VsTypeName` の `GetExpression`) は、効果がないので、いずれ、取り除いてよい (小さい整理。急がない)。TN3 の期待 (`cmdInfo` が読める) は、Release では MFC の DLL のシンボルがないため、誤りだった。一時コード・ブレークポイントは撤去済み。
 
+### 2-70. 混在ソリューションを、`/add-project` で作る (v2.105.2)
+
+`install.sh --skills-only` で配布してから、確認する。新しい確認用フォルダ (`ClaudePlayground\MixCheck` など。空) で、Claude Code を起動して行う。スラッシュコマンド (`/new-solution`、`/add-project`) は、Claude からは実行できないので、**ユーザーが、自分で打つ**。
+
+| # | 操作 | 期待 | 結果 |
+|---|---|---|---|
+| MX1 | `/new-solution --type wpf --layers logic --tests gtest` のように、混ざる指定 (WPF に `--tests gtest`) を打つ | **何も作られず**、「言語が混ざるソリューション (.NET + C++) は、/new-solution では作らない。片方で作り、/add-project で、もう片方の層を足す」と案内される | |
+| MX2 | `/new-solution --type wpf --layers logic --tests mstest` で、WPF を作る (ウォッチャーを起動) | 作成され、ビルドとテストが通る | |
+| MX3 | `/add-project layer` で、C++ の DLL (`NativeLayer`、テストあり) を足す。案が示され、承認する | 案に、C++ の層と、そのテスト (`NativeLayerTest`)、`.slnx` の `x64` の構成が含まれる。作成のあと、`solution_state.py` が `KIND: mixed` | |
+| MX4 | MX3 のあと、`CLAUDE.md` を見る | 「- 層:」の行か、構成の表に、**C++ の層が書かれている** (`MISMATCH` が残らない) | |
+| MX5 | C++ のテスト (vcpkg) を使うとき、作成のあとに、`builtin-baseline` の固定と取得が、案内される | 案内され (または実行され)、ビルドとテストが `PASSED` | |
+| MX6 | MX3 のあとに、WPF から `NativeLayer` への参照を、頼んでみる (「WPF から NativeLayer を呼べるようにして」) | `add_reference.py` が断る (C++ と C# の間の参照は、扱わない)。理由が、そのまま伝えられる | |
+| MX7 | 回帰: `/new-solution --type mfc-dialog --layers none --tests none --ui-tests flaui` | 止まらずに、作られる (C++ + .NET の UI テストは、作れる混在) | |
+

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# new_solution_mixed_test.sh - /new-solution は、言語が混ざるソリューション (.NET + C++ の層) を作らない。
+# 混ざる指定は、エラー (rc=2) で止まり、「/add-project で、もう片方の層を足す」と案内する。
+# 例外: C++ のメインに、.NET の UI テストを足す (--ui-tests flaui) は、混在だが、作れる (UT18・H7)。
+# Windows も .NET も不要 (疑似フォルダ)。 Usage: tests/new_solution_mixed_test.sh
+export LC_ALL=C
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+NS="$ROOT/skills/new-solution/scripts/new_solution.py"
+T="${TMPDIR:-/tmp}/nsmixed_$$"
+rm -rf "$T"; mkdir -p "$T"
+trap 'rm -rf "$T"' EXIT
+pass=0; fail=0
+ok() { if [ "$2" = 1 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
+has() { grep -qF -- "$2" <<<"$1" && echo 1 || echo 0; }
+stops() {  # stops <説明> <フォルダ名> <引数...> : rc=2 で止まり、/add-project を案内する
+  local label="$1" n="$2"; shift 2
+  mkdir -p "$T/$n"
+  local out rc; out="$(python3 "$NS" "$T/$n" "$@" 2>&1)"; rc=$?
+  ok "$label -> rc=2" "$([ $rc = 2 ] && echo 1 || echo 0)"
+  ok "$label -> /add-project を案内する" "$(has "$out" '/add-project')"
+}
+
+# 新規作成で、混ざる指定
+stops "WPF に --tests gtest"            MixA --type wpf --layers logic --tests gtest
+stops "WPF に --layer-kind"             MixB --type wpf --layers logic --tests none --layer-kind dll
+stops "WinForms に --tests gtest"       MixC --type winforms --layers logic --tests gtest
+stops "C++ (MFC) に --tests mstest"     MixD --type mfc-dialog --layers logic --tests mstest
+
+# すでにあるソリューションへの、テストの後付けで、混ざる指定
+mkdir -p "$T/MixE"; python3 "$NS" "$T/MixE" --type wpf --layers logic --tests none >/dev/null 2>&1
+out="$(python3 "$NS" "$T/MixE" --tests gtest 2>&1)"; rc=$?
+ok ".NET のソリューションに --tests gtest (後付け) -> rc=2" "$([ $rc = 2 ] && echo 1 || echo 0)"
+ok ".NET のソリューションに --tests gtest (後付け) -> /add-project を案内する" "$(has "$out" '/add-project')"
+mkdir -p "$T/MixF"; python3 "$NS" "$T/MixF" --type mfc-dialog --layers none --tests none >/dev/null 2>&1
+out="$(python3 "$NS" "$T/MixF" --tests mstest 2>&1)"; rc=$?
+ok "C++ のソリューションに --tests mstest (後付け) -> rc=2" "$([ $rc = 2 ] && echo 1 || echo 0)"
+ok "C++ のソリューションに --tests mstest (後付け) -> /add-project を案内する" "$(has "$out" '/add-project')"
+
+# 例外: C++ のメインに .NET の UI テスト (混在だが、作れる)
+mkdir -p "$T/MixG"
+python3 "$NS" "$T/MixG" --type mfc-dialog --layers none --tests none --ui-tests flaui --dry-run >/dev/null 2>&1; rc=$?
+ok "C++ のメイン + --ui-tests flaui は、止まらない (rc=0)" "$([ $rc = 0 ] && echo 1 || echo 0)"
+
+# 文書: 正式な手順が、明記されている
+has_f() { grep -qF -- "$2" "$1" && echo 1 || echo 0; }
+ok "README: 混在は /add-project が正式な手順" "$(has_f "$ROOT/README.md" '混在のソリューションは、`/add-project` で作る')"
+ok "USAGE: 混在は /add-project が正式な手順" "$(has_f "$ROOT/docs/USAGE.md" '混在のソリューションは、`/add-project` で作る')"
+ok "add-project SKILL: 混在の節 (C++ と C# の間の参照は扱わない)" "$(has_f "$ROOT/skills/add-project/SKILL.md" '混在のソリューション')"
+
+echo "new_solution_mixed_test: pass=$pass fail=$fail"
+[ "$fail" = 0 ]

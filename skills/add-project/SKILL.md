@@ -89,6 +89,11 @@ python3 <このSkillのフォルダ>/scripts/add_reference.py "$SLN_DIR" --from 
 - **足したあと:** `solution_state.py` を、もう一度実行し、**`SUGGEST_REF` と `REF_ISSUES` が、残っていないこと**を確認する。残っているものは、報告に書く (ユーザーが、承認しなかった参照、断られた参照)。
 - 新しい層が、`--uses` で他を参照している場合は、`add_layer.py` / `add_project.py` が、すでに書いている (新しい側から、下の層への参照)。
 
+## 混在のソリューション (.NET + C++)
+- **混在は、この Skill が正式な作り方** (`KIND: mixed`)。`/new-solution` は、言語が混ざる指定を止めて、ここへ案内する。WPF に C++ の層を足すときは `add_layer.py`、C++ に C# の層を足すときは `add_project.py` を使う (どちらも、`KIND` と `MAIN` で決まる)。
+- **C++ と C# の間の参照は、足さない** (`add_reference.py` が断る。WPF から C++ を呼ぶ形 (P/Invoke など) は、扱わない)。断られたら、理由をそのまま伝える。
+- **`CLAUDE.md` に、足した言語の層を書く** (手順 6)。書かないと、`solution_state.py` が `MISMATCH` で知らせる。C++ の層のテスト (vcpkg) は、作成のあとに、`builtin-baseline` の固定と取得 (`package_once.sh`) が要る。
+
 ### 6. CLAUDE.md を、実際の構成に合わせる
 **書き換えるのは、次の場所だけ** (`- 層:` の行、層の表または「追加した層」の行、`- テスト:` の行。ほかの節は、触らない)。`CLAUDE.md` がなければ、作らず、ユーザーに伝える。
 - **`- 層:` の行:** 役割で足す。既定の名前 (`DataLayer` / `LogicLayer` / `ViewModels`) なら、役割だけ (`data,logic`)。既定でない名前は、`logic:OrderLogic` の形。**名前に役割の語 (`Logic` / `Data` / `ViewModel` / `Ui` `View`) がない層 (例: `ExtLayer`) も、ユーザーが選んだ役割で、`logic:ExtLayer` の形で書く** (書かないと、`solution_state.py` / `mfc-check` / `add_reference.py` が、名前だけから「その他」と判定し、層の検査が効かない。実機の確認 AR3 で発見)。行が `なし` のときは、`なし` を、足す層に置き換える。役割が「その他」の層だけ、この行に書かず、下の表に書く。**書いてある層は、消さない・並べ替えない。**
