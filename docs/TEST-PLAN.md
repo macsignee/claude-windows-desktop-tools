@@ -1371,7 +1371,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | IM1 | ウォッチャーを再起動して、`--status` | ウォッチャーが起動し、`OK` が返る (`vs-ide.ps1` の構文に誤りがない) | **合格** (2026-11-24。watcher=2.104.1) |
 | IM2 | VS の「16 進表示」を、オンにして (デバッグ → ウィンドウ → ... またはツール バーの 16 進ボタン)、ブレークで止めて `--inspect` と `--eval "sum"` | `int` が 10 進 (`sum = 3`) で出る。配列は `{int[4]}`。**実行後も、VS の 16 進表示は、オンのまま** | **合格** (2026-11-24。16 進表示オンで、`sum = 0`・`values = {int[4]}`。実行後もオン) |
 | IM3 | 16 進表示がオフのとき、同じ操作 | 今までと同じ (10 進) | **合格** (2026-11-24。オフのまま 10 進。実行後もオフ) |
-| IM4 | Release (最適化) でビルドした実行ファイルで、ブレークして `--inspect` | 読めない変数は `NAME = (unavailable)  (型)` の 1 行になり、VS の長い文面は出ない | **再現せず** (2026-11-24)。C# (WPF) の Release で `--debug --inspect`: `sum`・`i`・`values` が普通に読めた (`(unavailable)` の変数は出なかった)。`(unavailable)` の判定 (`IsValidValue` が false) の実機確認は、最適化された C++ のモジュールで、いずれ行う (保留) |
+| IM4 | Release (最適化) でビルドした実行ファイルで、ブレークして `--inspect` | 読めない変数は `NAME = (unavailable)  (型)` の 1 行になり、VS の長い文面は出ない | **合格** (2026-11-25。C++)。C# (WPF) の Release では再現しなかった (2026-11-24) ので、`MfcScope` (MFC、C++) の Release x64 で確認した。一時コード (`// SP-TEMP`) を足し、VS で Release x64 を手でビルド (自動ビルドは Configuration を指定できず、常に Debug) して `--debug --inspect`。LOCALS: `pDocTemplate = (unavailable)  ()`、`values = (unavailable)  ()` が **1 行形式**で出て、VS の長い文面 (6 行) は出なかった。**観察:** (1) 括弧の中の型名が空 (`()`)。無効な値では型が取れないため (直すなら、宣言から型を補う。優先度は低い)。(2) `sum` は生存区間が終わり、LOCALS に出ない。(3) ブレークポイントが 19 行目から 21 行目にずれた (最適化で 19 行目が消えた。VS の通常の動き)。(4) `this = 0x…0a {???}` のように、読めても壊れた値は、`(unavailable)` にならない (VS 側の挙動)。一時コード・ブレークポイントは撤去済み |
 | IM5 | ブレークで止めて、`--continue` で次のブレークポイントへ | `CONTINUED: DEBUG_MODE: break` のあとの `STOPPED:` に、`at <ファイル>:<行>` が付く (最大 3 秒待つ)。数回繰り返す | **合格** (2026-11-24。4 回とも `STOPPED:` に `MainWindow.xaml.cs:19` が付いた) |
 | IM6 | `--debug --inspect` を、数回 | 回帰がない (`INSPECT_SKIP` が出る場合は、生の出力を残す。(a) の調査用) | **合格** (2026-11-24)。1 回目に、(a) の `INSPECT_SKIP` が再現した (起動が 20 秒を超えた)。単独の `--inspect` は正常。直しは v2.104.2 (IM7) |
 
@@ -1380,3 +1380,16 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
 | IM7 | VS で、デバッグを止めてから、「`--debug --inspect` を実行して」を、起動が遅くなる状況 (ビルド直後、初回) で数回 | 20 秒でブレークに届かなくても、`INSPECT_SKIP` にならず、`NOTE: the app was still starting` のあとに、`LOCALS:` などが出る。ブレークポイントがない場合は、40 秒待って、`INSPECT_SKIP:` になる | **合格** (2026-11-24、v2.104.3)。1 回目 (v2.104.2): 待ちに入ったが、ブレーク直前の `unknown` で待ちを終え、`INSPECT_SKIP: the mode is unknown` になった → v2.104.3 で直した。クリーン直後の再確認: `DEBUG_MODE: run` が 20 秒を超え、`NOTE: the app was still starting` のあと `The mode is now break.` で、`STACK:`・`LOCALS:` が出た |
+
+### 2-68. `ExtLayerApi.h` の注意書き (v2.97.0) の実機の確認
+
+`ClaudePlayground\ExtApiCheck` (`/new-solution --type mfc-dialog --layers logic,data --layer-kind mfc-ext-dll --tests gtest --gtest vcpkg`。名前空間 `eac`)。ウォッチャーは、そのフォルダで起動。ひな形のファイル名は、層の名前から作られる (`LogicLayer` なら `LogicLayerApi.h`。`ExtLayerApi.h` は、層を `ExtLayer` と名付けたときの名前)。
+
+| # | 操作 | 期待 | 結果 |
+|---|---|---|---|
+| EA1 | ベースライン (作成直後) のビルドとテスト | `PASSED` | **合格** (2026-11-25。テスト 10 件) |
+| EA2 | `LogicLayer` の公開ヘッダーに、`<afxwin.h>` を include しない、`AFX_EXT_CLASS` の `CObject` 派生クラスを足し、`LogicLayerTest` (プリコンパイル済みヘッダーなし) の `.cpp` から include して使う | `BUILD_FAILED` (注意書きどおり) | **合格** (2026-11-25。2 回、再現)。`C2079 'SampleSerializable' が 未定義の class 'AFX_EXT_CLASS' で使用しています` (`SampleSerializable.h(6,21)`)。以降、C2143・C2059・C2447・C2146・C2065・C2660 が連鎖 |
+| EA3 | 同じヘッダーの先頭に `#include <afxwin.h>` を足す | ビルドとテストが成功 | **合格** (2026-11-25。2 回、再現)。`PASSED` (テスト 11 件 = ベースライン 10 件 + 追加 1 件) |
+| EA4 | 追加分を元に戻して、ビルドとテスト | ベースラインと同じ | **合格** (2026-11-25。`PASSED`、10 件) |
+
+**結論:** 注意書きは正しい (修正は不要)。利用側にプリコンパイル済みヘッダーがないと、公開ヘッダーが自分で `<afxwin.h>` を include しない限り、`AFX_EXT_CLASS` が未定義になる。
