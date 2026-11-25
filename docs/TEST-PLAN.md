@@ -1400,8 +1400,10 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | # | 操作 | 期待 | 結果 |
 |---|---|---|---|
-| TN1 | ウォッチャーを再起動して、`--status` | `OK`。`watcher=2.105.1` (`vs-ide.ps1` の構文に誤りがない) | |
-| TN2 | IM4 と同じ手順で、`--debug --inspect` | 読めない変数は、`NAME = (unavailable)  (型)` (型が取れた) か、`NAME = (unavailable)` (型が取れない。**空の `()` は出ない**)。VS の長い文面は出ない。どちらになったか (型名が取れたか) を、記録する | |
-| TN3 | 同じブレークで、読める変数 (`cmdInfo` など) | `NAME = 値  (型)` のまま (回帰なし) | |
-| TN4 | Debug 構成で、`--debug --inspect` | 今までと同じ (すべて読めて、型つき) | |
+| TN1 | ウォッチャーを再起動して、`--status` | `OK`。`watcher=2.105.1` (`vs-ide.ps1` の構文に誤りがない) |  **合格** (2026-11-25。`OK`、`watcher=2.105.1`) |
+| TN2 | IM4 と同じ手順で、`--debug --inspect` | 読めない変数は、`NAME = (unavailable)  (型)` (型が取れた) か、`NAME = (unavailable)` (型が取れない。**空の `()` は出ない**)。VS の長い文面は出ない。どちらになったか (型名が取れたか) を、記録する |  **合格** (2026-11-25。`MfcScope`、Release x64)。`pDocTemplate = (unavailable)`、`values = (unavailable)`。**空の `()` は出ない。** **型名は、取れなかった** (`GetExpression` に名前を渡しても、読めない変数の型は返らなかった)。VS の長い文面も出ない。**結論:** 空の括弧は消えたが、型名の補完 (`Get-VsTypeName` の `GetExpression`) は、この条件では効かない |
+| TN3 | 同じブレークで、読める変数 (`cmdInfo` など) | `NAME = 値  (型)` のまま (回帰なし) |  **合格 (期待の書き方に誤り)** (2026-11-25)。`cmdInfo = <情報はありません。mfc140u.dll のシンボルが読み込まれていません>  (CCommandLineInfo)` と、型つきの 1 行で出た。**Release では、MFC の DLL (`mfc140u.dll`) のシンボルが読み込まれず、`cmdInfo` が読めない** (値の欄に VS の文言が入る。`IsValidValue` は true なので、`(unavailable)` にはならず、VS の文言を 1 行にして出す)。「`cmdInfo` が Debug と同じ値で読める」という期待は、誤り。形 (`NAME = 値  (型)`) は変わらず、回帰ではない。このほか、`sum`・`spTempBreak` は LOCALS に出ない (最適化で、完全に消えた。IM4 と同じ)、`this` は `0x…0a {???}` (IM4 と同じ) |
+| TN4 | Debug 構成で、`--debug --inspect` | 今までと同じ (すべて読めて、型つき) |  **合格** (2026-11-25。Debug x64)。6 件すべて `NAME = 値  (型)`: `this`・`cmdInfo`・`pDocTemplate`・`spTempBreak = 0  (int)`・`sum = 9  (int)`・`values = {3, 1, 4, 1}  (int[4])` |
+
+**2-69 の結論 (2026-11-25):** 空の `()` は、出なくなった (目的は達成)。型名の補完は、効かなかった (`GetExpression(名前)` は、読めない変数の型を返さない)。補完のコード (`Get-VsTypeName` の `GetExpression`) は、効果がないので、いずれ、取り除いてよい (小さい整理。急がない)。TN3 の期待 (`cmdInfo` が読める) は、Release では MFC の DLL のシンボルがないため、誤りだった。一時コード・ブレークポイントは撤去済み。
 
