@@ -1423,3 +1423,11 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 **2-70 の結論 (2026-11-25):** 混在は、`/add-project` で作れる (MX2〜MX5)。見つかった点 4 つ (MX1・MX3・MX4・MX6) は、v2.105.3 で直した。**直したあとの再確認は、MX1・MX4 を、新しいフォルダで (任意)**。
 
+**2-70 の再確認 (v2.105.3 を配布したあと、2026-11-25、`MixCheck2`):**
+
+| # | 操作 | 期待 | 結果 |
+|---|---|---|---|
+| MX1b | `/new-solution --type wpf --layers logic --tests gtest` | 質問に進まず、「混在は /add-project で足す」と案内されて止まる | **不合格** (v2.105.3)。Claude は、まだ、「mstest で作るか、テストなしか」を質問した。追加した文 (手順 1 の末尾) は、配布先に入っていたが、Claude は、先に自分で矛盾を見つけ、質問に進んだ。**原因:** 文言だけでは、弱い。**対策 (v2.105.4):** 手順 0 を足した (引数を、質問の前に、まず `--dry-run` でスクリプトに検査させ、終了コード 2 の文を、そのまま伝えて止まる。スクリプトは、混ざる指定を、案内つきで止める) |
+| MX1c | v2.105.4 を `install.sh --skills-only` で配布し、新しい空フォルダ (`MixCheck3`) で、MX1b と同じ操作 | 質問せず、案内の文 (「言語が混ざるソリューション (.NET + C++) は、/new-solution では作らない。…」) が、そのまま伝えられて止まる。フォルダは、空のまま | |
+| MX4b | MX1c のあと、同じフォルダで、`/new-solution --type wpf --layers logic --tests mstest` → `/add-project layer` (C++ の `NativeLayer`、テストあり、役割は「その他」) | `CLAUDE.md` の層の表に、`NativeLayer` の行が入る (表の下の箇条書きではない)。`SUGGEST_REF` が出ない | |
+
