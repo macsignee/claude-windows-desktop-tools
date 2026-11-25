@@ -63,7 +63,7 @@ T6、N0、N3s、TG1、TG3 (条件を作れない)、UG3・UG4・UG4b、WC4、WS1
 
 ### 2-6. ユーザーの作業 (Claude は触れない)
 1. PS5 の `// SP-TEMP` の行を消す (確認用コード)。
-2. VS の設定を戻す (構成を Debug に、「モジュールの読み込み時に JIT 最適化を抑制する」のチェックを戻す)。
+2. VS の設定を戻す (構成を Debug に)。**(2026-11-25 訂正: 「モジュールの読み込み時に JIT 最適化を抑制する」のチェックは、もともと設定されていない。戻す作業は、要らない。)**
 3. 確認用フォルダ `ClaudePlayground\PS5_run_A`・`PS5_run_a` を削除する。
 4. `ImageSampleApp`: `gr-test` から `gr-test5` までのブランチ (ローカルとリモート) を削除する。コミット `74e5b0a` の空ファイル 23 件 (`.bashrc`・`.gitconfig`・`.mcp.json`・`.vscode`・`.idea`・`.claude/*`) を削除して、`.git/info/exclude` と `.gitignore` に `git_result.txt`・`git_error.log`・`git_output.txt` を足す。
 5. このリポジトリの、リモートの約 200 ブランチと、未追跡のファイル (`.claude/`、`.mcp.json`、`docs/HANDOFF-2026-11-17.md`、`poc/`、`q`) を整理する。
