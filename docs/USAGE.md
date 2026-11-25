@@ -25,7 +25,7 @@
 | やりたいこと | 打つもの・頼み方 |
 |---|---|
 | **層・テスト・画面を持つ DLL・UI テストを、足す** | `/add-project` (層 / テスト / 画面 + ホスト / UI テスト / プラットフォーム (C++ の Win32 など) / 共通の MSBuild 設定) |
-| **混在のソリューションは、`/add-project` で作る** (WPF に C++ の DLL を足す、C++ に C# のライブラリを足す、など) | まず、片方の言語で `/new-solution` を打ち、`/add-project` で、もう片方の層を足す。`/new-solution` は、言語が混ざる指定 (WPF に `--tests gtest` や `--layer-kind`、C++ に `--tests mstest`) を、エラーで止めて、そう案内する。**WPF から C++ を呼ぶ参照は、扱わない** (C++ と C# の間の参照は、`add_reference.py` が断る) |
+| **混在のソリューションは、`/add-project` で作る** (WPF に C++ の DLL を足す、C++ に C# のライブラリを足す、など) | まず、片方の言語で `/new-solution` を打ち、`/add-project` で、もう片方の層を足す。`/new-solution` は、言語が混ざる指定 (WPF に `--tests gtest` や `--layer-kind`、C++ に `--tests mstest`) を、エラーで止めて、そう案内する。**C++ と C# の間の `ProjectReference` は、足さない** (`add_reference.py` が断る)。WPF から C++ を呼ぶこと (P/Invoke など) は、禁止ではない。ひな形・自動の参照・検査が、ないだけで、P/Invoke は、自分で書く |
 | **機能を作る** (仕様書から。計画 → 承認 → テスト先行 → 実装 → 検証) | `/add-feature [仕様書のパス]` (別リポジトリ `claude-spec-workflow`) |
 | 機能の仕様を、整理したい・追加のアイデアを、仕様書に反映したい | `/brainstorm` → `/update-from-ideas` (`claude-spec-workflow`) |
 | 画面を、プロンプトで作りながら、UI テストを先に書く (**手書きのスケッチや、画面の写真を渡して、作ることもできる**) | `/ui-test-first [作りたい画面の説明]` (画像は、チャットに貼る。Claude が、部品の一覧を見せて、決まらないことを、確認する) |

@@ -100,6 +100,7 @@ disable-model-invocation: true
    - `--tests`: `gtest` / `none`。**必ず、質問する** (構成案が「未定」のときも)。(`gtest`: TDD の練習向き。`none`: ビルド確認だけの 3 層分離。)
    - `--ui-tests`: **質問しない。引数にも構成案 (`UIテスト`) にも指定がなければ、どの種類でも、既定の `none`** (UI テストは、あとから `/add-project ui-tests` か `--ui-tests flaui` で足せる)。**`flaui` と明示されたときだけ、作る。** UI テストは、ビルド → テストの流れに含めない (上の表のとおり)。
    - **矛盾する組み合わせ** (exe + `--layers none` + `--tests gtest`) は、その場で指摘して、どちらかを変えてもらう。
+   - **言語が混ざる指定は、質問で直さず、** (WPF・WinForms に `--tests gtest` / `--layer-kind`、C++ に `--tests mstest`)、「混在は `/new-solution` では作らない。片方で作り、`/add-project` で、もう片方の層を足す」と伝えて、止める (`mstest` に変えるか聞くと、C++ の層が、黙って消える。ただし、C++ のメインに .NET の UI テスト (`--ui-tests flaui`) は、作れる)。
 2. **名前空間を決める** (層・DLL があるときだけ)。既定は、フォルダ名の大文字の頭文字 (例: `MFCTDDTest` → `mfctddt`)。読みにくいことがあるので、**案を示して、短い名前 (例: `tdd`) に変えるか、確認する。** 変える場合は、`--namespace` で渡す。
 3. **案を示して、了承を得る (必ず止まる)。** 次の dry-run の出力を、要約して見せる。
    ```bash
