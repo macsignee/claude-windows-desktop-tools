@@ -18,6 +18,8 @@ stops() {  # stops <説明> <フォルダ名> <引数...> : rc=2 で止まり、
   local out rc; out="$(python3 "$NS" "$T/$n" "$@" 2>&1)"; rc=$?
   ok "$label -> rc=2" "$([ $rc = 2 ] && echo 1 || echo 0)"
   ok "$label -> /add-project を案内する" "$(has "$out" '/add-project')"
+  local pre="${out%%/add-project*}"
+  ok "$label -> 案内が、文の先頭にある (mstest / gtest に変える話より前)" "$([[ "$pre" != *--* ]] && echo 1 || echo 0)"
 }
 
 # 新規作成で、混ざる指定
@@ -73,6 +75,10 @@ l1="$(grep -n '^1\. \*\*引数を読み、省略した項目を質問する' "$N
 ok "new-solution SKILL: 手順 0 (引数を、まず、--dry-run でスクリプトに検査させる) が、手順 1 (質問) より前にある" "$([ -n "$l0" ] && [ -n "$l1" ] && [ "$l0" -lt "$l1" ] && echo 1 || echo 0)"
 ok "new-solution SKILL: 手順 0 は、終了コード 2 の文を、そのまま伝えて止まる (質問で直さない)" "$(sed -n "${l0:-1},$((${l0:-1}+4))p" "$NSK" | grep -q '終了コード 2' && sed -n "${l0:-1},$((${l0:-1}+4))p" "$NSK" | grep -q 'そのまま' && echo 1 || echo 0)"
 ok "new-solution SKILL: 「矛盾する組み合わせは、どちらかを変えてもらう」は、言語が混ざる指定を含まない (手順 0 へ)" "$(grep -n '矛盾する組み合わせ' "$NSK" | grep -q '言語が混ざる' && echo 1 || echo 0)"
+
+# v2.105.5: 再々確認 (MX1c) で、Claude は、手順 0 でスクリプトを実行したが、文頭の「WPF は mstest」を使って、選択肢を出した。案内を先頭にし、選択肢を出さない
+ok "new-solution SKILL 手順 0: 「mstest に変えますか」のような選択肢も出さない" "$(sed -n "${l0:-1}p" "$NSK" | grep -q '選択肢' && echo 1 || echo 0)"
+ok "new-solution SKILL 手順 0: 出力の最初の 1 文を、そのまま伝えて終わる" "$(sed -n "${l0:-1}p" "$NSK" | grep -q '最初の 1 文' && echo 1 || echo 0)"
 
 echo "new_solution_mixed_test: pass=$pass fail=$fail"
 [ "$fail" = 0 ]
