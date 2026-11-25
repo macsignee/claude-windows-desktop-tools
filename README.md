@@ -39,7 +39,7 @@ Claude Code (WSL)  ──trigger_*.flag──▶  Windows: watch_and_build.ps1 �
 | [`scripts/`](scripts/) | 規約が参照する道具 (→ 「3」) | `~/.claude/scripts/` (WSL)、またはプロジェクトの `.claude/scripts/` |
 | [`host-tools/`](host-tools/) | Windows 側のウォッチャーと、起動・ビルド用の `.cmd` (→ 「4」) | Windows 側の任意のフォルダ (既定: `C:\tools\claude-watcher\`) |
 | [`install/`](install/) | `install.sh` (配布先へ、バイトを変えずに、コピーする。→ 「5」) | — |
-| [`tools/`](tools/) | `check-formats.sh` (文字コード・改行・BOM の検証) | — |
+| [`tools/`](tools/) | `check-formats.sh` (文字コード・改行・BOM の検証)、`token_report.py` (セッションのログの Token 集計。→ [`docs/USAGE.md`](docs/USAGE.md) の 4) | — |
 | [`tests/`](tests/) | 単体テスト (`*_test.sh`)。Windows は不要 (→ 「6」) | — |
 | [`docs/`](docs/) | 設計と手順の文書 (→ 「7」。`msbuild-common-repo-*` は、別リポジトリ `msbuild-common` の README・LICENSE・`install.sh` の控え) | — |
 
@@ -103,7 +103,7 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
     - `--check-git` / `--add-gitattributes`: Git の設定の点検と、最小の `.gitattributes` の追加 (→ 「2-8」)。
     - `--tfm`: .NET の TFM (既定 `net10.0`)。`--namespace`: 名前空間。
     - `--spec <仕様書>`: 仕様書の「構成案」を読み込み、仕様書も取り込む。
-  - **MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成は、Visual Studio のウィザードに合わせる** (v2.60.0)。`framework.h`・`targetver.h`・`pch.h`・`pch.cpp` (PCH を使う)、`res\` (`<名前>.rc2`、アプリのアイコン。SDI・MDI は文書のアイコンも)、`.vcxproj` の設定 (`MFCProj`、`Midl`、`ResourceCompile`、`LinkIncremental` など)、フィルター (ソース / ヘッダー / リソース。`res\` は `Image` と `None`)。ファイル名とクラス名 (`SampleApp` など) と、ドッキングウィンドウは、ウィザードと同じにしない。**自作のクラスには、`C` 接頭辞を付けない** (`SampleApp`・`SampleDoc`・`SampleView`・`MainFrame`・`ChildFrame`・`SampleDlg`、標準 DLL の層の `<層の名前>App`。規約 `cpp-common.md` と同じ。MFC の標準クラス (`CWinApp`・`CDocument` など) は、そのまま)。Win32 の構成は、`--platforms` で選べる (層・テスト・画面ホストは、ソリューションのプラットフォームに、そろえて作られる)。
+  - **MFC のメイン (`mfc` / `mfc-mdi` / `mfc-dialog`) の構成は、Visual Studio のウィザードに合わせる** (v2.60.0)。`framework.h`・`targetver.h`・`pch.h`・`pch.cpp` (PCH を使う)、`res\` (`<名前>.rc2`、アプリのアイコン。SDI・MDI は文書のアイコンも)、`.vcxproj` の設定 (`MFCProj`、`Midl`、`ResourceCompile`、`LinkIncremental` など)、フィルター (ソース / ヘッダー / リソース。`res\` は `Image` と `None`)。ファイル名とクラス名 (`SampleApp` など) と、ドッキングウィンドウは、ウィザードと同じにしない。**自作のクラスには、`C` 接頭辞を付けない** (`SampleApp`・`SampleDoc`・`SampleView`・`MainFrame`・`ChildFrame`・`SampleDlg`、標準 DLL の層の `<層の名前>App`。規約 `cpp-common.md` と同じ。MFC の標準クラス (`CWinApp`・`CDocument` など) は、そのまま)。Win32 の構成は、`--platforms` で選べる (層・テスト・画面ホストは、ソリューションのプラットフォームに、そろえて作られる)。**SDI・MDI は、初期状態の見た目と操作も、ウィザードに寄せた** (v2.103.0・v2.104.0。メニュー バーは、最初は隠れていて、Alt で現れる。ウィザードの実物と同じ動き。印刷・プレビュー・OLE は、寄せない)。生成する `CLAUDE.md` は、v2.105.0 から短い (Token の削減。→ [`docs/USAGE.md`](docs/USAGE.md) の 4)。
   - **画面は、画面モデルを通して作られる** (v2.92.0〜。設計の正本は [`docs/UI-MODEL-GUIDE.md`](docs/UI-MODEL-GUIDE.md)。例外は、MFC の SDI・MDI のメインの `CView` だけ)。画面モデルは、状態、入力の検査 (`Validate()` / `IsValid`)、操作の失敗の表示、変更の通知を持ち、フォームは、それを表示して、操作を渡すだけ。
     - **WPF:** `ViewModelBase` (検査の誤りを `ErrorTexts[欄名]` と `ScreenErrorTexts` にする。XAML は `{Binding ErrorTexts[Name]}`)、`MainMessages` (文章を 1 か所)。
     - **WinForms:** `Form` は引数なしのコンストラクターで、`Bind(IMainScreenModel)` で結ぶ。`IMainScreenModel` / `MainScreenModel` は、ロジック層の `ScreenModels/` (層がなければ、アプリの `ScreenModels/`)。`--tests mstest` で `MainScreenModelTests` が付く。Presenter は任意 (ダイアログを開く・フォーカスなど、WinForms の型が要るものだけ)。
@@ -249,12 +249,12 @@ Visual Studio (2022 / 2026) とは、次の 4 つの形でつながる。
 
 - **配布先**: `~/.claude/rules/` (または、プロジェクトの `.claude/rules/`)。
 - **名前の方針**: 言語の共通 = `<言語>-common.md`、技術ごと = `<技術>-<言語>.md`。
-- **`cpp-common.md`** (17KB): C++ の共通 (MFC・Win32・コンソール・DLL・ライブラリ)。
+- **`cpp-common.md`** (18KB): C++ の共通 (MFC・Win32・コンソール・DLL・ライブラリ)。
   - 読み込まれるファイル (`paths`): `*.cpp` `*.h` `*.hpp` `*.cc` `*.cxx`。
 - **`mfc-cpp.md`** (18KB): MFC 固有 (MFC のクラスのメンバー・コレクション、`CObject` 派生と名前空間、画面モデルと MFC のダイアログ (操作の受け方 = ID ごとのハンドラー、更新の経路、通知 `Observable`、Fake 画面モデルの切り替え))。
   - 読み込まれるファイル: MFC のウィザードが作るファイル名 (`*Dlg` `*View` `*Doc` `MainFrm` `*Frame`) だけ。
   - MFC のプロジェクトの `CLAUDE.md` が、読むよう指示する。MFC を使わないプロジェクトには、適用しない。
-- **`csharp-common.md`** (13KB): C# の共通 (コーディング規約、非同期、依存性注入、例外、ログ、コメント、テスト、禁止事項)。
+- **`csharp-common.md`** (14KB): C# の共通 (コーディング規約、非同期、依存性注入、例外、ログ、コメント、テスト、禁止事項)。
   - 読み込まれるファイル: `*.cs`。章の番号は、WPF 規約のまま。
 - **`wpf-csharp.md`** (29KB): WPF / XAML / MVVM 固有。
   - 読み込まれるファイル: `*.xaml` `*.xaml.cs` `ViewModels/` `*ViewModel*.cs` `Views/`。
@@ -262,7 +262,7 @@ Visual Studio (2022 / 2026) とは、次の 4 つの形でつながる。
   - 読み込まれるファイル: `*.Designer.cs` `Forms/`。**画面モデル (`ScreenModels/`) では、読み込まれない** (画面モデルは、WinForms の型を使わない)。**任意の Presenter (`Presenters/` `*Presenter*.cs` `I*View.cs`) でも、読み込まれない** (v2.98.14。Presenter を書くときは、自分で読む)。
 - **`winforms-view-model.md`** (18KB): WinForms の画面モデル (`ScreenModel`) と、任意の Presenter。画面モデルの契約、ダイアログのデータ、戻りの規則。
   - 読み込まれるファイル: `ScreenModels/` `*ScreenModel*.cs` (画面モデル)。Presenter では、読み込まれない (v2.98.14)。
-- **`git-wsl.md`** (3KB): Git を、Visual Studio (Windows) と WSL の両方で操作するときの決まり (→ 「2-8」)。
+- **`git-wsl.md`** (8KB): Git を、Visual Studio (Windows) と WSL の両方で操作するときの決まり (→ 「2-8」)。
   - 読み込まれるファイル: `.gitattributes`、`*.sln`、`*.slnx`。
 - **読み込みの大きさの目安**:
   - WinForms の画面モデル (`ScreenModels/`) = `csharp-common.md` + `winforms-view-model.md`。
@@ -298,13 +298,13 @@ Visual Studio (2022 / 2026) とは、次の 4 つの形でつながる。
 
 ## 4. ホスト側ツール (`host-tools/`)
 
-Windows 側に置くツール。ビルド・テスト・UI テストの実行は、ここのウォッチャーが行う (→ 「2-6」)。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-windows.cmd` の 3 ファイルと、`lib\` フォルダ (`watch_and_build.ps1` が読み込む 9 ファイル) は、同じフォルダに置く。** `install.sh` は、`lib\` も配る。
+Windows 側に置くツール。ビルド・テスト・UI テストの実行は、ここのウォッチャーが行う (→ 「2-6」)。**`run_watcher.cmd`、`watch_and_build.ps1`、`build-windows.cmd` の 3 ファイルと、`lib\` フォルダ (`watch_and_build.ps1` が読み込む 10 ファイル) は、同じフォルダに置く。** `install.sh` は、`lib\` も配る。
 
 - **`run_watcher.cmd`**: 入口。プロジェクトのフォルダを指定して、ウォッチャーを起動する。
   - ダブルクリックでも、ドラッグ&ドロップでも、起動できる。
 - **`watch_and_build.ps1`**: ウォッチャー本体 (フラグの監視ループ)。
-  - 機能ごとの関数 (ビルド・テストの実行、プロジェクト単位の範囲の解決、GoogleTest の取得、パッケージ操作、UI テストの基盤、Visual Studio の操作) は、`lib\*.ps1` に分かれている。
-  - 見るフラグ: `trigger_build.flag` / `trigger_test.flag` / `trigger_uitest.flag` / `trigger_gtest.flag` / `trigger_package.flag` / `trigger_vs.flag`。ビルド・テスト・UI テストのフラグに、`project=<名前>` の行があれば、プロジェクト単位で処理する (→ 「2-6」)。
+  - 機能ごとの関数 (ビルド・テストの実行、プロジェクト単位の範囲の解決、GoogleTest の取得、パッケージ操作、UI テストの基盤、Visual Studio の操作、Git のリモートの操作) は、`lib\*.ps1` に分かれている。
+  - 見るフラグ: `trigger_build.flag` / `trigger_test.flag` / `trigger_uitest.flag` / `trigger_gtest.flag` / `trigger_package.flag` / `trigger_vs.flag` / `trigger_git.flag`。ビルド・テスト・UI テストのフラグに、`project=<名前>` の行があれば、プロジェクト単位で処理する (→ 「2-6」)。
 - **`build-windows.cmd`**: Visual Studio の環境を読み込んで、MSBuild を実行する。ソリューションでも、単独のプロジェクトでも、渡せる (.NET の単独のプロジェクトは `AnyCPU`)。
 - **`run_watcher_visible.cmd [ProjectDir] [Solution] [Platform] [Configuration]`** (任意): UI テストを、**ユーザー自身のデスクトップで、目で見ながら**実行する設定で、ウォッチャーを起動する。引数は `run_watcher.cmd` と同じ。
   - 操作の間に、遅延を入れる (環境変数 `WATCH_UI_SLOWMO_MS`。既定 800 ms)。
@@ -376,10 +376,10 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 | ソリューションの生成 | `new_solution` (C++)、`mfc_class_names` (MFC の自作クラスに `C` 接頭辞を付けない)、`new_solution_wpf`、`new_solution_winforms`、`new_solution_csharp_dll`、`new_solution_spec_import`、`new_solutions`、`ui_tests_gen` |
 | 層・プロジェクトの追加 | `add_layer`、`add_project`、`add_project_skill` (`/add-project` と `solution_state.py`)、`add_reference`、`add_ui_host`、`add_common`、`win32_platform` |
 | テスト先行と、テストの検査 | `test_guard` (`snapshot` / `check` / `audit`)、`ui_test_first_skill`、`fix_policy` |
-| 静的検査 | `mfc_check`、`mfc_lib`、`mfc_cobject_rules`、`mfc_screen_model`、`mfc_wizard_layout`、`wpf_check`、`winforms_check`、`wpf_menu_note`、`ui_guideline_check` |
+| 静的検査 | `mfc_check`、`mfc_lib`、`mfc_cobject_rules`、`mfc_screen_model`、`mfc_wizard_layout`、`mfc_sdi_wizard_look`・`mfc_mdi_wizard_look` (SDI・MDI の初期状態)、`mfc_app_commands`、`wpf_check`、`winforms_check`、`wpf_menu_note`、`ui_guideline_check` |
 | パッケージ | `package_once`、`cpp_pkg` |
-| Visual Studio・MSBuild の共通設定 | `vs_once` (`vs-debug`)、`git_wsl_rule`、`msbuild_common`、`new_solution_common` |
-| 規約・道具・文書 | `rules_split`、`convert_utf8_bom`、`fix_cpp_encoding`、`skill_paths`、`usage_guide` (`docs/USAGE.md` と Skill の一覧のずれ) |
+| Visual Studio・Git・MSBuild の共通設定 | `vs_once` (`vs-debug`)、`git_once` (`git-remote`)、`git_wsl_rule`、`msbuild_common`、`new_solution_common` |
+| 規約・道具・文書 | `rules_split`、`convert_utf8_bom`、`fix_cpp_encoding`、`skill_paths`、`usage_guide` (`docs/USAGE.md` と Skill の一覧のずれ)、`claude_md_size` (生成する `CLAUDE.md` の長さ。v2.105.0)、`token_report` (`tools/token_report.py`) |
 
 (各ファイルの名前は、`<名前>_test.sh`。)
 
@@ -393,8 +393,10 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 - [`REMAINING-CHECKS.md`](docs/REMAINING-CHECKS.md): 実機の確認の状況 (確認済み、未了、廃止、保留) の正本。
 - [`UI-MODEL-GUIDE.md`](docs/UI-MODEL-GUIDE.md): UI と画面モデルの開発の手引き (WPF・WinForms・MFC 共通の考え方。契約、Fake、検査、MFC の通知)。設計の正本。
 - [`MIGRATION-SCREEN-MODEL.md`](docs/MIGRATION-SCREEN-MODEL.md): 旧 Presenter 構成のソリューションを、画面モデルへ移す手順 (移さなくてもよい)。
-- [`NEXT-STEPS.md`](docs/NEXT-STEPS.md): 次の作業 (現状と残り。2026-11-18 時点で、実機の確認はすべて終わり、判断待ちのものだけ)。
-- [`HANDOFF-2026-11-24.md`](docs/HANDOFF-2026-11-24.md): 引き継ぎ (最新。2026-11-23〜24 の作業、決定事項、残り、サンドボックスの落とし穴)。新しいセッションで、最初に読む。
+- [`NEXT-STEPS.md`](docs/NEXT-STEPS.md): 次の作業 (現状と残り。2026-11-25 時点 (v2.105.1) で、実機の確認はすべて終わり、判断待ちのものだけ)。
+- [`HANDOFF-2026-11-24-remaining.md`](docs/HANDOFF-2026-11-24-remaining.md): 引き継ぎ (最新。残作業の一覧、前提、決定済みのこと)。新しいセッションで、最初に読む。
+- [`HANDOFF-2026-11-24-evening.md`](docs/HANDOFF-2026-11-24-evening.md): 2026-11-24 夜の引き継ぎ (Token 削減の測定と結論、マージしたもの、技術メモ)。
+- [`HANDOFF-2026-11-24.md`](docs/HANDOFF-2026-11-24.md): 2026-11-23〜24 の引き継ぎ (作業、決定事項、サンドボックスの落とし穴)。
 - [`HANDOFF-2026-11-18.md`](docs/HANDOFF-2026-11-18.md): 旧版の引き継ぎ (作業の約束事、画面モデルの採用までの経緯)。第 1 節の約束事は、今も有効。
 - [`RECOMMENDED-SETTINGS.md`](docs/RECOMMENDED-SETTINGS.md): 推奨する Claude Code の設定 (テストファイルの編集と、`git commit` に、確認を付ける)。
 
@@ -426,7 +428,7 @@ install/install.sh --rules-only --rules-dir <プロジェクト>/.claude/rules \
 
 - テスト: C++ は **GoogleTest**、.NET は **MSTest (v3 以降、VSTest モード)**。xUnit / NUnit は動く見込みだが未検証。C++ の `CppUnitTestFramework` は対象外 ([理由](docs/DESIGN.md))。
 - 対象外: ASP.NET Core などの Web、MAUI、Linux / macOS 向けの .NET、組み込みの C++ (Windows デスクトップの Visual Studio / MSBuild が対象)。
-- 検証済み: VS 2026 Enterprise、x64 / Debug (C++ は、Win32 も)。WPF + C++ の混在、MFC (SDI)、UI テスト (FlaUI) を含む。
+- 検証済み: VS 2026 Enterprise、x64 / Debug (C++ は、Win32 も。`vs-debug` の `--inspect` は、C++ の Release x64 でも)。WPF + C++ の混在、MFC (SDI・MDI)、UI テスト (FlaUI) を含む。
 - 実機の確認の状況 (確認済み・未了) は、[`docs/REMAINING-CHECKS.md`](docs/REMAINING-CHECKS.md) と、[`docs/TEST-PLAN.md`](docs/TEST-PLAN.md) の「状況」列。Skill 側のスクリプトと結果の変換は、疑似ウォッチャーでも検証している。
 
 ## 11. ライセンス
