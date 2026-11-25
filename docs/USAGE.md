@@ -187,3 +187,8 @@ OK、この案で足してください
 
 ### 測り方
 - 新しいセッションの直後に `/context` を実行すると、内訳 (System prompt / System tools / Memory files / Skills / Messages) が見える。作業のあとに、もう一度実行すると、増えた分が分かる。**Claude が 1 回の依頼で自動で進んでいる最中は、`/context` を打てない**ので、途中の量が知りたいときは、セッションのログ (`~/.claude/projects/<フォルダ>/*.jsonl`) の、ターンごとの `usage` を集計する。
+- **セッションのログを集計する:** `tools/token_report.py` が、ログ (`~/.claude/projects/<作業フォルダの / を - にした名前>/<セッション ID>.jsonl`) を読み、合計・文脈の大きさ・Skill と規約の読み込み・ツールの結果の量を出す。フォルダを渡すと、いちばん新しいログを読む。`--timeline` を付けると、ターンごとの文脈の増減と、使ったツールが並ぶ (文脈が急に増えたターンを探せる)。
+  ```bash
+  python3 -I tools/token_report.py --timeline ~/.claude/projects/-mnt-c-Workspace-macsignee-source-repos-ClaudePlayground-PS5
+  ```
+  出力は、`TURNS:`・`TOTAL:`・`CONTEXT:`・`SKILL:`・`MEMORY:`・`TOOL:` の行 (`--timeline` では `T<番号>` の行も)。ログの形式は、Claude Code の版で変わりうる (読めない行は、読み飛ばす)。
