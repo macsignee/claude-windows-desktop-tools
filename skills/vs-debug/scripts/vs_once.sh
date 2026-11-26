@@ -20,6 +20,7 @@
 #     --eval "<式>"    (v2.101.0) 式の値を返す (ウォッチ)。読み取りだけ: 代入・++・--・; を断る。200 文字まで、1 回の実行で 10 個まで。止まっているときだけ
 #                      実行系 (--step / --continue / --pause / --eval) は、指定した順に実行する。--debug と併用すると、デバッグを始めたあとに実行する。デバッグの停止 (Shift+F5) は、ユーザーの操作 (操作を持たない)
 #     --debug          デバッグ実行を始める (ユーザーが「デバッグを実行して」と言ったときだけ)。ブレークポイントを置くだけでは、実行しない
+#     --no-wait        (--debug と併用) アプリが起動したら、ブレークポイントに着くのを待たずに返す (結果は DEBUG_MODE: run)。UI テストのアタッチ (uitest_once.sh --attach) で、きっかけの操作を撃つ前に使う
 #   --timeout: 完了マーカーを待つ秒数 (既定 240。VS の起動とソリューションの読み込みを含む)
 #
 # 標準出力の1行目と終了コード:
@@ -75,7 +76,7 @@ trap '[ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
 
 shift
 TIMEOUT=240
-STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; INSPECT=0; OUTPUT=0; OUTPUT_N=200
+STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; NOWAIT=0; INSPECT=0; OUTPUT=0; OUTPUT_N=200
 RUNOPS=(); STEPS_TOTAL=0; EVALS=0   # 実行系の操作 (step / continue / pause / eval)。指定した順
 BREAKS=()
 RE_PATH='^[^[:cntrl:]"<>|*?:]+$'
@@ -87,6 +88,7 @@ while [ $# -gt 0 ]; do
         --changes) CHANGES=1; shift ;;
         --clear) CLEAR=1; shift ;;
         --debug) DEBUG=1; shift ;;
+        --no-wait) NOWAIT=1; shift ;;
         --inspect) INSPECT=1; shift ;;
         --continue) RUNOPS+=("continue"); shift ;;
         --pause) RUNOPS+=("pause"); shift ;;
@@ -131,6 +133,7 @@ while [ $# -gt 0 ]; do
         *) bad "unknown option: $1" ;;
     esac
 done
+[ "$NOWAIT" -eq 0 ] || [ "$DEBUG" -eq 1 ] || bad "--no-wait needs --debug"
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
 if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
     bad "--status cannot be combined with other modes"
@@ -165,7 +168,7 @@ else
         done <<< "$cl"
     fi
     for b in "${BREAKS[@]+"${BREAKS[@]}"}"; do OPS+=("break $b"); done
-    [ "$DEBUG" -eq 1 ] && OPS+=("debug")
+    if [ "$DEBUG" -eq 1 ]; then if [ "$NOWAIT" -eq 1 ]; then OPS+=("debug nowait"); else OPS+=("debug"); fi; fi
     for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
     [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
     [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
