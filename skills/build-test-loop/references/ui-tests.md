@@ -93,6 +93,13 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 | ToolStrip / StatusStrip | `AutomationId` が空 → `ControlType` と表示名で探す | - | - |
 | 主ウィンドウ | `App.GetMainWindow` が、まれに入力インジケーターの小窓を返す (MFC で確認) → `GetAppWindow` | 同じ | 同じ |
 
+## UI 操作をきっかけにデバッグする (`--attach <プロセス名>`。v2.106.0)
+`uitest_once.sh "$SLN_DIR" --attach <プロセス名> [--ui-timeout 秒] [--filter 式] [--project 名前]`: **VS のデバッガーが起動したアプリ**に、UI テストがアタッチし、きっかけの UI 操作を撃って、**待たずに終わる**。手順の全体は、`vs-debug` の「UI の操作をきっかけに、デバッグして」。
+- 先に、`vs_once.sh "$SLN_DIR" --break ... --debug --no-wait` でアプリを起動しておく。ビルド全体と、アプリの強制終了は、しない (UI テストのプロジェクトだけをビルドする)。
+- 実行するのは、**`[TestCategory("DebugTrigger")]` のテスト** (`--filter` で変更できる)。**通常の UI テストの実行 (`--attach` なし) は、このカテゴリを除く。**
+- きっかけ専用のテストの最後の操作は、`Trigger(() => ...)`。その後に `Find` を呼ぶと、すぐ失敗する。ユーザーのデスクトップで動く (`--separate`・`--present`・`--hold`・`--preview`・`--slowmo` とは、併用できない)。制限時間の既定は 60 秒。
+- アタッチ先は、exe がソリューションのフォルダの下の、同名のプロセス (なければ・2 つ以上あれば、失敗)。終了コード 8 / `ATTACH_UNSUPPORTED`: `UiTestBase.cs` が古い → `add_ui_tests.py "$SLN_DIR" --refresh-support-files`。
+
 ## 注意
 - 実行の前後に、ウォッチャーが、テストが残したアプリのプロセスを終了する (別のデスクトップのときは、ジョブオブジェクトで、すべて終了する)。
 - 別のデスクトップでは、**WPF の描画を、UI テストの間だけ、ソフトウェアレンダリングにする** (レジストリ `HKCU\Software\Microsoft\Avalon.Graphics\DisableHWAcceleration`。元の値を記録して、終了後に復元する)。

@@ -1443,3 +1443,16 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 **2-70 の最終の結論 (2026-11-25):** 混在 (.NET + C++) は、`/add-project` で作れる。MX1 (v2.105.5)・MX2・MX3・MX4・MX4d・MX4e・MX5・MX7 は合格。MX6 は、期待の誤り (P/Invoke は禁止ではなく、自分で書く。文書に反映済み)。見つかった点は、次の順に直した: v2.105.3 (案内の文言・層の表・`SUGGEST_REF`・「扱わない」の書き方)、v2.105.4・v2.105.5 (`/new-solution` が、混ざる指定を、質問の前に、案内つきで止める)、v2.105.6 (`/add-project layer` が、言語を質問し、もう片方の言語の層を足せる)。**混在の「最初の 1 歩」(片方の言語だけのソリューションに、もう片方の層を足す) は、v2.105.6 まで、通らなかった** (v2.105.2 の、「`/add-project` は、すでに混在に対応」は、`KIND: mixed` の判定だけを見た誤り)。**既知の限界:** Claude の動きは、文だけでは、縛りきれない (質問に進む可能性が、残る。実害は小さい)。
 
+### 2-71. UI 操作をきっかけにしたデバッグ (`--attach`。v2.106.0)
+配布 (`install.sh --host-only` と `--skills-only`) と、ウォッチャーの再起動のあとに行う。確認用フォルダは、WPF が `PS5`、MFC が `MfcScope` (`UiLayerHost`)。**ユーザーのデスクトップで動く。実行中は、PC に触らない。**
+
+| ID | 確認 | 期待 | 結果 |
+|---|---|---|---|
+| AT1 | WPF (`PS5`): `add_ui_tests.py "<PS5>" --refresh-support-files` のあと、きっかけ専用のテスト `Trigger_ClearButton` (`DebugTrigger`) を足す。`vs_once.sh --break ...MainViewModel.cs:<Clear の行> --debug --no-wait` → `uitest_once.sh --attach PS5` | `ATTACHED:` と `TRIGGERED:` が出る。`PASSED` | |
+| AT2 | AT1 のあと、`vs_once.sh --inspect` | **すぐ**、`STOPPED:` と `LOCALS:` が返る (ウォッチャーが空いている) | |
+| AT3 | AT1 のあと、PS5 のアプリ | **生きている** (殺されていない)。VS は、ブレークで止まったまま | |
+| AT4 | MFC (`UiLayerHost`、`OnClear()` にブレーク、きっかけは `UiDialogs.Click(Find("3004"))`): AT1・AT2 と同じ | WPF と同じ | |
+| AT5 | きっかけの後に `Find` を呼ぶテストを、わざと書く | すぐ、「きっかけ (Trigger) の後は、UI に触れない」で失敗する | |
+| AT6 | 更新前の古いひな形で `--attach` | `ATTACH_UNSUPPORTED` (rc=8) と、`--refresh-support-files` の案内 | |
+| AT7 | `--attach` なしの普通の UI テストの実行 | 今までどおり動き、`DebugTrigger` のテストは、実行されない | |
+| AT8 | アプリを起動せずに `--attach PS5` | テストが、「ソリューションの下に見つからない」で失敗する (15 秒ほどで) | |
