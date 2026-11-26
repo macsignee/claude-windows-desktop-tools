@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.107.0] 2026-11-26 (`vs-debug`: 原因が、こちらか、外のライブラリかの切り分け。**ホスト側を変えた**)
+
+- **きっかけ:** 別のソリューションでビルドしたライブラリ (静的ライブラリ・DLL・アセンブリ。日次でビルド、共有フォルダに配布) を使うソリューションで、不具合の原因が、外か、こちらかを、切り分けたい。**外のソースに対する静的チェックは、しない。モジュールをまたぐ切り分けは、デバッグ (`vs-debug`) 経由** (ユーザーの決定)。境界の静的な検査は、将来の話。
+- **作ったもの:** (1) `STACK:` の各フレームに、所有者の印 (`[ours]` / `[ext]` / `[sys]` / `[unknown]`) と、要約 (`OWNER:` / `BOUNDARY:`)。**判定は、WSL 側の Python (`skills/vs-debug/scripts/stack_owner.py`)**。ソースファイルのパスを先に見る (静的ライブラリは、モジュールが、こちらの exe になるため)。ソースがないときだけ、モジュールで判定。名前だけでパスが分からないモジュールは `unknown`。(2) `vs_once.sh --frame <N>`: N 番目のフレームを選んで、`LOCALS:` と `--eval` を読む (`--inspect` か `--eval` が必要。`--debug` / `--status` / `--step` / `--continue` / `--pause` とは併用不可。読んだら元のフレームに戻る)。(3) ホスト (`vs-ide.ps1`): `STACK:` の行の末尾に `[module=…]`、操作 `frame <N>` (`FRAME:` / `FRAME_SKIP:` / `FRAME_OUT_OF_RANGE:`。元のフレームへの復元は、`Invoke-VsFlag` の `finally`)。(4) `vs-debug/SKILL.md` に、切り分けの手順と、日次の配布の運用 (PDB・ソースの世代を揃える、`EmbedAllSources`、`/Z7`、デバッグ ソース ファイル) を書いた。
+- **全体レビューの指摘への対応:** `status` の前に、選んだフレームを元に戻す (`STOPPED:` が呼ぶ側を指さない)。ソリューション直下の `vcpkg_installed` / `packages` / `ThirdParty` / `third_party` / `external` / `vendor` の下は `ext` (外のコードを、`ours` と誤らない)。.NET のフレームワークの、Source Link の `/_/src/…` のパスは、モジュールがシステムなら `sys`。モジュール名の判定を、既知の名前に絞った (`MfcHelper`・`PresentationLogic`・`System.Data.SQLite` などを `sys` にしない)。`STACK_TRUNCATED:` のとき、`BOUNDARY: none` に「深いフレームは見ていない」と付く。`stack_owner.py` が失敗しても、元の出力を出す。
+- **限界:** 印と要約は、ヒント (こちらが誤った引数を渡して、外の中で落ちるときも `OWNER: top=ext`)。
+- **確認:** `tests/stack_owner_test.sh` (新規。判定の単体テスト)、`vs_once_test.sh`、`host_tools_static_test.sh`。**PowerShell は、WSL では実行できない** (静的な確認だけ)。実機の確認は、TEST-PLAN の 2-72。
+- **配布:** `install.sh --host-only` と `--skills-only` が要る。**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.107.0)。
+- 設計: `docs/superpowers/specs/2026-11-26-vs-debug-stack-owner-design.md`。計画: `docs/superpowers/plans/2026-11-26-vs-debug-stack-owner.md`。
+
 ## [2.106.1] 2026-11-26 (`ATTACH_UNSUPPORTED` の案内に `--app` を足した。実機の確認 (TEST-PLAN 2-71) の記録。ホスト側は変えない)
 
 - **きっかけ:** 2-71 の実機確認 (AT4)。`MfcScope` (アプリが複数) で、案内どおりに `add_ui_tests.py "$PWD" --refresh-support-files` を打つと、失敗した (`--app UiLayerHost` が要る)。

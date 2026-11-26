@@ -20,6 +20,7 @@
 #     --eval "<式>"    (v2.101.0) 式の値を返す (ウォッチ)。読み取りだけ: 代入・++・--・; を断る。200 文字まで、1 回の実行で 10 個まで。止まっているときだけ
 #                      実行系 (--step / --continue / --pause / --eval) は、指定した順に実行する。--debug と併用すると、デバッグを始めたあとに実行する。デバッグの停止 (Shift+F5) は、ユーザーの操作 (操作を持たない)
 #     --debug          デバッグ実行を始める (ユーザーが「デバッグを実行して」と言ったときだけ)。ブレークポイントを置くだけでは、実行しない
+#     --frame <N>      (v2.107.0。--inspect か --eval と併用。--debug / --status / --step / --continue / --pause とは併用しない) N 番目のスタック フレームを選んで、LOCALS: と --eval を読む (0 = 先頭。読んだら、元のフレームに戻る)。STACK: の各フレームには、所有者の印 ([ours] [ext] [sys] [unknown]) と、OWNER: / BOUNDARY: の要約が付く (stack_owner.py。ヒントであり、断定ではない)
 #     --no-wait        (--debug と併用) アプリが起動したら、ブレークポイントに着くのを待たずに返す (結果は DEBUG_MODE: run)。UI テストのアタッチ (uitest_once.sh --attach) で、きっかけの操作を撃つ前に使う
 #   --timeout: 完了マーカーを待つ秒数 (既定 240。VS の起動とソリューションの読み込みを含む)
 #
@@ -76,7 +77,7 @@ trap '[ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
 
 shift
 TIMEOUT=240
-STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; NOWAIT=0; INSPECT=0; OUTPUT=0; OUTPUT_N=200
+STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; NOWAIT=0; FRAME=""; INSPECT=0; OUTPUT=0; OUTPUT_N=200
 RUNOPS=(); STEPS_TOTAL=0; EVALS=0   # 実行系の操作 (step / continue / pause / eval)。指定した順
 BREAKS=()
 RE_PATH='^[^[:cntrl:]"<>|*?:]+$'
@@ -90,6 +91,12 @@ while [ $# -gt 0 ]; do
         --debug) DEBUG=1; shift ;;
         --no-wait) NOWAIT=1; shift ;;
         --inspect) INSPECT=1; shift ;;
+        --frame)
+            v="${2:-}"; shift 2 || bad "--frame needs a frame number (0 to 99)"
+            [[ "$v" =~ ^[0-9]+$ ]] || bad "--frame needs a frame number (0 to 99): $v"
+            FRAME=$((10#$v))
+            [ "$FRAME" -le 99 ] || bad "--frame needs a frame number from 0 to 99: $v"
+            ;;
         --continue) RUNOPS+=("continue"); shift ;;
         --pause) RUNOPS+=("pause"); shift ;;
         --step)
@@ -134,6 +141,14 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ "$NOWAIT" -eq 0 ] || [ "$DEBUG" -eq 1 ] || bad "--no-wait needs --debug"
+if [ -n "$FRAME" ]; then
+    # フレームの選択は、止まっているときの読み取り (--inspect / --eval) だけ。実行系とは、併用しない (実行すると、先頭のフレームに戻る)
+    { [ "$INSPECT" -eq 1 ] || [ "$EVALS" -gt 0 ]; } || bad "--frame needs --inspect or --eval"
+    { [ "$DEBUG" -eq 0 ] && [ "$STATUS_ONLY" -eq 0 ]; } || bad "--frame cannot be combined with --debug or --status"
+    for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do
+        case "$r" in eval\ *) ;; *) bad "--frame cannot be combined with --step / --continue / --pause" ;; esac
+    done
+fi
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
 if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
     bad "--status cannot be combined with other modes"
@@ -146,6 +161,7 @@ if [ "$STATUS_ONLY" -eq 1 ]; then
     OPS+=("status")
 elif [ "$ACTION" -eq 0 ] && [ $((INSPECT + OUTPUT + ${#RUNOPS[@]})) -gt 0 ]; then
     # 読み取り・実行系だけ (--status と同じ): VS を起動せず、前面にも出さない
+    [ -z "$FRAME" ] || OPS+=("frame $FRAME")
     for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
     [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
     [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
@@ -169,6 +185,7 @@ else
     fi
     for b in "${BREAKS[@]+"${BREAKS[@]}"}"; do OPS+=("break $b"); done
     if [ "$DEBUG" -eq 1 ]; then if [ "$NOWAIT" -eq 1 ]; then OPS+=("debug nowait"); else OPS+=("debug"); fi; fi
+    [ -z "$FRAME" ] || OPS+=("frame $FRAME")
     for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
     [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
     [ "$OUTPUT" -eq 1 ] && OPS+=("output $OUTPUT_N")
@@ -185,9 +202,16 @@ MAX_CAP=60
 
 show() {
     [ -f "$1" ] || return 0
-    local total
-    total=$(wc -l < "$1")
-    sed 's/^\xEF\xBB\xBF//; s/\r$//' "$1" | cut -c1-400 | head -n "$MAX_OUT"
+    local total content=""
+    if [ "$1" = "$OUTFILE" ] && grep -aq 'STACK: #' "$1"; then
+        # STACK: の各フレームに、所有者の印 (ours / ext / sys / unknown) と、OWNER: / BOUNDARY: の要約を付ける (v2.107.0)。
+        # python3 がない・スクリプトが失敗したときは、印なしの、元の出力を出す (EXCEPTION: / LOCALS: / STOPPED: を、失わない)
+        content="$(python3 -I "$SELF_DIR/stack_owner.py" "$1" 2>/dev/null)" || content=""
+    fi
+    [ -n "$content" ] || content="$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$1")"
+    [ -n "$content" ] || return 0
+    total=$(printf '%s\n' "$content" | wc -l)
+    printf '%s\n' "$content" | cut -c1-400 | head -n "$MAX_OUT"
     [ "$total" -gt "$MAX_OUT" ] && echo "... ($total lines total; see $1)"
     return 0
 }
