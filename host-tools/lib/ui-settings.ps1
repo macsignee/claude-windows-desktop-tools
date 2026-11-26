@@ -54,7 +54,7 @@ function ConvertFrom-UiSettingsText([string]$text) {
         elseif ($l -match '^attach\s*=\s*([A-Za-z0-9_.-]+)$') { $attach = $Matches[1] }   # デバッグ中のアプリに、アタッチする (起動・ビルド・強制終了をしない)。プロセス名だけ
     }
 
-    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter; FilterGiven = [bool]$fl.Filter; HoldSec = $hold; Present = $present; Attach = $attach }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter; HoldSec = $hold; Present = $present; Attach = $attach }
 }
 
 # trigger_uitest.flag の中身 (1 回ごとの指定) と、ウォッチャーの設定と、プロジェクトの uitest.settings から、この回の UI テストの設定を決める。
@@ -94,5 +94,5 @@ function Resolve-UiRun([string]$flagText) {
         if (-not $filter) { $filter = "TestCategory=DebugTrigger" }
     }
     elseif (-not $filter) { $filter = "TestCategory!=DebugTrigger" }
-    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $filter; HoldSec = $hold; Present = $present; Attach = $fl.Attach; Reason = $reason }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $filter; FilterGiven = [bool]$fl.Filter; HoldSec = $hold; Present = $present; Attach = $fl.Attach; Reason = $reason }
 }

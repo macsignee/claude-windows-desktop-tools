@@ -132,6 +132,15 @@ ok "--attach, the new UiTestBase tried to attach (start line has attach:) but di
 run_attach buildfail 30 --attach PS5
 ok "--attach, the build failed -> BUILD_FAILED (rc=6), not ATTACH_UNSUPPORTED" "$([ $RC = 6 ] && [ "$(head -n 1 <<<"$OUT")" = BUILD_FAILED ] && echo 1 || echo 0)"
 rm -f "$T/trigger_uitest.flag"
+# 古い UiTestBase (UITEST_ATTACH_PROCESS を、知らない) は、WSL 側で、フラグを置く前に、見つける (きっかけのテストが、Trigger を呼ぶと、コンパイルが通らず BUILD_FAILED になるため、トレースでは、間に合わない)
+mkdir -p "$T/App.UITests"; printf 'public abstract class UiTestBase { }\n' > "$T/App.UITests/UiTestBase.cs"
+rm -f "$T/trigger_uitest.flag" "$T/captured.txt"
+OUT="$(bash "$SCRIPT" "$T" 30 --attach PS5 2>&1)"; RC=$?
+ok "--attach with an old UiTestBase.cs (no UITEST_ATTACH_PROCESS): ATTACH_UNSUPPORTED (rc=8) before any flag is written, with the refresh hint" "$([ $RC = 8 ] && [ "$(head -n 1 <<<"$OUT")" = ATTACH_UNSUPPORTED ] && grep -q -- '--refresh-support-files' <<<"$OUT" && [ ! -e "$T/trigger_uitest.flag" ] && echo 1 || echo 0)"
+printf 'UITEST_ATTACH_PROCESS\n' > "$T/App.UITests/UiTestBase.cs"
+run_attach attached 30 --attach PS5
+ok "--attach with a new UiTestBase.cs: goes on (PASSED)" "$([ $RC = 0 ] && [ "$(head -n 1 <<<"$OUT")" = PASSED ] && echo 1 || echo 0)"
+rm -rf "$T/App.UITests"
 bad_attach() { OUT="$(bash "$SCRIPT" "$T" "$@" 2>&1)"; RC=$?; }
 bad_attach --attach;                      ok "BAD_ARGS: --attach without a name (rc=2)" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
 bad_attach --attach "a b";                ok "BAD_ARGS: a name with a space" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"

@@ -115,16 +115,24 @@ if [ -n "$present" ]; then
 fi
 case "$flag_content" in *desktop=visible*desktop=separate*|*desktop=separate*desktop=visible*) echo "BAD_ARGS: --visible and --separate cannot be used together"; exit 2 ;; esac
 
+attach_unsupported() {
+    echo "ATTACH_UNSUPPORTED"
+    echo "UiTestBase.cs が、アタッチに対応していない古い版 (UITEST_ATTACH_PROCESS を知らない。テストは、デバッグ中のアプリとは別に、アプリを起動するか、Trigger がなくてビルドできない)。"
+    echo "更新する: python3 <Skill群>/new-solution/scripts/add_ui_tests.py \"$DIR\" --refresh-support-files (テストの本体は、触らない)。そのあと、もう一度。"
+    exit 8
+}
+if [ -n "$attach" ] && [ -d "$DIR" ]; then
+    # 古い UiTestBase は、きっかけのテストが Trigger を呼ぶと、ビルドできず (BUILD_FAILED)、トレースでは、間に合わない。フラグを置く前に、WSL 側で見つける
+    uitb="$(find "$DIR" \( -name bin -o -name obj -o -name .git -o -name .claude-logs -o -name node_modules \) -prune -o -type f -name UiTestBase.cs -print 2>/dev/null)"
+    if [ -n "$uitb" ] && [ -z "$(printf '%s\n' "$uitb" | tr '\n' '\0' | xargs -0 grep -l 'UITEST_ATTACH_PROCESS' 2>/dev/null | head -n 1)" ]; then attach_unsupported; fi
+fi
 out="$(BUILD_TEST_FLAG=trigger_uitest.flag BUILD_TEST_FLAG_CONTENT="${flag_content%$'\n'}" bash "$here/build_test_once.sh" "$DIR" "$TIMEOUT")"
 rc=$?
 trace="$DIR/.claude-logs/ui-screenshots/ui-trace.txt"
 if [ -n "$attach" ] && { [ "$rc" = 0 ] || [ "$rc" = 1 ]; } && [ -f "$trace" ] \
    && ! grep -a -q ' ATTACHED: ' "$trace" && ! grep -a -q "attach: $attach" "$trace"; then
     # 古い UiTestBase は、UITEST_ATTACH_PROCESS を無視して、アプリを新しく起動する (デバッグ中のアプリとは、別のプロセス)。ATTACHED: も、start 行の attach: も、ない
-    echo "ATTACH_UNSUPPORTED"
-    echo "UiTestBase.cs が、アタッチに対応していない古い版 (テストは、デバッグ中のアプリとは別に、アプリを起動した)。"
-    echo "更新する: python3 <Skill群>/new-solution/scripts/add_ui_tests.py \"$DIR\" --refresh-support-files (テストの本体は、触らない)。そのあと、もう一度。"
-    exit 8
+    attach_unsupported
 fi
 printf '%s\n' "$out"
 

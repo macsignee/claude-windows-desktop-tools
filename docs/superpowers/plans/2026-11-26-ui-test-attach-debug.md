@@ -17,7 +17,7 @@
 - フラグ名 `attach=`、環境変数 `UITEST_ATTACH_PROCESS`、テストのカテゴリ `DebugTrigger`、メソッド `Trigger(Action fire)`。プロセス名は `[A-Za-z0-9_.-]+` だけ。
 - `attach=` は、**desktop=visible 固定** (別のデスクトップは、不可)。制限時間の既定は 60 秒 (flag の `timeout=` が優先)。`--ui-timeout` で変更できる。
 - アタッチ先は、**exe が `UITEST_SOLUTION_DIR` の下**にあるプロセスだけ。同名が 2 つ以上なら、選ばず失敗 (PID の一覧)。探し直しは、最大 15 秒。
-- `Trigger` は、`fire` を別タスクで実行し、最大 3 秒待つ。戻らなくても、「止まった」と見なして戻る。
+- `Trigger` は、`fire` を別タスクで実行し、最大 7 秒待つ。戻らなくても、「止まった」と見なして戻る。
 - アタッチモードの `StopApp` は、UIA を呼ばない (`Dispose`・スクリーンショットも)。アプリを閉じない・殺さない。
 - テストが書く `ui-trace.txt` の行: `ATTACHED: <プロセス名> (pid <PID>)` と `TRIGGERED:` (行頭に、`HH:mm:ss.fff ` の時刻が付く。`UiTrace.Write` の形式)。`uitest_once.sh` が、これを拾う。
 - 文だけで縛らず、コードで縛る (`Trigger` の後の `Find`、`uitest_once.sh` の `ATTACH_UNSUPPORTED:`)。
@@ -110,7 +110,7 @@
 - Produces (生成される `UiTestBase` のメンバー):
   - `protected static string? AttachProcess` (環境変数。空なら null)。`protected bool Attaching => AttachProcess != null`。
   - `StartApp`: `Attaching` なら、`Process` の一覧から、名前が `AttachProcess` で、`MainModule.FileName` が `AppLocator.SolutionDir()` の下のものを、最大 15 秒、150 ms おきに探す。0 件 → `AssertFailedException` (「`<名前>` のプロセスが、ソリューションの下に見つからない。VS で、デバッグを始めたか」)。2 件以上 → `AssertFailedException` (PID の一覧)。1 件 → `Application.Attach(pid)`、`Automation = new UIA3Automation()`、`MainWindow = UiDialogs.GetAppWindow(...)`、`UiTrace.Write($"ATTACHED: {AttachProcess} (pid {pid})")`。`APP_MODEL` などの、アプリへの環境変数の設定は、アタッチのときは、しない (起動済みのため、無意味)。`Attaching` でなければ、今までどおり `Launch`。
-  - `protected void Trigger(Action fire)`: すでに `_triggered` なら `AssertFailedException`。`_triggered = true`。`Task.Run(fire)` を最大 3 秒待つ (例外は、再スロー。時間切れは、`UiTrace.Write("TRIGGERED: (fire did not return in 3000 ms; treated as stopped)")`)。戻ったら `UiTrace.Write("TRIGGERED:")`。
+  - `protected void Trigger(Action fire)`: すでに `_triggered` なら `AssertFailedException`。`_triggered = true`。`Task.Run(fire)` を最大 7 秒待つ (例外は、再スロー。時間切れは、`UiTrace.Write("TRIGGERED: (fire did not return in 3000 ms; treated as stopped)")`)。戻ったら `UiTrace.Write("TRIGGERED:")`。
   - `FindIn`: `_triggered` なら、探す前に `AssertFailedException` (「きっかけ (`Trigger`) の後は、UI に触れない。止まったアプリは、UIA に応答しない。」)。ただし、アタッチモードでないときは、`Trigger` の後も `Find` を許す (`_triggered` を見るのは `Attaching` のときだけ)。
   - `StopApp`: `Attaching` なら、`UiTrace.Write($"=== {TestName}: {outcome}")` だけ書いて戻る (閉じない・殺さない・スクリーンショットなし・`Automation` の `Dispose` なし)。
   - 例: `MainWindowUiTests.cs` のひな形の先頭のコメントに、`[TestMethod, TestCategory("DebugTrigger")] public void Trigger_ClearButton() { ...; Trigger(() => UiDialogs.Click(Find("ClearButton"))); }` の形の例を、コメントで足す (WPF・WinForms・MFC の既存のコメントの流儀に合わせる)。

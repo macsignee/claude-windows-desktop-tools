@@ -260,7 +260,7 @@ public abstract class UiTestBase
         catch (Exception) { return false; }   // 権限がない、すでに終了した、など
     }
 
-    /// <summary>**デバッグのきっかけの UI 操作** を、撃つ。アタッチのモード (uitest_once.sh --attach) では、fire を別のタスクで実行し、最大 3 秒だけ待つ
+    /// <summary>**デバッグのきっかけの UI 操作** を、撃つ。アタッチのモード (uitest_once.sh --attach) では、fire を別のタスクで実行し、最大 7 秒だけ待つ
     /// (止まったアプリに、同期の操作を送ると、戻らないことがあるため。戻らなければ、「止まった」と見なして戻る)。**この後は、UI に触れない**:
     /// アタッチのモードで、Trigger の後に Find を呼ぶと、すぐ失敗する (ブレークで止まったアプリは、UIA に応答しない)。1 つのテストで、1 回だけ。
     /// アタッチでない通常の実行では、fire を実行するだけ (縛りは、働かない)。
@@ -280,12 +280,14 @@ public abstract class UiTestBase
             return;
         }
         if (_triggered) throw new AssertFailedException("Trigger は、1 つのテストで 1 回だけ呼べる (きっかけは、1 つ)");
-        _triggered = true;
+        // fire の中の Find は、まだ許す (Find の探し直しは 5 秒まで。それより長く待つので、AutomationId の誤りは、失敗として、ここへ届く)。
+        // 「きっかけの後」の縛りは、fire が戻ってから (または、待ちが切れてから) 効く。
         var task = Task.Run(fire);
         bool returned;
-        try { returned = task.Wait(3000); }
+        try { returned = task.Wait(7000); }
         catch (AggregateException e) { throw e.InnerException ?? e; }
-        UiTrace.Write(returned ? "TRIGGERED:" : "TRIGGERED: (fire did not return in 3000 ms; treated as stopped)");
+        finally { _triggered = true; }
+        UiTrace.Write(returned ? "TRIGGERED:" : "TRIGGERED: (fire did not return in 7000 ms; treated as stopped)");
     }
 
     [TestCleanup]
