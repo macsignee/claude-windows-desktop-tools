@@ -118,7 +118,7 @@ case "$flag_content" in *desktop=visible*desktop=separate*|*desktop=separate*des
 attach_unsupported() {
     echo "ATTACH_UNSUPPORTED"
     echo "UiTestBase.cs が、アタッチに対応していない古い版 (UITEST_ATTACH_PROCESS を知らない。テストは、デバッグ中のアプリとは別に、アプリを起動するか、Trigger がなくてビルドできない)。"
-    echo "更新する: python3 <Skill群>/new-solution/scripts/add_ui_tests.py \"$DIR\" --refresh-support-files (テストの本体は、触らない)。そのあと、もう一度。"
+    echo "更新する: python3 <Skill群>/new-solution/scripts/add_ui_tests.py \"$DIR\" --refresh-support-files --app $attach (テストの本体は、触らない。--app は、アプリのプロジェクト名。プロセス名と違うときは、そちらに直す。アプリが 1 つなら、省いてよい)。そのあと、もう一度。"
     exit 8
 }
 if [ -n "$attach" ] && [ -d "$DIR" ]; then

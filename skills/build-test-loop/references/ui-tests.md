@@ -39,7 +39,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 ## 動いたことを、確かめる (トレースと、目で見るモード)
 - `uitest_once.sh` は、最後に、**操作の記録 (`.claude-logs/ui-screenshots/ui-trace.txt`)** から、テストごとの結果の行 (`=== テスト名: Passed` など) を出す。**UI テストが、実際に、起動して、操作したことの確認**に使う (`PASSED` と出ても、テストが 0 件でないこと、狙いのテストが動いたことを、行で確かめる)。記録は、`find: <AutomationId>` (探した要素)、`launched: <exe>`、`=== <テスト名>: start (desktop: ..., slowmo: ... ms)` などで、全文は、Read で読める。
 - **ユーザーが「目で確かめたい」と言うとき:** `uitest_once.sh <dir> [秒] --visible --slowmo 800` で、実行する (ウォッチャーの起動し直しは、要らない。待ちは、`--slowmo 1500` などで変える)。ウィンドウが、画面に出て、入力や、ボタンが、順番に動くのが見える。**実行中、ユーザーは、PC を、快適には使えない** (マウスやキーボードの入力が、フォーカスを持つテスト対象のアプリに入ることがある)。`desktop=visible` のプロジェクト (WPF) は、`--slowmo` を付けなければ、待ちなしで、ユーザーのデスクトップで動く。(ウォッチャーを `run_watcher_visible.cmd` で起動する従来の方法も、使える。`WATCH_UI_DESKTOP=default`、`WATCH_UI_SLOWMO_MS=800` が、設定される。1 回ごとの `--separate` は、これより優先される。)
-- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I <Skill群>/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --refresh-support-files` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
+- すでに作ってある UI テストのプロジェクトで、この機能 (トレース、スローモーション) を使うには、`python3 -I <Skill群>/new-solution/scripts/add_ui_tests.py "$SLN_DIR" --refresh-support-files [--app <アプリ名>]` で、ツールが持つ 4 つのファイル (`UiTestBase.cs` など) を、最新にする (テストの本体 `MainWindowUiTests.cs` は、触らない)。
 
 ## 失敗したら
 1. 最後に出る **スクリーンショット (`.claude-logs/ui-screenshots/*.png`) を、Read ツールで画像として開き、画面に何が写っているかを確かめる** (入力欄の値、表示、ダイアログ、アプリが落ちていないか)。例外のメッセージだけでは、分からないことがある。
@@ -98,7 +98,7 @@ bash <このSkillのフォルダ>/scripts/uitest_once.sh "$SLN_DIR" 900
 - 先に、`vs_once.sh "$SLN_DIR" --break ... --debug --no-wait` でアプリを起動しておく。ビルド全体と、アプリの強制終了は、しない (UI テストのプロジェクトだけをビルドする)。
 - 実行するのは、**`[TestCategory("DebugTrigger")]` のテスト** (`--filter` で変更できる)。**通常の UI テストの実行 (`--attach` なし) は、このカテゴリを除く。**
 - きっかけ専用のテストの最後の操作は、`Trigger(() => ...)`。その後に `Find` を呼ぶと、すぐ失敗する。ユーザーのデスクトップで動く (`--separate`・`--present`・`--hold`・`--preview`・`--slowmo` とは、併用できない)。制限時間の既定は 60 秒。
-- アタッチ先は、exe がソリューションのフォルダの下の、同名のプロセス (なければ・2 つ以上あれば、失敗)。終了コード 8 / `ATTACH_UNSUPPORTED`: `UiTestBase.cs` が古い → `add_ui_tests.py "$SLN_DIR" --refresh-support-files`。
+- アタッチ先は、exe がソリューションのフォルダの下の、同名のプロセス (なければ・2 つ以上あれば、失敗)。終了コード 8 / `ATTACH_UNSUPPORTED`: `UiTestBase.cs` が古い → `add_ui_tests.py "$SLN_DIR" --refresh-support-files [--app <アプリ名>]`。
 
 ## 注意
 - 実行の前後に、ウォッチャーが、テストが残したアプリのプロセスを終了する (別のデスクトップのときは、ジョブオブジェクトで、すべて終了する)。

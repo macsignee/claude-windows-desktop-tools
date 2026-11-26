@@ -2,6 +2,13 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.106.1] 2026-11-26 (`ATTACH_UNSUPPORTED` の案内に `--app` を足した。実機の確認 (TEST-PLAN 2-71) の記録。ホスト側は変えない)
+
+- **きっかけ:** 2-71 の実機確認 (AT4)。`MfcScope` (アプリが複数) で、案内どおりに `add_ui_tests.py "$PWD" --refresh-support-files` を打つと、失敗した (`--app UiLayerHost` が要る)。
+- **直したこと:** `uitest_once.sh --attach` の `ATTACH_UNSUPPORTED` の案内に、`--app <プロセス名>` を足した (`tests/uitest_once_test.sh` に 1 件。先に Red を確認)。`vs-debug` の SKILL と `ui-tests.md` の案内にも、`[--app <アプリ名>]` を足した。
+- **実機の結果:** 2-71 の AT1〜AT7 は合格 (WPF の `PS5`、MFC の `UiLayerHost`)。AT8 は、失敗の文言が未確認。見つかった別件 2 つ (ステップ実行の `STEP_TIMEOUT` の誤検知、別のソリューションがデバッグ中のとき `vs_once.sh` の `open` が失敗) は、TEST-PLAN 2-71 の末尾に記録した (未対応)。
+- **配布:** `install.sh --skills-only` が要る (ウォッチャーの再起動は、要らない)。
+
 ## [2.106.0] 2026-11-26 (UI テストのアタッチモード: UI 操作をきっかけに、デバッグする。**ホスト側を変えた**)
 
 - **きっかけ:** 「UI のバグを追うのではなく、デバッグのトリガーとして必要な UI 操作を、UI テストの仕組みから実行したい」。HANDOFF-2026-11-25 の第 4-3 節 (案 A)。試作 (`poc/attach-debug/`) で、WPF・MFC とも、アタッチでき、きっかけの操作 (WPF の Invoke・MFC の BM_CLICK の Post) は、ブレークで止まっても、すぐ返ることを、実機で確かめた (止まった後の UIA の読み取りは、待たされる)。

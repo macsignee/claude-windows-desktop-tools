@@ -1448,11 +1448,17 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | ID | 確認 | 期待 | 結果 |
 |---|---|---|---|
-| AT1 | WPF (`PS5`): `add_ui_tests.py "<PS5>" --refresh-support-files` のあと、きっかけ専用のテスト `Trigger_ClearButton` (`DebugTrigger`) を足す。`vs_once.sh --break ...MainViewModel.cs:<Clear の行> --debug --no-wait` → `uitest_once.sh --attach PS5` | `ATTACHED:` と `TRIGGERED:` が出る。`PASSED` | |
-| AT2 | AT1 のあと、`vs_once.sh --inspect` | **すぐ**、`STOPPED:` と `LOCALS:` が返る (ウォッチャーが空いている) | |
-| AT3 | AT1 のあと、PS5 のアプリ | **生きている** (殺されていない)。VS は、ブレークで止まったまま | |
-| AT4 | MFC (`UiLayerHost`、`OnClear()` にブレーク、きっかけは `UiDialogs.Click(Find("3004"))`): AT1・AT2 と同じ | WPF と同じ | |
-| AT5 | きっかけの後に `Find` を呼ぶテストを、わざと書く | すぐ、「きっかけ (Trigger) の後は、UI に触れない」で失敗する | |
-| AT6 | 更新前の古いひな形で `--attach` | `ATTACH_UNSUPPORTED` (rc=8) と、`--refresh-support-files` の案内 | |
-| AT7 | `--attach` なしの普通の UI テストの実行 | 今までどおり動き、`DebugTrigger` のテストは、実行されない | |
-| AT8 | アプリを起動せずに `--attach PS5` | テストが、「ソリューションの下に見つからない」で失敗する (15 秒ほどで) | |
+| AT1 | WPF (`PS5`): `add_ui_tests.py "<PS5>" --refresh-support-files` のあと、きっかけ専用のテスト `Trigger_ClearButton` (`DebugTrigger`) を足す。`vs_once.sh --break ...MainViewModel.cs:<Clear の行> --debug --no-wait` → `uitest_once.sh --attach PS5` | `ATTACHED:` と `TRIGGERED:` が出る。`PASSED` | **合格** (2026-11-26。`PASSED`。`ATTACHED: PS5 (pid 5852)` と `TRIGGERED:`) |
+| AT2 | AT1 のあと、`vs_once.sh --inspect` | **すぐ**、`STOPPED:` と `LOCALS:` が返る (ウォッチャーが空いている) | **合格** (2026-11-26。すぐ `DEBUG_MODE: break`、`STOPPED: MainViewModel.cs:49`、`STACK` (`Button.OnClick → RelayCommand.Execute → Clear`)、`LOCALS: this`) |
+| AT3 | AT1 のあと、PS5 のアプリ | **生きている** (殺されていない)。VS は、ブレークで止まったまま | **合格** (2026-11-26。アプリは生きていて、VS はブレークのまま。続けて `--step` / `--continue` も通った) |
+| AT4 | MFC (`UiLayerHost`、`OnClear()` にブレーク、きっかけは `UiDialogs.Click(Find("3004"))`): AT1・AT2 と同じ | WPF と同じ | **合格** (2026-11-26、`MfcScope` の `UiLayerHost`。`OnClear()` (`GreetingDialog.cpp:54`) で `break`。`STACK` に MFC の経路 (`_AfxDispatchCmdMsg` ... `AfxWndProcDllStatic`)。**`add_ui_tests.py --refresh-support-files` は、複数のアプリがあるソリューションで `--app` が要った** → v2.106.1 で案内を直した) |
+| AT5 | きっかけの後に `Find` を呼ぶテストを、わざと書く | すぐ、「きっかけ (Trigger) の後は、UI に触れない」で失敗する | **合格** (2026-11-26。約 10 秒で `失敗`。文言は「きっかけ (Trigger) の後は、UI に触れない。止まったアプリは、UIA に応答しない (Find: NameTextBox)。…」。続く `--inspect` は `Clear()` で `break` (クリックは撃たれていた)) |
+| AT6 | 更新前の古いひな形で `--attach` | `ATTACH_UNSUPPORTED` (rc=8) と、`--refresh-support-files` の案内 | **合格** (2026-11-26、`MfcScope` (更新前)。1 行目 `ATTACH_UNSUPPORTED`、rc=8、案内つき、`trigger_uitest.flag` は置かれていない) |
+| AT7 | `--attach` なしの普通の UI テストの実行 | 今までどおり動き、`DebugTrigger` のテストは、実行されない | **合格** (2026-11-26。通常の 5 件 (`MainWindow_Opens_WithTitle` ほか) が `Passed`。`Trigger_ClearButton` は実行されない) |
+| AT8 | アプリを起動せずに `--attach PS5` | テストが、「ソリューションの下に見つからない」で失敗する (15 秒ほどで) | **一部** (2026-11-26。1 行目 `FAILED`、rc=1、27 秒 (UI テストのプロジェクトのビルドを含む)。**失敗の文言は、記録していない** (「ソリューションの下に見つからない」かは、未確認)) |
+
+**2-71 の結論 (2026-11-26):** UI 操作をきっかけにしたデバッグは、WPF (`PS5`) と MFC (`UiLayerHost`) の実機で、通しで動いた (AT1〜AT7)。PowerShell の構文と、生成した C# のコンパイルも、実機で通った。**未了:** AT8 の失敗の文言 (確認する)、WinForms の実機。
+**見つかった点:**
+1. (直した。v2.106.1) `ATTACH_UNSUPPORTED` の案内に `--app` がなく、複数のアプリを持つソリューション (`MfcScope`) では、案内どおりに打つと失敗した。案内に `--app <プロセス名>` を足した。
+2. (未対応) ステップ実行で、ソースのないフレームワークのコード (`Button.OnClick`) に出ると、`STEP_TIMEOUT` と出るが、実際には `break` で止まっている (`--status` で確認)。`vs-debug` の `--step` の別件。
+3. (未対応・原因は未確認) 別のソリューション (`MfcScope`) が、ブレークで止まったままの VS があると、`PS5` のソリューションを `vs_once.sh` で開くのに失敗した。失敗の文言は、これから確認する。

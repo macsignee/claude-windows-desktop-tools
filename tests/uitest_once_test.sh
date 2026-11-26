@@ -137,6 +137,7 @@ mkdir -p "$T/App.UITests"; printf 'public abstract class UiTestBase { }\n' > "$T
 rm -f "$T/trigger_uitest.flag" "$T/captured.txt"
 OUT="$(bash "$SCRIPT" "$T" 30 --attach PS5 2>&1)"; RC=$?
 ok "--attach with an old UiTestBase.cs (no UITEST_ATTACH_PROCESS): ATTACH_UNSUPPORTED (rc=8) before any flag is written, with the refresh hint" "$([ $RC = 8 ] && [ "$(head -n 1 <<<"$OUT")" = ATTACH_UNSUPPORTED ] && grep -q -- '--refresh-support-files' <<<"$OUT" && [ ! -e "$T/trigger_uitest.flag" ] && echo 1 || echo 0)"
+ok "ATTACH_UNSUPPORTED hint names the app (--app PS5): a solution with several apps (MfcScope) fails without it (found on the real machine, AT6)" "$(grep -q -- '--refresh-support-files --app PS5' <<<"$OUT" && echo 1 || echo 0)"
 printf 'UITEST_ATTACH_PROCESS\n' > "$T/App.UITests/UiTestBase.cs"
 run_attach attached 30 --attach PS5
 ok "--attach with a new UiTestBase.cs: goes on (PASSED)" "$([ $RC = 0 ] && [ "$(head -n 1 <<<"$OUT")" = PASSED ] && echo 1 || echo 0)"
