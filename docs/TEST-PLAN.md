@@ -1455,9 +1455,9 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | AT5 | きっかけの後に `Find` を呼ぶテストを、わざと書く | すぐ、「きっかけ (Trigger) の後は、UI に触れない」で失敗する | **合格** (2026-11-26。約 10 秒で `失敗`。文言は「きっかけ (Trigger) の後は、UI に触れない。止まったアプリは、UIA に応答しない (Find: NameTextBox)。…」。続く `--inspect` は `Clear()` で `break` (クリックは撃たれていた)) |
 | AT6 | 更新前の古いひな形で `--attach` | `ATTACH_UNSUPPORTED` (rc=8) と、`--refresh-support-files` の案内 | **合格** (2026-11-26、`MfcScope` (更新前)。1 行目 `ATTACH_UNSUPPORTED`、rc=8、案内つき、`trigger_uitest.flag` は置かれていない) |
 | AT7 | `--attach` なしの普通の UI テストの実行 | 今までどおり動き、`DebugTrigger` のテストは、実行されない | **合格** (2026-11-26。通常の 5 件 (`MainWindow_Opens_WithTitle` ほか) が `Passed`。`Trigger_ClearButton` は実行されない) |
-| AT8 | アプリを起動せずに `--attach PS5` | テストが、「ソリューションの下に見つからない」で失敗する (15 秒ほどで) | **一部** (2026-11-26。1 行目 `FAILED`、rc=1、27 秒 (UI テストのプロジェクトのビルドを含む)。**失敗の文言は、記録していない** (「ソリューションの下に見つからない」かは、未確認)) |
+| AT8 | アプリを起動せずに `--attach PS5` | テストが、「ソリューションの下に見つからない」で失敗する (15 秒ほどで) | **合格** (2026-11-26。1 回目は、MfcScope の VS がブレークで止まったままで、前提が崩れ、文言を記録しなかったので、やり直した。v2.106.1 で、`--status` が `DEBUG_MODE: design` のとき、`--attach PS5` が 1 行目 `FAILED`、rc=1、27 秒 (UI テストのプロジェクトのビルドを含む)。失敗の詳細は「`StartApp` は例外をスローしました。プロセス 'PS5' が、ソリューションの下に見つからない (…\PS5\)。VS で、デバッグを始めたか (vs_once.sh --debug --no-wait)」) |
 
-**2-71 の結論 (2026-11-26):** UI 操作をきっかけにしたデバッグは、WPF (`PS5`) と MFC (`UiLayerHost`) の実機で、通しで動いた (AT1〜AT7)。PowerShell の構文と、生成した C# のコンパイルも、実機で通った。**未了:** AT8 の失敗の文言 (確認する)、WinForms の実機。
+**2-71 の結論 (2026-11-26):** UI 操作をきっかけにしたデバッグは、WPF (`PS5`) と MFC (`UiLayerHost`) の実機で、通しで動いた (AT1〜AT8)。PowerShell の構文と、生成した C# のコンパイルも、実機で通った。**未了:** WinForms の実機。
 **見つかった点:**
 1. (直した。v2.106.1) `ATTACH_UNSUPPORTED` の案内に `--app` がなく、複数のアプリを持つソリューション (`MfcScope`) では、案内どおりに打つと失敗した。案内に `--app <プロセス名>` を足した。
 2. (未対応) ステップ実行で、ソースのないフレームワークのコード (`Button.OnClick`) に出ると、`STEP_TIMEOUT` と出るが、実際には `break` で止まっている (`--status` で確認)。`vs-debug` の `--step` の別件。
