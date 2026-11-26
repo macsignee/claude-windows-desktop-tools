@@ -1,6 +1,6 @@
 # 次の作業 (再開用メモ)
 
-2026-11-25 時点 (v2.105.6。**最新の引き継ぎは `docs/HANDOFF-2026-11-25.md` (最初に読む)。残作業の一覧は `HANDOFF-2026-11-24-remaining.md`**。経緯は `HANDOFF-2026-11-24-evening.md`)。以下の本文は、2026-11-19 時点の記述に、2026-11-23〜24 の更新を足したもの。**実装も、実機の確認も、済んでいる** (画面モデル v2.91.0〜v2.96.0、プロジェクト単位のビルド・テスト `--project` v2.98.x、`vs-debug` v2.99.x〜v2.104.x、SDI・MDI のウィザード寄せ v2.103.0・v2.104.0、`/new-solution` の `CLAUDE.md` 短縮 v2.105.0)。残っているのは、**判断待ち (「2」)、実機で未確認の小さなもの (「1」)、任意の確認、条件が整ってから行うもの**だけ。
+2026-11-26 時点 (v2.107.1。**最新の引き継ぎは `docs/HANDOFF-2026-11-26.md` (最初に読む)。次の作業は、TEST-PLAN 2-72 (OW0〜OW6) の実機確認。**前の引き継ぎは `docs/HANDOFF-2026-11-25.md`。残作業の一覧は `HANDOFF-2026-11-24-remaining.md`**。経緯は `HANDOFF-2026-11-24-evening.md`)。以下の本文は、2026-11-19 時点の記述に、2026-11-23〜24 の更新を足したもの。**実装も、実機の確認も、済んでいる** (画面モデル v2.91.0〜v2.96.0、プロジェクト単位のビルド・テスト `--project` v2.98.x、`vs-debug` v2.99.x〜v2.104.x、SDI・MDI のウィザード寄せ v2.103.0・v2.104.0、`/new-solution` の `CLAUDE.md` 短縮 v2.105.0)。残っているのは、**判断待ち (「2」)、実機で未確認の小さなもの (「1」)、任意の確認、条件が整ってから行うもの**だけ。
 各項目の状況は `docs/REMAINING-CHECKS.md`、手順と結果は `docs/TEST-PLAN.md`、変更の一覧は `CHANGELOG.md`。以前の版のこのメモ (手順や依頼文) は、git の履歴にある。
 (画面モデルの旧い引き継ぎ `HANDOFF-2026-11-17.md` は、古く、不要。リポジトリには、ない。)
 
@@ -13,6 +13,9 @@
 - **決定 (ユーザー、2026-11-19。蒸し返さない):** (1) 画面モデルの名前は **`ScreenModel` のまま** (`FormModel` への変更案は、MFC の `CFormView` との紛らわしさ、WPF に Form がないこと、変更の費用の大きさで、見送った。変えるなら `WindowModel`)。(2) **規約の `paths` から Presenter を外した** (v2.98.14。`winforms-csharp.md` は `*.Designer.cs` と `Forms/`、`winforms-view-model.md` は `ScreenModels/` と `*ScreenModel*.cs` だけ)。(3) `claude-spec-workflow` の `brainstormF` に、検査・失敗の観点は、**足さない**。(4) VO2 (VS の英語の表示言語での `--output`) は、確認しない。
 
 ## 1. 実機の確認 (未了のものと、任意のもの)
+
+- **次の作業 (2026-11-27): `vs-debug` のフレームの所有者の判定 (v2.107.0〜v2.107.1、TEST-PLAN 2-72) の実機確認 OW0〜OW6。** `STACK:` の各フレームの印 (`[ours]` `[ext]` `[sys]` `[unknown]`)、`OWNER:` / `BOUNDARY:`、`--frame N`。確認用は `ClaudePlayground\OwnerCheck` (`ExtDll`・`ExtStatic`・`App`。作成済み)。**最初に OW0** (`StackFrame.Module` が、名前か、パスか。名前だけなら、ソースなしのフレームは `unknown` になり、規則の調整が要る)。PowerShell は、WSL で未実行なので、ウォッチャーの起動時の構文エラーも、疑う。手順は `HANDOFF-2026-11-26.md`。
+- **(済み 2026-11-26) UI 操作をきっかけにしたデバッグ (UI テストのアタッチモード。v2.106.0〜v2.106.1、TEST-PLAN 2-71): AT1〜AT8 がすべて合格** (WPF の `PS5`、MFC の `UiLayerHost`)。**未確認は、WinForms の実機**。別件で、**「別のソリューションがブレークで止まったままだと、`PS5` が VS で開かなかった」件は、再現せず (未再現・要観察)**。`vs-debug` の `--step` が、ソースのないフレームワークのコードに出たとき `STEP_TIMEOUT` と出る誤検知 (実際は `break`) は、**未対応**。
 
 - **(済み 2026-11-24) `vs-debug` のステップ実行・式の評価 (v2.101.0、TEST-PLAN 2-63): SP1〜SP12 がすべて合格** (SP11 は観察。通しのバグ探しも合格)。**改善の候補 (小さい。(2)(3)(4) は v2.104.1 で直した。実機の確認は未 (TEST-PLAN 2-67 の IM1〜IM7)。(1) は v2.104.2・v2.104.3 で直した。**TEST-PLAN 2-67 は、IM1〜IM3・IM5〜IM7 が合格、IM4 (最適化されたモジュールの `(unavailable)`) は、C# で再現せず、C++ の Release で合格 (2026-11-25)**):** (1) 1 回の `--debug --inspect` で `INSPECT_SKIP: the mode is run` になることがあった (初回の起動が 20 秒を超えたとみられる。`$VsBreakWaitSec` を延ばす、または、`--inspect` の前に break を待つ)。生の出力が残っておらず、未確定。(2) 最適化されたモジュールの変数の長い文面 (6 行) を、短くする。(3) `int` の値が 16 進 (`0x00000003`) で出る。10 進にするか。(4) 続行の直後の `STOPPED:` に、場所が付かないことがある。
 - **(済み 2026-11-23) `git-remote` (v2.102.x、TEST-PLAN 2-64): GR1〜GR5、GR8〜GR14 が合格。** 未確認は、GR6・GR7 (GitHub 以外のリモート、未サインイン。リモートがない)、GR9 の後半、GR12 の強制終了。**決定済み (2026-11-23、v2.102.4):** `rules/git-wsl.md` に、サンドボックスの空ファイルの注意書きを足した。`git-remote` の push の前の `--status` は、ユーザーが内容を指定したときは、省いてよい。**pull は、見送り (ユーザーの決定、2026-11-24)。** 運用は、`rules/git-wsl.md` に盛り込んだ (v2.102.6)。再検討の目安: 「取り込む前の確認」(B)、または `pull --ff-only` の条件つき実装 (C)。
@@ -36,11 +39,16 @@
 
 ## 2. 判断待ち・任意の機能
 
+- **G: 外のソースに対する静的チェック (将来。2026-11-26 のユーザーの決定: いまは、しない)。** 別のソリューションでビルドしたライブラリ (静的ライブラリ・DLL・アセンブリ) を使うとき、`mfc-check` / `wpf-check` / `winforms-check` が、外のソースも検査すること、境界の静的な検査 (ビルド設定の食い違い: ランタイム・文字セット・`UseOfMfc`・`_AFXEXT`、ヘッダーのずれ、CRT をまたぐ型) を、広げる。いまは、モジュールをまたぐ切り分けは、デバッグ (`vs-debug` の所有者の判定) 経由。着手の条件: 外のソースの置き場 (環境変数か、ローカルコピーか) と、検査したい対象の決定。
+- **H: 先送りした軽微な点 (急がない)。** フレームの所有者の判定 7 件 (`--frame` の桁あふれ、エディターのタブが残る、`$exception` が `--frame` で読めるか、フレーム選択の失敗の文言、エラー文に `frame` がない、パスの正規表現が広い、`--frame` 99 まで受けるが表示は 10 フレーム) と、アタッチモード 9 件 (`--project` の誤りの扱い、`--attach` の名前の検査、待ち時間の目安、文言、`slowmo` / `hold`、`--no-wait --inspect` の待ち、`Trigger` のスタックトレース、`poc/attach-debug` が追跡されない、XML コメント)。詳細は、PR #275・#279 の本文と、`HANDOFF-2026-11-26.md`。
+
 - **A: 既存コードから、仕様を逆生成する新 Skill。** 既存の MFC・WPF のプロジェクトを、仕様駆動 (`claude-spec-workflow`) へ移す予定があるかで、決める。作るなら大きい作業。
 - **B: 混在のソリューション (WPF + C++ の層など) を、`/new-solution` が、正式に作れるようにするか。** いまは、WPF などに `add_layer.py` で C++ を足す、即席の形 (2026-11-18 の実機の確認で、`.slnx` に `x64` の構成がなく、全体のビルドが `MSB4126` になる不具合を見つけて、v2.98.2 で直した)。正式に作れるようにするか、「即席」と明記し続けるかを、決める。
 - **E: MFC のひな形の、任意の改善 (v2.100.1 の引き継ぎ文書より。今回は、やらなかった):** (1) **(済み v2.104.0)** MDI の `SampleApp` のメッセージマップにも `ON_COMMAND(ID_FILE_OPEN, ...)` を足した。(2) `mfc-check` に、`CWinApp` 派生クラスのメッセージマップが、`.rc` のメニューの標準 ID (`ID_FILE_NEW`・`ID_FILE_OPEN`・`ID_FILE_PRINT_SETUP` ほか) を、結びつけているかの検査 (`APP001`) を足す (標準 ID を、接頭辞で「見つかった」扱いにする設計なので、今回の不具合を見逃した。優先度は低い)。
 - **C: `--project` で、本体とテストの MSBuild を 1 回にまとめる** (固定の初期化の費用を減らす。小さいソリューションでは、差がなかった。遅くて困る例が出てから)。
 - **D: アプリが、決まった場所にログのファイルを書く規約** (`vs-debug` の案 B。UI テストなど、VS を使わない実行でも、解析したくなったとき。ひな形と規約を、WPF・WinForms・MFC に足す。大きい)。
+- **F: VS のカレントエディタの選択内容・カレント行を、Claude に渡す機能 (2026-11-26、保留。ユーザー判断待ち)。** 「この部分を調べて」のように、VS 側で選んだ範囲や、開いているファイルのカレント行を、Claude に渡したい。現状、`vs-debug` の DTE 操作に、この機能はない (`Get-VsPosition` は、デバッグ停止時の位置報告専用)。実装は可能: `ActiveDocument.Selection` (`TextSelection`) から、`.Text` (選択文字列)・`.ActivePoint.Line` (カレント行)・`.TopPoint.Line`〜`.BottomPoint.Line` (選択範囲) が、デザインモードでも取れる。`ActiveDocument.FullName` でファイルパスも取れる。やるなら、`vs-ide.ps1` に取得関数を足し、`vs_once.sh` に新モード (例 `--selection`) を足し、`SKILL.md` に依頼パターンを足す形。
+  - **追加の案 (2026-11-26):** (1) **逆方向連携**: Claude の回答から、VS の該当行を開く (`EditPoint` / `TextSelection.MoveToLineAndOffset` で、ファイル:行を指定してジャンプ)。(2) **ファイルの新旧判定**: 選択内容を取り込む前に、対象ファイルのハッシュ (または更新時刻) を見て、VS 側で編集済み・古い取り込みでないかを確かめる。
 - **済み (v2.97.0。実機の確認も済み、2026-11-25):** `ExtLayerApi.h` (MFC 拡張 DLL の公開ヘッダーのひな形) に「公開ヘッダーは、自分で `<afxwin.h>` を include する」の注意書きを足した。
 - **MFC の生成物の、残り (v2.60.x):**
   - **C++ のプラットフォーム (Win32 / x64) (v2.62.0。実機の確認 ✔、TEST-PLAN 2-38 の W1〜W8)。** `/new-solution --platforms` と `/add-project platform`。W3 (MFC 拡張・標準 DLL の層) は、ビルドだけの確認で、Win32 でのテストの実行は、確認していない (任意)。
@@ -54,6 +62,8 @@
   - **ガイドラインの更新:** 新しい版が出たら、`skills/ui-design-review/references/UI-Design-Guidelines.md` を置き換え、`GUIDELINE_VERSION` (`ui_guideline_check.py`) を合わせる。規則 ID の対応は、テストが確かめる。
 
 ## 3. 完了したもの (要約。詳細は DESIGN と CHANGELOG)
+
+- **v2.106.0〜v2.107.1 (2026-11-26):** **UI 操作をきっかけにしたデバッグ** (UI テストのアタッチモード。`uitest_once.sh --attach <プロセス名>`、`vs_once.sh --debug --no-wait`、`UiTestBase.Trigger`。実機で AT1〜AT8 合格。設計: `docs/superpowers/specs/2026-11-26-ui-test-attach-debug-design.md`)。**フレームの所有者の判定** (`vs_once.sh --inspect` の `STACK:` に `[ours]` `[ext]` `[sys]` `[unknown]`、`OWNER:` / `BOUNDARY:`、`--frame N`。判定は WSL 側の `stack_owner.py`。ソースのパスを先に見る。設計: `docs/superpowers/specs/2026-11-26-vs-debug-stack-owner-design.md`。**実機の確認は、これから**)。
 
 - **v2.97.0〜v2.99.3 (2026-11-17〜19):** 画面モデルの仕上げ (MDI001、UIG-CTL024、ui-host の日本語 `.rc`)、**プロジェクト単位のビルド・テスト `--project`** (実機で、不具合 3 件を見つけて直した。MFC・WPF + C++・UI テストで確認)、**`vs-debug` の `--output` / `--inspect`** (出力ウィンドウの「デバッグ」ペインと、ブレーク時の例外・呼び出し履歴・変数。`ToolWindows` が見えない問題を、診断で特定して直した)、README・USAGE・HANDOFF の更新、規約の `paths` から Presenter を外した。
 - **C++ と WPF の統合、WinForms と C# DLL への拡張** (v2.4.x〜v2.10.1): 実機の確認まで完了。
