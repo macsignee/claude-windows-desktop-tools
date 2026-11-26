@@ -16,6 +16,7 @@
 #                             when the function changed. STEP_DONE: / STEP_END: (the program ended) / STEP_TIMEOUT: (still running: a modal dialog, or waiting for input)
 #   continue                  (v2.101.0) F5 (Debugger.Go). Break mode only. Waits for the next break / the end (up to VsBreakWaitSec)
 #   pause                     (v2.101.0) Debugger.Break. Run mode only
+#   frame <N>                 (v2.107.0) break mode only: select the N-th stack frame (0 = top) for the next inspect / eval; the original frame is given back at the end of the run. FRAME: / FRAME_SKIP: / FRAME_OUT_OF_RANGE:
 #   eval <expression>         (v2.101.0) the value of an expression (watch). READ-ONLY: an assignment, ++, --, ';' are rejected (EVAL_REJECTED). Break mode only. Function calls are NOT blocked here (a side effect is possible): the Skill tells Claude not to use them without the user's consent
 #   There is NO stop operation (Shift+F5 is the user's). Steps / Go / Break do not block (WaitForBreakOrEnd = false) and the mode is polled with a timeout, so a modal dialog cannot freeze the watcher.
 #   inspect / output never start VS: they need exactly one VS that has the solution open (like reload / clear / break / debug).
@@ -295,7 +296,9 @@ function Get-VsInspectLines($dte) {
             if ($i -ge $VsInspectMaxFrames) { $lines.Add("STACK_TRUNCATED: $($frames.Count - $VsInspectMaxFrames) more frames"); break }
             $where = ""
             try { if ($f.FileName) { $where = " at $($f.FileName):$($f.LineNumber)" } } catch { }
-            $lines.Add("STACK: #$i $($f.FunctionName)$where")
+            $modText = ""
+            try { $mod = [string]$f.Module; if ($mod) { $modText = " [module=$mod]" } } catch { }   # the owner mark (ours / ext / sys) is added on the WSL side (stack_owner.py)
+            $lines.Add("STACK: #$i $($f.FunctionName)$where$modText")
             $i++
         }
     } catch { $lines.Add("STACK_UNAVAILABLE: $($_.Exception.Message)") }
@@ -424,7 +427,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     $out.Add("ACTIVATED")
                 } catch { $out.Add("ACTIVATE_FAILED: $($_.Exception.Message)") }
             }
-            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output', 'step', 'continue', 'pause', 'eval') } {
+            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output', 'step', 'continue', 'pause', 'eval', 'frame') } {
                 $targets = @(Get-VsTargets)
                 for ($retry = 0; $targets.Count -eq 0 -and $retry -lt $VsTargetRetry; $retry++) { Start-Sleep -Seconds 2; $targets = @(Get-VsTargets) }   # right after the app starts, VS can briefly not answer
                 if ($targets.Count -ne 1) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("$($t[0]): Visual Studio does not have this solution open (found $($targets.Count)). Run open first.") } }
@@ -540,6 +543,23 @@ function Invoke-VsOps([string[]]$flagLines) {
                         }
                         } finally { Restore-VsHex $dte $hex }
                     }
+                    'frame' {
+                        # Select the N-th stack frame (0 = top) so that the next inspect / eval reads its locals. The original frame is given back at the end of the run (Restore-VsFrame).
+                        if ($arg -notmatch '^\d+$') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("frame takes a non-negative integer: $arg") } }
+                        $mode = Get-VsModeName $dte
+                        if ($mode -ne 'break') { $out.Add("FRAME_SKIP: the mode is $mode (not break).") }
+                        else {
+                            $frames = @(Invoke-VsRetry { @($dte.Debugger.CurrentThread.StackFrames) })
+                            $n = [int]$arg
+                            if ($n -ge $frames.Count) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("FRAME_OUT_OF_RANGE: $n (frames: $($frames.Count))") } }
+                            if ($null -eq $script:VsFrameRestore) { $script:VsFrameRestore = @{ Dte = $dte; Frame = (Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }) } }
+                            Invoke-VsRetry { $dte.Debugger.CurrentStackFrame = $frames[$n] } | Out-Null
+                            $sel = $frames[$n]
+                            $where = ""
+                            try { if ($sel.FileName) { $where = " at $($sel.FileName):$($sel.LineNumber)" } } catch { }
+                            $out.Add("FRAME: #$n $($sel.FunctionName)$where")
+                        }
+                    }
                     'inspect' {
                         if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("inspect takes no argument") } }
                         $mode = Get-VsModeName $dte
@@ -604,11 +624,22 @@ function Invoke-VsOps([string[]]$flagLines) {
     return @{ Ok = $true; Env = $false; Lines = $out.ToArray() }
 }
 
+# Give the original stack frame back after a frame op (the user's VS shows the frame they had). Safe to call when no frame op ran.
+function Restore-VsFrame {
+    if ($null -ne $script:VsFrameRestore) {
+        try { $script:VsFrameRestore.Dte.Debugger.CurrentStackFrame = $script:VsFrameRestore.Frame } catch { }
+        $script:VsFrameRestore = $null
+    }
+}
+
 function Invoke-VsFlag([string[]]$flagLines) {
+    $script:VsFrameRestore = $null
     try {
         $r = Invoke-VsOps $flagLines
     } catch {
         $r = @{ Ok = $false; Env = $true; Lines = @("Visual Studio operation failed: $($_.Exception.Message)") }
+    } finally {
+        Restore-VsFrame
     }
     $r.Lines | Out-File $VsOutputFile -Encoding utf8
     if ($r.Ok) { Write-VsMarker "OK"; return }
