@@ -1471,7 +1471,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 |---|---|---|---|
 | OW0 | `STACK:` の行の `[module=…]` | モジュールが、名前か、パスか、確かめる (取れなければ、足されない)。それに合わせて、`stack_owner.py` の、ソースなしの規則を調整する | |
 | OW1 | 外の DLL の関数の中で止める → `vs_once.sh --inspect` | `STACK:` に `[ours]` `[ext]` `[sys]` が混ざり、`OWNER: top=ext`、`BOUNDARY: #… ours -> ext #…` | |
-| OW2 | `vs_once.sh --frame <呼ぶ側> --inspect` (または `--eval`) | こちらの関数の `LOCALS:` が読め、`FRAME:` の行が出る。実行後、VS の選択が、元のフレームに戻っている | |
+| OW2 | `vs_once.sh --frame <呼ぶ側> --inspect` (または `--eval`) | こちらの関数の `LOCALS:` が読め、`FRAME:` の行が出る。**末尾の `STOPPED:` は、選んだ呼ぶ側ではなく、止まった場所 (先頭のフレーム) を指す。** 実行後、VS の選択が、元のフレームに戻っている。**`EXCEPTION:` が、`--frame` のときも出るか** (例外で止まっているとき) も、確かめる | |
 | OW3 | 静的ライブラリ (外のソースをビルドして、取り込んだもの) の関数で止める | その関数が `[ext]` になる (モジュールは、こちらの exe) | |
 | OW4 | PDB がない外の DLL の関数 (または、そのフレーム) | `[unknown]` (または `[ext]`)。`[ours]` にならない | |
 | OW5 | 通常の `--inspect` (今までの使い方) | 変わらず動く (`STACK:` に印が付き、`LOCALS:` などは、今までどおり) | |

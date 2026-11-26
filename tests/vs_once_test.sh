@@ -142,6 +142,11 @@ run_case h_ok --frame 007 --inspect
 ok "--frame 007: leading zeros are read as decimal (7)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 7\ninspect\nstatus')" ] && echo 1 || echo 0)"
 run_case h_stack --inspect
 ok "--inspect: STACK lines get the owner mark, the module moves to the end, OWNER and BOUNDARY follow; no BOM / CR" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9 (LibA.dll)')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] App::Go at C:\p\a.cpp:12 (App.exe)')" = 1 ] && [ "$(has "$OUT" 'OWNER: top=ext (frame #0)')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && ! grep -q "$BOM\|$CR" <<<"$OUT" && echo 1 || echo 0)"
+FB="$T/fakebin"; mkdir -p "$FB"; printf '#!/bin/sh\nexit 1\n' > "$FB/python3"; chmod +x "$FB/python3"
+OLDPATH="$PATH"; PATH="$FB:$PATH"
+run_case h_stack --inspect
+PATH="$OLDPATH"
+ok "stack_owner.py failing (no python3): the plain output is still shown (STACK / SOLUTION lines are not lost)" "$([ "$(has "$OUT" 'STACK: #0 Lib::Run')" = 1 ] && [ "$(has "$OUT" 'SOLUTION: C:\p\App.slnx')" = 1 ] && [ "$(head -1 <<<"$OUT")" = OK ] && echo 1 || echo 0)"
 run_case h_ok --break src/a.cpp:12
 ok "no --debug: the flag has no debug line (placing breakpoints never runs the app)" "$(grep -q '^debug' "$D/flag.copy" && echo 0 || echo 1)"
 # --output / --inspect (v2.99.0): 読み取りだけのときは、VS を開かない (--status と同じ)。動作のモードと併用すると、open から始める

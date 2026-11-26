@@ -93,6 +93,32 @@ t = so.transform(frames(OURS))   # SOLUTION の行がない
 check("transform: no SOLUTION line -> our-looking frame is unknown", t[0].startswith("STACK: #0 [unknown]") and "OWNER: top=unknown (frame #0)" in t)
 t = so.transform(frames(OURS, EXT) + SOL)
 check("transform: our frame is on top and calls nothing external -> boundary none (an external frame below is the caller)", "BOUNDARY: none" in t)
+
+# --- review fixes (v2.107.0): vendor folders, framework frames with mapped paths, narrower module names, truncated summary, path edge cases
+check("classify: vcpkg_installed under the solution is external code -> ext", so.classify(r"C:\ws\Sln\vcpkg_installed\x64-windows\include\nlohmann\json.hpp", "", SD) == "ext")
+check("classify: ThirdParty under the solution -> ext", so.classify(r"c:\ws\sln\ThirdParty\LibB\b.cpp", "", SD) == "ext")
+check("classify: packages / third_party / external / vendor under the solution -> ext", all(so.classify("c:\\ws\\sln\\%s\\x.cpp" % d, "", SD) == "ext" for d in ("packages", "third_party", "external", "vendor")))
+check("classify: a folder named like a vendor folder deeper in our project is still ours", so.classify(r"c:\ws\sln\UiLayer\external_api.cpp", "", SD) == "ours" and so.classify(r"c:\ws\sln\UiLayer\packages_view.cpp", "", SD) == "ours")
+check("classify: Sln2 is not under Sln", so.classify(r"C:\ws\Sln2\a.cpp", "", SD) == "ext")
+check("classify: solution dir given with forward slashes and other case", so.classify(r"C:\WS\SLN\a.cpp", "", "c:/ws/sln") == "ours")
+check("classify: .NET framework frame with a Source Link path -> sys (the module says so)", so.classify("/_/src/libraries/System.Private.CoreLib/src/System/ThrowHelper.cs", "System.Private.CoreLib.dll", SD) == "sys")
+check("classify: WPF framework frame with a mapped path -> sys", so.classify("/_/src/Microsoft.DotNet.Wpf/src/PresentationFramework/x.cs", "PresentationFramework.dll", SD) == "sys")
+check("classify: an external source with an external module stays ext", so.classify(r"z:\nightly\LibA\a.cpp", "LibA.dll", SD) == "ext")
+for name in ("MfcHelper.dll", "MfcCommon.dll", "PresentationLogic.dll", "System.Data.SQLite.dll", "Microsoft.Toolkit.Mvvm.dll"):
+    check("classify: %s is not a system module -> unknown (bare name)" % name, so.classify("", name, SD) == "unknown")
+for name in ("mfc140ud.dll", "MFC140U.dll", "mfcm140ud.dll", "PresentationFramework.dll", "PresentationCore.dll", "System.Linq.dll", "System.Private.CoreLib.dll", "System.Data.Common.dll", "Microsoft.CSharp.dll", "WindowsBase.dll", "msvcp140d.dll", "VCRUNTIME140D.dll", "ucrtbased.dll"):
+    check("classify: %s -> sys" % name, so.classify("", name, SD) == "sys")
+t = so.transform(frames(EXT, SYS, OURS) + ["STACK_TRUNCATED: 27 more frames"] + SOL)
+i = t.index("STACK_TRUNCATED: 27 more frames")
+check("transform: BOUNDARY found in the shown frames is reported normally even if truncated", t[i + 2].startswith("BOUNDARY: #2 ours -> ext #0"))
+t = so.transform(frames(OURS) + ["STACK_TRUNCATED: 27 more frames"] + SOL)
+i = t.index("STACK_TRUNCATED: 27 more frames")
+check("transform: no boundary in the shown frames but truncated -> says deeper frames were not checked", t[i + 2].startswith("BOUNDARY: none") and "frames shown" in t[i + 2])
+t = so.transform(frames(SYS, SYS) + ["STACK_TRUNCATED: 5 more frames"] + SOL)
+i = t.index("STACK_TRUNCATED: 5 more frames")
+check("transform: all shown frames are sys but truncated -> OWNER says so", "frames shown" in t[i + 1])
+t = so.transform(frames(OURS) + SOL)
+check("transform: not truncated -> plain BOUNDARY: none", "BOUNDARY: none" in t)
 PY
 while IFS= read -r l; do
     case "$l" in

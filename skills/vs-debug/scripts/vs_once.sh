@@ -202,13 +202,13 @@ MAX_CAP=60
 
 show() {
     [ -f "$1" ] || return 0
-    local total content
+    local total content=""
     if [ "$1" = "$OUTFILE" ] && grep -aq 'STACK: #' "$1"; then
-        # STACK: の各フレームに、所有者の印 (ours / ext / sys / unknown) と、OWNER: / BOUNDARY: の要約を付ける (v2.107.0)
-        content="$(python3 -I "$SELF_DIR/stack_owner.py" "$1")"
-    else
-        content="$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$1")"
+        # STACK: の各フレームに、所有者の印 (ours / ext / sys / unknown) と、OWNER: / BOUNDARY: の要約を付ける (v2.107.0)。
+        # python3 がない・スクリプトが失敗したときは、印なしの、元の出力を出す (EXCEPTION: / LOCALS: / STOPPED: を、失わない)
+        content="$(python3 -I "$SELF_DIR/stack_owner.py" "$1" 2>/dev/null)" || content=""
     fi
+    [ -n "$content" ] || content="$(sed 's/^\xEF\xBB\xBF//; s/\r$//' "$1")"
     [ -n "$content" ] || return 0
     total=$(printf '%s\n' "$content" | wc -l)
     printf '%s\n' "$content" | cut -c1-400 | head -n "$MAX_OUT"

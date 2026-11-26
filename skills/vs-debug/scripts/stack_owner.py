@@ -34,10 +34,20 @@ _SYS_PATH_RES = (
 # システムのモジュール名 (拡張子を除いた名前。小文字)
 _SYS_MODULE_RE = re.compile(
     r"^(ntdll|kernel32|kernelbase|user32|gdi32|gdi32full|win32u|combase|rpcrt4|shell32|shcore|ole32|oleaut32|"
-    r"comctl32|comdlg32|advapi32|sechost|msvcrt|ucrtbased?|vcruntime\d*(_\d+)?d?|msvcp\d*(_\d+)?d?|mfc\d*[a-z]*|"
-    r"atl\d*d?|concrt\d*d?|system\..*|microsoft\..*|presentation.*|windowsbase|netstandard|mscorlib|"
+    r"comctl32|comdlg32|advapi32|sechost|msvcrt|ucrtbased?|vcruntime\d*(_\d+)?d?|msvcp\d*(_\d+)?d?|mfcm?\d+[a-z]*|"
+    r"atl\d+d?|concrt\d*d?|"
+    # .NET: 既知のフレームワークの名前だけ (System.Data.SQLite や Microsoft.Toolkit.* のような、第三者・追加のライブラリは、含めない)
+    r"system(\.(private\.\w+|runtime(\.\w+)*|collections(\.\w+)*|linq(\.\w+)*|core|threading(\.\w+)*|io(\.\w+)*|"
+    r"text(\.\w+)*|xaml|net(\.\w+)*|componentmodel(\.\w+)*|diagnostics(\.\w+)*|reflection(\.\w+)*|memory|"
+    r"numerics(\.\w+)*|security(\.\w+)*|globalization(\.\w+)*|resources(\.\w+)*|buffers|console|windows(\.\w+)*|"
+    r"drawing(\.\w+)*|configuration(\.\w+)*|xml(\.\w+)*|objectmodel|data(\.common|\.sqlclient|\.odbc|\.oledb|\.datasetextensions)?))?|"
+    r"microsoft\.(csharp|visualbasic(\.\w+)*|win32(\.\w+)*|netcore(\.\w+)*|windows(\.\w+)*)|"
+    r"presentation(core|framework|ui)\w*|presentationnative\w*|windowsbase|netstandard|mscorlib|"
     r"coreclr|clrjit|clr|hostfxr|hostpolicy)$"
 )
+
+# ソリューションの直下にある、外のコードの置き場 (add-package の vcpkg・ThirdParty・NuGet など)。この下のソースは、ours にしない
+_VENDOR_DIRS = ("vcpkg_installed", "packages", "thirdparty", "third_party", "external", "vendor")
 
 _FRAME_RE = re.compile(r"^STACK: #(\d+) (.*)$")
 _MODULE_RE = re.compile(r" \[module=(.*)\]$")
@@ -56,6 +66,12 @@ def _under(p, directory):
     return directory is not None and p.startswith(directory.rstrip("\\") + "\\")
 
 
+def _own_or_vendor(p, directory):
+    """ソリューションの下のパス: 直下が外のコードの置き場 (vcpkg_installed・ThirdParty・packages など) なら ext、そうでなければ ours。"""
+    rel = p[len(directory.rstrip("\\")) + 1:]
+    return "ext" if rel.split("\\", 1)[0] in _VENDOR_DIRS else "ours"
+
+
 def _module_name(module):
     base = module.replace("/", "\\").rsplit("\\", 1)[-1].lower()
     for ext in (".dll", ".exe"):
@@ -70,8 +86,12 @@ def classify(file, module, solution_dir):
     if file:
         p = _norm(file)
         if _under(p, sd):
-            return "ours"
+            return _own_or_vendor(p, sd)
         if _is_sys_path(p):
+            return "sys"
+        # .NET のフレームワークは、Source Link などで、/_/src/... のような、見慣れないパスになる。モジュールが、システムと言うなら、sys
+        # (静的ライブラリは、モジュールが、こちらの exe なので、ここには当たらない)
+        if module and _SYS_MODULE_RE.match(_module_name(module)):
             return "sys"
         return "ext" if sd is not None else "unknown"
     if module:
@@ -80,7 +100,7 @@ def classify(file, module, solution_dir):
         m = _norm(module)
         if "\\" in m:
             if _under(m, sd):
-                return "ours"
+                return _own_or_vendor(m, sd)
             if _is_sys_path(m):
                 return "sys"
             return "ext" if sd is not None else "unknown"
@@ -119,14 +139,19 @@ def _solution_dir(lines):
     return None
 
 
-def _summary(frames):
-    """frames: [(n, owner)] (上から順)。OWNER: と BOUNDARY: の行を返す。"""
+def _summary(frames, truncated=False):
+    """frames: [(n, owner)] (上から順)。OWNER: と BOUNDARY: の行を返す。truncated: STACK_TRUNCATED: があり、深いフレームは、見ていない。"""
     non_sys = [(n, o) for n, o in frames if o != "sys"]
+    note = "all %d frames shown are sys; deeper frames were not checked" % len(frames)
     if non_sys:
         owner = "OWNER: top=%s (frame #%d)" % (non_sys[0][1], non_sys[0][0])
+    elif truncated:
+        owner = "OWNER: top=sys (frame #%d; %s)" % (frames[0][0] if frames else 0, note)
     else:
         owner = "OWNER: top=sys (frame #%d)" % (frames[0][0] if frames else 0)
     boundary = "BOUNDARY: none"
+    if truncated:
+        boundary = "BOUNDARY: none (in the %d frames shown; deeper frames were not checked)" % len(frames)
     found = False
     for (a_n, a_o), (b_n, b_o) in zip(non_sys, non_sys[1:]):
         if a_o == "ext" and b_o == "ours":
@@ -150,12 +175,14 @@ def transform(lines):
     out = []
     frames = []
     last = -1
+    truncated = False
     for l in lines:
         f = parse_frame(l)
         if f is None:
             out.append(l)
             if l.startswith("STACK_TRUNCATED:") and frames:
                 last = len(out) - 1
+                truncated = True
             continue
         owner = classify(f["file"], f["module"], sd)
         frames.append((f["n"], owner))
@@ -168,7 +195,7 @@ def transform(lines):
         last = len(out) - 1
     if not frames:
         return list(lines)
-    owner_line, boundary_line = _summary(frames)
+    owner_line, boundary_line = _summary(frames, truncated)
     out[last + 1:last + 1] = [owner_line, boundary_line]
     return out
 

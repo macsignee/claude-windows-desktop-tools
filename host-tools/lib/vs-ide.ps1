@@ -395,6 +395,7 @@ function Invoke-VsOps([string[]]$flagLines) {
         switch ($t[0]) {
             'status' {
                 if ($arg) { return @{ Ok = $false; Env = $false; Lines = @("status takes no argument") } }
+                Restore-VsFrame   # the status shows where the program stopped: the frame that a frame op selected must not leak into STOPPED:
                 foreach ($l in (Get-VsStatusLines)) { $out.Add($l) }
             }
             'open' {
