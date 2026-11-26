@@ -189,10 +189,32 @@ public abstract class UiTestBase
         return string.Join(",", entries);
     }
 
+    /// <summary>環境変数 UITEST_ATTACH_PROCESS (ウォッチャーの trigger_uitest.flag の attach=<プロセス名>。uitest_once.sh --attach)。
+    /// 設定されていると、アプリを起動せず、**VS のデバッガーが起動した、そのプロセスにアタッチ**する。デバッグのきっかけの UI 操作を、撃つためのモード。</summary>
+    protected static string? AttachProcess
+    {
+        get
+        {
+            var v = Environment.GetEnvironmentVariable("UITEST_ATTACH_PROCESS");
+            return string.IsNullOrWhiteSpace(v) ? null : v;
+        }
+    }
+
+    /// <summary>アタッチのモードか。このとき、アプリは、閉じない・殺さない (デバッグ中)。</summary>
+    protected static bool Attaching => AttachProcess != null;
+
+    private bool _triggered;
+
     [TestInitialize]
     public void StartApp()
     {
-        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms, model: {ModelMode}{(FakeScreens.Length > 0 ? ", fake_screens: " + FakeScreens : "")}{(Presenting ? ", present" : "")})");
+        UiTrace.Write($"=== {TestContext.TestName}: start (desktop: {UiNative.DesktopName()}, slowmo: {SlowMoMs} ms, model: {ModelMode}{(FakeScreens.Length > 0 ? ", fake_screens: " + FakeScreens : "")}{(Presenting ? ", present" : "")}{(Attaching ? ", attach: " + AttachProcess : "")})");
+        _triggered = false;
+        if (Attaching)
+        {
+            AttachToRunningApp();
+            return;
+        }
         var exe = AppLocator.Find(AppName);
         Environment.SetEnvironmentVariable("APP_MODEL", ModelMode);   // 起動するアプリが、受け継ぐ
         Environment.SetEnvironmentVariable("APP_FAKE_SCREENS", FakeScreens.Length > 0 ? FakeScreens : null);   // 空なら、渡さない (すべて本物)
@@ -204,9 +226,77 @@ public abstract class UiTestBase
         if (SlowMoMs > 0 || Presenting) UiNative.BringToFront(MainWindow);   // ユーザーのデスクトップで、見えるように、前面に出す
     }
 
+    /// <summary>VS が起動したアプリ (exe が、ソリューションのフォルダの下の、同名のプロセス) に、アタッチする。最大 15 秒、探し直す。</summary>
+    private void AttachToRunningApp()
+    {
+        var name = AttachProcess!;
+        var prefix = Path.GetFullPath(AppLocator.SolutionDir()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        System.Diagnostics.Process[] matches;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            matches = System.Diagnostics.Process.GetProcessesByName(name).Where(p => IsUnder(p, prefix)).ToArray();
+            if (matches.Length > 0 || sw.ElapsedMilliseconds >= 15000) break;
+            Thread.Sleep(150);
+        }
+        if (matches.Length == 0)
+        {
+            throw new AssertFailedException($"プロセス '{name}' が、ソリューションの下に見つからない ({prefix})。VS で、デバッグを始めたか (vs_once.sh --debug --no-wait)");
+        }
+        if (matches.Length > 1)
+        {
+            throw new AssertFailedException($"プロセス '{name}' が、2 つ以上ある (PID: {string.Join(", ", matches.Select(p => p.Id))})。1 つだけにして、やり直す");
+        }
+        var pid = matches[0].Id;
+        App = Application.Attach(pid);
+        Automation = new UIA3Automation();
+        MainWindow = UiDialogs.GetAppWindow(App, Automation, TimeSpan.FromSeconds(15));
+        UiTrace.Write($"ATTACHED: {name} (pid {pid})");
+    }
+
+    private static bool IsUnder(System.Diagnostics.Process p, string prefix)
+    {
+        try { return p.MainModule?.FileName?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) == true; }
+        catch (Exception) { return false; }   // 権限がない、すでに終了した、など
+    }
+
+    /// <summary>**デバッグのきっかけの UI 操作** を、撃つ。アタッチのモード (uitest_once.sh --attach) では、fire を別のタスクで実行し、最大 3 秒だけ待つ
+    /// (止まったアプリに、同期の操作を送ると、戻らないことがあるため。戻らなければ、「止まった」と見なして戻る)。**この後は、UI に触れない**:
+    /// アタッチのモードで、Trigger の後に Find を呼ぶと、すぐ失敗する (ブレークで止まったアプリは、UIA に応答しない)。1 つのテストで、1 回だけ。
+    /// アタッチでない通常の実行では、fire を実行するだけ (縛りは、働かない)。
+    /// 例 (きっかけ専用のテスト。[TestCategory("DebugTrigger")] を付ける。アタッチのときの既定の絞り込み。通常の実行は、このカテゴリを除く):
+    ///   [TestMethod, TestCategory("DebugTrigger")]
+    ///   public void Trigger_ClearButton()
+    ///   {
+    ///       UiDialogs.SetText(Find("NameTextBox"), "太郎");
+    ///       Trigger(() => UiDialogs.Click(Find("ClearButton")));   // この後は、UI に触れない
+    ///   }</summary>
+    protected void Trigger(Action fire)
+    {
+        if (!Attaching)
+        {
+            fire();
+            UiTrace.Write("TRIGGERED:");
+            return;
+        }
+        if (_triggered) throw new AssertFailedException("Trigger は、1 つのテストで 1 回だけ呼べる (きっかけは、1 つ)");
+        _triggered = true;
+        var task = Task.Run(fire);
+        bool returned;
+        try { returned = task.Wait(3000); }
+        catch (AggregateException e) { throw e.InnerException ?? e; }
+        UiTrace.Write(returned ? "TRIGGERED:" : "TRIGGERED: (fire did not return in 3000 ms; treated as stopped)");
+    }
+
     [TestCleanup]
     public void StopApp()
     {
+        if (Attaching)
+        {
+            // デバッグ中のアプリは、閉じない・殺さない。UIA も使わない (止まっていると、固まる)。記録だけ残す
+            UiTrace.Write($"=== {TestContext.TestName}: {TestContext.CurrentTestOutcome}");
+            return;
+        }
         UiDialogs.OnTarget = null;
         var outcome = TestContext.CurrentTestOutcome;
         try
@@ -255,6 +345,10 @@ public abstract class UiTestBase
 
     private AutomationElement FindIn(AutomationElement root, string automationId)
     {
+        if (Attaching && _triggered)
+        {
+            throw new AssertFailedException($"きっかけ (Trigger) の後は、UI に触れない。止まったアプリは、UIA に応答しない (Find: {automationId})。Trigger を、テストの最後の操作にする");
+        }
         UiTrace.Write(ReferenceEquals(root, MainWindow) ? $"find: {automationId}" : $"find: {automationId} (in {root.Name})");
         if (SlowMoMs > 0) Thread.Sleep(SlowMoMs);
         // 起動直後・画面の切り替え直後は、まだ、描画されていない: 5 秒まで、探し直す (偽の Red を、避ける)

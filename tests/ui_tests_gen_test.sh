@@ -167,5 +167,18 @@ ok "UiDialogs.SetText (v2.75.0): the sample tests (WPF, WinForms, MFC) use SetTe
 
 ok "UiDialogs.Click (v2.76.0): a WPF button tries LegacyIAccessible.DoDefaultAction (on another thread, 1 s wait) before UIA Invoke, which costs ~2 s in a separate desktop" "$(sa="$(grep -n -F 'legacy.DoDefaultAction()' "$SD" | head -1 | cut -d: -f1)"; sb="$(grep -n -F 'var invoke = element.Patterns.Invoke.PatternOrDefault' "$SD" | head -1 | cut -d: -f1)"; [ -n "$sa" ] && [ -n "$sb" ] && [ "$sa" -lt "$sb" ] && grep -q -F 'Framework(element) == "WPF" && element.Patterns.LegacyIAccessible.IsSupported' "$SD" && grep -q -F 'Task.Run(() => legacy.DoDefaultAction())' "$SD" && echo 1 || echo 0)"
 ok "UiDialogs.CloseWindow (v2.77.0): closes a window with WM_CLOSE (PostMessage), falling back to Window.Close(), because FlaUI Window.Close() takes ~4 s" "$(grep -q -F 'public static string CloseWindow(AutomationElement window)' "$SD" && awk '/public static string CloseWindow/{f=1} f&&/PostMessage\(hwnd, WM_CLOSE/{a=1} f&&/window.AsWindow\(\).Close\(\)/{b=1} /public static void ForceCloseDialog/{exit} END{exit (a&&b)?0:1}' "$SD" && echo 1 || echo 0)"
+# ---- attach モード (v2.106.0): デバッグ中のアプリに、アタッチして、きっかけの操作を撃つ ----
+nbase=0
+for f in "$T"/*/*.UITests/UiTestBase.cs; do
+    [ -f "$f" ] || continue
+    nbase=$((nbase+1)); k="$(basename "$(dirname "$(dirname "$f")")")"
+    ok "attach ($k): UiTestBase reads UITEST_ATTACH_PROCESS and attaches with Application.Attach (instead of Launch)" "$(grep -q 'UITEST_ATTACH_PROCESS' "$f" && grep -q 'Application.Attach(' "$f" && grep -q 'Application.Launch(' "$f" && echo 1 || echo 0)"
+    ok "attach ($k): the process must be an exe under the solution folder; none -> fail, two or more -> fail (PIDs listed); searched again for up to 15 s" "$(grep -q 'AppLocator.SolutionDir()' "$f" && grep -q 'StartsWith(' "$f" && grep -q 'ソリューションの下に見つからない' "$f" && grep -q '2 つ以上' "$f" && grep -q '15' "$f" && echo 1 || echo 0)"
+    ok "attach ($k): UiTrace lines ATTACHED: <name> (pid N) and TRIGGERED: are written (uitest_once.sh reads them)" "$(grep -q 'UiTrace.Write(\$"ATTACHED: ' "$f" && grep -q 'UiTrace.Write("TRIGGERED:' "$f" && echo 1 || echo 0)"
+    ok "attach ($k): Trigger(Action fire) runs fire on another task, waits at most 3 s, and may be called once" "$(b="$(awk '/protected void Trigger\(Action fire\)/{g=1} g{print} g&&/^    }/{exit}' "$f")"; echo "$b" | grep -q 'Task.Run' && echo "$b" | grep -q '3000' && echo "$b" | grep -q '_triggered' && echo 1 || echo 0)"
+    ok "attach ($k): after Trigger (attach mode) Find / FindIn fail at once with a clear message (the stopped app does not answer UIA)" "$(b="$(awk '/private AutomationElement FindIn\(/{g=1} g{print} g&&/^    }/{exit}' "$f")"; echo "$b" | grep -q '_triggered' && echo "$b" | grep -q 'きっかけ' && echo 1 || echo 0)"
+    ok "attach ($k): StopApp in attach mode only traces: no close, no kill, no screenshot, no Dispose" "$(b="$(awk '/public void StopApp/{f=1} f&&/if \(Attaching\)/{g=1} g{print} g&&/return;/{exit}' "$f")"; [ -n "$b" ] && ! echo "$b" | grep -qE 'Kill|CloseMainWindow|Screenshots|Dispose' && echo 1 || echo 0)"
+done
+ok "attach: UiTestBase was checked for every kind that the tests generated (WPF / WinForms / MFC: at least 3)" "$([ "$nbase" -ge 3 ] && echo 1 || echo 0)"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
