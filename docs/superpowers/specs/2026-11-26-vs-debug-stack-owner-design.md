@@ -50,7 +50,7 @@
    - ソリューションのフォルダの下 (`SOLUTION:` の行から求める。大文字小文字は区別しない) → `ours`
    - システム・VS・MFC・CRT のパス (`\Windows\`、`\Microsoft Visual Studio\`、`\Windows Kits\`、`\VC\Tools\MSVC\`、`\atlmfc\`、`\vctools\`、`\ucrt\`、`\minkernel\`、`\onecore\`、`\dotnet\`、`\Microsoft.NET\`) → `sys`
    - それ以外 → `ext`
-2. **ソースがないとき (シンボルなし)**: `[module=...]` で判定。システムのモジュール名 (`ntdll`・`kernel32`・`kernelbase`・`user32`・`ucrtbase`・`vcruntime*`・`msvcp*`・`mfc*`・`atl*`・`System.*`・`Microsoft.*`・`Presentation*`・`WindowsBase` など) か、パスがシステムの場所 → `sys`。パスがソリューションの下 → `ours` (ソースなし)。**それ以外の名前だけで、パスが分からない → `unknown`**。
+2. **ソースがないとき (シンボルなし)**: `[module=...]` で判定。システムのモジュール名 (`ntdll`・`kernel32`・`kernelbase`・`user32`・`ucrtbase`・`vcruntime*`・`msvcp*`・`mfc*`・`atl*`・`System.*`・`Microsoft.*`・`Presentation*`・`WindowsBase` など) か、パスがシステムの場所 → `sys`。パスがソリューションの下 → **`unknown`** (v2.107.1 で変更。こちらの出力フォルダの DLL は、配布された外の DLL を、コピーしたものかもしれない。PDB がなく、ソースが見えないので、「こちら」とは言えない。`ours` は、こちらのソースが見えるときだけ。`vcpkg_installed` などの置き場の下は `ext`)。パスがソリューションの外で、システムでもない → `ext`。**それ以外の名前だけで、パスが分からない → `unknown`**。
 3. 関数名も、ファイルも、モジュールもない → `unknown`。
 4. **`OWNER:`**: 上 (#0) から見て、最初の `sys` でないフレーム。`unknown` なら `unknown`。全部 `sys` なら `sys`。
 5. **`BOUNDARY:`**: `sys` のフレームを飛ばして、上から見て、**最初の「`ext` を、`ours` が呼ぶ」組** (呼ぶ側が `ours`、呼ばれる側が `ext`)。なければ `none`。`unknown` を挟むときは、境界とは断定せず、`BOUNDARY: unknown (frame #n has no symbols)`。

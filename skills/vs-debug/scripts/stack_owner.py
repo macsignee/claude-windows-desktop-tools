@@ -100,7 +100,9 @@ def classify(file, module, solution_dir):
         m = _norm(module)
         if "\\" in m:
             if _under(m, sd):
-                return _own_or_vendor(m, sd)
+                # ソースがない (シンボルなし) とき、こちらの出力フォルダの DLL は、配布された外の DLL を、コピーしたものかもしれない。
+                # 「こちら」と言えるのは、こちらのソースが見えるときだけ。外のコードの置き場 (vcpkg_installed など) の下だけ ext
+                return "ext" if _own_or_vendor(m, sd) == "ext" else "unknown"
             if _is_sys_path(m):
                 return "sys"
             return "ext" if sd is not None else "unknown"
