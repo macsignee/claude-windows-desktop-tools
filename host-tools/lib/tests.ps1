@@ -278,7 +278,7 @@ function Invoke-Tests([switch]$Ui) {
                 $counters = Get-TrxCounters $trx
                 if (-not $counters -or [int]$counters.executed -le 0) {
                     $invalid = $true
-                    if ($Ui -and $script:UiRun.Filter) {
+                    if ($Ui -and $script:UiRun.Filter -and ($script:UiRun.FilterGiven -or $script:UiRun.Attach)) {   # 既定の絞り込み (TestCategory!=DebugTrigger) は、式の誤りではない。アタッチ (DebugTrigger) は、きっかけ専用のテストが、ないことを示す
                         # --filter (flag の filter=) に一致するテストが、1 件もない。式の誤りが、ほとんど (GoogleTest / アダプタの不備ではない)
                         $filterNoMatch = $true
                         $report += "=== $name (dotnet test): no test matches the filter: $($script:UiRun.Filter) ==="

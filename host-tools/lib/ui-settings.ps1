@@ -32,6 +32,7 @@ function ConvertFrom-UiSettingsText([string]$text) {
     $filter = ""
     $hold = $null
     $present = $false
+    $attach = ""
     foreach ($line in @("$text" -split "[\r\n]+")) {
         $rawLine = ($line -replace '^\uFEFF', '')
         # filter= は、# を含み得るので、コメントを除く前に、読む。末尾が \ の値は、引数の閉じ引用符を壊すので、拒否する
@@ -50,9 +51,10 @@ function ConvertFrom-UiSettingsText([string]$text) {
         elseif ($l -match '^timeout\s*=\s*(\d+)$') { $timeout = [int]$Matches[1] }
         elseif ($l -match '^hold\s*=\s*(\d+)$') { $hold = [int]$Matches[1] }
         elseif ($l -match '^present\s*=\s*1$') { $present = $true }
+        elseif ($l -match '^attach\s*=\s*([A-Za-z0-9_.-]+)$') { $attach = $Matches[1] }   # デバッグ中のアプリに、アタッチする (起動・ビルド・強制終了をしない)。プロセス名だけ
     }
 
-    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter; HoldSec = $hold; Present = $present }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $timeout; Filter = $filter; FilterGiven = [bool]$fl.Filter; HoldSec = $hold; Present = $present; Attach = $attach }
 }
 
 # trigger_uitest.flag の中身 (1 回ごとの指定) と、ウォッチャーの設定と、プロジェクトの uitest.settings から、この回の UI テストの設定を決める。
@@ -82,5 +84,15 @@ function Resolve-UiRun([string]$flagText) {
         if ($desktop -ne "default") { $desktop = "default"; $reason = "present (needs your desktop)" }
         if ($slow -le 0) { $slow = 800 }
     }
-    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $fl.Filter; HoldSec = $hold; Present = $present; Reason = $reason }
+    # アタッチ (attach=<プロセス名>): VS のデバッガーが起動したアプリは、あなたのデスクトップにある。きっかけの操作を撃って、すぐ終わるので、制限時間は短い (flag の timeout= があれば、それ)。
+    # 既定の絞り込みは、きっかけ専用のテスト (DebugTrigger)。アタッチでない通常の実行は、そのテストを除く。flag の filter= があれば、そのまま。
+    $filter = $fl.Filter
+    if ($fl.Attach) {
+        $present = $false
+        $desktop = "default"; $reason = "attach (needs your desktop)"
+        $limit = if ($null -ne $fl.TimeoutSec) { $fl.TimeoutSec } else { 60 }
+        if (-not $filter) { $filter = "TestCategory=DebugTrigger" }
+    }
+    elseif (-not $filter) { $filter = "TestCategory!=DebugTrigger" }
+    return @{ Desktop = $desktop; SlowMoMs = $slow; TimeoutSec = $limit; Filter = $filter; HoldSec = $hold; Present = $present; Attach = $fl.Attach; Reason = $reason }
 }
