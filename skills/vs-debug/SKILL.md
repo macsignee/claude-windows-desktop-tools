@@ -91,7 +91,7 @@ bash <Skill群>/vs-debug/scripts/vs_once.sh "$SLN_DIR" [モード...]
 
 ### 「UI の操作をきっかけに、デバッグして」(v2.106.0)
 止めたいコード (ロジックなど) に、**画面の操作** (ボタンを押す・文字を入れる) で到達するとき。UI のバグを追うのではない。UI 操作は、**きっかけ**。UI テストの仕組み (FlaUI) が、デバッグ中のアプリにアタッチして、きっかけを撃つ。
-前提: `<アプリ>.UITests` があること (なければ `ui-test-first`。古いひな形は `add_ui_tests.py "$SLN_DIR" --refresh-support-files`)。ユーザーのデスクトップで動く (実行中は、PC に触らないよう、ユーザーに伝える)。
+前提: `<アプリ>.UITests` があること (なければ `ui-test-first`。古いひな形は `add_ui_tests.py "$SLN_DIR" --refresh-support-files [--app <アプリ名>]`)。ユーザーのデスクトップで動く (実行中は、PC に触らないよう、ユーザーに伝える)。
 1. 止めたい場所に、ブレークポイントを置き、アプリを起動する: `vs_once.sh "$SLN_DIR" --break <パス>:<行> --debug --no-wait` (`DEBUG_MODE: run` で返る)。
 2. **きっかけ専用のテスト**を書く (数行): `[TestMethod, TestCategory("DebugTrigger")]`。**最後の操作を `Trigger(() => UiDialogs.Click(Find("...")))` にする。その後に UI を読まない・探さない** (止まったアプリは UIA に応答しない。`Trigger` の後の `Find` は、すぐ失敗する)。
 3. `uitest_once.sh "$SLN_DIR" --attach <プロセス名>` (ビルド全体も、アプリの強制終了も、しない。UI テストのプロジェクトだけをビルドする)。出力の `ATTACHED:` と `TRIGGERED:` を確かめる。`ATTACH_UNSUPPORTED` なら、上の `--refresh-support-files` で `UiTestBase.cs` を更新して、やり直す。
