@@ -2,6 +2,11 @@
 # uitest_once.sh - ホスト側ウォッチャーに「ビルド + UI テスト (FlaUI など) 実行」を1回させ、完了まで待って結果を返す。
 #
 # Usage: uitest_once.sh <solution_dir> [timeout_sec=900] [--visible | --separate | --invisible] [--slowmo <ms>] [--filter <式>] [--ui-timeout <秒>] [--hold <秒>] [--preview] [--present] [--project <名前>]
+#        uitest_once.sh <solution_dir> [timeout_sec] --attach <プロセス名> [--ui-timeout <秒>] [--filter <式>] [--project <名前>]
+#   --attach <プロセス名> (v2.106.0): **VS のデバッガーが起動した、そのアプリに、UI テストがアタッチして、デバッグのきっかけの UI 操作を撃つ。** 先に、vs_once.sh <dir> --break ... --debug --no-wait で、アプリを起動しておく。
+#             ビルド全体と、アプリの強制終了は、しない (UI テストのプロジェクトだけをビルドする)。実行するのは、既定で、TestCategory=DebugTrigger のテスト (--filter で変更できる)。
+#             ユーザーのデスクトップで実行する (--separate・--present・--hold・--preview・--slowmo とは、併用できない)。制限時間の既定は 60 秒。
+#             出力に、ATTACHED: / TRIGGERED: の行 (テストが ui-trace.txt に書く)。UiTestBase が古く、アタッチに対応していなければ、ATTACH_UNSUPPORTED (rc=8)。
 #   --project <名前>: この 1 回だけ、<名前> のプロジェクトと、その UI テストのプロジェクト (<名前>.UITests) だけを、ビルド・実行する (ソリューション全体ではなく)。
 #   <solution_dir>: .sln/.slnx のあるフォルダ (ウォッチャーの TargetDir)
 #   --visible:  この 1 回だけ、ユーザーのデスクトップで実行する (ウィンドウが見える。実行中、ユーザーは PC に触らない)。
@@ -39,8 +44,13 @@ positional=0
 ui_timeout=""
 hold=""
 present=""
+attach=""
 while [ $# -gt 0 ]; do
     case "$1" in
+        --attach)
+            shift
+            case "${1:-}" in ''|*[!A-Za-z0-9_.-]*) echo "BAD_ARGS: --attach needs a process name (letters, digits, '_', '.', '-'; no spaces, quotes or path separators)"; exit 2 ;; esac
+            attach="$1" ;;
         --visible)  flag_content="${flag_content}desktop=visible"$'\n' ;;
         --separate|--invisible) flag_content="${flag_content}desktop=separate"$'\n' ;;
         --slowmo)
@@ -80,6 +90,15 @@ done
 # 待ち時間 (Skill 側) の既定: 900 秒。--ui-timeout が長いときは、それより、長くする (ウォッチャーが、先に、時間切れにしてくれるように)
 # 待ち時間 (Skill 側) の既定: ビルド (最大 600 秒) + UI テストのプロジェクトの数 × 制限時間 (--ui-timeout、なければ 600 秒) + 見せる時間 (--hold) + 余裕 120 秒。最低 900 秒。
 # (ウォッチャーが、先に、時間切れにして、結果を返すように、Skill 側の待ちを、それより長くする。短いと、TIMEOUT (rc 5) になり、古い結果の誤読につながる)
+if [ -n "$attach" ]; then
+    # アタッチは、UI テストのプロジェクトだけをビルドし、きっかけを撃って、すぐ終わる。制限時間 (既定 60 秒) + ビルド + 余裕
+    [ -n "$TIMEOUT" ] || TIMEOUT=$((120 + ${ui_timeout:-60}))
+    [ "$TIMEOUT" -ge 180 ] || TIMEOUT=180
+    case "$flag_content" in *desktop=separate*|*slowmo=*|*hold=*) echo "BAD_ARGS: --attach runs on your desktop, without slow motion or hold; it cannot be used with --separate / --slowmo / --hold / --preview"; exit 2 ;; esac
+    [ -z "$present" ] || { echo "BAD_ARGS: --attach cannot be used with --present"; exit 2; }
+    flag_content="${flag_content}attach=${attach}"$'\n'
+    case "$flag_content" in *desktop=visible*) ;; *) flag_content="${flag_content}desktop=visible"$'\n' ;; esac
+fi
 if [ -z "$TIMEOUT" ]; then
     n_ui="$(find "$DIR" \( -name bin -o -name obj -o -name .git -o -name .claude-logs -o -name node_modules \) -prune -o -type f \( -iname '*UITests.csproj' -o -iname '*UiTests.csproj' \) -print 2>/dev/null | wc -l | tr -d ' ')"
     [ "${n_ui:-0}" -ge 1 ] || n_ui=1
@@ -98,6 +117,15 @@ case "$flag_content" in *desktop=visible*desktop=separate*|*desktop=separate*des
 
 out="$(BUILD_TEST_FLAG=trigger_uitest.flag BUILD_TEST_FLAG_CONTENT="${flag_content%$'\n'}" bash "$here/build_test_once.sh" "$DIR" "$TIMEOUT")"
 rc=$?
+trace="$DIR/.claude-logs/ui-screenshots/ui-trace.txt"
+if [ -n "$attach" ] && { [ "$rc" = 0 ] || [ "$rc" = 1 ]; } && [ -f "$trace" ] \
+   && ! grep -a -q ' ATTACHED: ' "$trace" && ! grep -a -q "attach: $attach" "$trace"; then
+    # 古い UiTestBase は、UITEST_ATTACH_PROCESS を無視して、アプリを新しく起動する (デバッグ中のアプリとは、別のプロセス)。ATTACHED: も、start 行の attach: も、ない
+    echo "ATTACH_UNSUPPORTED"
+    echo "UiTestBase.cs が、アタッチに対応していない古い版 (テストは、デバッグ中のアプリとは別に、アプリを起動した)。"
+    echo "更新する: python3 <Skill群>/new-solution/scripts/add_ui_tests.py \"$DIR\" --refresh-support-files (テストの本体は、触らない)。そのあと、もう一度。"
+    exit 8
+fi
 printf '%s\n' "$out"
 
 # スクリーンショットと trace は、この実行が、テストまで届いたとき (PASSED / FAILED / TEST_TIMEOUT = rc 0 / 1 / 7) だけ、出す。
@@ -105,7 +133,10 @@ printf '%s\n' "$out"
 if [ "$rc" != 0 ] && [ "$rc" != 1 ] && [ "$rc" != 7 ]; then bash "$here/test_guard_note.sh" "$DIR"; exit "$rc"; fi
 
 shots="$DIR/.claude-logs/ui-screenshots"
-if [ -d "$shots" ]; then
+if [ -n "$attach" ]; then
+    # アタッチ: スクリーンショットは、撮らない。きっかけを撃った記録だけを出す
+    [ -f "$trace" ] && grep -a -E ' (ATTACHED|TRIGGERED):' "$trace" | sed 's/^[0-9:.]* //' | head -n 5
+elif [ -d "$shots" ]; then
     list="$(find "$shots" -maxdepth 1 -type f -iname '*.png' 2>/dev/null | sort | head -n 20)"
     if [ -n "$list" ]; then
         echo "screenshots (Read ツールで、画像として開ける):"
@@ -114,7 +145,6 @@ if [ -d "$shots" ]; then
 fi
 
 # 操作の記録 (トレース): 動いたことの確認。テストごとの結果の行 (=== テスト名: Passed / Failed) と、記録の場所を出す
-trace="$DIR/.claude-logs/ui-screenshots/ui-trace.txt"
 if [ -f "$trace" ]; then
     n="$(wc -l < "$trace" | tr -d ' ')"
     echo "ui-trace (${n} lines; 操作の記録。動いたことの確認に使う): ${trace#$DIR/}"

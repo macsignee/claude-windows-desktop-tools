@@ -95,6 +95,56 @@ ok "--slowmo with a non-number -> BAD_ARGS (rc=2)" "$([ $rc = 2 ] && echo "$out"
 out="$(bash "$SCRIPT" /no/such/dir)"; rc=$?
 ok "BAD_ARGS for a missing folder (rc=2)" "$([ $rc = 2 ] && echo "$out" | head -n 1 | grep -q BAD_ARGS && echo 1 || echo 0)"
 
+# ---- --attach <プロセス名> (v2.106.0): デバッグ中のアプリに、アタッチして、きっかけの操作を撃つ ----
+# 疑似ウォッチャー: flag を回収して控え、$1 の場面の結果を書く (attached = ATTACHED/TRIGGERED の行あり / plain = 行なし (古いひな形) / buildfail)
+attach_watcher() {
+    local mode="$1"
+    while true; do
+        if [ -f "$T/trigger_uitest.flag" ]; then
+            grep -v '^run=' "$T/trigger_uitest.flag" > "$T/captured.txt"; rm -f "$T/trigger_uitest.flag"
+            mkdir -p "$T/.claude-logs/ui-screenshots"
+            case "$mode" in
+                attached) printf '12:00:00.000 === Trigger_ClearButton: start (desktop: Default)\n12:00:01.000 ATTACHED: PS5 (pid 12)\n12:00:02.000 TRIGGERED:\n12:00:02.100 === Trigger_ClearButton: Passed\n' > "$T/.claude-logs/ui-screenshots/ui-trace.txt"; printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt" ;;
+                plain)    printf '12:00:00.000 === Trigger_ClearButton: start (desktop: Default)\n12:00:02.100 === Trigger_ClearButton: Passed\n' > "$T/.claude-logs/ui-screenshots/ui-trace.txt"; printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt" ;;
+                startonly) printf '12:00:00.000 === Trigger_X: start (desktop: Default, attach: PS5)\n12:00:02.100 === Trigger_X: Failed\n' > "$T/.claude-logs/ui-screenshots/ui-trace.txt"; printf SUCCESS > "$T/build_result.txt"; printf PASSED > "$T/test_result.txt" ;;
+                buildfail) printf 'a.cs(1,1): error CS1002: x\n\nBuild failed with exit code: 1\n' > "$T/build_error.log"; printf FAILED > "$T/build_result.txt"; printf BUILD_FAILED > "$T/test_result.txt" ;;
+            esac
+        fi
+        sleep 0.2
+    done
+}
+run_attach() {  # $1=場面、残りは uitest_once.sh の引数
+    local mode="$1"; shift
+    rm -rf "$T/.claude-logs" "$T/build_result.txt" "$T/test_result.txt" "$T/build_error.log" "$T/captured.txt"
+    attach_watcher "$mode" & W=$!
+    OUT="$(bash "$SCRIPT" "$T" "$@" 2>&1)"; RC=$?
+    kill "$W" 2>/dev/null; wait "$W" 2>/dev/null
+}
+run_attach attached 30 --attach PS5
+ok "--attach PS5: the flag carries attach=PS5 and desktop=visible" "$(grep -qx 'attach=PS5' "$T/captured.txt" && grep -qx 'desktop=visible' "$T/captured.txt" && echo 1 || echo 0)"
+ok "--attach: PASSED (rc=0); ATTACHED: and TRIGGERED: lines are shown (no time stamp); no screenshot list" "$([ $RC = 0 ] && [ "$(head -n 1 <<<"$OUT")" = PASSED ] && grep -qx 'ATTACHED: PS5 (pid 12)' <<<"$OUT" && grep -qx 'TRIGGERED:' <<<"$OUT" && ! grep -q '^screenshots' <<<"$OUT" && echo 1 || echo 0)"
+run_attach attached 30 --attach PS5 --ui-timeout 90 --filter "Name~Trigger"
+ok "--attach with --ui-timeout and --filter: both go into the flag" "$(grep -qx 'timeout=90' "$T/captured.txt" && grep -qx 'filter=Name~Trigger' "$T/captured.txt" && grep -qx 'attach=PS5' "$T/captured.txt" && echo 1 || echo 0)"
+run_attach plain 30 --attach PS5
+ok "--attach, no ATTACHED: line in the trace (old UiTestBase) -> ATTACH_UNSUPPORTED (rc=8) and the way to update it" "$([ $RC = 8 ] && [ "$(head -n 1 <<<"$OUT")" = ATTACH_UNSUPPORTED ] && grep -q -- '--refresh-support-files' <<<"$OUT" && echo 1 || echo 0)"
+run_attach startonly 30 --attach PS5
+ok "--attach, the new UiTestBase tried to attach (start line has attach:) but did not attach -> not ATTACH_UNSUPPORTED (the test result is shown as it is)" "$([ "$(head -n 1 <<<"$OUT")" != ATTACH_UNSUPPORTED ] && [ $RC != 8 ] && echo 1 || echo 0)"
+run_attach buildfail 30 --attach PS5
+ok "--attach, the build failed -> BUILD_FAILED (rc=6), not ATTACH_UNSUPPORTED" "$([ $RC = 6 ] && [ "$(head -n 1 <<<"$OUT")" = BUILD_FAILED ] && echo 1 || echo 0)"
+rm -f "$T/trigger_uitest.flag"
+bad_attach() { OUT="$(bash "$SCRIPT" "$T" "$@" 2>&1)"; RC=$?; }
+bad_attach --attach;                      ok "BAD_ARGS: --attach without a name (rc=2)" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
+bad_attach --attach "a b";                ok "BAD_ARGS: a name with a space" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
+bad_attach --attach 'x"y';                ok "BAD_ARGS: a name with a quote" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
+bad_attach --attach 'a/b';                ok "BAD_ARGS: a name with a path separator" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
+bad_attach --attach "$(printf 'a\nb')";   ok "BAD_ARGS: a name with a newline (no flag injection)" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
+bad_attach --attach PS5 --separate;       ok "BAD_ARGS: --attach with --separate" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad_attach --attach PS5 --present --filter x; ok "BAD_ARGS: --attach with --present" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad_attach --attach PS5 --hold 5;         ok "BAD_ARGS: --attach with --hold" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad_attach --attach PS5 --preview;        ok "BAD_ARGS: --attach with --preview" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad_attach --attach PS5 --slowmo 800;     ok "BAD_ARGS: --attach with --slowmo" "$([ $RC = 2 ] && echo 1 || echo 0)"
+ok "BAD_ARGS runs wrote no flag" "$([ ! -e "$T/trigger_uitest.flag" ] && echo 1 || echo 0)"
+
 rm -rf "$T"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ]
