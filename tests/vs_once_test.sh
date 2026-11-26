@@ -61,6 +61,11 @@ bad --break "src/a.cpp";            ok "BAD_ARGS: --break without a line number"
 bad --status --debug;               ok "BAD_ARGS: --status cannot be combined" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --no-wait;                      ok "BAD_ARGS: --no-wait needs --debug" "$([ $RC = 2 ] && [ "$(has "$OUT" 'needs --debug')" = 1 ] && echo 1 || echo 0)"
 bad --status --debug --no-wait;     ok "BAD_ARGS: --status cannot be combined with --debug --no-wait" "$([ $RC = 2 ] && echo 1 || echo 0)"
+for fa in "--frame" "--frame abc --inspect" "--frame -1 --inspect" "--frame 100 --inspect" "--frame 2" "--frame 1 --inspect --step over" "--frame 1 --inspect --continue" "--frame 1 --inspect --pause" "--frame 1 --inspect --debug" "--frame 1 --status"; do
+    rm -f "$D/trigger_vs.flag"
+    # shellcheck disable=SC2086
+    bad $fa; ok "BAD_ARGS: $fa (no flag is written)" "$([ $RC = 2 ] && [ ! -e "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
+done
 bad --timeout abc;                  ok "BAD_ARGS: bad --timeout" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --output 0;                     ok "BAD_ARGS: --output 0 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
 bad --output 501;                   ok "BAD_ARGS: --output 501 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
@@ -105,6 +110,7 @@ h_fail()  { { printf '%sMULTIPLE_INSTANCES: 2 Visual Studio windows have this so
 h_env()   { { printf '%s[ENVIRONMENT ERROR - not a source code problem]%s\nVisual Studio (devenv.exe) was not found (vswhere.exe).%s\n' "$BOM" "$CR" "$CR"; } > "$D/vs_error.log"; write_id; printf FAILED > "$D/vs_result.txt"; }
 h_cap()   { { printf '%sSOLUTION: x%s\nDEBUG_MODE: break%s\nSTOPPED: Foo::Bar at C:\\p\\a.cpp:12%s\nOUTPUT: file=vs_debug_output.txt lines=100 total=100%s\nDIRTY_COUNT: 0%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; for i in $(seq 1 100); do printf 'debug line %s%s\n' "$i" "$CR"; done > "$D/vs_debug_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_steps() { { printf '%sSTEP 1: C:\\p\\a.cpp:10  int x = f(a);%s\nCHANGED: a = 1 -> 2%s\n' "$BOM" "$CR" "$CR"; for i in $(seq 2 60); do printf 'STEP %s: C:\\p\\a.cpp:%s  line %s%s\nCHANGED: n = %s -> %s%s\n' "$i" "$((9+i))" "$i" "$CR" "$((i-1))" "$i" "$CR"; done; printf 'STEP_DONE: 60/60%s\nDEBUG_MODE: break%s\n' "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
+h_stack() { { printf '%sSTACK: #0 Lib::Run at z:\\nightly\\LibA\\a.cpp:9 [module=LibA.dll]%s\nSTACK: #1 App::Go at C:\\p\\a.cpp:12 [module=App.exe]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_never() { :; }
 h_weird() { write_id; printf WEIRD > "$D/vs_result.txt"; }
 run_case() {
@@ -128,6 +134,14 @@ run_case h_ok --break src/a.cpp:12 --debug
 ok "--debug comes after the breakpoints, before the final status; no debug without --debug" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:12\ndebug\nstatus')" ] && echo 1 || echo 0)"
 run_case h_ok --break src/a.cpp:12 --debug --no-wait
 ok "--debug --no-wait: the debug line carries nowait (the watcher returns without waiting for a break)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:12\ndebug nowait\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --frame 2 --inspect
+ok "--frame 2 --inspect: frame comes before inspect (read-only run: no open)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 2\ninspect\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --frame 3 --eval "x"
+ok "--frame 3 --eval: frame comes before eval" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 3\neval x\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --frame 007 --inspect
+ok "--frame 007: leading zeros are read as decimal (7)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 7\ninspect\nstatus')" ] && echo 1 || echo 0)"
+run_case h_stack --inspect
+ok "--inspect: STACK lines get the owner mark, the module moves to the end, OWNER and BOUNDARY follow; no BOM / CR" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9 (LibA.dll)')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] App::Go at C:\p\a.cpp:12 (App.exe)')" = 1 ] && [ "$(has "$OUT" 'OWNER: top=ext (frame #0)')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && ! grep -q "$BOM\|$CR" <<<"$OUT" && echo 1 || echo 0)"
 run_case h_ok --break src/a.cpp:12
 ok "no --debug: the flag has no debug line (placing breakpoints never runs the app)" "$(grep -q '^debug' "$D/flag.copy" && echo 0 || echo 1)"
 # --output / --inspect (v2.99.0): 読み取りだけのときは、VS を開かない (--status と同じ)。動作のモードと併用すると、open から始める
