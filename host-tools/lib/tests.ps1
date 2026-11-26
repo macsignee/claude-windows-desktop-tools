@@ -175,6 +175,8 @@ function Invoke-Tests([switch]$Ui) {
         $env:UITEST_SLOWMO_MS = "$($script:UiRun.SlowMoMs)"
         $env:UITEST_HOLD_SEC = "$($script:UiRun.HoldSec)"
         $env:UITEST_PRESENT = $(if ($script:UiRun.Present) { "1" } else { "0" })
+        # アタッチ (attach=<プロセス名>): テストは、起動せず、デバッグ中のそのプロセスにアタッチする。アタッチでなければ、前回の値を残さない
+        if ($script:UiRun.Attach) { $env:UITEST_ATTACH_PROCESS = $script:UiRun.Attach } else { Remove-Item Env:\UITEST_ATTACH_PROCESS -ErrorAction SilentlyContinue }
     }
     if ($Ui) { Write-UiTiming "Invoke-Tests: environment ready (timeout $($script:UiRun.TimeoutSec) s)" }
     $exes = if ($Ui) { @() } else { @(Find-TestExes) }
@@ -261,7 +263,7 @@ function Invoke-Tests([switch]$Ui) {
             if ($r.Timeout) {
                 $timedOut = $true
                 $report += "=== $name (dotnet test): TIMEOUT after ${limit}s (killed) ==="
-                if ($Ui) { Stop-SolutionProcesses }   # テストが起動して、残ったアプリ
+                if ($Ui -and -not $script:UiRun.Attach) { Stop-SolutionProcesses }   # テストが起動して、残ったアプリ (アタッチのときは、デバッグ中のアプリを、殺さない)
                 break
             }
             # 古い出力先の DLL を実行していないか (成功のときは、偽の成功を防ぐため、ENV_ERROR にする)
