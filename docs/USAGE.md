@@ -34,6 +34,7 @@
 | ビルドとテストを通したい | 「テストまで通して」(`build-test-loop`) |
 | **1 つの層だけ**、ビルドとテストを回したい (ほかの層の失敗に、止められたくない) | 「`OrderLogic` だけ、ビルドとテストを回して」(`--project OrderLogic`。テストは `OrderLogicTest` / `OrderLogic.Tests` と推測。UI テストは `OrderLogic.UITests`) |
 | **画面の操作 (ボタンを押す、など) を、きっかけに、デバッグしたい** (止めたいのは、画面の外のコード) | 「ブレークポイントを置いて、ボタンを押す UI テストで、止めて」。Claude が、`vs_once.sh --debug --no-wait` でアプリを起動し、きっかけ専用の UI テスト (`DebugTrigger`) を書き、`uitest_once.sh --attach <プロセス名>` で撃ち、止まった状態を `--inspect` / `--step` で調べる (v2.106.0。ユーザーのデスクトップで動く。**UI テストのひな形が古いときは、`add_ui_tests.py --refresh-support-files`**) |
+| **不具合の原因が、こちらのコードか、外のライブラリ (別ソリューションでビルドしたもの) かを、見当づけたい** | 「止まったところのスタックを、こちらか外かで仕分けて」。Claude が `vs_once.sh --inspect` を実行し、`STACK:` の各フレームの所有者の印 (`[ours]` `[ext]` `[sys]` `[unknown]`) と、`OWNER:` / `BOUNDARY:` を読み、境界のフレームを `--frame N` で選んで、こちらが外に渡した値を調べる (v2.107.0。**ヒントであり、断定ではない**。日次の配布では、PDB とソースの世代を、バイナリに揃える。→ `skills/vs-debug/SKILL.md`) |
 | MFC / WPF / WinForms の、実行時に壊れる所を、静的に調べたい | 「`mfc-check` して」など (`mfc-check` / `wpf-check` / `winforms-check`) |
 | ライブラリ (NuGet・vcpkg・GitHub のソース) を、足したい | 「○○を追加して」(`add-package`) |
 | Visual Studio で、ソリューションを開く・ブレークポイントを置く・デバッグ実行する | 「Visual Studio で開いて」「ブレークポイントを置いて」「デバッグを実行して」(`vs-debug`) |
