@@ -574,13 +574,17 @@ function Invoke-VsOps([string[]]$flagLines) {
                     }
                     'debug' {
                         $mode = Get-VsModeName $dte
+                        if ($arg -and $arg -ne 'nowait') { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("debug takes no argument other than nowait: $arg") } }
+                        $noWait = ($arg -eq 'nowait')   # return as soon as the app is running (no wait for a breakpoint): the UI test attach starts after this
                         if ($mode -ne 'design') { $out.Add("DEBUG_MODE: $mode"); return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("debug: already running or stopped; not started again.") } }
                         Invoke-VsRetry { $dte.Debugger.Go($false) } | Out-Null
                         $deadline = (Get-Date).AddSeconds(30)
                         while ((Get-VsModeName $dte) -in @('design', 'unknown') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }   # right after Go the mode can be unknown (the app is starting)
                         # "run" begins when the app is launched, before it reaches the first breakpoint. Wait for break (or for the app to end).
-                        $deadline = (Get-Date).AddSeconds($VsBreakWaitSec)
-                        while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                        if (-not $noWait) {
+                            $deadline = (Get-Date).AddSeconds($VsBreakWaitSec)
+                            while ((Get-VsModeName $dte) -eq 'run' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+                        }
                         $deadline = (Get-Date).AddSeconds($VsUnknownWaitSec)
                         while ((Get-VsModeName $dte) -eq 'unknown' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
                         Start-Sleep -Milliseconds 500
@@ -589,7 +593,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                         $out.Add("DEBUG_STARTED")
                         $out.Add("DEBUG_MODE: $mode")
                         if ($mode -eq 'break') { $out.Add((Get-VsLocation $dte)) }
-                        if ($mode -eq 'run') { $out.Add("NOTE: no breakpoint was hit within ${VsBreakWaitSec}s. The app is running (it may be waiting for the user, or the breakpoints may not be bound). Use status to check the mode again.") }
+                        if ($mode -eq 'run' -and -not $noWait) { $out.Add("NOTE: no breakpoint was hit within ${VsBreakWaitSec}s. The app is running (it may be waiting for the user, or the breakpoints may not be bound). Use status to check the mode again.") }
                         if ($mode -eq 'design') { $out.Add("NOTE: the mode is design (the app ended, or never started). The build may have failed or a dialog may be open in Visual Studio.") }
                     }
                 }

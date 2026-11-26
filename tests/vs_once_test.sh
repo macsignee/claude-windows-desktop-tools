@@ -59,6 +59,8 @@ bad --break "/etc/passwd:3";        ok "BAD_ARGS: absolute path in --break" "$([
 bad --break 'C:\x\a.cpp:3';         ok "BAD_ARGS: drive letter in --break" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --break "src/a.cpp";            ok "BAD_ARGS: --break without a line number" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --status --debug;               ok "BAD_ARGS: --status cannot be combined" "$([ $RC = 2 ] && echo 1 || echo 0)"
+bad --no-wait;                      ok "BAD_ARGS: --no-wait needs --debug" "$([ $RC = 2 ] && [ "$(has "$OUT" 'needs --debug')" = 1 ] && echo 1 || echo 0)"
+bad --status --debug --no-wait;     ok "BAD_ARGS: --status cannot be combined with --debug --no-wait" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --timeout abc;                  ok "BAD_ARGS: bad --timeout" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --output 0;                     ok "BAD_ARGS: --output 0 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
 bad --output 501;                   ok "BAD_ARGS: --output 501 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
@@ -124,6 +126,8 @@ run_case h_ok --clear
 ok "--clear: open, clear, status" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nclear\nstatus')" ] && echo 1 || echo 0)"
 run_case h_ok --break src/a.cpp:12 --debug
 ok "--debug comes after the breakpoints, before the final status; no debug without --debug" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:12\ndebug\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --break src/a.cpp:12 --debug --no-wait
+ok "--debug --no-wait: the debug line carries nowait (the watcher returns without waiting for a break)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'open\nbreak src/a.cpp:12\ndebug nowait\nstatus')" ] && echo 1 || echo 0)"
 run_case h_ok --break src/a.cpp:12
 ok "no --debug: the flag has no debug line (placing breakpoints never runs the app)" "$(grep -q '^debug' "$D/flag.copy" && echo 0 || echo 1)"
 # --output / --inspect (v2.99.0): 読み取りだけのときは、VS を開かない (--status と同じ)。動作のモードと併用すると、open から始める

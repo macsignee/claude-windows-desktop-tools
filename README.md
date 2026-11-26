@@ -127,6 +127,7 @@ Skill の起動には、スラッシュで打つものと、依頼文から自�
     7. ビルド・テスト・静的検査で確かめる。
   - 足せるもの: 層 (ロジック・データ・ViewModel。C++ は DLL / 静的ライブラリ / MFC 拡張・標準 DLL) と、そのテスト。画面を持つ DLL + 画面ホスト (C++。`add_ui_host.py`。ロジック層の `Greeting` と、日本語の `.rc` のダイアログ、UI テストも足す)。テストの後付け、UI テストの後付け。
   - **混在のソリューションは、`/add-project` で作る** (正式な手順。WPF + C++ の層など)。まず、片方の言語で `/new-solution` を打ち、`/add-project` で、もう片方の層を足す (**`/add-project layer` は、名前の次に、言語を質問する。もう片方の言語を選ぶと、混在になる。** v2.105.6)。`/new-solution` は、言語が混ざる指定 (WPF に `--tests gtest` や `--layer-kind`、C++ に `--tests mstest`) を、エラーで止めて、そう案内する (v2.105.2)。例外は、C++ のメインに .NET の UI テストを足す `--ui-tests flaui` (作れる)。**C++ と C# の間の `ProjectReference` は、足さない** (`add_reference.py` が断る。`SUGGEST_REF` も出さない)。**WPF から C++ を呼ぶこと (P/Invoke など) は、禁止ではない。ひな形・自動の参照・検査が、ないだけで、P/Invoke は、自分で書く。**C++ のテスト (vcpkg) は、作成のあとに `builtin-baseline` の固定と取得が要る (Skill を通せば、案内される)。
+  - **UI 操作をきっかけにしたデバッグ** (v2.106.0): `vs_once.sh --debug --no-wait` で VS がアプリを起動し、`uitest_once.sh --attach <プロセス名>` で、UI テスト (FlaUI) が、そのアプリにアタッチして、きっかけの操作 (`Trigger`) を撃つ。撃ったら UI に触れず、すぐ終わるので、ウォッチャーが空き、`--inspect` / `--step` が通る。WPF の `Invoke` も、MFC の BM_CLICK の Post も、ブレークで止まっても、すぐ返る (実機)。ビルド全体と、アプリの強制終了は、しない。設計: `docs/superpowers/specs/2026-11-26-ui-test-attach-debug-design.md`。
 
 ### 2-4. 仕様から機能まで
 

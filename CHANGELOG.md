@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.106.0] 2026-11-26 (UI テストのアタッチモード: UI 操作をきっかけに、デバッグする。**ホスト側を変えた**)
+
+- **きっかけ:** 「UI のバグを追うのではなく、デバッグのトリガーとして必要な UI 操作を、UI テストの仕組みから実行したい」。HANDOFF-2026-11-25 の第 4-3 節 (案 A)。試作 (`poc/attach-debug/`) で、WPF・MFC とも、アタッチでき、きっかけの操作 (WPF の Invoke・MFC の BM_CLICK の Post) は、ブレークで止まっても、すぐ返ることを、実機で確かめた (止まった後の UIA の読み取りは、待たされる)。
+- **作ったもの:** (1) `vs_once.sh --debug --no-wait` (ブレークを待たずに返す。`vs-ide.ps1` の `debug nowait`)。(2) `trigger_uitest.flag` の `attach=<プロセス名>`: ウォッチャーは、ビルド全体と、アプリの強制終了 (`Stop-SolutionProcesses`。タイムアウトの経路も) をしない。UI テストのプロジェクトだけをビルドする (`Invoke-AttachBuild`)。ユーザーのデスクトップ、制限時間 60 秒、既定の絞り込みは `TestCategory=DebugTrigger`。アタッチでない通常の UI テストの実行は、`DebugTrigger` を除く。(3) UI テストのひな形 (`UiTestBase`): `UITEST_ATTACH_PROCESS` で `Application.Attach` (exe がソリューションの下の、同名のプロセス)。アタッチ時の `StopApp` は、閉じない・殺さない・UIA を使わない。`Trigger(Action)` の後の `Find` は、すぐ失敗する (コードで縛る)。(4) `uitest_once.sh --attach <プロセス名>`: `ATTACHED:` / `TRIGGERED:` を出す。ひな形が古ければ `ATTACH_UNSUPPORTED` (rc=8。`add_ui_tests.py --refresh-support-files` を案内)。
+- **確認:** `tests/vs_once_test.sh`・`host_tools_static_test.sh`・`ui_tests_gen_test.sh`・`uitest_once_test.sh` に追加。**PowerShell と C# は、WSL では実行できない** (静的な確認だけ)。実機の確認は、TEST-PLAN の 2-71。
+- **配布:** `install.sh --host-only` と `--skills-only` が要る。**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.106.0)。UI テストのひな形は、既存のソリューションでは `add_ui_tests.py --refresh-support-files`。
+- 設計: `docs/superpowers/specs/2026-11-26-ui-test-attach-debug-design.md`。計画: `docs/superpowers/plans/2026-11-26-ui-test-attach-debug.md`。
+
 ## [2.105.6] 2026-11-25 (`/add-project layer`: もう片方の言語の層を足す道を、ADDABLE と SKILL に作った。ホスト側は変えない)
 
 - **きっかけ:** 再々確認 (TEST-PLAN 2-70 の MX4c)。WPF のソリューションで `/add-project layer` を打つと、言語を聞かれず、名前、役割、テスト (MSTest) と、**.NET の層**の流れに進み、C++ の層を足せなかった。`solution_state.py` の `ADDABLE` が、今の言語の層しか出さなかった。MX3 で C++ の層が足せたのは、チャットで「C++ の層」と書いて頼み、Claude が `add_layer.py` を手で選んだため。

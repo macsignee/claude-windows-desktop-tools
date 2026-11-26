@@ -175,6 +175,8 @@ function Invoke-Tests([switch]$Ui) {
         $env:UITEST_SLOWMO_MS = "$($script:UiRun.SlowMoMs)"
         $env:UITEST_HOLD_SEC = "$($script:UiRun.HoldSec)"
         $env:UITEST_PRESENT = $(if ($script:UiRun.Present) { "1" } else { "0" })
+        # アタッチ (attach=<プロセス名>): テストは、起動せず、デバッグ中のそのプロセスにアタッチする。アタッチでなければ、前回の値を残さない
+        if ($script:UiRun.Attach) { $env:UITEST_ATTACH_PROCESS = $script:UiRun.Attach } else { Remove-Item Env:\UITEST_ATTACH_PROCESS -ErrorAction SilentlyContinue }
     }
     if ($Ui) { Write-UiTiming "Invoke-Tests: environment ready (timeout $($script:UiRun.TimeoutSec) s)" }
     $exes = if ($Ui) { @() } else { @(Find-TestExes) }
@@ -205,6 +207,8 @@ function Invoke-Tests([switch]$Ui) {
     $failed = $false
     $timedOut = $false
     $invalid = $false
+    $attachRan = 0       # アタッチ: テストを実行した UI テストのプロジェクトの数
+    $attachEmpty = @()   # アタッチ: きっかけ専用のテスト (DebugTrigger) が、1 件もなかったプロジェクト
     $staleFound = $false
     $all = @()
 
@@ -261,7 +265,7 @@ function Invoke-Tests([switch]$Ui) {
             if ($r.Timeout) {
                 $timedOut = $true
                 $report += "=== $name (dotnet test): TIMEOUT after ${limit}s (killed) ==="
-                if ($Ui) { Stop-SolutionProcesses }   # テストが起動して、残ったアプリ
+                if ($Ui -and -not $script:UiRun.Attach) { Stop-SolutionProcesses }   # テストが起動して、残ったアプリ (アタッチのときは、デバッグ中のアプリを、殺さない)
                 break
             }
             # 古い出力先の DLL を実行していないか (成功のときは、偽の成功を防ぐため、ENV_ERROR にする)
@@ -276,9 +280,13 @@ function Invoke-Tests([switch]$Ui) {
             if ($r.ExitCode -eq 0) {
                 # 終了コード 0 でも、1 件も実行されていなければ、テストは走っていない (テスト 0 件、アダプタ未検出など)
                 $counters = Get-TrxCounters $trx
-                if (-not $counters -or [int]$counters.executed -le 0) {
+                if ($Ui -and $script:UiRun.Attach -and $counters -and [int]$counters.executed -le 0) {
+                    # アタッチ: UI テストのプロジェクトが複数あるとき、きっかけ専用のテストは、1 つのプロジェクトにだけある。ほかのプロジェクトは、飛ばす (全部が 0 件のときだけ、あとで ENV_ERROR)
+                    $attachEmpty += $name
+                    $report += "=== $name (dotnet test): no test matched the filter ($($script:UiRun.Filter)); skipped in attach mode ==="
+                } elseif (-not $counters -or [int]$counters.executed -le 0) {
                     $invalid = $true
-                    if ($Ui -and $script:UiRun.Filter) {
+                    if ($Ui -and $script:UiRun.Filter -and ($script:UiRun.FilterGiven -or $script:UiRun.Attach)) {   # 既定の絞り込み (TestCategory!=DebugTrigger) は、式の誤りではない。アタッチ (DebugTrigger) は、きっかけ専用のテストが、ないことを示す
                         # --filter (flag の filter=) に一致するテストが、1 件もない。式の誤りが、ほとんど (GoogleTest / アダプタの不備ではない)
                         $filterNoMatch = $true
                         $report += "=== $name (dotnet test): no test matches the filter: $($script:UiRun.Filter) ==="
@@ -286,8 +294,9 @@ function Invoke-Tests([switch]$Ui) {
                         $report += "=== $name (dotnet test): no tests were executed (no trx, or executed=0) ==="
                     }
                     $report += @($r.Output | Select-Object -Last 15)
-                }
+                } elseif ($Ui -and $script:UiRun.Attach) { $attachRan++ }
             } else {
+                if ($Ui -and $script:UiRun.Attach) { $attachRan++ }
                 $failed = $true
                 $report += "=== $name (dotnet test): exit code $($r.ExitCode) ==="
                 $lines = @(Get-TrxFailureLines $trx)
@@ -301,6 +310,9 @@ function Invoke-Tests([switch]$Ui) {
         }
     }
     $all | Out-File $TestLog -Encoding utf8
+    if ($Ui -and $script:UiRun.Attach -and $attachRan -eq 0 -and $attachEmpty.Count -gt 0 -and -not $timedOut -and -not $failed) {
+        $invalid = $true; $filterNoMatch = $true   # どのプロジェクトにも、きっかけ専用のテスト (DebugTrigger) が、ない
+    }
 
     if ($timedOut) {
         Write-Host "[RESULT] Tests TIMEOUT." -ForegroundColor Red

@@ -76,6 +76,27 @@ function Resolve-ProjectScope([string]$name, [bool]$ui) {
 # プロジェクト単位のビルド: Main、続けて Test を、1 つずつ MSBuild に渡す (最初の失敗で止まる)。戻り値は、Invoke-BuildScript と同じ形。
 # 単独のプロジェクトを MSBuild に渡すと、SolutionDir が空になり、OutDir ($(SolutionDir)...) が、ソリューション全体のときと、別の場所になる。
 # そのため、環境変数 SolutionDir を、ソリューションのフォルダにして、渡す (MSBuild は、環境変数を、プロパティとして読む。引用符の問題がない)。
+# アタッチ (flag の attach=<プロセス名>): UI テストのプロジェクトだけを、ビルドする (きっかけ専用のテストを、足したあとでも、動くように)。
+# アプリ本体は、ビルドしない (VS のデバッガーが起動していて、出力の exe は、ロックされている。UI テストのプロジェクトは、アプリを ProjectReference していない)。
+function Invoke-AttachBuild {
+    $targets = if ($script:Scope -and -not $script:Scope.Error) { @($script:Scope.Test) } else { @(Find-DotnetTestProjects -Ui) }
+    if (@($targets).Count -eq 0) { return @{ Lines = @("ERROR: attach: no UI test project found under $SolutionDir"); ExitCode = 2 } }
+    $all = @()
+    $prev = $env:SolutionDir
+    $env:SolutionDir = $SolutionDir.TrimEnd('\') + '\'
+    try {
+        foreach ($t in $targets) {
+            Write-Host "[UI] attach mode: building only $([System.IO.Path]::GetFileName($t)) (the app is not built or stopped) ..." -ForegroundColor DarkCyan
+            $b = Invoke-BuildScript -Target $t
+            $all += @($b.Lines)
+            if ($b.ExitCode -ne 0) { return @{ Lines = $all; ExitCode = $b.ExitCode } }
+        }
+    } finally {
+        if ($null -eq $prev) { Remove-Item Env:\SolutionDir -ErrorAction SilentlyContinue } else { $env:SolutionDir = $prev }
+    }
+    return @{ Lines = $all; ExitCode = 0 }
+}
+
 function Invoke-ScopedBuild {
     $sc = $script:Scope
     if ($sc.Error) { return @{ Lines = @("ERROR: project scope: $($sc.Error)"); ExitCode = 2 } }

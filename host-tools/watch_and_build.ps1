@@ -536,7 +536,7 @@ while ($true) {
             $script:UiRun = Resolve-UiRun $uiFlagText
             Remove-Item -LiteralPath (Join-Path $LogDir "ui-timing.txt") -ErrorAction SilentlyContinue   # 今回の実行の、時刻の記録だけを残す
             Write-UiTiming "trigger detected; settings resolved (flag: $(($uiFlagText -replace '\s+', ' ').Trim())); the build starts next"
-            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms, timeout: $($script:UiRun.TimeoutSec) s, hold: $($script:UiRun.HoldSec) s, present: $($script:UiRun.Present), filter: $(if ($script:UiRun.Filter) { $script:UiRun.Filter } else { '(all)' })" -ForegroundColor Cyan
+            Write-Host "[UI] desktop: $($script:UiRun.Desktop) ($($script:UiRun.Reason)), slow-motion: $($script:UiRun.SlowMoMs) ms, timeout: $($script:UiRun.TimeoutSec) s, hold: $($script:UiRun.HoldSec) s, attach: $(if ($script:UiRun.Attach) { $script:UiRun.Attach } else { '(none)' }), present: $($script:UiRun.Present), filter: $(if ($script:UiRun.Filter) { $script:UiRun.Filter } else { '(all)' })" -ForegroundColor Cyan
         }
         Remove-Item -LiteralPath $TriggerFile, $(if ($runUiTests) { $UiTestTriggerFile } else { $TestTriggerFile }) -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -544,7 +544,7 @@ while ($true) {
         Remove-Item -LiteralPath $TestResultsDir -Recurse -Force -ErrorAction SilentlyContinue   # 前回の XML / trx (古い結果の誤読を防ぐ)
         if ($runUiTests) {
             Remove-Item -LiteralPath $UiScreenshotDir -Recurse -Force -ErrorAction SilentlyContinue   # 前回のスクリーンショット
-            Stop-SolutionProcesses   # 前回のアプリが残っていると、出力の exe がロックされ、ビルドが失敗する
+            if (-not $script:UiRun.Attach) { Stop-SolutionProcesses }   # 前回のアプリが残っていると、出力の exe がロックされ、ビルドが失敗する。アタッチのときは、デバッグ中のアプリを殺さない
         }
 
         if (-not $SolutionPath) {
@@ -556,7 +556,7 @@ while ($true) {
             # PS 5.1 は Stop 下でネイティブの stderr を例外にするため、ここだけ Continue にする
             $ErrorActionPreference = "Continue"
             try {
-                $build = if ($script:Scope) { Invoke-ScopedBuild } else { Invoke-BuildScript }
+                $build = if ($runUiTests -and $script:UiRun.Attach) { Invoke-AttachBuild } elseif ($script:Scope) { Invoke-ScopedBuild } else { Invoke-BuildScript }   # アタッチ: アプリ本体は、ビルドしない (デバッグ中の exe は、ロックされている)
                 $console = $build.Lines
                 $exitCode = $build.ExitCode
             } catch {
@@ -637,8 +637,8 @@ while ($true) {
         }
         if ($runUiTests) {
             Restore-WpfRendering
-            Stop-SolutionProcesses   # テストが残したアプリを、終了する
-            Remove-Item Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS, Env:\UITEST_HOLD_SEC, Env:\UITEST_PRESENT -ErrorAction SilentlyContinue
+            if (-not $script:UiRun.Attach) { Stop-SolutionProcesses }   # テストが残したアプリを、終了する。アタッチのときは、デバッグ中のアプリを、終了しない
+            Remove-Item Env:\UITEST_ATTACH_PROCESS, Env:\UITEST_SOLUTION_DIR, Env:\UITEST_CONFIGURATION, Env:\UITEST_PLATFORM, Env:\UITEST_SCREENSHOT_DIR, Env:\UITEST_SLOWMO_MS, Env:\UITEST_HOLD_SEC, Env:\UITEST_PRESENT -ErrorAction SilentlyContinue
         }
         $script:Scope = $null
         Clear-WatcherBusy
