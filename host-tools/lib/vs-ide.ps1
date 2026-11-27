@@ -496,7 +496,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                         for ($i = 1; $i -le $count; $i++) {
                             $mode = Invoke-VsStepOnce $dte $kind $prevPos
                             if ($mode -eq 'design') { $out.Add("STEP_END: the program ended after $done step(s)."); $stop = $true; break }
-                            if ($mode -ne 'break') { $out.Add("STEP_TIMEOUT: still running after ${VsStepWaitSec}s at step $i (a modal dialog, or the program is waiting for input?). Check with status, or ask the user."); $stop = $true; break }
+                            if ($mode -ne 'break') { $rawMode = try { [int]$dte.Debugger.CurrentMode } catch { -1 }; $out.Add("STEP_TIMEOUT: still running after ${VsStepWaitSec}s at step $i (mode=$mode raw=$rawMode; a modal dialog, or the program is waiting for input?). Check with status, or ask the user. If status then says break, the step finished late: keep this line."); $stop = $true; break }
                             $pos = Get-VsPosition $dte
                             $out.Add("STEP ${i}: $($pos.File):$($pos.Line)  $(Get-VsSourceText $pos.File $pos.Line)")
                             $locals = Get-VsLocalsMap $dte
