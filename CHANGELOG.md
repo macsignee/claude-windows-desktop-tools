@@ -8,7 +8,7 @@
 - **直したこと:** (1) ホスト (`vs-ide.ps1`): `$exception` が使えなかったとき、デバッグ出力ペインの**最後の空でない行**を `LAST_OUTPUT:` として出す。(2) WSL 側 (`stack_owner.py`): `LAST_OUTPUT:` が、**例外のコード (`0xC…` / `0xE…` / `0x8…`) をコロンで挟んだ形**のときだけ `EXCEPTION:` にする (言語に依存しない。日本語・英語・ハンドルされない例外・C++ 例外で確認)。そうでなければ、`LAST_OUTPUT:` を消す。既存の `EXCEPTION:` (マネージド) は、そのまま。
 - **全体レビューの指摘への対応:** (1) 出力ペインから作った `EXCEPTION:` は、**`EXCEPTION: (debug output; may be stale) …` と出所を明示**する (`$exception` の確かな値と、見分けられるように)。(2) 行が名前を挙げるモジュール (`(X.dll)`) が、`STACK: #0` のモジュールと違うときは捨てる (処理済みの C++ 例外のあと、別の場所のブレークポイントで止まった場合)。(3) 形を、**アドレスが先にあり、そのあとに例外のコードをコロンで挟む**ものに絞る (アプリ自身の `CreateFile failed: 0x80070005: …` のようなログを、例外にしない)。(4) ホストは、ペイン全体を行ごとにパイプで処理せず、`LastIndexOf` で最後の行を取る (大きなペインでも速い)。(5) `stack_owner.py` が失敗しても、`LAST_OUTPUT:` を見せない。
 - **限界:** 同じモジュールの、古い例外の行が最後に残ったまま、ブレークポイントで止まると、古い行を出しうる (ヒント)。`LastBreakReason` で絞る案は、値の確認が実機で要るので、見送った (先送り)。
-- **確認:** `tests/stack_owner_test.sh` に 9 件、`vs_once_test.sh` に 1 件、`host_tools_static_test.sh` に 1 件 (先に Red を確認)。PowerShell は、WSL で実行できない (静的な確認だけ)。実機の確認は、TEST-PLAN の 2-73。
+- **確認:** `tests/stack_owner_test.sh` に 9 件、`vs_once_test.sh` に 1 件、`host_tools_static_test.sh` に 1 件 (先に Red を確認)。PowerShell は、WSL で実行できない (静的な確認だけ)。実機の確認は、TEST-PLAN の 2-73: **EX1・EX2・EX3 は、2026-11-27 に、すべて合格** (EX4〜EX6 は、任意で、未実施)。
 - **配布:** `install.sh --host-only` と `--skills-only`、**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.107.3)。
 
 ## [2.107.2] 2026-11-27 (`stack_owner.py`: ネイティブ C++ のフレームの判定。ホスト側は変えない)
