@@ -1485,9 +1485,11 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | ID | 確認 | 期待 | 結果 |
 |---|---|---|---|
-| EX1 | 「ExtDll を呼ぶ」でアクセス違反で止める → `vs_once.sh --inspect` | 先頭近くに `EXCEPTION: (debug output; may be stale) 0x… (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました` (日本語の VS)。`LAST_OUTPUT:` は出ない | |
-| EX2 | `OnInitDialog` のブレークポイントで止める → `--inspect`。続けて `--output 3` で、ペインの最後の行を記録する | `EXCEPTION:` が出ない (最後の出力が、モジュールの読み込みの行など) | |
-| EX3 | 「ExtStatic を呼ぶ」でアクセス違反 → `--inspect` | EX1 と同じ形 | |
+| EX1 | 「ExtDll を呼ぶ」でアクセス違反で止める → `vs_once.sh --inspect` | 先頭近くに `EXCEPTION: (debug output; may be stale) 0x… (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました` (日本語の VS)。`LAST_OUTPUT:` は出ない | **合格** (2026-11-27、v2.107.3、ウォッチャー 2.107.3。`--inspect` の先頭に `EXCEPTION: (debug output; may be stale) 0x00007FFB944916D2 (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました`、続いて `STACK: #0 [ext]`・`#1 [ours]`・`OWNER: top=ext`・`BOUNDARY: #1 ours -> ext #0`。`LAST_OUTPUT:` は出ない) |
+| EX2 | `OnInitDialog` のブレークポイントで止める → `--inspect`。続けて `--output 3` で、ペインの最後の行を記録する | `EXCEPTION:` が出ない (最後の出力が、モジュールの読み込みの行など) | **合格** (2026-11-27。`OnInitDialog` のブレークポイント (`SampleDlg.cpp:31`) の `--inspect` に `EXCEPTION:` が出ない。`#0 [ours]`・`OWNER: top=ours`。`--output 3` の最後の行は、モジュールの読み込み (`msctf.dll が読み込まれました…`)) |
+| EX3 | 「ExtStatic を呼ぶ」でアクセス違反 → `--inspect` | EX1 と同じ形 | **合格** (2026-11-27。静的ライブラリ。`EXCEPTION: (debug output; may be stale) 0x00007FF79979AEE2 で例外がスローされました (App.exe 内): 0xC0000005: …`。行に `(X.dll)` がなく、モジュールの歯止めは働かず、そのまま出る。`#0 [ext] ExtStatic_Sum`・`OWNER: top=ext`・`BOUNDARY: #1 ours -> ext #0`) |
 | EX4 | (観察) アクセス違反で止めて、`--continue` などで進めたあと、別のブレークポイントで止める → `--inspect` | 古い例外の行が、`EXCEPTION:` と出るかを記録する (出る場合は、既知の限界) | |
 | EX5 | (回帰) WPF か WinForms のアプリで、ブレークポイントで止める。別に、.NET の未処理の例外で止める | ブレークポイントでは `EXCEPTION:` が出ない。.NET の例外では、型つきの `EXCEPTION:` が出て、`(debug output; may be stale)` は付かない (重複もしない) | |
 | EX6 | (古い行) アプリに、C++ の例外を `try` / `catch` で処理させ (処理済み)、そのあとに、こちらのコードのブレークポイントで止める → `--inspect` | `EXCEPTION:` が出ない (処理済みの例外の行は、モジュールが合わなければ捨てられる)。出る場合は、記録する (既知の限界の確認) | |
+
+**2-73 の結論 (2026-11-27、v2.107.3):** ネイティブの例外 (アクセス違反) で、`--inspect` に `EXCEPTION:` が出るようになった (EX1・EX3)。ブレークポイントでは出ない (EX2)。**EX4〜EX6 (古い行の観察、.NET の回帰、処理済み C++ 例外のあとの別の停止) は、任意で、未実施。**

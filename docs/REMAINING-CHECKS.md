@@ -71,7 +71,7 @@
 
 | ID | 節 | 内容 | 状況 |
 |---|---|---|---|
-| **OW0〜OW6 (2026-11-27 に実機。再確認も合格。閉じてよい)** | 2-72 | v2.107.0〜v2.107.1 (`vs-debug` のフレームの所有者の判定): `--inspect` の `STACK:` の印 (`[ours]` `[ext]` `[sys]` `[unknown]`)・`OWNER:` / `BOUNDARY:`・`--frame N`。確認用は `ClaudePlayground\OwnerCheck` (ExtDll・ExtStatic・App。作成済み)。最初に OW0 (`StackFrame.Module` が、名前か、パスか)。OW4 (PDB のない外の DLL) は、v2.107.1 で `[unknown]` になる見込み | **済み (2026-11-27)**: v2.107.1 で OW0・OW2・OW4・OW5・OW6 合格、OW1・OW3 不合格 (ネイティブ C++ はソースのパスが取れない) → v2.107.2 で直し、**OW1・OW3・OW5 を再確認して、すべて合格**。別件 (未対応): ネイティブの例外で `EXCEPTION:` が出ない |
+| **OW0〜OW6 (2026-11-27 に実機。再確認も合格。閉じてよい)** | 2-72 | v2.107.0〜v2.107.1 (`vs-debug` のフレームの所有者の判定): `--inspect` の `STACK:` の印 (`[ours]` `[ext]` `[sys]` `[unknown]`)・`OWNER:` / `BOUNDARY:`・`--frame N`。確認用は `ClaudePlayground\OwnerCheck` (ExtDll・ExtStatic・App。作成済み)。最初に OW0 (`StackFrame.Module` が、名前か、パスか)。OW4 (PDB のない外の DLL) は、v2.107.1 で `[unknown]` になる見込み | **済み (2026-11-27)**: v2.107.1 で OW0・OW2・OW4・OW5・OW6 合格、OW1・OW3 不合格 (ネイティブ C++ はソースのパスが取れない) → v2.107.2 で直し、**OW1・OW3・OW5 を再確認して、すべて合格**。別件 (v2.107.3 で対応。2-73 の EX1〜EX3 は 2026-11-27 に合格): ネイティブの例外で `EXCEPTION:` が出ない → デバッグ出力ペインの最後の行から出す |
 | GR6・GR7 (条件待ち) | 2-64 | GitHub 以外のリモートでの push、未サインインのリモートでの `AUTH_REQUIRED` (サインイン後に通る)。GR9 の後半 (`--allow-main`)、GR12 の 120 秒の強制終了も | リモートがないため、未 (ユーザーの判断、2026-11-23)。条件が整ったときに行う |
 | ST5・UJ5 (任意) | 2-46・2-59 | ST5 = `SetText` の、読み戻しが合わない部品のフォールバック。UJ5 = VS のリソース ビューで、日本語の `.rc` を開く (文字コードの確認の画面が出るか)。どちらも、任意で、未 |
 | AR (任意) | 2-32 | v2.53.0 (`add_reference.py`): AR1〜AR5 はすべて ✔ (AR3 の発見は v2.54.0 で修正し、AR3b も ✔、AR4 は 2026-11-05)。残り: Visual Studio の「参照」の画面での目視 (任意)。AP1〜AP6 (`/add-project`) も、すべて ✔ (2026-11-05) |
