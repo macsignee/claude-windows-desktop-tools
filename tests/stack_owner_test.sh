@@ -277,6 +277,17 @@ t = so.transform(["LAST_OUTPUT: CreateFile failed: 0x80070005: Access is denied.
 check("I3: the app's own HRESULT log line (no address before the code) is not an exception", not any(x.startswith("EXCEPTION:") for x in t))
 t = so.transform(["LAST_OUTPUT: App.exe の 0x00007FF6A1B2C3D4 でハンドルされていない例外がスローされました: 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました"] + FR, None)
 check("I3: the Japanese unhandled-exception line still is an exception", t[0].startswith("EXCEPTION: (debug output; may be stale) App.exe の 0x00007FF6A1B2C3D4"))
+
+# scan budget: a source scan that ran out of time is shown, and the frames stay unknown (never a wrong ours)
+NATIVE = ["STACK: #0 Dlg::Go [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]", r"SOLUTION: C:\ws\Sln\App.slnx"]
+t = so.transform(NATIVE, root2)
+check("scan budget: a normal scan has no truncation NOTE and finds the definition -> ours", t[0].startswith("STACK: #0 [ours] Dlg::Go") and not any("source scan truncated" in l for l in t))
+_old = so._WALK_SECONDS
+so._WALK_SECONDS = -1
+t = so.transform(NATIVE, root2)
+so._WALK_SECONDS = _old
+check("scan budget: when the time budget is spent, the frame stays unknown (not a wrong ours)", t[0].startswith("STACK: #0 [unknown] Dlg::Go"))
+check("scan budget: and a NOTE line says the source scan was truncated", any(l.startswith("NOTE: source scan truncated") for l in t))
 PY
 while IFS= read -r l; do
     case "$l" in

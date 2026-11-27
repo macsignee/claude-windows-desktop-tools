@@ -94,6 +94,8 @@ while [ $# -gt 0 ]; do
         --frame)
             v="${2:-}"; shift 2 || bad "--frame needs a frame number (0 to 99)"
             [[ "$v" =~ ^[0-9]+$ ]] || bad "--frame needs a frame number (0 to 99): $v"
+            v0="${v#"${v%%[!0]*}"}"   # 先頭の 0 を除く (桁数を、算術の前に検査する。巨大な数で、bash の算術が桁あふれするのを防ぐ)
+            [ "${#v0}" -le 2 ] || bad "--frame needs a frame number from 0 to 99: $v"
             FRAME=$((10#$v))
             [ "$FRAME" -le 99 ] || bad "--frame needs a frame number from 0 to 99: $v"
             ;;

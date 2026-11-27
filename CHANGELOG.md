@@ -2,6 +2,16 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.107.4] 2026-11-27 (フレームの所有者の判定の軽微な点 4 件。**ホスト側を変えた**)
+
+- **直したこと** (HANDOFF-2026-11-26 の 3-3 の先送り分):
+  1. `vs_once.sh --frame` に巨大な数 (`18446744073709551616` など) を渡すと、bash の算術が桁あふれして 0〜99 の検査をすり抜けた。先頭の 0 を除いた桁数 (2 桁まで) を、算術の前に検査する (`--frame 007` は 7 のまま)。
+  2. ホスト (`vs-ide.ps1`): `frame` の選択に失敗したとき、`FRAME_FAILED: #<N> could not be selected: …` を返す (環境エラー扱いにしない)。`unknown operation` のエラー文に `frame` を足した。
+  3. `stack_owner.py`: ソースの走査に**時間の上限** (10 秒。`transform` 1 回あたり) を足した。上限か、ファイル数の上限で打ち切ったときは、`OWNER:` / `BOUNDARY:` の後に `NOTE: source scan truncated (time or file limit); frames may show unknown instead of ours` を出す。打ち切りで起きるのは、`ours` が `unknown` に見えることだけ (誤った `ours` にはならない)。
+- **直さなかったもの (理由つき):** `\ucrt\` `\onecore\` `\minkernel\` の正規表現の絞り込み (実際の MS のビルド機のパスの形を、実機で確かめていないので、`unknown` より悪い誤判定を作らないよう、そのまま)。`--frame` が 99 まで、`STACK:` が 10 フレームまで、は仕様 (`STACK_TRUNCATED:` が示す)。
+- **確認:** `stack_owner_test.sh` に 3 件、`vs_once_test.sh` に 3 件、`host_tools_static_test.sh` に 1 件 (先に Red を確認)。PowerShell は、WSL で実行できない (静的な確認だけ)。
+- **配布:** `install.sh --host-only` と `--skills-only`、**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.107.4)。
+
 ## [2.107.3] 2026-11-27 (ネイティブの例外で `EXCEPTION:` を出す。**ホスト側を変えた**)
 
 - **きっかけ:** TEST-PLAN 2-72 の実機 (OW1)。アクセス違反 (SEH) で止まっているのに、`--inspect` に `EXCEPTION:` が出なかった。`--eval '$exception'` は `識別子 "$exception" が定義されていません`。ネイティブの SEH では、`$exception` が使えない。一方、VS は、止まったとき、**デバッグ出力ペインの最後に、例外の 1 行**を書く (`0x… (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x… の読み取り中にアクセス違反が発生しました`)。

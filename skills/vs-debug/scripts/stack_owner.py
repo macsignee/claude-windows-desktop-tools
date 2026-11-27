@@ -13,6 +13,7 @@ Usage: python3 -I stack_owner.py [--solution-root <ソリューションのフ�
 ファイルがないとき (シンボルなし) だけ、モジュールで判定する。設計: docs/superpowers/specs/2026-11-26-vs-debug-stack-owner-design.md
 """
 import os
+import time
 import re
 import sys
 
@@ -118,17 +119,23 @@ _SRC_EXTS = (".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".inl", ".cs")
 _PROJ_EXTS = (".vcxproj", ".csproj", ".vbproj")
 _MAX_FILES = 5000
 _MAX_BYTES = 2 * 1024 * 1024
+_WALK_SECONDS = 10.0    # ソースの走査に使う時間の上限 (秒。transform の 1 回あたり)。/mnt/c の大きなソリューションで遅くならないように
+_SCAN = {"deadline": None, "truncated": False}   # deadline が None のときは、時間を見ない (単体の呼び出し)。truncated: 走査を打ち切ったか
 
 
 def _walk(root, exts):
     """root の下のファイル (外のコードの置き場と、ビルドの出力は、除く)。"""
     count = 0
     for cur, dirs, files in os.walk(root):
+        if _SCAN["deadline"] is not None and time.monotonic() > _SCAN["deadline"]:
+            _SCAN["truncated"] = True
+            return
         dirs[:] = [d for d in dirs if d.lower() not in _SKIP_DIRS]
         for f in files:
             if f.lower().endswith(exts):
                 count += 1
                 if count > _MAX_FILES:
+                    _SCAN["truncated"] = True
                     return
                 yield os.path.join(cur, f)
 
@@ -321,6 +328,8 @@ def transform(lines, solution_root=None):
     """出力の全行を受け取り、STACK: の行を書き換え、最後の STACK: / STACK_TRUNCATED: の直後に OWNER: と BOUNDARY: を足して返す。
     solution_root: ソリューションのフォルダ (WSL のパス)。ネイティブ C++ のフレームを、こちらのソースの定義と照合するために使う。"""
     lines = _fold_last_output(lines)
+    _SCAN["deadline"] = time.monotonic() + _WALK_SECONDS
+    _SCAN["truncated"] = False
     sd = _solution_dir(lines)
     stopped = _stopped(lines)
     stopped_given = False
@@ -356,7 +365,11 @@ def transform(lines, solution_root=None):
     if not frames:
         return list(lines)
     owner_line, boundary_line = _summary(frames, truncated)
-    out[last + 1:last + 1] = [owner_line, boundary_line]
+    extra = [owner_line, boundary_line]
+    if _SCAN["truncated"]:
+        extra.append("NOTE: source scan truncated (time or file limit); frames may show unknown instead of ours")
+    _SCAN["deadline"] = None
+    out[last + 1:last + 1] = extra
     return out
 
 
