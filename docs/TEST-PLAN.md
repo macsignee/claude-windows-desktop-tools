@@ -1493,3 +1493,17 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | EX6 | (古い行) アプリに、C++ の例外を `try` / `catch` で処理させ (処理済み)、そのあとに、こちらのコードのブレークポイントで止める → `--inspect` | `EXCEPTION:` が出ない (処理済みの例外の行は、モジュールが合わなければ捨てられる)。出る場合は、記録する (既知の限界の確認) |  **合格** (2026-11-27。`ExtDll_ThrowCaught` (`try { throw 1; } catch (int) {}`) を呼んだあと、`OnClear` のブレークポイントで止めた。`--inspect` に `EXCEPTION:` が出ない。ペインの最後の行は `… Microsoft C++ の例外: int (メモリの場所 0x00000022F72FD5C4)`。EX4 と同じく、コードの形でないので捨てられた (モジュールの照合までは行かない)) |
 
 **2-73 の結論 (2026-11-27、v2.107.3):** ネイティブの例外 (アクセス違反) で、`--inspect` に `EXCEPTION:` が出るようになった (EX1・EX3)。ブレークポイントでは出ない (EX2)。**EX4〜EX6 も 2026-11-27 に実施した。** 処理済みの C++ 例外の行は、EX4・EX6 とも `EXCEPTION:` にならない。.NET の回帰はない (EX5)。同じモジュールの SEH の古い行の限界は、実機では未再現のまま。
+
+### 2-74. VS の選択範囲を読む (`--selection`) と、該当行を開く (`--goto`) (v2.108.0)
+配布 (`install.sh --host-only` と `--skills-only`) と、ウォッチャーの再起動のあと、**新しい Claude Code のセッション**で行う。確認用は `PS5` (WPF)。VS で、`PS5` を開いておく (`MainViewModel.cs` を開く)。
+
+| ID | 確認 | 期待 | 結果 |
+|---|---|---|---|
+| SL1 | `MainViewModel.cs` で、数行を選ぶ → `vs_once.sh "$PWD" --selection` | `SELECTION_FILE:` (そのファイル)・`SELECTION_RANGE:` (選んだ範囲)・`SELECTION_DIRTY: no`・`SELECTION_TEXT: N lines, M chars` と、本文 (各行に `\| `)。VS は、前面に出ない・エディターの選択も変わらない | |
+| SL2 | 何も選ばず、カーソルだけ置く → `--selection` | `CURSOR: <行>:<桁>`。`SELECTION_TEXT:` は出ない | |
+| SL3 | ファイルを編集して、保存しない → `--selection` | `SELECTION_DIRTY: yes` | |
+| SL4 | デザインモードで、`--goto PS5/ViewModels/MainViewModel.cs:49` (VS は別のファイルを表示) | VS が前面に出て、そのファイルの 49 行目にカーソルが移り、画面の中央に見える。`GOTO: …MainViewModel.cs:49:1`。ファイルは変わらない (`DIRTY_COUNT` が増えない) | |
+| SL5 | `--break` で止まった状態で、`--goto` で、別のファイルを開く → `--status` | `GOTO:`。`DEBUG_MODE: break`・`STOPPED:` は、止まっている場所のまま (エディターが移るだけ)。続けて `--step over` が、正しい位置を出す | |
+| SL6 | VS を閉じて、`--goto` | VS が起動して、ソリューションが開き、そのファイルの行に移る | |
+| SL7 | XAML デザイナー (または、リソース ビュー) が、アクティブなとき `--selection` | `SELECTION_SKIP: not a text document (…)` (または、デザイナーのコードの表示なら、通常の出力) | |
+| SL8 | 100 行を超える (または、8000 文字を超える) 範囲を選ぶ → `--selection`。別に、ファイルの行数を超える行へ `--goto` | `SELECTION_TRUNCATED: showing the first N of M lines …`。`GOTO_CLAMPED: <指定> -> <最後の行>` (失敗にならない) | |
