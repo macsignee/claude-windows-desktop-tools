@@ -189,7 +189,7 @@ public abstract class UiTestBase
         return string.Join(",", entries);
     }
 
-    /// <summary>環境変数 UITEST_ATTACH_PROCESS (ウォッチャーの trigger_uitest.flag の attach=<プロセス名>。uitest_once.sh --attach)。
+    /// <summary>環境変数 UITEST_ATTACH_PROCESS (ウォッチャーの trigger_uitest.flag の attach=&lt;プロセス名&gt;。uitest_once.sh --attach)。
     /// 設定されていると、アプリを起動せず、**VS のデバッガーが起動した、そのプロセスにアタッチ**する。デバッグのきっかけの UI 操作を、撃つためのモード。</summary>
     protected static string? AttachProcess
     {
@@ -285,7 +285,7 @@ public abstract class UiTestBase
         var task = Task.Run(fire);
         bool returned;
         try { returned = task.Wait(7000); }
-        catch (AggregateException e) { throw e.InnerException ?? e; }
+        catch (AggregateException e) { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException ?? e).Throw(); throw; }   // 元のスタックトレースを残す
         finally { _triggered = true; }
         UiTrace.Write(returned ? "TRIGGERED:" : "TRIGGERED: (fire did not return in 7000 ms; treated as stopped)");
     }

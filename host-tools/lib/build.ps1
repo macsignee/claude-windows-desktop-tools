@@ -79,7 +79,8 @@ function Resolve-ProjectScope([string]$name, [bool]$ui) {
 # アタッチ (flag の attach=<プロセス名>): UI テストのプロジェクトだけを、ビルドする (きっかけ専用のテストを、足したあとでも、動くように)。
 # アプリ本体は、ビルドしない (VS のデバッガーが起動していて、出力の exe は、ロックされている。UI テストのプロジェクトは、アプリを ProjectReference していない)。
 function Invoke-AttachBuild {
-    $targets = if ($script:Scope -and -not $script:Scope.Error) { @($script:Scope.Test) } else { @(Find-DotnetTestProjects -Ui) }
+    if ($script:Scope -and $script:Scope.Error) { return @{ Lines = @("ERROR: project scope: $($script:Scope.Error)"); ExitCode = 2 } }   # --project の誤りを、全 UI テストのビルドに、すり替えない
+    $targets = if ($script:Scope) { @($script:Scope.Test) } else { @(Find-DotnetTestProjects -Ui) }
     if (@($targets).Count -eq 0) { return @{ Lines = @("ERROR: attach: no UI test project found under $SolutionDir"); ExitCode = 2 } }
     $all = @()
     $prev = $env:SolutionDir
