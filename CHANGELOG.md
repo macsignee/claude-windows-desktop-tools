@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.108.1] 2026-11-27 (`--goto` の実機確認 (2-74 の前半) で出た不具合 3 件。**ホスト側を変えた**)
+
+- **SL4:** 別のファイル (App.xaml) が前面のとき、`GOTO_FAILED: the file opened, but it is not a text document` になった。`OpenFile` の直後は、`ActiveDocument` が前のドキュメント (XAML はテキストでない) のままだった → パスで `Documents` から探し、見つからなければ 200 ms ごとに 10 回まで再試行。`Activate()` も呼ぶ。
+- **SL9:** 49 行目が、画面の中央でなく上端に出た。「中央」の定数を名前で引けず、代わりの値 1 が「上端」だったと推定 → 代わりの値を 2 に、`TryToShow` の第 2 引数を `$null` でなく `[System.Reflection.Missing]::Value` に。名前で引けなかったときは `GOTO_NOTE:` を出す (次の実機確認で、どちらの経路か分かる)。**値 2 は、まだ実機で確かめていない。**
+- **SL5:** ブレーク中に `--goto` すると、`STOPPED:` も `STACK: #0` も、移した場所 (`App.xaml.cs:1`) になった (設計の想定 `STACK:` は影響されない、が誤り)。`--step over` で元に戻った。VS が現在のフレームの場所をエディターから取るため → **ブレーク中の `--goto` は、何もしない** (`GOTO_SKIP:`)。
+- **確認:** `host_tools_static_test.sh` に 3 件 (先に Red を確認)。**実機の確認が要る** (TEST-PLAN 2-74 の SL4・SL5・SL9 の再確認と、後半の SL6・SL7・SL8・SL10)。
+- **配布:** `install.sh --host-only` と `--skills-only`、**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.108.1)。
+
 ## [2.108.0] 2026-11-27 (VS の選択範囲を読む `--selection` と、該当行を開く `--goto`。**ホスト側を変えた**)
 
 - **きっかけ:** NEXT-STEPS の F (VS の選択範囲・カレント行を Claude に渡す)。ユーザーが、VS Code の Claude 拡張の機能から取り入れられそうなものとして挙げ、逆方向 (Claude の回答から VS の該当行を開く) を欲しいと言った。設計: `docs/superpowers/specs/2026-11-27-vs-selection-goto-design.md`。計画: `docs/superpowers/plans/2026-11-27-vs-selection-goto.md`。
