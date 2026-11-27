@@ -168,6 +168,75 @@ t = so.transform(OW5, root)
 check("OW5: our code at the breakpoint -> ours, OWNER top=ours", t[0].startswith("STACK: #0 [ours] SampleDlg::OnInitDialog at C:\\ws\\Sln\\App\\SampleDlg.cpp:30") and "OWNER: top=ours (frame #0)" in t)
 t = so.transform(["STACK: #0 Bar at C:\\ws\\Sln\\b.cpp:2 [module=App.exe]", "STACK: #1 Bar [module=C:\\Windows\\System32\\x.dll]", "STOPPED: Bar at C:\\q\\z.cpp:9", "SOLUTION: C:\\ws\\Sln\\App.slnx"], root)
 check("STOPPED mapping: a frame that already has a file keeps it; the next frame with the same name gets the STOPPED file", t[0].startswith("STACK: #0 [ours] Bar at C:\\ws\\Sln\\b.cpp:2") and "C:\\q\\z.cpp:9" in t[1])
+
+# --- v2.107.2 のレビューの指摘: 定義と呼び出しの区別 (C1)、STOPPED の割り当てにモジュールの一致 (I1)、外のコードの置き場の名前 (I2)、裸のモジュール名 (M3)、STOPPED の端 (M4)
+root2 = tempfile.mkdtemp()
+def w2(rel, text):
+    path = os.path.join(root2, *rel.split("/")); os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(text)
+w2("App/App.vcxproj", "<Project/>")
+w2("App/Dlg.cpp", "\n".join([
+  "#include <x>",
+  "void Dlg::Go()",
+  "{",
+  "  ExtStatic::Helper(1);",
+  "  int r = ExtStatic::Calc(2);",
+  "  return Lib::Helper(r);",
+  "  if (ok) Lib::Run(3);",
+  "}",
+  "// calls Lib::Hidden() {",
+  "/* Lib::Block() { */",
+  "friend int Lib::Friend(int);",
+  "int Dlg::Size() const",
+  "{",
+  "  return 0;",
+  "}",
+  "Dlg::Dlg(int x) : m_x(x)",
+  "{",
+  "}",
+  "int Dlg::Wide(",
+  "  int a,",
+  "  int b)",
+  "{",
+  "  return a + b;",
+  "}",
+  "Dlg::~Dlg()",
+  "{",
+  "}",
+  "bool Dlg::operator==(const Dlg& o) const",
+  "{",
+  "  return true;",
+  "}",
+  ""]))
+w2("3rdparty/Zlib/Zlib.vcxproj", "<Project/>")
+w2("3rdparty/Zlib/z.cpp", "int Zlib::Inflate()\n{\n  return 1;\n}\n")
+def nf2(func, mod, sd=WSD, rt=root2): return so.classify_native(func, mod, sd, rt)
+APPEXE = r"C:\ws\Sln\x64\Debug\App.exe"
+check("C1: a CALL of a library function in our sources is not a definition (ExtStatic::Helper(1);) -> unknown", nf2("ExtStatic::Helper", APPEXE) == "unknown")
+check("C1: a call whose result is used (int r = ExtStatic::Calc(2);) -> unknown", nf2("ExtStatic::Calc", APPEXE) == "unknown")
+check("C1: return Lib::Helper(r); and if (ok) Lib::Run(3); are calls -> unknown", nf2("Lib::Helper", APPEXE) == "unknown" and nf2("Lib::Run", APPEXE) == "unknown")
+check("C1: names in comments and a friend declaration are not definitions -> unknown", nf2("Lib::Hidden", APPEXE) == "unknown" and nf2("Lib::Block", APPEXE) == "unknown" and nf2("Lib::Friend", APPEXE) == "unknown")
+check("C1: a real definition is ours", nf2("Dlg::Go", APPEXE) == "ours")
+check("C1: const method, constructor with initialiser, multi-line parameters, destructor, operator== are definitions -> ours",
+      all(nf2(n, APPEXE) == "ours" for n in ("Dlg::Size", "Dlg::Dlg", "Dlg::Wide", "Dlg::~Dlg", "Dlg::operator==")))
+check("I2: a vendored project under 3rdparty does not make a copied DLL ours", nf2("Zlib::Inflate", r"C:\ws\Sln\x64\Debug\Zlib.dll") == "unknown")
+check("I2: a source under 3rdparty / deps / extern / submodules is external code -> ext", all(so.classify("c:\\ws\\sln\\%s\\x.cpp" % d, "", SD) == "ext" for d in ("3rdparty", "deps", "extern", "submodules")))
+check("M3: a bare module name is never claimed as ours", nf2("Dlg::Go", "App.exe") == "unknown")
+check("M3: without a solution dir nothing is ours", nf2("Dlg::Go", APPEXE, None) == "unknown")
+
+# I1: STOPPED のファイルを、別のモジュールのフレームに割り当てない
+I1 = ["STACK: #0 Process [module=C:\\ws\\Sln\\x64\\Debug\\ExtDll.dll]", "STACK: #1 Process [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]",
+      r"SOLUTION: C:\ws\Sln\App.slnx", r"STOPPED: Process at C:\ws\Sln\App\p.cpp:3"]
+t = so.transform(I1, root2)
+check("I1: our source file is not given to a same-named frame of an external DLL; it goes to the frame of our exe -> #0 unknown, #1 ours, never top=ours for the external frame",
+      t[0].startswith("STACK: #0 [unknown] Process (") and t[1].startswith("STACK: #1 [ours] Process at C:\\ws\\Sln\\App\\p.cpp:3") and "OWNER: top=unknown (frame #0)" in t)
+t = so.transform(I1, None)
+check("I1: without a solution root, an in-solution STOPPED file is not assigned at all (cannot check the module) -> unknown", t[0].startswith("STACK: #0 [unknown]") and t[1].startswith("STACK: #1 [unknown]"))
+# M4
+t = so.transform(["STACK: #0 Foo [module=C:\\ws\\Sln\\x64\\Debug\\ExtDll.dll]", r"SOLUTION: C:\ws\Sln\App.slnx", "STOPPED: (location unknown)"], root2)
+check("M4: STOPPED: (location unknown) assigns nothing", t[0].startswith("STACK: #0 [unknown] Foo (") and " at " not in t[0])
+t = so.transform([r"STOPPED: Far at C:\ws\Sln\App\far.cpp:1", "STACK: #0 Near [module=C:\\Windows\\System32\\ntdll.dll]", r"SOLUTION: C:\ws\Sln\App.slnx"], root2)
+check("M4: STOPPED before the STACK lines works; no frame has the stopped name -> nothing is assigned (the stop is outside the shown frames)", t[1].startswith("STACK: #0 [sys] Near") and " at " not in t[1])
 PY
 while IFS= read -r l; do
     case "$l" in

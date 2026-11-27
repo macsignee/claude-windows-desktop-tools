@@ -47,7 +47,7 @@ _SYS_MODULE_RE = re.compile(
 )
 
 # ソリューションの直下にある、外のコードの置き場 (add-package の vcpkg・ThirdParty・NuGet など)。この下のソースは、ours にしない
-_VENDOR_DIRS = ("vcpkg_installed", "packages", "thirdparty", "third_party", "external", "vendor")
+_VENDOR_DIRS = ("vcpkg_installed", "packages", "thirdparty", "third_party", "3rdparty", "deps", "extern", "submodules", "external", "vendor")
 
 _FRAME_RE = re.compile(r"^STACK: #(\d+) (.*)$")
 _MODULE_RE = re.compile(r" \[module=(.*)\]$")
@@ -111,7 +111,8 @@ def classify(file, module, solution_dir):
 
 
 # ---- ネイティブ C++ のフレーム (STACK: にファイルがない) の判定 (v2.107.2) ----
-_SKIP_DIRS = {"bin", "obj", "x64", "debug", "release", ".git", "vcpkg_installed", "packages", "thirdparty", "third_party",
+_SKIP_DIRS = {"bin", "obj", "x64", "win32", "arm64", "debug", "release", ".git", ".vs", "ipch", "testresults", ".vscode", ".venv",
+              "vcpkg_installed", "packages", "thirdparty", "third_party", "3rdparty", "deps", "extern", "submodules",
               "external", "vendor", "node_modules", ".claude-logs", ".superpowers"}
 _SRC_EXTS = (".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".inl", ".cs")
 _PROJ_EXTS = (".vcxproj", ".csproj", ".vbproj")
@@ -153,19 +154,27 @@ def project_outputs(root):
     return names
 
 
+def _strip_comments(text):
+    """コメントを空白にする (行の数は、変えない)。"""
+    blank = lambda m: re.sub(r"[^\n]", " ", m.group(0))
+    return re.sub(r"//[^\n]*", blank, re.sub(r"/\*.*?\*/", blank, text, flags=re.S))
+
+
 def defined_in_sources(root, name, cache=None):
-    """クラス名::関数名 (...) の形が、こちらのソースにあるか (定義。マップの &クラス::関数 のような、括弧のない参照は数えない)。"""
+    """クラス名::関数名 の**定義**が、こちらのソースにあるか。行頭から (戻り値の型は、あってもよい) 名前、(引数)、const などの修飾、そして { か : (コンストラクターの初期化子)。
+    呼び出し (`Lib::Fn(1);`、`return Lib::Fn(x);`)、宣言 (末尾が ;)、コメント、マップの &クラス::関数 は、数えない。"""
     if cache is None:
         cache = {}
     if "texts" not in cache:
-        cache["texts"] = [_read(p) for p in _walk(root, _SRC_EXTS)]
-    pat = re.compile(r"(?<![\w:])" + re.escape(name) + r"\s*\(")
+        cache["texts"] = [_strip_comments(_read(p)) for p in _walk(root, _SRC_EXTS)]
+    pat = re.compile(r"^[ \t]*(?:template\s*<[^>]*>\s*)?(?:[A-Za-z_][\w:<>,*&~ \t]*?[ \t*&]+)?" + re.escape(name)
+                     + r"[ \t]*\([^;{}]*\)[ \t\r\n]*(?:(?:const|noexcept|override|final|volatile)[ \t\r\n]*)*[{:]", re.M)
     return any(pat.search(t) for t in cache["texts"])
 
 
 def classify_native(func, module, solution_dir, solution_root, cache=None):
     """ファイルがないフレーム (ネイティブ C++) の判定。こちらのプロジェクトの出力のモジュールで、関数が、こちらのソースに定義されているときだけ ours。それ以外は unknown。"""
-    if not solution_root or not module:
+    if not solution_root or not module or not solution_dir:
         return "unknown"
     if cache is None:
         cache = {}
@@ -174,7 +183,7 @@ def classify_native(func, module, solution_dir, solution_root, cache=None):
     if _module_name(module) not in cache["outputs"]:
         return "unknown"
     m = _norm(module)
-    if "\\" in m and not _under(m, _norm(solution_dir) if solution_dir else None):
+    if "\\" not in m or not _under(m, _norm(solution_dir)):   # 名前だけのモジュールは、こちらの出力と、確かめられない
         return "unknown"
     if "::" not in func:
         return "unknown"
@@ -253,6 +262,20 @@ def _stopped(lines):
     return None
 
 
+def _stopped_ok(f, stopped, sd, solution_root, cache):
+    """STOPPED: のファイルを、このフレームに割り当ててよいか。ファイルがこちらのソリューションの中なら (ours になる)、フレームのモジュールが、
+    こちらのプロジェクトの出力で、こちらの出力フォルダにあるときだけ (外の DLL の、同じ名前のフレームに、こちらのファイルを付けて、ours としない)。"""
+    p = _norm(stopped["file"])
+    if sd is None or not _under(p, _norm(sd)) or _own_or_vendor(p, _norm(sd)) == "ext":
+        return True
+    if not solution_root or not f["module"]:
+        return False
+    if "outputs" not in cache:
+        cache["outputs"] = project_outputs(solution_root)
+    m = _norm(f["module"])
+    return _module_name(m) in cache["outputs"] and "\\" in m and _under(m, _norm(sd))
+
+
 def transform(lines, solution_root=None):
     """出力の全行を受け取り、STACK: の行を書き換え、最後の STACK: / STACK_TRUNCATED: の直後に OWNER: と BOUNDARY: を足して返す。
     solution_root: ソリューションのフォルダ (WSL のパス)。ネイティブ C++ のフレームを、こちらのソースの定義と照合するために使う。"""
@@ -274,7 +297,7 @@ def transform(lines, solution_root=None):
             continue
         # ネイティブ C++ のフレームには、ファイルが取れない。止まったフレームのファイルは、STOPPED: にある。
         # 同じ関数名で、ファイルを持たない最初のフレームに、割り当てる (PDB がなく、#0 にソースがないときは、#1 になる)
-        if stopped and not stopped_given and not f["file"] and f["func"] == stopped["func"]:
+        if stopped and not stopped_given and not f["file"] and f["func"] == stopped["func"] and _stopped_ok(f, stopped, sd, solution_root, cache):
             f["file"], f["line"] = stopped["file"], stopped["line"]
             stopped_given = True
         owner = classify(f["file"], f["module"], sd)
