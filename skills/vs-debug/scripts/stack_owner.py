@@ -276,9 +276,34 @@ def _stopped_ok(f, stopped, sd, solution_root, cache):
     return _module_name(m) in cache["outputs"] and "\\" in m and _under(m, _norm(sd))
 
 
+# ネイティブの例外 (SEH。アクセス違反など) は、`$exception` が使えない。VS は、止まったとき、デバッグ出力ペインに、例外の 1 行を書く
+# (日本語: `…で例外がスローされました (App.exe 内): 0xC0000005: 場所 … の読み取り中にアクセス違反が発生しました`、英語: `Exception thrown at … in App.exe: 0xC0000005: Access violation …`)。
+# ホストは、その最後の行を `LAST_OUTPUT:` として出す。**例外のコード (0xC… / 0xE… / 0x8…) が、コロンに挟まれた形**のときだけ、`EXCEPTION:` にする (言語に依存しない)。
+_EXC_LINE_RE = re.compile(r": 0x[CcEe8][0-9A-Fa-f]{7}: ")
+
+
+def _fold_last_output(lines):
+    """LAST_OUTPUT: の行を取り除き、例外の形で、かつ EXCEPTION: がまだないときだけ、EXCEPTION: を (最初の STACK: の前に) 足す。"""
+    has_exc = any(l.startswith("EXCEPTION:") for l in lines)
+    out = []
+    exc = None
+    for l in lines:
+        if l.startswith("LAST_OUTPUT: "):
+            text = l[len("LAST_OUTPUT: "):].strip()
+            if not has_exc and exc is None and _EXC_LINE_RE.search(text):
+                exc = "EXCEPTION: " + text
+            continue
+        out.append(l)
+    if exc:
+        pos = next((i for i, l in enumerate(out) if l.startswith("STACK: #")), 0)
+        out.insert(pos, exc)
+    return out
+
+
 def transform(lines, solution_root=None):
     """出力の全行を受け取り、STACK: の行を書き換え、最後の STACK: / STACK_TRUNCATED: の直後に OWNER: と BOUNDARY: を足して返す。
     solution_root: ソリューションのフォルダ (WSL のパス)。ネイティブ C++ のフレームを、こちらのソースの定義と照合するために使う。"""
+    lines = _fold_last_output(lines)
     sd = _solution_dir(lines)
     stopped = _stopped(lines)
     stopped_given = False

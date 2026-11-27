@@ -203,7 +203,7 @@ MAX_CAP=60
 show() {
     [ -f "$1" ] || return 0
     local total content=""
-    if [ "$1" = "$OUTFILE" ] && grep -aq 'STACK: #' "$1"; then
+    if [ "$1" = "$OUTFILE" ] && grep -aq 'STACK: #\|LAST_OUTPUT: ' "$1"; then
         # STACK: の各フレームに、所有者の印 (ours / ext / sys / unknown) と、OWNER: / BOUNDARY: の要約を付ける (v2.107.0)。
         # python3 がない・スクリプトが失敗したときは、印なしの、元の出力を出す (EXCEPTION: / LOCALS: / STOPPED: を、失わない)
         content="$(python3 -I "$SELF_DIR/stack_owner.py" --solution-root "$DIR" "$1" 2>/dev/null)" || content=""   # --solution-root: ネイティブ C++ のフレームを、こちらのソースの定義と照合する (v2.107.2)

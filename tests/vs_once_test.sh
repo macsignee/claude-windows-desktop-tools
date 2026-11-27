@@ -112,6 +112,7 @@ h_cap()   { { printf '%sSOLUTION: x%s\nDEBUG_MODE: break%s\nSTOPPED: Foo::Bar at
 h_steps() { { printf '%sSTEP 1: C:\\p\\a.cpp:10  int x = f(a);%s\nCHANGED: a = 1 -> 2%s\n' "$BOM" "$CR" "$CR"; for i in $(seq 2 60); do printf 'STEP %s: C:\\p\\a.cpp:%s  line %s%s\nCHANGED: n = %s -> %s%s\n' "$i" "$((9+i))" "$i" "$CR" "$((i-1))" "$i" "$CR"; done; printf 'STEP_DONE: 60/60%s\nDEBUG_MODE: break%s\n' "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_stack() { { printf '%sSTACK: #0 Lib::Run at z:\\nightly\\LibA\\a.cpp:9 [module=LibA.dll]%s\nSTACK: #1 App::Go at C:\\p\\a.cpp:12 [module=App.exe]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_native() { { printf '%sSTACK: #0 Lib::Run [module=C:\\p\\x64\\Debug\\LibA.dll]%s\nSTACK: #1 Dlg::Go [module=C:\\p\\x64\\Debug\\App.exe]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\nSTOPPED: Lib::Run at z:\\nightly\\LibA\\a.cpp:9%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
+h_native_exc() { { printf '%sSTACK: #0 ExtDll_Sum [module=C:\\p\\x64\\Debug\\ExtDll.dll]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\nLAST_OUTPUT: Exception thrown at 0x00007FFB1ACD16D2 (ExtDll.dll) in App.exe: 0xC0000005: Access violation reading location 0x0000000000000000.%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_never() { :; }
 h_weird() { write_id; printf WEIRD > "$D/vs_result.txt"; }
 run_case() {
@@ -147,6 +148,8 @@ mkdir -p "$D/App"; printf '<Project/>\n' > "$D/App/App.vcxproj"; printf 'void Dl
 run_case h_native --inspect
 ok "native frames (no file in STACK): the STOPPED file makes #0 ext, and our solution folder (--solution-root) shows that Dlg::Go is defined in our sources -> ours, boundary found" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] Dlg::Go')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && echo 1 || echo 0)"
 rm -rf "$D/App"
+run_case h_native_exc --inspect
+ok "native exception: the host's LAST_OUTPUT: line becomes EXCEPTION: (before STACK:), and LAST_OUTPUT: is not shown" "$([ "$(has "$OUT" 'EXCEPTION: Exception thrown at 0x00007FFB1ACD16D2')" = 1 ] && [ "$(has "$OUT" 'LAST_OUTPUT:')" = 0 ] && [ "$(has "$OUT" 'STACK: #0')" = 1 ] && echo 1 || echo 0)"
 FB="$T/fakebin"; mkdir -p "$FB"; printf '#!/bin/sh\nexit 1\n' > "$FB/python3"; chmod +x "$FB/python3"
 OLDPATH="$PATH"; PATH="$FB:$PATH"
 run_case h_stack --inspect

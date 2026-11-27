@@ -281,14 +281,27 @@ function Restore-VsHex($dte, [bool]$prev) {
 function Get-VsInspectLines($dte) {
     $lines = New-Object System.Collections.Generic.List[string]
     $hex = Use-VsDecimal $dte
+    $excAdded = $false
     try {
         $ex = Invoke-VsRetry { $dte.Debugger.GetExpression('$exception', $false, 2000) }
         if ($ex -and $ex.IsValidValue) {
             $exType = ""
             try { if ($ex.Type) { $exType = "$($ex.Type) " } } catch { }
             $lines.Add("EXCEPTION: $exType$(Limit-VsText ([string]$ex.Value))")
+            $excAdded = $true
         }
     } catch { }
+    if (-not $excAdded) {
+        # A native exception (SEH: an access violation, ...) has no $exception. VS writes one line about it to the Debug pane when it breaks.
+        # Emit the last non-empty line of the pane as LAST_OUTPUT:; the WSL side (stack_owner.py) turns it into EXCEPTION: only when it has the shape of an exception line.
+        try {
+            $pane = Get-VsOutputPane $dte
+            if ($pane.Text) {
+                $last = @(($pane.Text -split "\r?\n") | Where-Object { $_.Trim() }) | Select-Object -Last 1
+                if ($last) { $lines.Add("LAST_OUTPUT: $(Limit-VsText ([string]$last))") }
+            }
+        } catch { }
+    }
     try {
         $frames = @(Invoke-VsRetry { @($dte.Debugger.CurrentThread.StackFrames) })
         $i = 0
