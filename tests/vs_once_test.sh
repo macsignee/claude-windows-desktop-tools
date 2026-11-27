@@ -61,7 +61,7 @@ bad --break "src/a.cpp";            ok "BAD_ARGS: --break without a line number"
 bad --status --debug;               ok "BAD_ARGS: --status cannot be combined" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --no-wait;                      ok "BAD_ARGS: --no-wait needs --debug" "$([ $RC = 2 ] && [ "$(has "$OUT" 'needs --debug')" = 1 ] && echo 1 || echo 0)"
 bad --status --debug --no-wait;     ok "BAD_ARGS: --status cannot be combined with --debug --no-wait" "$([ $RC = 2 ] && echo 1 || echo 0)"
-for fa in "--frame" "--frame abc --inspect" "--frame -1 --inspect" "--frame 100 --inspect" "--frame 2" "--frame 1 --inspect --step over" "--frame 1 --inspect --continue" "--frame 1 --inspect --pause" "--frame 1 --inspect --debug" "--frame 1 --status"; do
+for fa in "--frame" "--frame abc --inspect" "--frame -1 --inspect" "--frame 100 --inspect" "--frame 18446744073709551616 --inspect" "--frame 100000000000000000000 --inspect" "--frame 2" "--frame 1 --inspect --step over" "--frame 1 --inspect --continue" "--frame 1 --inspect --pause" "--frame 1 --inspect --debug" "--frame 1 --status"; do
     rm -f "$D/trigger_vs.flag"
     # shellcheck disable=SC2086
     bad $fa; ok "BAD_ARGS: $fa (no flag is written)" "$([ $RC = 2 ] && [ ! -e "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
@@ -142,6 +142,8 @@ run_case h_ok --frame 3 --eval "x"
 ok "--frame 3 --eval: frame comes before eval" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 3\neval x\nstatus')" ] && echo 1 || echo 0)"
 run_case h_ok --frame 007 --inspect
 ok "--frame 007: leading zeros are read as decimal (7)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 7\ninspect\nstatus')" ] && echo 1 || echo 0)"
+run_case h_ok --frame 0000000000000000000000007 --inspect
+ok "--frame with many leading zeros is still 7 (digit count is checked after the zeros are removed)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 7\ninspect\nstatus')" ] && echo 1 || echo 0)"
 run_case h_stack --inspect
 ok "--inspect: STACK lines get the owner mark, the module moves to the end, OWNER and BOUNDARY follow; no BOM / CR" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9 (LibA.dll)')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] App::Go at C:\p\a.cpp:12 (App.exe)')" = 1 ] && [ "$(has "$OUT" 'OWNER: top=ext (frame #0)')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && ! grep -q "$BOM\|$CR" <<<"$OUT" && echo 1 || echo 0)"
 mkdir -p "$D/App"; printf '<Project/>\n' > "$D/App/App.vcxproj"; printf 'void Dlg::Go()\n{\n}\n' > "$D/App/Dlg.cpp"

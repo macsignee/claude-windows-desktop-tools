@@ -1,4 +1,4 @@
-﻿# lib\vs-ide.ps1 - Visual Studio IDE operations (trigger_vs.flag: open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval)
+﻿# lib\vs-ide.ps1 - Visual Studio IDE operations (trigger_vs.flag: open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval / frame)
 # Dot-sourced from watch_and_build.ps1 (same scope). Do not run alone.
 #
 # Each flag line is one operation (blank lines and # lines are ignored). Run in order; stop at the first failure.
@@ -571,7 +571,8 @@ function Invoke-VsOps([string[]]$flagLines) {
                             $n = [int]$arg
                             if ($n -ge $frames.Count) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("FRAME_OUT_OF_RANGE: $n (frames: $($frames.Count))") } }
                             if ($null -eq $script:VsFrameRestore) { $script:VsFrameRestore = @{ Dte = $dte; Frame = (Invoke-VsRetry { $dte.Debugger.CurrentStackFrame }) } }
-                            Invoke-VsRetry { $dte.Debugger.CurrentStackFrame = $frames[$n] } | Out-Null
+                            try { Invoke-VsRetry { $dte.Debugger.CurrentStackFrame = $frames[$n] } | Out-Null }
+                            catch { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("FRAME_FAILED: #$n could not be selected: $($_.Exception.Message)") } }
                             $sel = $frames[$n]
                             $where = ""
                             try { if ($sel.FileName) { $where = " at $($sel.FileName):$($sel.LineNumber)" } } catch { }
@@ -636,7 +637,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     }
                 }
             }
-            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval)") } }
+            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval / frame)") } }
         }
     }
     return @{ Ok = $true; Env = $false; Lines = $out.ToArray() }
