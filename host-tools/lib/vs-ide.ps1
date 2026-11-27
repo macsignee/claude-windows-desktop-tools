@@ -17,6 +17,8 @@
 #   continue                  (v2.101.0) F5 (Debugger.Go). Break mode only. Waits for the next break / the end (up to VsBreakWaitSec)
 #   pause                     (v2.101.0) Debugger.Break. Run mode only
 #   frame <N>                 (v2.107.0) break mode only: select the N-th stack frame (0 = top) for the next inspect / eval; the original frame is given back at the end of the run. FRAME: / FRAME_SKIP: / FRAME_OUT_OF_RANGE:
+#   selection                 (v2.108.0) read only: the active text document of the editor: SELECTION_FILE: / SELECTION_RANGE: (or CURSOR:) / SELECTION_DIRTY: / SELECTION_TEXT: (each text line starts with "| "; up to VsSelectionMaxLines lines / VsSelectionMaxChars chars, then SELECTION_TRUNCATED:). SELECTION_NONE: / SELECTION_SKIP: when there is nothing to read. Never changes the editor
+#   goto <path>:<line>[:<col>]  (v2.108.0) open the file (path relative to the solution folder), put the cursor on the line and show it centred: GOTO: / GOTO_CLAMPED: (the line is past the end) / GOTO_FAILED:. Never changes the file
 #   eval <expression>         (v2.101.0) the value of an expression (watch). READ-ONLY: an assignment, ++, --, ';' are rejected (EVAL_REJECTED). Break mode only. Function calls are NOT blocked here (a side effect is possible): the Skill tells Claude not to use them without the user's consent
 #   There is NO stop operation (Shift+F5 is the user's). Steps / Go / Break do not block (WaitForBreakOrEnd = false) and the mode is polled with a timeout, so a modal dialog cannot freeze the watcher.
 #   inspect / output never start VS: they need exactly one VS that has the solution open (like reload / clear / break / debug).
@@ -35,6 +37,8 @@ $VsInspectMaxLocals = 30
 $VsInspectValueMax = 200         # characters per value
 $VsOutputWindowKind = '{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}'   # EnvDTE.Constants.vsWindowKindOutput
 $VsUnknownWaitSec = 5            # after the breakpoint wait: a stop at an exception can read as 'unknown' for a moment
+$VsSelectionMaxLines = 100        # selection: lines of text shown (vs_once.sh shows 150 lines of output at most)
+$VsSelectionMaxChars = 8000        # selection: characters of text shown
 $VsStepMax = 30                 # steps per step operation (the Skill also limits one run to 30 in total)
 $VsStepWaitSec = 15              # a step that has not stopped after this long is reported as STEP_TIMEOUT
 $VsPauseWaitSec = 10
@@ -346,6 +350,65 @@ function Get-VsSourceText([string]$file, [int]$line) {
     try { return (Limit-VsText ([string]([System.IO.File]::ReadLines($file) | Select-Object -Skip ($line - 1) -First 1))) } catch { return "" }
 }
 
+# The active text document of the editor: file, selection range (or the cursor), unsaved changes, selected text. READ ONLY (no write, no move, no activation).
+function Get-VsSelectionLines($dte) {
+    $doc = $null
+    try { $doc = Invoke-VsRetry { $dte.ActiveDocument } } catch { }
+    if (-not $doc) { return @("SELECTION_NONE: no active document") }
+    $td = $null
+    try { $td = $doc.Object('TextDocument') } catch { }
+    if (-not $td) {
+        $kind = ""
+        try { $kind = [string]$doc.Kind } catch { }
+        return @("SELECTION_SKIP: not a text document ($kind)")
+    }
+    $lines = New-Object System.Collections.Generic.List[string]
+    try {
+        $lines.Add("SELECTION_FILE: $($doc.FullName)")
+        $sel = $td.Selection
+        if ($sel.IsEmpty) { $lines.Add("CURSOR: $($sel.ActivePoint.Line):$($sel.ActivePoint.LineCharOffset)") }
+        else { $lines.Add("SELECTION_RANGE: $($sel.TopPoint.Line):$($sel.TopPoint.LineCharOffset)-$($sel.BottomPoint.Line):$($sel.BottomPoint.LineCharOffset)") }
+        $lines.Add("SELECTION_DIRTY: $(if ($doc.Saved) { 'no' } else { 'yes' })")
+        if (-not $sel.IsEmpty) {
+            $text = ([string]$sel.Text) -replace "`r", ''
+            $all = @($text -split "`n")
+            $lines.Add("SELECTION_TEXT: $($all.Count) lines, $($text.Length) chars")
+            $shown = 0; $chars = 0
+            foreach ($l in $all) {
+                if ($shown -ge $VsSelectionMaxLines -or ($chars + $l.Length) -gt $VsSelectionMaxChars) { break }
+                $lines.Add('| ' + $l)
+                $shown++; $chars += $l.Length + 1
+            }
+            if ($shown -lt $all.Count) { $lines.Add("SELECTION_TRUNCATED: showing the first $shown of $($all.Count) lines (limits: $VsSelectionMaxLines lines, $VsSelectionMaxChars chars)") }
+        }
+    } catch { $lines.Add("SELECTION_SKIP: could not read the selection: $($_.Exception.Message)") }
+    return $lines.ToArray()
+}
+
+# Open a file of the solution and put the cursor on a line (shown centred). Never changes the file. @{ Ok; Lines }
+function Invoke-VsGoto($dte, [string]$arg) {
+    if ($arg -notmatch '^(.+):([0-9]{1,6})(:([0-9]{1,4}))?$') { return @{ Ok = $false; Lines = @("GOTO_FAILED: use <path>:<line>[:<column>]: $arg") } }
+    $full = Get-VsFullPath $Matches[1]
+    $line = [int]$Matches[2]
+    $col = if ($Matches[4]) { [int]$Matches[4] } else { 1 }
+    if (-not $full -or -not (Test-Path -LiteralPath $full -PathType Leaf) -or $line -lt 1 -or $col -lt 1) { return @{ Ok = $false; Lines = @("GOTO_FAILED: file not found under the solution folder, or bad line / column: $arg") } }
+    $lines = New-Object System.Collections.Generic.List[string]
+    try {
+        Invoke-VsRetry { $dte.ItemOperations.OpenFile($full) | Out-Null } | Out-Null
+        $doc = Invoke-VsRetry { $dte.ActiveDocument }
+        $td = $null
+        try { $td = $doc.Object('TextDocument') } catch { }
+        if (-not $td) { return @{ Ok = $false; Lines = @("GOTO_FAILED: the file opened, but it is not a text document: $arg") } }
+        $last = [int]$td.EndPoint.Line
+        if ($line -gt $last) { $lines.Add("GOTO_CLAMPED: $line -> $last"); $line = $last }
+        $sel = $td.Selection
+        $sel.MoveToLineAndOffset($line, $col, $false)   # a column past the end of the line is clamped by the editor
+        $sel.ActivePoint.TryToShow(1, $null)            # 1 = vsPaneShowCentered
+        $lines.Add("GOTO: ${full}:${line}:$col")
+    } catch { return @{ Ok = $false; Lines = $lines.ToArray() + @("GOTO_FAILED: $($_.Exception.Message)") } }
+    return @{ Ok = $true; Lines = $lines.ToArray() }
+}
+
 # name -> value of the locals of the current frame (up to VsInspectMaxLocals)
 function Get-VsLocalsMap($dte) {
     $m = [ordered]@{}
@@ -445,12 +508,21 @@ function Invoke-VsOps([string[]]$flagLines) {
                     $out.Add("ACTIVATED")
                 } catch { $out.Add("ACTIVATE_FAILED: $($_.Exception.Message)") }
             }
-            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output', 'step', 'continue', 'pause', 'eval', 'frame') } {
+            { $_ -in @('reload', 'clear', 'break', 'debug', 'inspect', 'output', 'step', 'continue', 'pause', 'eval', 'frame', 'selection', 'goto') } {
                 $targets = @(Get-VsTargets)
                 for ($retry = 0; $targets.Count -eq 0 -and $retry -lt $VsTargetRetry; $retry++) { Start-Sleep -Seconds 2; $targets = @(Get-VsTargets) }   # right after the app starts, VS can briefly not answer
                 if ($targets.Count -ne 1) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("$($t[0]): Visual Studio does not have this solution open (found $($targets.Count)). Run open first.") } }
                 $dte = $targets[0].Dte
                 switch ($t[0]) {
+                    'selection' {
+                        if ($arg) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("selection takes no argument") } }
+                        foreach ($l in (Get-VsSelectionLines $dte)) { $out.Add($l) }
+                    }
+                    'goto' {
+                        $r = Invoke-VsGoto $dte $arg
+                        foreach ($l in $r.Lines) { $out.Add($l) }
+                        if (-not $r.Ok) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() } }
+                    }
                     'reload' {
                         $full = Get-VsFullPath $arg
                         if (-not $full) { return @{ Ok = $false; Env = $false; Lines = $out.ToArray() + @("reload: invalid path: $arg") } }
@@ -637,7 +709,7 @@ function Invoke-VsOps([string[]]$flagLines) {
                     }
                 }
             }
-            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval / frame)") } }
+            default { return @{ Ok = $false; Env = $false; Lines = @("unknown operation: $op (open / status / reload / clear / break / debug / inspect / output / step / continue / pause / eval / frame / selection / goto)") } }
         }
     }
     return @{ Ok = $true; Env = $false; Lines = $out.ToArray() }
