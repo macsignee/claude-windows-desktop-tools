@@ -49,8 +49,9 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --attach)
             shift
-            case "${1:-}" in ''|*[!A-Za-z0-9_.-]*) echo "BAD_ARGS: --attach needs a process name (letters, digits, '_', '.', '-'; no spaces, quotes or path separators)"; exit 2 ;; esac
-            attach="$1" ;;
+            case "${1:-}" in ''|-*|*[!A-Za-z0-9_.-]*) echo "BAD_ARGS: --attach needs a process name (letters, digits, '_', '.', '-'; not starting with '-'; no spaces, quotes or path separators)"; exit 2 ;; esac
+            attach="${1%.[eE][xX][eE]}"   # プロセス名に、.exe は付かない (VS の「プロセス名」は、拡張子なし)
+            [ -n "$attach" ] || { echo "BAD_ARGS: --attach needs a process name (not just .exe)"; exit 2; } ;;
         --visible)  flag_content="${flag_content}desktop=visible"$'\n' ;;
         --separate|--invisible) flag_content="${flag_content}desktop=separate"$'\n' ;;
         --slowmo)

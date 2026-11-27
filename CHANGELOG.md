@@ -2,6 +2,19 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.107.5] 2026-11-27 (UI テストのアタッチモードの軽微な点 5 件。**ホスト側とひな形を変えた**)
+
+- **直したこと** (PR #275 の本文の「先送り 9 件」のうち):
+  1. `Invoke-AttachBuild` (`build.ps1`): `--project` の誤り (`Scope.Error`) を無視して、全 UI テストのビルドにすり替えていた。`ERROR: project scope: …` (終了コード 2) で止める。
+  2. `uitest_once.sh --attach`: 先頭が `-` の名前は、`BAD_ARGS` (オプションに見えるため)。`.exe` 付きの名前 (`PS5.exe`) は、`.exe` を外して `attach=PS5` にする。
+  3. `tests.ps1`: どのプロジェクトにも `DebugTrigger` のテストがないとき、「`--filter` の式を確かめて」ではなく、`Test failed: no DebugTrigger test found in any UI test project. …` と出す (`--filter` を自分で渡したときは、従来の文言)。
+  4. `UiTestBase.Trigger` (ひな形、`add_ui_tests.py`): `throw e.InnerException ?? e` が元のスタックトレースを失っていた。`ExceptionDispatchInfo.Capture(...).Throw()` に変えた。
+  5. 同じひな形の XML コメントの `<プロセス名>` (CS1570。文書生成を有効にしたときだけ出る警告) を `&lt;プロセス名&gt;` にした。
+- **直さなかったもの (理由つき):** 待ち時間 (最小 180 秒) をプロジェクト数・NuGet 復元に比例させる件 (実機で困った例がない)。`slowmo` / `hold` の扱い (仕様の判断が要る)。`--debug --no-wait --inspect` の `inspect` の待ち (最大 40 秒。`--no-wait` の意図との兼ね合い)。`poc/attach-debug` が追跡されない件 (`poc/` は、意図して追跡しない。CHANGELOG と設計書の参照は、試作の記録として残す)。
+- **既存のプロジェクトへ:** ひな形の変更 (4・5) は、`add_ui_tests.py <dir> --refresh-support-files --app <名前>` で反映する (テストの本体は触らない)。
+- **確認:** `uitest_once_test.sh` に 2 件、`ui_tests_gen_test.sh` に 2 件 × 各ひな形、`host_tools_static_test.sh` に 1 件 (先に Red を確認)。PowerShell は、WSL で実行できない (静的な確認だけ)。
+- **配布:** `install.sh --host-only` と `--skills-only`、**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.107.5)。
+
 ## [2.107.4] 2026-11-27 (フレームの所有者の判定の軽微な点 4 件。**ホスト側を変えた**)
 
 - **直したこと** (HANDOFF-2026-11-26 の 3-3 の先送り分):

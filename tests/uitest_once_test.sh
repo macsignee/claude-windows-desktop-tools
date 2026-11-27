@@ -131,6 +131,8 @@ run_attach startonly 30 --attach PS5
 ok "--attach, the new UiTestBase tried to attach (start line has attach:) but did not attach -> not ATTACH_UNSUPPORTED (the test result is shown as it is)" "$([ "$(head -n 1 <<<"$OUT")" != ATTACH_UNSUPPORTED ] && [ $RC != 8 ] && echo 1 || echo 0)"
 run_attach buildfail 30 --attach PS5
 ok "--attach, the build failed -> BUILD_FAILED (rc=6), not ATTACH_UNSUPPORTED" "$([ $RC = 6 ] && [ "$(head -n 1 <<<"$OUT")" = BUILD_FAILED ] && echo 1 || echo 0)"
+run_attach attached 30 --attach PS5.exe
+ok "--attach PS5.exe: the .exe suffix is dropped (the flag carries attach=PS5; a process name has no .exe)" "$(grep -qx 'attach=PS5' "$T/captured.txt" && ! grep -q 'PS5.exe' "$T/captured.txt" && echo 1 || echo 0)"
 rm -f "$T/trigger_uitest.flag"
 # 古い UiTestBase (UITEST_ATTACH_PROCESS を、知らない) は、WSL 側で、フラグを置く前に、見つける (きっかけのテストが、Trigger を呼ぶと、コンパイルが通らず BUILD_FAILED になるため、トレースでは、間に合わない)
 mkdir -p "$T/App.UITests"; printf 'public abstract class UiTestBase { }\n' > "$T/App.UITests/UiTestBase.cs"
@@ -143,6 +145,9 @@ run_attach attached 30 --attach PS5
 ok "--attach with a new UiTestBase.cs: goes on (PASSED)" "$([ $RC = 0 ] && [ "$(head -n 1 <<<"$OUT")" = PASSED ] && echo 1 || echo 0)"
 rm -rf "$T/App.UITests"
 bad_attach() { OUT="$(bash "$SCRIPT" "$T" "$@" 2>&1)"; RC=$?; }
+rm -f "$T/trigger_uitest.flag"
+bad_attach --attach -PS5
+ok "--attach -PS5: a name that starts with - is refused (it would look like an option) -> BAD_ARGS (rc=2), no flag" "$([ $RC = 2 ] && [ "$(head -n 1 <<<"$OUT")" != PASSED ] && grep -q BAD_ARGS <<<"$OUT" && [ ! -e "$T/trigger_uitest.flag" ] && echo 1 || echo 0)"
 bad_attach --attach;                      ok "BAD_ARGS: --attach without a name (rc=2)" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
 bad_attach --attach "a b";                ok "BAD_ARGS: a name with a space" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"
 bad_attach --attach 'x"y';                ok "BAD_ARGS: a name with a quote" "$([ $RC = 2 ] && head -n 1 <<<"$OUT" | grep -q '^BAD_ARGS' && echo 1 || echo 0)"

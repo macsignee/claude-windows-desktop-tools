@@ -208,6 +208,7 @@ function Invoke-Tests([switch]$Ui) {
     $timedOut = $false
     $invalid = $false
     $attachRan = 0       # アタッチ: テストを実行した UI テストのプロジェクトの数
+    $attachNoTrigger = $false   # アタッチ: どのプロジェクトにも、きっかけ専用のテストがない (式の誤りではない)
     $attachEmpty = @()   # アタッチ: きっかけ専用のテスト (DebugTrigger) が、1 件もなかったプロジェクト
     $staleFound = $false
     $all = @()
@@ -311,7 +312,7 @@ function Invoke-Tests([switch]$Ui) {
     }
     $all | Out-File $TestLog -Encoding utf8
     if ($Ui -and $script:UiRun.Attach -and $attachRan -eq 0 -and $attachEmpty.Count -gt 0 -and -not $timedOut -and -not $failed) {
-        $invalid = $true; $filterNoMatch = $true   # どのプロジェクトにも、きっかけ専用のテスト (DebugTrigger) が、ない
+        $invalid = $true; $filterNoMatch = $true; $attachNoTrigger = -not $script:UiRun.FilterGiven   # どのプロジェクトにも、きっかけ専用のテスト (DebugTrigger) が、ない
     }
 
     if ($timedOut) {
@@ -325,8 +326,8 @@ function Invoke-Tests([switch]$Ui) {
         @(ConvertTo-RelativePaths $report) | Out-File $TestErrorLog -Encoding utf8
         Write-TestMarker "FAILED"
     } elseif ($invalid) {
-        $envNote = if ($filterNoMatch) { "Test failed: no test matches the --filter expression ($($script:UiRun.Filter)). Check the expression: ~ means contains, = means equals, & / | combine (e.g. FullyQualifiedName~LoginDialog). This is not a GoogleTest / adapter problem." } elseif ($staleFound) { "Test result is not trusted: the tests ran against an older build output (see above)." } else { "Test failed: tests were probably not run (GoogleTest: check -TestArgs / is this a GoogleTest exe? dotnet: is Microsoft.NET.Test.Sdk and a test adapter referenced?)" }
-        Write-Host "[RESULT] Tests ENV_ERROR ($(if ($filterNoMatch) { 'no test matches the filter' } elseif ($staleFound) { 'tests ran against an older build output' } else { 'tests were probably not run' }))." -ForegroundColor Red
+        $envNote = if ($attachNoTrigger) { "Test failed: no DebugTrigger test found in any UI test project. Add a test with [TestCategory(""DebugTrigger"")] that calls Trigger(() => ...) (see build-test-loop/references/ui-tests.md). This is not a filter expression problem." } elseif ($filterNoMatch) { "Test failed: no test matches the --filter expression ($($script:UiRun.Filter)). Check the expression: ~ means contains, = means equals, & / | combine (e.g. FullyQualifiedName~LoginDialog). This is not a GoogleTest / adapter problem." } elseif ($staleFound) { "Test result is not trusted: the tests ran against an older build output (see above)." } else { "Test failed: tests were probably not run (GoogleTest: check -TestArgs / is this a GoogleTest exe? dotnet: is Microsoft.NET.Test.Sdk and a test adapter referenced?)" }
+        Write-Host "[RESULT] Tests ENV_ERROR ($(if ($attachNoTrigger) { 'no DebugTrigger test found' } elseif ($filterNoMatch) { 'no test matches the filter' } elseif ($staleFound) { 'tests ran against an older build output' } else { 'tests were probably not run' }))." -ForegroundColor Red
         @(ConvertTo-RelativePaths (@("[ENVIRONMENT ERROR - not a source code problem]") + $report + @("", $envNote))) |
             Out-File $TestErrorLog -Encoding utf8
         Write-TestMarker "ENV_ERROR"
