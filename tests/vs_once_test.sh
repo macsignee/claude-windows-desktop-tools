@@ -149,7 +149,12 @@ run_case h_native --inspect
 ok "native frames (no file in STACK): the STOPPED file makes #0 ext, and our solution folder (--solution-root) shows that Dlg::Go is defined in our sources -> ours, boundary found" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] Dlg::Go')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && echo 1 || echo 0)"
 rm -rf "$D/App"
 run_case h_native_exc --inspect
-ok "native exception: the host's LAST_OUTPUT: line becomes EXCEPTION: (before STACK:), and LAST_OUTPUT: is not shown" "$([ "$(has "$OUT" 'EXCEPTION: Exception thrown at 0x00007FFB1ACD16D2')" = 1 ] && [ "$(has "$OUT" 'LAST_OUTPUT:')" = 0 ] && [ "$(has "$OUT" 'STACK: #0')" = 1 ] && echo 1 || echo 0)"
+ok "native exception: the host's LAST_OUTPUT: line becomes EXCEPTION: (before STACK:), and LAST_OUTPUT: is not shown" "$([ "$(has "$OUT" 'EXCEPTION: (debug output; may be stale) Exception thrown at 0x00007FFB1ACD16D2')" = 1 ] && [ "$(has "$OUT" 'LAST_OUTPUT:')" = 0 ] && [ "$(has "$OUT" 'STACK: #0')" = 1 ] && echo 1 || echo 0)"
+FB2="$T/fakebin2"; mkdir -p "$FB2"; printf '#!/bin/sh\nexit 1\n' > "$FB2/python3"; chmod +x "$FB2/python3"
+OLDPATH2="$PATH"; PATH="$FB2:$PATH"
+run_case h_native_exc --inspect
+PATH="$OLDPATH2"
+ok "stack_owner.py failing: the raw LAST_OUTPUT: line is not shown (it is not an exception verdict, and the skill does not document it), the rest is" "$([ "$(has "$OUT" 'LAST_OUTPUT:')" = 0 ] && [ "$(has "$OUT" 'STACK: #0 ExtDll_Sum')" = 1 ] && [ "$(head -1 <<<"$OUT")" = OK ] && echo 1 || echo 0)"
 FB="$T/fakebin"; mkdir -p "$FB"; printf '#!/bin/sh\nexit 1\n' > "$FB/python3"; chmod +x "$FB/python3"
 OLDPATH="$PATH"; PATH="$FB:$PATH"
 run_case h_stack --inspect

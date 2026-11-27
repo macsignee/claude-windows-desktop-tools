@@ -1485,7 +1485,9 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 
 | ID | 確認 | 期待 | 結果 |
 |---|---|---|---|
-| EX1 | 「ExtDll を呼ぶ」でアクセス違反で止める → `vs_once.sh --inspect` | 先頭近くに `EXCEPTION: 0x… (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました` (日本語の VS)。`LAST_OUTPUT:` は出ない | |
-| EX2 | `OnInitDialog` のブレークポイントで止める → `--inspect` | `EXCEPTION:` が出ない (最後の出力が、モジュールの読み込みの行など) | |
+| EX1 | 「ExtDll を呼ぶ」でアクセス違反で止める → `vs_once.sh --inspect` | 先頭近くに `EXCEPTION: (debug output; may be stale) 0x… (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました` (日本語の VS)。`LAST_OUTPUT:` は出ない | |
+| EX2 | `OnInitDialog` のブレークポイントで止める → `--inspect`。続けて `--output 3` で、ペインの最後の行を記録する | `EXCEPTION:` が出ない (最後の出力が、モジュールの読み込みの行など) | |
 | EX3 | 「ExtStatic を呼ぶ」でアクセス違反 → `--inspect` | EX1 と同じ形 | |
 | EX4 | (観察) アクセス違反で止めて、`--continue` などで進めたあと、別のブレークポイントで止める → `--inspect` | 古い例外の行が、`EXCEPTION:` と出るかを記録する (出る場合は、既知の限界) | |
+| EX5 | (回帰) WPF か WinForms のアプリで、ブレークポイントで止める。別に、.NET の未処理の例外で止める | ブレークポイントでは `EXCEPTION:` が出ない。.NET の例外では、型つきの `EXCEPTION:` が出て、`(debug output; may be stale)` は付かない (重複もしない) | |
+| EX6 | (古い行) アプリに、C++ の例外を `try` / `catch` で処理させ (処理済み)、そのあとに、こちらのコードのブレークポイントで止める → `--inspect` | `EXCEPTION:` が出ない (処理済みの例外の行は、モジュールが合わなければ捨てられる)。出る場合は、記録する (既知の限界の確認) | |

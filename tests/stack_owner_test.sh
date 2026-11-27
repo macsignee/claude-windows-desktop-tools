@@ -242,14 +242,14 @@ check("M4: STOPPED before the STACK lines works; no frame has the stopped name -
 FR = ["STACK: #0 ExtDll_Sum [module=C:\\ws\\Sln\\x64\\Debug\\ExtDll.dll]", r"SOLUTION: C:\ws\Sln\App.slnx"]
 JA = "LAST_OUTPUT: 0x00007FFB1ACD16D2 (ExtDll.dll) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました"
 t = so.transform([JA] + FR, None)
-check("EXCEPTION: made from the Japanese VS line, placed before the STACK lines; LAST_OUTPUT: is gone", t[0].startswith("EXCEPTION: 0x00007FFB1ACD16D2 (ExtDll.dll) で例外がスローされました") and "0xC0000005" in t[0] and t[1].startswith("STACK: #0") and not any(x.startswith("LAST_OUTPUT:") for x in t))
+check("EXCEPTION: made from the Japanese VS line, placed before the STACK lines; LAST_OUTPUT: is gone", t[0].startswith("EXCEPTION: (debug output; may be stale) 0x00007FFB1ACD16D2 (ExtDll.dll) で例外がスローされました") and "0xC0000005" in t[0] and t[1].startswith("STACK: #0") and not any(x.startswith("LAST_OUTPUT:") for x in t))
 EN = "LAST_OUTPUT: Exception thrown at 0x00007FFB1ACD16D2 (ExtDll.dll) in App.exe: 0xC0000005: Access violation reading location 0x0000000000000000."
 t = so.transform([EN] + FR, None)
-check("EXCEPTION: made from the English VS line", t[0].startswith("EXCEPTION: Exception thrown at 0x00007FFB1ACD16D2") and not any(x.startswith("LAST_OUTPUT:") for x in t))
+check("EXCEPTION: made from the English VS line", t[0].startswith("EXCEPTION: (debug output; may be stale) Exception thrown at 0x00007FFB1ACD16D2") and not any(x.startswith("LAST_OUTPUT:") for x in t))
 t = so.transform(["LAST_OUTPUT: Unhandled exception at 0x00007FF6A1B2C3D4 in App.exe: 0xC0000005: Access violation writing location 0x0000000000000010."] + FR, None)
-check("EXCEPTION: made from an unhandled-exception line", t[0].startswith("EXCEPTION: Unhandled exception at"))
+check("EXCEPTION: made from an unhandled-exception line", t[0].startswith("EXCEPTION: (debug output; may be stale) Unhandled exception at"))
 t = so.transform(["LAST_OUTPUT: Exception thrown at 0x00007FFB12345678 in App.exe: 0xE06D7363: Microsoft C++ exception: std::runtime_error at memory location 0x000000A1B2C3D4E5."] + FR, None)
-check("EXCEPTION: also for a C++ exception code (0xE06D7363)", t[0].startswith("EXCEPTION: Exception thrown at"))
+check("EXCEPTION: also for a C++ exception code (0xE06D7363)", t[0].startswith("EXCEPTION: (debug output; may be stale) Exception thrown at"))
 t = so.transform(["LAST_OUTPUT: 'App.exe' (Win32): 'C:\\Windows\\System32\\x.dll' が読み込まれました。含める/除外するの設定でシンボルの読み込みが無効になっています。"] + FR, None)
 check("a last output line that is not an exception: no EXCEPTION:, and LAST_OUTPUT: is removed (no noise)", not any(x.startswith("EXCEPTION:") or x.startswith("LAST_OUTPUT:") for x in t) and t[0].startswith("STACK: #0"))
 t = so.transform(["LAST_OUTPUT: value check: 0xDEADBEEF: ok"] + FR, None)
@@ -257,9 +257,26 @@ check("a line with a hex number between colons is not an exception unless it is 
 t = so.transform(["EXCEPTION: System.NullReferenceException 参照が...", JA] + FR, None)
 check("an existing EXCEPTION: (managed) is kept and not duplicated; LAST_OUTPUT: is removed", [x for x in t if x.startswith("EXCEPTION:")] == ["EXCEPTION: System.NullReferenceException 参照が..."] and not any(x.startswith("LAST_OUTPUT:") for x in t))
 t = so.transform([JA, "INSPECT_SKIP: the mode is design (not break)."], None)
-check("without STACK lines an exception-like LAST_OUTPUT: still becomes EXCEPTION: (no STACK needed)", t[0].startswith("EXCEPTION: 0x00007FFB1ACD16D2"))
+check("without STACK lines an exception-like LAST_OUTPUT: still becomes EXCEPTION: (no STACK needed)", t[0].startswith("EXCEPTION: (debug output; may be stale) 0x00007FFB1ACD16D2"))
 src = ["DIRTY: C:\\p\\a.cpp", "DIRTY_COUNT: 1"]
 check("output without LAST_OUTPUT: is unchanged (regression)", so.transform(src, None) == src)
+
+# --- v2.107.3 のレビューの指摘: 出所の明示 (I1)、モジュールの歯止め (I2)、アプリ自身の出力を例外にしない (I3)
+t = so.transform([JA] + FR, None)
+check("I1: the EXCEPTION: made from the output pane says so, so that it cannot be taken for a reliable $exception", t[0].startswith("EXCEPTION: (debug output; may be stale) "))
+KB = "LAST_OUTPUT: Exception thrown at 0x00007FFB11112222 (KernelBase.dll) in App.exe: 0xE06D7363: Microsoft C++ exception: CException at memory location 0x000000A1B2C3D4E5."
+t = so.transform([KB] + FR, None)
+check("I2: a line that names another module than frame #0's module is dropped (a handled exception in KernelBase, then a breakpoint in our DLL)", not any(x.startswith("EXCEPTION:") for x in t) and not any(x.startswith("LAST_OUTPUT:") for x in t))
+t = so.transform([KB, "STACK: #0 RaiseException [module=C:\\Windows\\System32\\KernelBase.dll]", r"SOLUTION: C:\ws\Sln\App.slnx"], None)
+check("I2: the same line is kept when frame #0 really is in that module (a stopped C++ throw)", t[0].startswith("EXCEPTION: (debug output; may be stale) Exception thrown at 0x00007FFB11112222 (KernelBase.dll)"))
+t = so.transform(["LAST_OUTPUT: Exception thrown at 0x00007FF6A1B2C3D4 in App.exe: 0xC0000005: Access violation reading location 0x0000000000000000.", "STACK: #0 Foo [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]", r"SOLUTION: C:\ws\Sln\App.slnx"], None)
+check("I2: a line without a (module) part is kept (an access violation in our own exe)", t[0].startswith("EXCEPTION: (debug output; may be stale) Exception thrown at"))
+t = so.transform(["LAST_OUTPUT: 0x00007FFB1ACD16D2 (extdll.DLL) で例外がスローされました (App.exe 内): 0xC0000005: 場所 0x0 の読み取り中にアクセス違反が発生しました"] + FR, None)
+check("I2: the module names are compared by base name, ignoring case", t[0].startswith("EXCEPTION: (debug output; may be stale) "))
+t = so.transform(["LAST_OUTPUT: CreateFile failed: 0x80070005: Access is denied."] + FR, None)
+check("I3: the app's own HRESULT log line (no address before the code) is not an exception", not any(x.startswith("EXCEPTION:") for x in t))
+t = so.transform(["LAST_OUTPUT: App.exe の 0x00007FF6A1B2C3D4 でハンドルされていない例外がスローされました: 0xC0000005: 場所 0x0000000000000000 の読み取り中にアクセス違反が発生しました"] + FR, None)
+check("I3: the Japanese unhandled-exception line still is an exception", t[0].startswith("EXCEPTION: (debug output; may be stale) App.exe の 0x00007FF6A1B2C3D4"))
 PY
 while IFS= read -r l; do
     case "$l" in

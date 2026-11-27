@@ -297,8 +297,12 @@ function Get-VsInspectLines($dte) {
         try {
             $pane = Get-VsOutputPane $dte
             if ($pane.Text) {
-                $last = @(($pane.Text -split "\r?\n") | Where-Object { $_.Trim() }) | Select-Object -Last 1
-                if ($last) { $lines.Add("LAST_OUTPUT: $(Limit-VsText ([string]$last))") }
+                # One string pass (a pane can have 100k+ lines): the last non-empty line
+                $t = ([string]$pane.Text).TrimEnd()
+                if ($t) {
+                    $last = $t.Substring($t.LastIndexOf("`n") + 1).Trim()
+                    if ($last) { $lines.Add("LAST_OUTPUT: $(Limit-VsText $last)") }
+                }
             }
         } catch { }
     }
