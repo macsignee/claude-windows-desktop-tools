@@ -66,6 +66,11 @@ for fa in "--frame" "--frame abc --inspect" "--frame -1 --inspect" "--frame 100 
     # shellcheck disable=SC2086
     bad $fa; ok "BAD_ARGS: $fa (no flag is written)" "$([ $RC = 2 ] && [ ! -e "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
 done
+for ga in "--goto" "--goto a.cpp" "--goto a.cpp:x" "--goto a.cpp:1:x" "--goto ../a.cpp:3" "--goto /abs/a.cpp:3" "--goto C:\a.cpp:3" "--goto a.cpp:1234567" "--goto a.cpp:1 --goto b.cpp:2" "--selection --status" "--selection --debug" "--selection --break a.cpp:1" "--selection --goto a.cpp:1" "--selection --reload" "--selection --clear" "--selection --step over" "--selection --continue" "--selection --pause"; do
+    rm -f "$D/trigger_vs.flag"
+    # shellcheck disable=SC2086
+    bad $ga; ok "BAD_ARGS: $ga (no flag is written)" "$([ $RC = 2 ] && [ ! -e "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
+done
 bad --timeout abc;                  ok "BAD_ARGS: bad --timeout" "$([ $RC = 2 ] && echo 1 || echo 0)"
 bad --output 0;                     ok "BAD_ARGS: --output 0 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
 bad --output 501;                   ok "BAD_ARGS: --output 501 (1..500 lines)" "$([ $RC = 2 ] && [ "$(has "$OUT" '1 to 500')" = 1 ] && echo 1 || echo 0)"
@@ -113,6 +118,7 @@ h_steps() { { printf '%sSTEP 1: C:\\p\\a.cpp:10  int x = f(a);%s\nCHANGED: a = 1
 h_stack() { { printf '%sSTACK: #0 Lib::Run at z:\\nightly\\LibA\\a.cpp:9 [module=LibA.dll]%s\nSTACK: #1 App::Go at C:\\p\\a.cpp:12 [module=App.exe]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_native() { { printf '%sSTACK: #0 Lib::Run [module=C:\\p\\x64\\Debug\\LibA.dll]%s\nSTACK: #1 Dlg::Go [module=C:\\p\\x64\\Debug\\App.exe]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\nSTOPPED: Lib::Run at z:\\nightly\\LibA\\a.cpp:9%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_native_exc() { { printf '%sSTACK: #0 ExtDll_Sum [module=C:\\p\\x64\\Debug\\ExtDll.dll]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\nLAST_OUTPUT: Exception thrown at 0x00007FFB1ACD16D2 (ExtDll.dll) in App.exe: 0xC0000005: Access violation reading location 0x0000000000000000.%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
+h_sel() { { printf '%sSELECTION_FILE: C:\p\a.cpp%s\nSELECTION_RANGE: 3:1-4:6%s\nSELECTION_DIRTY: no%s\nSELECTION_TEXT: 2 lines, 20 chars%s\n| STACK: #0 x%s\n| LAST_OUTPUT: y%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_never() { :; }
 h_weird() { write_id; printf WEIRD > "$D/vs_result.txt"; }
 run_case() {
@@ -144,6 +150,23 @@ run_case h_ok --frame 007 --inspect
 ok "--frame 007: leading zeros are read as decimal (7)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 7\ninspect\nstatus')" ] && echo 1 || echo 0)"
 run_case h_ok --frame 0000000000000000000000007 --inspect
 ok "--frame with many leading zeros is still 7 (digit count is checked after the zeros are removed)" "$([ "$(cat "$D/flag.copy")" = "$(printf 'frame 7\ninspect\nstatus')" ] && echo 1 || echo 0)"
+fl() { [ "$(cat "$D/flag.copy")" = "$(printf "$1")" ] && echo 1 || echo 0; }
+run_case h_ok --goto src/a.cpp:12
+ok "--goto: open comes first, then goto (an action: VS is started and brought to the front)" "$(fl 'open\ngoto src/a.cpp:12\nstatus')"
+run_case h_ok --goto "dir with space/b.cpp:7:5"
+ok "--goto with a column and a path with spaces: one path, kept as it is" "$(fl 'open\ngoto dir with space/b.cpp:7:5\nstatus')"
+run_case h_ok --break src/a.cpp:3 --goto src/a.cpp:12
+ok "--goto comes after --break" "$(fl 'open\nbreak src/a.cpp:3\ngoto src/a.cpp:12\nstatus')"
+run_case h_ok --selection
+ok "--selection: read only (no open: VS is not started or brought to the front)" "$(fl 'selection\nstatus')"
+run_case h_ok --selection --inspect
+ok "--selection --inspect" "$(fl 'selection\ninspect\nstatus')"
+run_case h_ok --selection --frame 1 --inspect
+ok "--selection --frame 1 --inspect: selection is read BEFORE the frame is selected (selecting a frame moves the editor)" "$(fl 'selection\nframe 1\ninspect\nstatus')"
+run_case h_ok --selection --eval x
+ok "--selection --eval x" "$(fl 'selection\neval x\nstatus')"
+run_case h_sel --selection
+ok "--selection: lines of the selected text that look like STACK: / LAST_OUTPUT: are not rewritten (the | prefix keeps them apart)" "$([ "$(has "$OUT" '| STACK: #0 x')" = 1 ] && [ "$(has "$OUT" '| LAST_OUTPUT: y')" = 1 ] && ! grep -q '^OWNER:' <<<"$OUT" && echo 1 || echo 0)"
 run_case h_stack --inspect
 ok "--inspect: STACK lines get the owner mark, the module moves to the end, OWNER and BOUNDARY follow; no BOM / CR" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9 (LibA.dll)')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] App::Go at C:\p\a.cpp:12 (App.exe)')" = 1 ] && [ "$(has "$OUT" 'OWNER: top=ext (frame #0)')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && ! grep -q "$BOM\|$CR" <<<"$OUT" && echo 1 || echo 0)"
 mkdir -p "$D/App"; printf '<Project/>\n' > "$D/App/App.vcxproj"; printf 'void Dlg::Go()\n{\n}\n' > "$D/App/Dlg.cpp"

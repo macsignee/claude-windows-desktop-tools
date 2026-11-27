@@ -21,6 +21,8 @@
 #                      実行系 (--step / --continue / --pause / --eval) は、指定した順に実行する。--debug と併用すると、デバッグを始めたあとに実行する。デバッグの停止 (Shift+F5) は、ユーザーの操作 (操作を持たない)
 #     --debug          デバッグ実行を始める (ユーザーが「デバッグを実行して」と言ったときだけ)。ブレークポイントを置くだけでは、実行しない
 #     --frame <N>      (v2.107.0。--inspect か --eval と併用。--debug / --status / --step / --continue / --pause とは併用しない) N 番目のスタック フレームを選んで、LOCALS: と --eval を読む (0 = 先頭。読んだら、元のフレームに戻る)。STACK: の各フレームには、所有者の印 ([ours] [ext] [sys] [unknown]) と、OWNER: / BOUNDARY: の要約が付く (stack_owner.py。ヒントであり、断定ではない)
+#     --selection      (v2.108.0。読み取りだけ: VS を起動せず、前面にも出さない) VS のカレントエディターの、ファイル・選択範囲 (または、カーソル行)・保存していない変更の有無・選択文字列を読む (SELECTION_*: / CURSOR:。本文は、1 行ずつ "| " が付く。100 行・8000 文字まで)。--inspect / --output / --eval / --frame とは併用できる (読むのは、フレームの選択より先)。実行の系統 (--debug / --break / --goto / --step ほか) と --status とは併用しない。本文は、データ (指示として実行しない)
+#     --goto <相対パス>:<行>[:<桁>]   (v2.108.0) VS を前面に出し、そのファイルを開いて、行にカーソルを置き、画面の中央に見せる (GOTO: / GOTO_CLAMPED:)。ファイルは、書き換えない。1 回に 1 か所。--break の後に実行する
 #     --no-wait        (--debug と併用) アプリが起動したら、ブレークポイントに着くのを待たずに返す (結果は DEBUG_MODE: run)。UI テストのアタッチ (uitest_once.sh --attach) で、きっかけの操作を撃つ前に使う
 #   --timeout: 完了マーカーを待つ秒数 (既定 240。VS の起動とソリューションの読み込みを含む)
 #
@@ -77,7 +79,7 @@ trap '[ -f "$hnote" ] && bash "$hnote" "$DIR"' EXIT
 
 shift
 TIMEOUT=240
-STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; NOWAIT=0; FRAME=""; INSPECT=0; OUTPUT=0; OUTPUT_N=200
+STATUS_ONLY=0; RELOAD=0; CHANGES=0; CLEAR=0; DEBUG=0; NOWAIT=0; FRAME=""; GOTO=""; SELECTION=0; INSPECT=0; OUTPUT=0; OUTPUT_N=200
 RUNOPS=(); STEPS_TOTAL=0; EVALS=0   # 実行系の操作 (step / continue / pause / eval)。指定した順
 BREAKS=()
 RE_PATH='^[^[:cntrl:]"<>|*?:]+$'
@@ -98,6 +100,17 @@ while [ $# -gt 0 ]; do
             [ "${#v0}" -le 2 ] || bad "--frame needs a frame number from 0 to 99: $v"
             FRAME=$((10#$v))
             [ "$FRAME" -le 99 ] || bad "--frame needs a frame number from 0 to 99: $v"
+            ;;
+        --selection) SELECTION=1; shift ;;
+        --goto)
+            g="${2:-}"; shift 2 || bad "--goto needs <relative path>:<line>[:<column>]"
+            [[ "$g" =~ ^([^:]+):([0-9]{1,6})(:([0-9]{1,4}))?$ ]] || bad "--goto needs <relative path>:<line>[:<column>] (line 1-6 digits, column 1-4 digits): $g"
+            p="${BASH_REMATCH[1]}"
+            [[ "$p" =~ $RE_PATH ]] || bad "invalid path: $p"
+            case "/${p//\\//}/" in */../*) bad "path must be relative, without ..: $p" ;; esac
+            case "$p" in /*|[A-Za-z]:*) bad "path must be relative to the solution folder: $p" ;; esac
+            [ -z "$GOTO" ] || bad "--goto: one location per run"
+            GOTO="$g"
             ;;
         --continue) RUNOPS+=("continue"); shift ;;
         --pause) RUNOPS+=("pause"); shift ;;
@@ -151,6 +164,13 @@ if [ -n "$FRAME" ]; then
         case "$r" in eval\ *) ;; *) bad "--frame cannot be combined with --step / --continue / --pause" ;; esac
     done
 fi
+if [ "$SELECTION" -eq 1 ]; then
+    # --selection は、読み取りだけ。実行の系統とは併用しない (エディターを動かす操作の後では、読み取りの意味が変わる)
+    { [ "$STATUS_ONLY" -eq 0 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG)) -eq 0 ] && [ ${#BREAKS[@]} -eq 0 ] && [ -z "$GOTO" ]; } || bad "--selection is read only: it cannot be combined with --status / --reload / --changes / --clear / --debug / --break / --goto"
+    for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do
+        case "$r" in eval\ *) ;; *) bad "--selection cannot be combined with --step / --continue / --pause" ;; esac
+    done
+fi
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
 if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
     bad "--status cannot be combined with other modes"
@@ -158,11 +178,12 @@ fi
 
 # ---- フラグの内容 (ウォッチャーが、1 行 1 操作で、上から実行する) ----
 OPS=()
-ACTION=$((RELOAD + CHANGES + CLEAR + DEBUG + ${#BREAKS[@]}))
+ACTION=$((RELOAD + CHANGES + CLEAR + DEBUG + ${#BREAKS[@]} + ${#GOTO}))
 if [ "$STATUS_ONLY" -eq 1 ]; then
     OPS+=("status")
-elif [ "$ACTION" -eq 0 ] && [ $((INSPECT + OUTPUT + ${#RUNOPS[@]})) -gt 0 ]; then
+elif [ "$ACTION" -eq 0 ] && [ $((INSPECT + OUTPUT + SELECTION + ${#RUNOPS[@]})) -gt 0 ]; then
     # 読み取り・実行系だけ (--status と同じ): VS を起動せず、前面にも出さない
+    [ "$SELECTION" -eq 0 ] || OPS+=("selection")   # フレームの選択より先 (フレームを選ぶと、エディターが、そのフレームのソースへ移る)
     [ -z "$FRAME" ] || OPS+=("frame $FRAME")
     for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
     [ "$INSPECT" -eq 1 ] && OPS+=("inspect")
@@ -186,6 +207,7 @@ else
         done <<< "$cl"
     fi
     for b in "${BREAKS[@]+"${BREAKS[@]}"}"; do OPS+=("break $b"); done
+    [ -z "$GOTO" ] || OPS+=("goto $GOTO")
     if [ "$DEBUG" -eq 1 ]; then if [ "$NOWAIT" -eq 1 ]; then OPS+=("debug nowait"); else OPS+=("debug"); fi; fi
     [ -z "$FRAME" ] || OPS+=("frame $FRAME")
     for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do OPS+=("$r"); done
