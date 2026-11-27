@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """stack_owner.py - vs_once.sh --inspect の STACK: の各フレームに、所有者の印と、要約を付ける (v2.107.0)。
 
-Usage: python3 -I stack_owner.py <vs_output.txt>
+Usage: python3 -I stack_owner.py [--solution-root <ソリューションのフォルダ (WSL のパス)>] <vs_output.txt>
   ウォッチャーが書いた出力を読み (BOM・CR は除く)、STACK: の行を書き換えて、標準出力へ出す。
   ホストが出す形:   STACK: #<n> <関数> [at <ファイル>:<行>] [[module=<モジュール>]]
   この出力の形:     STACK: #<n> [<所有者>] <関数> [at <ファイル>:<行>] [(<モジュール>)]
@@ -110,6 +110,77 @@ def classify(file, module, solution_dir):
     return "unknown"
 
 
+# ---- ネイティブ C++ のフレーム (STACK: にファイルがない) の判定 (v2.107.2) ----
+_SKIP_DIRS = {"bin", "obj", "x64", "debug", "release", ".git", "vcpkg_installed", "packages", "thirdparty", "third_party",
+              "external", "vendor", "node_modules", ".claude-logs", ".superpowers"}
+_SRC_EXTS = (".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".inl", ".cs")
+_PROJ_EXTS = (".vcxproj", ".csproj", ".vbproj")
+_MAX_FILES = 5000
+_MAX_BYTES = 2 * 1024 * 1024
+
+
+def _walk(root, exts):
+    """root の下のファイル (外のコードの置き場と、ビルドの出力は、除く)。"""
+    count = 0
+    for cur, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d.lower() not in _SKIP_DIRS]
+        for f in files:
+            if f.lower().endswith(exts):
+                count += 1
+                if count > _MAX_FILES:
+                    return
+                yield os.path.join(cur, f)
+
+
+def _read(path):
+    try:
+        if os.path.getsize(path) > _MAX_BYTES:
+            return ""
+        with open(path, "rb") as fh:
+            return fh.read().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def project_outputs(root):
+    """ソリューションのプロジェクトの出力名 (拡張子なし・小文字): プロジェクトのファイル名と、<TargetName> / <AssemblyName>。"""
+    names = set()
+    for path in _walk(root, _PROJ_EXTS):
+        names.add(os.path.splitext(os.path.basename(path))[0].lower())
+        text = _read(path)
+        for m in re.finditer(r"<(?:TargetName|AssemblyName)>([^<$]+)</(?:TargetName|AssemblyName)>", text):
+            names.add(m.group(1).strip().lower())
+    return names
+
+
+def defined_in_sources(root, name, cache=None):
+    """クラス名::関数名 (...) の形が、こちらのソースにあるか (定義。マップの &クラス::関数 のような、括弧のない参照は数えない)。"""
+    if cache is None:
+        cache = {}
+    if "texts" not in cache:
+        cache["texts"] = [_read(p) for p in _walk(root, _SRC_EXTS)]
+    pat = re.compile(r"(?<![\w:])" + re.escape(name) + r"\s*\(")
+    return any(pat.search(t) for t in cache["texts"])
+
+
+def classify_native(func, module, solution_dir, solution_root, cache=None):
+    """ファイルがないフレーム (ネイティブ C++) の判定。こちらのプロジェクトの出力のモジュールで、関数が、こちらのソースに定義されているときだけ ours。それ以外は unknown。"""
+    if not solution_root or not module:
+        return "unknown"
+    if cache is None:
+        cache = {}
+    if "outputs" not in cache:
+        cache["outputs"] = project_outputs(solution_root)
+    if _module_name(module) not in cache["outputs"]:
+        return "unknown"
+    m = _norm(module)
+    if "\\" in m and not _under(m, _norm(solution_dir) if solution_dir else None):
+        return "unknown"
+    if "::" not in func:
+        return "unknown"
+    return "ours" if defined_in_sources(solution_root, func, cache) else "unknown"
+
+
 def parse_frame(line):
     """STACK: #n ... の行を {n, func, file, line, module} にする。フレームの行でなければ None (STACK_TRUNCATED: も None)。"""
     m = _FRAME_RE.match(line)
@@ -171,9 +242,24 @@ def _summary(frames, truncated=False):
     return owner, boundary
 
 
-def transform(lines):
-    """出力の全行を受け取り、STACK: の行を書き換え、最後の STACK: / STACK_TRUNCATED: の直後に OWNER: と BOUNDARY: を足して返す。"""
+def _stopped(lines):
+    """STOPPED: <関数> at <ファイル>:<行> → {func, file, line} (なければ None)。"""
+    for l in lines:
+        if l.startswith("STOPPED: "):
+            f = parse_frame("STACK: #0 " + l[len("STOPPED: "):])
+            if f and f["file"]:
+                return f
+            return None
+    return None
+
+
+def transform(lines, solution_root=None):
+    """出力の全行を受け取り、STACK: の行を書き換え、最後の STACK: / STACK_TRUNCATED: の直後に OWNER: と BOUNDARY: を足して返す。
+    solution_root: ソリューションのフォルダ (WSL のパス)。ネイティブ C++ のフレームを、こちらのソースの定義と照合するために使う。"""
     sd = _solution_dir(lines)
+    stopped = _stopped(lines)
+    stopped_given = False
+    cache = {}
     out = []
     frames = []
     last = -1
@@ -186,7 +272,14 @@ def transform(lines):
                 last = len(out) - 1
                 truncated = True
             continue
+        # ネイティブ C++ のフレームには、ファイルが取れない。止まったフレームのファイルは、STOPPED: にある。
+        # 同じ関数名で、ファイルを持たない最初のフレームに、割り当てる (PDB がなく、#0 にソースがないときは、#1 になる)
+        if stopped and not stopped_given and not f["file"] and f["func"] == stopped["func"]:
+            f["file"], f["line"] = stopped["file"], stopped["line"]
+            stopped_given = True
         owner = classify(f["file"], f["module"], sd)
+        if owner == "unknown" and not f["file"]:
+            owner = classify_native(f["func"], f["module"], sd, solution_root, cache)
         frames.append((f["n"], owner))
         text = "STACK: #%d [%s] %s" % (f["n"], owner, f["func"])
         if f["file"]:
@@ -203,10 +296,15 @@ def transform(lines):
 
 
 def main(argv):
-    if len(argv) != 2:
-        sys.stderr.write("usage: stack_owner.py <vs_output.txt>\n")
+    args = argv[1:]
+    solution_root = None
+    if len(args) >= 2 and args[0] == "--solution-root":
+        solution_root = args[1]
+        args = args[2:]
+    if len(args) != 1:
+        sys.stderr.write("usage: stack_owner.py [--solution-root <folder>] <vs_output.txt>\n")
         return 2
-    path = argv[1]
+    path = args[0]
     if not os.path.isfile(path):
         return 0
     with open(path, "rb") as fh:
@@ -216,7 +314,7 @@ def main(argv):
     lines = [l.rstrip("\r") for l in data.split("\n")]
     if lines and lines[-1] == "":
         lines.pop()
-    sys.stdout.write("\n".join(transform(lines)) + ("\n" if lines else ""))
+    sys.stdout.write("\n".join(transform(lines, solution_root)) + ("\n" if lines else ""))
     return 0
 
 

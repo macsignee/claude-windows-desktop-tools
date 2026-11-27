@@ -121,6 +121,53 @@ i = t.index("STACK_TRUNCATED: 5 more frames")
 check("transform: all shown frames are sys but truncated -> OWNER says so", "frames shown" in t[i + 1])
 t = so.transform(frames(OURS) + SOL)
 check("transform: not truncated -> plain BOUNDARY: none", "BOUNDARY: none" in t)
+
+# --- v2.107.2: ネイティブ C++ (STACK: にファイルがない) の判定: STOPPED のファイルの割り当て、プロジェクトの出力と定義の照合
+import os, tempfile
+root = tempfile.mkdtemp()
+def w(rel, text):
+    path = os.path.join(root, *rel.split("/")); os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(text)
+w("App/App.vcxproj", "<Project><PropertyGroup><ProjectName>App</ProjectName></PropertyGroup></Project>")
+w("Lib/Renamed.vcxproj", "<Project><PropertyGroup><TargetName>RealName</TargetName></PropertyGroup></Project>")
+w("App/SampleDlg.cpp", "void SampleDlg::OnCallExtDll()\n{\n  ExtDll_Sum(p, n);\n}\nBEGIN_MESSAGE_MAP(SampleDlg, CDialog)\n ON_BN_CLICKED(1, &SampleDlg::OnMapOnly)\nEND_MESSAGE_MAP()\n")
+w("vcpkg_installed/x64/include/vendor.cpp", "void Vendor::Thing()\n{\n}\n")
+w("x64/Debug/App/junk.cpp", "void Junk::Fn()\n{\n}\n")
+WSD = r"C:\ws\Sln"
+def nf(func, mod): return so.classify_native(func, mod, WSD, root)
+check("project_outputs: stems of the vcxproj files, and TargetName", so.project_outputs(root) == {"app", "renamed", "realname"})
+check("native: our exe + a method defined in our sources -> ours", nf("SampleDlg::OnCallExtDll", r"C:\ws\Sln\x64\Debug\App.exe") == "ours")
+check("native: our exe + a method only referenced in the message map (no definition with a paren) -> unknown", nf("SampleDlg::OnMapOnly", r"C:\ws\Sln\x64\Debug\App.exe") == "unknown")
+check("native: our exe + a function without a class (static library function) -> unknown", nf("ExtStatic_Sum", r"C:\ws\Sln\x64\Debug\App.exe") == "unknown")
+check("native: our exe + a qualified name that no source of ours defines (static library class) -> unknown", nf("ExtStatic::Helper", r"C:\ws\Sln\x64\Debug\App.exe") == "unknown")
+check("native: a copied external DLL in our output folder -> unknown even if the name looks defined", nf("SampleDlg::OnCallExtDll", r"C:\ws\Sln\x64\Debug\ExtDll.dll") == "unknown")
+check("native: a name defined only under a vendor folder or a build folder does not count", nf("Vendor::Thing", r"C:\ws\Sln\x64\Debug\App.exe") == "unknown" and nf("Junk::Fn", r"C:\ws\Sln\x64\Debug\App.exe") == "unknown")
+check("native: TargetName override: RealName.dll is ours when defined", (w("Lib/Real.cpp", "int Real::Calc()\n{\n return 1;\n}\n") or True) and nf("Real::Calc", r"C:\ws\Sln\x64\Debug\RealName.dll") == "ours")
+check("native: without a solution root nothing is claimed as ours", so.classify_native("SampleDlg::OnCallExtDll", r"C:\ws\Sln\x64\Debug\App.exe", WSD, None) == "unknown")
+
+OW1 = ["STACK: #0 ExtDll_Sum [module=C:\\ws\\Sln\\x64\\Debug\\ExtDll.dll]",
+       "STACK: #1 SampleDlg::OnCallExtDll [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]",
+       "STACK: #2 _AfxDispatchCmdMsg [module=C:\\Windows\\System32\\mfc140ud.dll]",
+       r"SOLUTION: C:\ws\Sln\App.slnx", r"STOPPED: ExtDll_Sum at C:\ws\ExtDll\ExtDll\ExtDllSum.cpp:8"]
+t = so.transform(OW1, root)
+check("OW1 on a native stack: #0 gets the STOPPED file -> ext, #1 is defined in our sources -> ours, OWNER top=ext, boundary found",
+      t[0].startswith("STACK: #0 [ext] ExtDll_Sum at C:\\ws\\ExtDll\\ExtDll\\ExtDllSum.cpp:8") and t[1].startswith("STACK: #1 [ours] SampleDlg::OnCallExtDll") and "OWNER: top=ext (frame #0)" in t and "BOUNDARY: #1 ours -> ext #0" in t)
+OW3 = ["STACK: #0 ExtStatic_Sum [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]",
+       "STACK: #1 SampleDlg::OnCallExtDll [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]",
+       r"SOLUTION: C:\ws\Sln\App.slnx", r"STOPPED: ExtStatic_Sum at C:\ws\ExtStatic\ExtStatic\ExtStaticSum.cpp:8"]
+t = so.transform(OW3, root)
+check("OW3 static library: #0 -> ext by the STOPPED file although the module is our exe", t[0].startswith("STACK: #0 [ext]") and "OWNER: top=ext (frame #0)" in t and "BOUNDARY: #1 ours -> ext #0" in t)
+OW4 = ["STACK: #0 00007ffb949116d2 [module=C:\\ws\\Sln\\x64\\Debug\\ExtDll.dll]",
+       "STACK: #1 SampleDlg::OnCallExtDll [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]",
+       r"SOLUTION: C:\ws\Sln\App.slnx", r"STOPPED: SampleDlg::OnCallExtDll at C:\ws\Sln\App\SampleDlg.cpp:75"]
+t = so.transform(OW4, root)
+check("OW4 no PDB: the STOPPED file goes to #1 (matched by function name, not by index) -> ours; #0 stays unknown, never ours", t[0].startswith("STACK: #0 [unknown]") and t[1].startswith("STACK: #1 [ours]") and "OWNER: top=unknown (frame #0)" in t)
+OW5 = ["STACK: #0 SampleDlg::OnInitDialog [module=C:\\ws\\Sln\\x64\\Debug\\App.exe]", "STACK: #1 AfxDlgProc [module=C:\\Windows\\System32\\mfc140ud.dll]",
+       r"SOLUTION: C:\ws\Sln\App.slnx", r"STOPPED: SampleDlg::OnInitDialog at C:\ws\Sln\App\SampleDlg.cpp:30"]
+t = so.transform(OW5, root)
+check("OW5: our code at the breakpoint -> ours, OWNER top=ours", t[0].startswith("STACK: #0 [ours] SampleDlg::OnInitDialog at C:\\ws\\Sln\\App\\SampleDlg.cpp:30") and "OWNER: top=ours (frame #0)" in t)
+t = so.transform(["STACK: #0 Bar at C:\\ws\\Sln\\b.cpp:2 [module=App.exe]", "STACK: #1 Bar [module=C:\\Windows\\System32\\x.dll]", "STOPPED: Bar at C:\\q\\z.cpp:9", "SOLUTION: C:\\ws\\Sln\\App.slnx"], root)
+check("STOPPED mapping: a frame that already has a file keeps it; the next frame with the same name gets the STOPPED file", t[0].startswith("STACK: #0 [ours] Bar at C:\\ws\\Sln\\b.cpp:2") and "C:\\q\\z.cpp:9" in t[1])
 PY
 while IFS= read -r l; do
     case "$l" in
