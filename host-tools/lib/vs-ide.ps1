@@ -423,11 +423,8 @@ function Invoke-VsGoto($dte, [string]$arg) {
         if ($col -gt $maxCol) { $lines.Add("GOTO_CLAMPED: column $col -> $maxCol"); $col = $maxCol }
         $sel = $td.Selection
         $sel.MoveToLineAndOffset($line, $col, $false)
-        # centre the line. vsPaneShowCentered is looked up by name. Fallback 2 (vsPaneShowAsIs 0, vsPaneShowTop 1, vsPaneShowCentered 2): the value 1 put the line at the TOP of the pane on the real machine (SL9). The second argument is omitted with Missing (a $null is not "no argument" for a COM Variant).
+        # centre the line: vsPaneShowHow is vsPaneShowAsIs 0, vsPaneShowTop 1, vsPaneShowCentered 2 (confirmed on the real machine: 1 put the line at the top, 2 centres it). The second argument is omitted with Missing (a $null is not "no argument" for a COM Variant).
         $how = 2
-        $byName = $false
-        try { Add-Type -AssemblyName 'EnvDTE, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' -ErrorAction Stop; $how = [int][EnvDTE.vsPaneShowHow]::vsPaneShowCentered; $byName = $true } catch { }
-        if (-not $byName) { $lines.Add("GOTO_NOTE: vsPaneShowCentered was not found by name; used the value $how") }
         $sel.ActivePoint.TryToShow($how, [System.Reflection.Missing]::Value) | Out-Null
         $lines.Add("GOTO: ${full}:${line}:$col")
     } catch { return @{ Ok = $false; Lines = $lines.ToArray() + @("GOTO_FAILED: $($_.Exception.Message)") } }
