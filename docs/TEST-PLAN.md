@@ -1503,7 +1503,7 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SL2 | 何も選ばず、カーソルだけ置く → `--selection` | `CURSOR: <行>:<桁>`。`SELECTION_TEXT:` は出ない | |
 | SL3 | ファイルを編集して、保存しない → `--selection` | `SELECTION_DIRTY: yes` | |
 | SL4 | デザインモードで、`--goto PS5/ViewModels/MainViewModel.cs:49` (VS は別のファイルを表示) | VS が前面に出て、そのファイルの 49 行目にカーソルが移り、画面の中央に見える。`GOTO: …MainViewModel.cs:49:1`。ファイルは変わらない (`DIRTY_COUNT` が増えない) | |
-| SL5 | `--break` で止まった状態で、`--goto` で、別のファイルを開く → `--status` | `GOTO:`。`DEBUG_MODE: break`・`STOPPED:` は、止まっている場所のまま (エディターが移るだけ)。続けて `--step over` が、正しい位置を出す | |
+| SL5 | `--break` で止まった状態で、`--goto` で、別のファイルを開く → `--status` と `--inspect` | (v2.108.1) `GOTO_SKIP:` (何も移さない)。`DEBUG_MODE: break`・`STOPPED:` と `STACK: #0` は、止まっている場所のまま。続けて `--step over` が、正しい位置を出す。(v2.108.0 では、`STOPPED:` と `STACK: #0` が、移した場所 `App.xaml.cs:1` になった = 実機で不合格) | |
 | SL6 | VS を閉じて、`--goto` | VS が起動して、ソリューションが開き、そのファイルの行に移る | |
 | SL7 | XAML デザイナー (または、リソース ビュー) が、アクティブなとき `--selection` | `SELECTION_SKIP: not a text document (…)` (または、デザイナーのコードの表示なら、通常の出力) | |
 | SL8 | 100 行を超える (または、8000 文字を超える) 範囲を選ぶ → `--selection`。別に、ファイルの行数を超える行へ `--goto` | `SELECTION_TRUNCATED: showing the first N of M lines …`。`GOTO_CLAMPED: <指定> -> <最後の行>` (失敗にならない) | |

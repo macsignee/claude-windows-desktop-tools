@@ -394,13 +394,24 @@ function Invoke-VsGoto($dte, [string]$arg) {
     if (-not $full -or -not (Test-Path -LiteralPath $full -PathType Leaf) -or $line -lt 1 -or $col -lt 1) { return @{ Ok = $false; Lines = @("GOTO_FAILED: file not found under the solution folder, or bad line / column: $arg") } }
     $lines = New-Object System.Collections.Generic.List[string]
     try {
+        # In break mode VS takes the location of the current frame from the editor: a goto moved STOPPED: and STACK: #0 to the target (real machine, SL5). So the editor is left alone while the program is stopped.
+        if ((Get-VsModeName $dte) -eq 'break') {
+            return @{ Ok = $true; Lines = @("GOTO_SKIP: the program is stopped (break mode); moving the cursor would change the location that STOPPED: and STACK: report. Step or continue first, or select a frame with --frame.") }
+        }
         # The CODE view: the primary view of a WinForms form (.cs with a designer), a .resx or a .rc is a designer, which has no TextDocument.
         $win = Invoke-VsRetry { $dte.ItemOperations.OpenFile($full, '{7651A701-06E5-11D1-8EBD-00A0C90F26EA}') }   # vsViewKindCode
-        $doc = $null
-        try { if ($win) { $doc = $win.Document } } catch { }
-        if (-not $doc) { $doc = Invoke-VsRetry { $dte.ActiveDocument } }
+        try { if ($win) { $win.Activate() } } catch { }
+        # The document is found by its path. The active window is not used: right after OpenFile it can still show the previous document (App.xaml: not a text document).
         $td = $null
-        try { $td = $doc.Object('TextDocument') } catch { }
+        for ($try = 0; $try -lt 10 -and -not $td; $try++) {
+            $doc = $null
+            try { if ($win) { $doc = $win.Document } } catch { }
+            if (-not $doc) {
+                foreach ($d in @(Invoke-VsRetry { @($dte.Documents) })) { try { if ($d.FullName -ieq $full) { $doc = $d; break } } catch { } }
+            }
+            try { if ($doc) { $td = $doc.Object('TextDocument') } } catch { }
+            if (-not $td) { Start-Sleep -Milliseconds 200 }
+        }
         if (-not $td) { return @{ Ok = $false; Lines = @("GOTO_FAILED: the file opened, but it is not a text document: $arg") } }
         $last = [int]$td.EndPoint.Line
         if ($line -gt $last) { $lines.Add("GOTO_CLAMPED: $line -> $last"); $line = $last }
@@ -412,10 +423,12 @@ function Invoke-VsGoto($dte, [string]$arg) {
         if ($col -gt $maxCol) { $lines.Add("GOTO_CLAMPED: column $col -> $maxCol"); $col = $maxCol }
         $sel = $td.Selection
         $sel.MoveToLineAndOffset($line, $col, $false)
-        # centre the line. vsPaneShowCentered is looked up by name (the number is not trusted from memory); 1 is the fallback.
-        $how = 1
-        try { Add-Type -AssemblyName 'EnvDTE, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' -ErrorAction Stop; $how = [int][EnvDTE.vsPaneShowHow]::vsPaneShowCentered } catch { }
-        $sel.ActivePoint.TryToShow($how, $null) | Out-Null
+        # centre the line. vsPaneShowCentered is looked up by name. Fallback 2 (vsPaneShowAsIs 0, vsPaneShowTop 1, vsPaneShowCentered 2): the value 1 put the line at the TOP of the pane on the real machine (SL9). The second argument is omitted with Missing (a $null is not "no argument" for a COM Variant).
+        $how = 2
+        $byName = $false
+        try { Add-Type -AssemblyName 'EnvDTE, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' -ErrorAction Stop; $how = [int][EnvDTE.vsPaneShowHow]::vsPaneShowCentered; $byName = $true } catch { }
+        if (-not $byName) { $lines.Add("GOTO_NOTE: vsPaneShowCentered was not found by name; used the value $how") }
+        $sel.ActivePoint.TryToShow($how, [System.Reflection.Missing]::Value) | Out-Null
         $lines.Add("GOTO: ${full}:${line}:$col")
     } catch { return @{ Ok = $false; Lines = $lines.ToArray() + @("GOTO_FAILED: $($_.Exception.Message)") } }
     return @{ Ok = $true; Lines = $lines.ToArray() }
