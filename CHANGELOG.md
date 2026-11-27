@@ -7,8 +7,9 @@
 - **きっかけ:** NEXT-STEPS の F (VS の選択範囲・カレント行を Claude に渡す)。ユーザーが、VS Code の Claude 拡張の機能から取り入れられそうなものとして挙げ、逆方向 (Claude の回答から VS の該当行を開く) を欲しいと言った。設計: `docs/superpowers/specs/2026-11-27-vs-selection-goto-design.md`。計画: `docs/superpowers/plans/2026-11-27-vs-selection-goto.md`。
 - **`vs_once.sh --goto <相対パス>:<行>[:<桁>]` (主目的):** VS を前面に出し、そのファイルを開き、行にカーソルを置き、画面の中央に見せる。`GOTO:` / `GOTO_CLAMPED:` (行がファイルの終わりを超えたとき) / `GOTO_FAILED:`。ファイルは、書き換えない。パスの検査は `--break` と同じ。1 回に 1 か所。
 - **`vs_once.sh --selection`:** VS のカレントエディターの、ファイル・選択範囲 (または `CURSOR:`)・`SELECTION_DIRTY:` (保存していない変更)・選択文字列 (1 行ずつ `| ` 付き。100 行・8000 文字まで) を読む。**読み取りだけ**: VS を起動せず、前面にも出さず、エディターを変えない。`--inspect` `--output` `--eval` `--frame` とは併用でき (読むのは、フレームの選択より先)、実行の系統と `--status` とは併用しない。
+- **全体レビューの指摘を、直した:** (1) 桁つきの `--goto` (`a.cpp:12:5`) が、ホストの正規表現 (貪欲な `.+`) で、パスと行を取り違えて、必ず失敗した → `[^:]+` に。(2) 桁が行の長さを超えるときの扱いがなかった → 行末に置いて `GOTO_CLAMPED: column …`。(3) WinForms のフォームなどは、既定のビューがデザイナーで、テキストでなく失敗した → コードのビュー (`vsViewKindCode`) で開く。(4) `TryToShow` の戻り値が関数の出力に混ざった → `Out-Null`。「中央」の定数を、名前で引く形にした (数値を記憶に頼らない。実機で SL4・SL10 が確かめる)。(5) `--status --goto` が、`goto` を黙って捨てた → `BAD_ARGS`。
 - **取り下げた案:** VS の拡張 (VSIX) による自動送信、ファイルのハッシュによる新旧判定 (保存していない変更の警告で足りる)。
-- **確認:** `vs_once_test.sh` に 26 件、`host_tools_static_test.sh` に 6 件 (先に Red を確認)。PowerShell は、WSL で実行できない (静的な確認だけ)。**実機の確認は、TEST-PLAN 2-74 (SL1〜SL8。未実施)。**
+- **確認:** `vs_once_test.sh` に 27 件、`host_tools_static_test.sh` に 10 件 (先に Red を確認)。PowerShell は、WSL で実行できない (静的な確認だけ)。**実機の確認は、TEST-PLAN 2-74 (SL1〜SL8。未実施)。**
 - **配布:** `install.sh --host-only` と `--skills-only`、**ウォッチャーの再起動が要る** (`HOST_VERSION` 2.108.0)。
 
 ## [2.107.6] 2026-11-27 (`--step` の `STEP_TIMEOUT` に、診断の情報を足した。**ホスト側を変えた**)

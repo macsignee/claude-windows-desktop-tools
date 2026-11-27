@@ -387,23 +387,35 @@ function Get-VsSelectionLines($dte) {
 
 # Open a file of the solution and put the cursor on a line (shown centred). Never changes the file. @{ Ok; Lines }
 function Invoke-VsGoto($dte, [string]$arg) {
-    if ($arg -notmatch '^(.+):([0-9]{1,6})(:([0-9]{1,4}))?$') { return @{ Ok = $false; Lines = @("GOTO_FAILED: use <path>:<line>[:<column>]: $arg") } }
+    if ($arg -notmatch '^([^:]+):([0-9]{1,6})(:([0-9]{1,4}))?$') { return @{ Ok = $false; Lines = @("GOTO_FAILED: use <path>:<line>[:<column>]: $arg") } }
     $full = Get-VsFullPath $Matches[1]
     $line = [int]$Matches[2]
     $col = if ($Matches[4]) { [int]$Matches[4] } else { 1 }
     if (-not $full -or -not (Test-Path -LiteralPath $full -PathType Leaf) -or $line -lt 1 -or $col -lt 1) { return @{ Ok = $false; Lines = @("GOTO_FAILED: file not found under the solution folder, or bad line / column: $arg") } }
     $lines = New-Object System.Collections.Generic.List[string]
     try {
-        Invoke-VsRetry { $dte.ItemOperations.OpenFile($full) | Out-Null } | Out-Null
-        $doc = Invoke-VsRetry { $dte.ActiveDocument }
+        # The CODE view: the primary view of a WinForms form (.cs with a designer), a .resx or a .rc is a designer, which has no TextDocument.
+        $win = Invoke-VsRetry { $dte.ItemOperations.OpenFile($full, '{7651A701-06E5-11D1-8EBD-00A0C90F26EA}') }   # vsViewKindCode
+        $doc = $null
+        try { if ($win) { $doc = $win.Document } } catch { }
+        if (-not $doc) { $doc = Invoke-VsRetry { $dte.ActiveDocument } }
         $td = $null
         try { $td = $doc.Object('TextDocument') } catch { }
         if (-not $td) { return @{ Ok = $false; Lines = @("GOTO_FAILED: the file opened, but it is not a text document: $arg") } }
         $last = [int]$td.EndPoint.Line
         if ($line -gt $last) { $lines.Add("GOTO_CLAMPED: $line -> $last"); $line = $last }
+        # a column past the end of the line: put the cursor at the end of the line (measured with a separate edit point, which changes nothing)
+        $ep = $td.CreateEditPoint($td.StartPoint)
+        $ep.MoveToLineAndOffset($line, 1)
+        $ep.EndOfLine()
+        $maxCol = [int]$ep.LineCharOffset
+        if ($col -gt $maxCol) { $lines.Add("GOTO_CLAMPED: column $col -> $maxCol"); $col = $maxCol }
         $sel = $td.Selection
-        $sel.MoveToLineAndOffset($line, $col, $false)   # a column past the end of the line is clamped by the editor
-        $sel.ActivePoint.TryToShow(1, $null)            # 1 = vsPaneShowCentered
+        $sel.MoveToLineAndOffset($line, $col, $false)
+        # centre the line. vsPaneShowCentered is looked up by name (the number is not trusted from memory); 1 is the fallback.
+        $how = 1
+        try { Add-Type -AssemblyName 'EnvDTE, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' -ErrorAction Stop; $how = [int][EnvDTE.vsPaneShowHow]::vsPaneShowCentered } catch { }
+        $sel.ActivePoint.TryToShow($how, $null) | Out-Null
         $lines.Add("GOTO: ${full}:${line}:$col")
     } catch { return @{ Ok = $false; Lines = $lines.ToArray() + @("GOTO_FAILED: $($_.Exception.Message)") } }
     return @{ Ok = $true; Lines = $lines.ToArray() }

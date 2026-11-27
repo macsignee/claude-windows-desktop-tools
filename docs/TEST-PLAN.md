@@ -1507,3 +1507,5 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SL6 | VS を閉じて、`--goto` | VS が起動して、ソリューションが開き、そのファイルの行に移る | |
 | SL7 | XAML デザイナー (または、リソース ビュー) が、アクティブなとき `--selection` | `SELECTION_SKIP: not a text document (…)` (または、デザイナーのコードの表示なら、通常の出力) | |
 | SL8 | 100 行を超える (または、8000 文字を超える) 範囲を選ぶ → `--selection`。別に、ファイルの行数を超える行へ `--goto` | `SELECTION_TRUNCATED: showing the first N of M lines …`。`GOTO_CLAMPED: <指定> -> <最後の行>` (失敗にならない) | |
+| SL9 | `--goto PS5/ViewModels/MainViewModel.cs:49:5` (桁つき)。別に、行の長さを超える桁 (`:49:200`) | 49 行目の 5 桁目にカーソルが移る (`GOTO: …:49:5`)。桁が長すぎるときは、行末に置いて `GOTO_CLAMPED: column 200 -> <行末の桁>` (失敗にならない) | |
+| SL10 | WinForms のフォーム (`MainForm.cs` など、デザイナーを持つファイル) へ `--goto` | デザイナーでなく、コードのビューが開き、その行へ移る (`GOTO_FAILED: … not a text document` にならない)。**画面の中央 (SL4) に見えるかも、ここで確かめる** (上端に見えるなら、`TryToShow` の定数を直す) | |

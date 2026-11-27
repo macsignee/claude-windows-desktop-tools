@@ -172,7 +172,7 @@ if [ "$SELECTION" -eq 1 ]; then
     done
 fi
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
-if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
+if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + SELECTION + ${#GOTO} + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
     bad "--status cannot be combined with other modes"
 fi
 

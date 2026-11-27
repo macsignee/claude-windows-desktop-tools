@@ -66,7 +66,7 @@ for fa in "--frame" "--frame abc --inspect" "--frame -1 --inspect" "--frame 100 
     # shellcheck disable=SC2086
     bad $fa; ok "BAD_ARGS: $fa (no flag is written)" "$([ $RC = 2 ] && [ ! -e "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
 done
-for ga in "--goto" "--goto a.cpp" "--goto a.cpp:x" "--goto a.cpp:1:x" "--goto ../a.cpp:3" "--goto /abs/a.cpp:3" "--goto C:\a.cpp:3" "--goto a.cpp:1234567" "--goto a.cpp:1 --goto b.cpp:2" "--selection --status" "--selection --debug" "--selection --break a.cpp:1" "--selection --goto a.cpp:1" "--selection --reload" "--selection --clear" "--selection --step over" "--selection --continue" "--selection --pause"; do
+for ga in "--goto" "--goto a.cpp" "--goto a.cpp:x" "--goto a.cpp:1:x" "--goto ../a.cpp:3" "--goto /abs/a.cpp:3" "--goto C:\a.cpp:3" "--goto a.cpp:1234567" "--goto a.cpp:1 --goto b.cpp:2" "--selection --status" "--status --goto a.cpp:1" "--selection --debug" "--selection --break a.cpp:1" "--selection --goto a.cpp:1" "--selection --reload" "--selection --clear" "--selection --step over" "--selection --continue" "--selection --pause"; do
     rm -f "$D/trigger_vs.flag"
     # shellcheck disable=SC2086
     bad $ga; ok "BAD_ARGS: $ga (no flag is written)" "$([ $RC = 2 ] && [ ! -e "$D/trigger_vs.flag" ] && echo 1 || echo 0)"
