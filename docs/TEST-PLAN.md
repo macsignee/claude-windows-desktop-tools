@@ -1520,3 +1520,19 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SM3 | VS で、新しいテキスト ファイル (Ctrl+N) に、9000 文字ほどの 1 行を貼り、全選択 → `--selection` | `SELECTION_TEXT: 1 lines, 約 9000 chars`。本文の行は、370 文字のあとに ` ...(+N chars)`。`SELECTION_TRUNCATED: showing the first 1 of 1 lines (...); 1 line(s) cut at 370 chars` (v2.108.2 までは `first 0 of 1 lines`)。確認のあと、ファイルは保存せずに閉じる | 合格。9000 文字ほどの 1 行で、`SELECTION_TEXT: 1 lines`、本文は 370 文字のあと ` ...(+9629 chars)`、`SELECTION_TRUNCATED: showing the first 1 of 1 lines (...); 1 line(s) cut at 370 chars` (`first 0 of 1 lines` でない) |
 | SM4 | 400 文字を超える行を含む範囲 (SM3 のファイルでよい) → `--selection` | 行の終わりに ` ...(+N chars)` の印が付く (印なしで、黙って切られない) | 合格。SM3 の出力で、行の終わりに ` ...(+9629 chars)` の印が付いた (黙って切られない) |
 | SM5 | `--break` で止めたあと、エディターで `UiTestBase.cs` のタブを選び、100 行以上を選ぶ → `--selection --inspect` | 選択の本文のあとに、`STACK:` / `LOCALS:` / `STOPPED:` が、落ちずに出る。`... (N lines total` の行がない (v2.108.2 までは、落ちることがあった)。`--selection` なしの `--inspect` は、従来どおり | 合格。`UiTestBase.cs` の全選択 (385 行) で `--selection --inspect`: 本文 (100 行) のあとに `STACK:` / `LOCALS:` / `STOPPED:` が落ちずに出た。`lines total` の行なし。`--inspect` 単独は従来どおり |
+
+### 2-76. R11: MFC の状態を使う関数の実行時の挙動 (DLL008・`AFX_MANAGE_STATE`。2026-11-28、確認用 `MfcState`)
+確認用の `MfcState` (`/new-solution --type mfc-dialog --layers logic --layer-kind mfc-ext-dll --tests gtest` と、`/add-project` で標準 DLL `StdLayer`) に、プローブの関数を足して、build-test-loop と、実機の起動で確認した (コミットしない確認用)。
+
+| ID | 確認 | 結果 |
+|---|---|---|
+| A1・A2 | 拡張 DLL の関数 (対照の `int`・`CString` の連結・リソースの読み込み・`CDialog::Create`) を、テスト exe (`UseOfMfc` = Dynamic / なし) から呼ぶ | 同じ結果。`int`・`CString` の連結・`Create` は通った。**リソースの読み込みは、どちらも失敗した = プローブの誤り** (`AfxGetResourceHandle` + `::LoadStringW` は、拡張 DLL のリソースを探せない) |
+| A0 | リソースの読み込みを `CString::LoadString(UINT)` (`AfxFindResourceHandle` で DLL の連鎖を探す) に直す | A0-1 (Dynamic)・A0-2 (MFC なし) とも、4 関数がすべて通った → **MFC なしの exe から、`CString`・リソース・`CDialog::Create` を呼んでも、壊れない** |
+| A3 | テスト exe の `UseOfMfc` を Static にする | リンク失敗 78 件。**原因は GoogleTest** (vcpkg は動的 CRT の `x64-windows-static-md`。`UseOfMfc=Static` で CRT が `/MTd` になり、`LNK2038`・`LNK2005`・`LNK2019`)。DLL008 の確認にならない |
+| A5-1 | メインの exe (`MfcState`、`UseOfMfc` = Dynamic) が拡張 DLL を参照して `--probe` | 4 関数がすべて通った (対照) |
+| A5-2 | メインの `UseOfMfc` を Static にする (`mfc-check` は DLL008 を error で出す) | **ビルドが通った。`--probe` の結果は A5-1 と同じ (4 関数とも通った。クラッシュ・ダイアログなし)** |
+| A5-3 | 拡張 DLL が `CString` を返す関数を足して、Static のメインから呼ぶ | **リンク失敗** (`LNK2019`: `ProbeReturnCString` の `CStringT<…StrTraitMFC…>` が、静的 MFC と共有 MFC で違う)。Dynamic に戻すと通った (`Length=24`・内容も一致) |
+| B | 標準 DLL (`StdLayer`) の `LoadString` と `CDialog::Create` を、MFC なしのテスト exe から、`AFX_MANAGE_STATE(AfxGetStaticModuleState())` ありで呼ぶ | 通った |
+| B1 | 同じ 2 関数から `AFX_MANAGE_STATE` の行だけを外す | **2 件とも失敗した** (`false`。クラッシュ・ハングはなし)。**`AFX_MANAGE_STATE` は、リソースを使う標準 DLL の関数に必要** |
+
+**結論:** (1) `AFX_MANAGE_STATE` が要ることは確認できた。(2) DLL008 の「実行時に壊れる」は、再現しなかった。MFC の型を渡さない関数は、MFC なしの exe でも、Static の MFC のメイン exe でも動き、MFC の型を渡すとリンクで止まる。`CWnd*` などを渡したときの実行時の挙動は、未確認。(3) 文言を直した (SKILL の DLL008 の行と、`mfc_check.py` のメッセージ。severity は error のまま)。

@@ -1190,7 +1190,7 @@ def check_mfc_dlls(projects):
                 if pr.kind == "StaticLibrary":
                     continue
                 if q is not None and q.kind == "DynamicLibrary" and has_def(q, "_AFXEXT") and any(v != "Dynamic" for v in mfc_values(pr)):
-                    pr.add("DLL008", "error", f"{pr.name}: MFC 拡張 DLL {q.name} を参照しているが、UseOfMfc が Dynamic でない (MFC のランタイムが 2 つになり、実行時に壊れる)",
+                    pr.add("DLL008", "error", f"{pr.name}: MFC 拡張 DLL {q.name} を参照しているが、UseOfMfc が Dynamic でない (MFC のランタイムが 2 つになる。MFC の型を境界で渡すと、リンクで止まる)",
                            pr.name + ".vcxproj")
 
 
