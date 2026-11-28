@@ -2,6 +2,14 @@
 
 形式: [バージョン] 日付 / 変更の要点。契約 (ファイル名・結果の値・終了コード) を変えたときは、そのことを明記する。
 
+## [2.108.5] 2026-11-28 (MFC のビューの左上のアプリ名の文字を消した。ひな形を変えた)
+
+- **きっかけ:** R7 (TEST-PLAN 2-65 の WL8。ウィザードの実物 `MFCSDITemplate` と、生成した `MfcSdiLook` を並べて目視)。想定外の差が 1 点: ひな形のビューの左上に、アプリ名の文字 (`pDC->TextOut(10, 10, _T("<名前>"))`) が出た。ウィザードの SDI のビューは、空白 (`OnDraw` は、コメントだけ)。
+- **変えたこと:** `new_solution.py` の MFC のビュー (`SampleView::OnDraw`) から、`TextOut` の 1 行を消した。**SDI と MDI は、同じ `SampleView` のひな形を使うので、両方が変わる。** `OnDraw` の本体 (`GetDocument`・`ASSERT_VALID`・`TODO` のコメント) は、ウィザードと同じ形で残る。
+- **変えなかったこと:** アプリのアイコン (青い四角) と、ボタンの絵、印刷ボタンなし。ユーザーの判断で、このまま (WL8 の想定内の差)。
+- **確認:** `mfc_sdi_wizard_look_test.sh`・`mfc_mdi_wizard_look_test.sh` の 1 件ずつを、「`TextOut` がなく、`OnDraw` はある」に直した (先に Red を確認)。UI テストは、GDI で描いた文字を読めない (UIA の対象外) ので、この文字には依存しない。
+- **配布:** `install.sh --skills-only`。**すでに作ったプロジェクトは、変わらない** (必要なら、`SampleView.cpp` の `TextOut` の行を、手で消す)。
+
 ## [2.108.4] 2026-11-28 (`mfc-check` の DLL008 の説明を、実機の確認 (R11) に合わせた)
 
 - **きっかけ:** R11 (DLL008 と `AFX_MANAGE_STATE` の実行時の確認。TEST-PLAN 2-76)。確認用の `MfcState` で、MFC の状態を使う関数を、MFC なしの exe と、MFC を静的リンクしたメインの exe から呼んだ。
