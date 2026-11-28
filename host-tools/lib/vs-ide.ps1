@@ -39,6 +39,7 @@ $VsOutputWindowKind = '{34E76E81-EE4A-11D0-AE2E-00A0C90FFFC3}'   # EnvDTE.Consta
 $VsUnknownWaitSec = 5            # after the breakpoint wait: a stop at an exception can read as 'unknown' for a moment
 $VsSelectionMaxLines = 100        # selection: lines of text shown (vs_once.sh shows 150 lines of output at most)
 $VsSelectionMaxChars = 8000        # selection: characters of text shown
+$VsSelectionMaxLineChars = 370     # selection: characters of ONE line shown (vs_once.sh cuts every output line at 400: the '| ' prefix and the cut marker must still fit)
 $VsStepMax = 30                 # steps per step operation (the Skill also limits one run to 30 in total)
 $VsStepWaitSec = 15              # a step that has not stopped after this long is reported as STEP_TIMEOUT
 $VsPauseWaitSec = 10
@@ -372,14 +373,23 @@ function Get-VsSelectionLines($dte) {
         if (-not $sel.IsEmpty) {
             $text = ([string]$sel.Text) -replace "`r", ''
             $all = @($text -split "`n")
+            # A selection of whole lines ends at column 1 of the next line: the text ends with a line break, which is not a line of its own.
+            if ($all.Count -gt 1 -and $all[$all.Count - 1] -eq '') { $all = @($all[0..($all.Count - 2)]) }
             $lines.Add("SELECTION_TEXT: $($all.Count) lines, $($text.Length) chars")
-            $shown = 0; $chars = 0
+            $shown = 0; $chars = 0; $cut = 0
             foreach ($l in $all) {
-                if ($shown -ge $VsSelectionMaxLines -or ($chars + $l.Length) -gt $VsSelectionMaxChars) { break }
-                $lines.Add('| ' + $l)
-                $shown++; $chars += $l.Length + 1
+                # one long line is cut here, with a marker (vs_once.sh would cut it at 400 characters without a word, and one line over the limit showed "first 0 of N lines")
+                $s = $l; $isCut = $false
+                if ($s.Length -gt $VsSelectionMaxLineChars) { $s = $s.Substring(0, $VsSelectionMaxLineChars) + " ...(+$($l.Length - $VsSelectionMaxLineChars) chars)"; $isCut = $true }
+                if ($shown -ge $VsSelectionMaxLines -or ($chars + $s.Length) -gt $VsSelectionMaxChars) { break }
+                $lines.Add('| ' + $s)
+                if ($isCut) { $cut++ }
+                $shown++; $chars += $s.Length + 1
             }
-            if ($shown -lt $all.Count) { $lines.Add("SELECTION_TRUNCATED: showing the first $shown of $($all.Count) lines (limits: $VsSelectionMaxLines lines, $VsSelectionMaxChars chars)") }
+            if ($shown -lt $all.Count -or $cut -gt 0) {
+                $note = if ($cut -gt 0) { "; $cut line(s) cut at $VsSelectionMaxLineChars chars" } else { "" }
+                $lines.Add("SELECTION_TRUNCATED: showing the first $shown of $($all.Count) lines (limits: $VsSelectionMaxLines lines, $VsSelectionMaxChars chars)$note")
+            }
         }
     } catch { $lines.Add("SELECTION_SKIP: could not read the selection: $($_.Exception.Message)") }
     return $lines.ToArray()

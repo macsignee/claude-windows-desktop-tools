@@ -1509,3 +1509,14 @@ python3 ~/.claude/skills/cpp-test-first/scripts/add_ui_host.py "$PWD"
 | SL8 | 100 行を超える (または、8000 文字を超える) 範囲を選ぶ → `--selection`。別に、ファイルの行数を超える行へ `--goto` | `SELECTION_TRUNCATED: showing the first N of M lines …`。`GOTO_CLAMPED: <指定> -> <最後の行>` (失敗にならない) | 後半 (`:9999` → `GOTO_CLAMPED: 9999 -> 52`) 合格。**前半も合格**: `UiTestBase.cs` を全選択して `SELECTION_TRUNCATED: showing the first 100 of 386 lines (limits: 100 lines, 8000 chars)`。300 行目〜末尾 (87 行・3865 文字) は、切り詰めなし |
 | SL9 | `--goto PS5/ViewModels/MainViewModel.cs:49:5` (桁つき)。別に、行の長さを超える桁 (`:49:200`) | 49 行目の 5 桁目にカーソルが移る (`GOTO: …:49:5`)。桁が長すぎるときは、行末に置いて `GOTO_CLAMPED: column 200 -> <行末の桁>` (失敗にならない) | v2.108.0: 桁のクランプ (`:49:200` → `49:19`) は合格。**上端に出た (不合格)**。v2.108.1: 桁つき合格。画面の位置は「中頃〜下寄り」(上端でない)。**中央も合格**: `UiTestBase.cs:200:5` で、中央に見えた。ただしカーソルは 200 行 **1 桁** (指定は 5 桁)。200 行目は長い行 (先頭 4 桁は空白) で、クランプでは説明できない。出力 (`GOTO: …:200:5` か) を貼っておらず、ステータスバーの読み違いかも含め **このまま終了とする (ユーザーの判断、2026-11-27)** |
 | SL10 | WinForms のフォーム (`MainForm.cs` など、デザイナーを持つファイル) へ `--goto` | デザイナーでなく、コードのビューが開き、その行へ移る (`GOTO_FAILED: … not a text document` にならない)。**画面の中央 (SL4) に見えるかも、ここで確かめる** (上端に見えるなら、`TryToShow` の定数を直す) | |
+
+### 2-75. `--selection` の軽微な点 4 件 (v2.108.3)
+配布 (`install.sh --host-only` と `--skills-only`) と、ウォッチャーの再起動のあと、**新しい Claude Code のセッション**で行う。確認用は `PS5` (WPF)。`vs_once.sh` は、フルパスで実行する。
+
+| ID | 確認 | 期待 | 結果 |
+|---|---|---|---|
+| SM1 | `MainViewModel.cs` で、行全体を数行選ぶ (行頭から、数行下の行頭まで。Shift+↓) → `--selection` | `SELECTION_RANGE:` は、終わりが 1 桁目。`SELECTION_TEXT: N lines` の N は、選んだ行数 (終わりの行 − 始めの行)。本文の最後に、`\|` だけの空行が出ない (v2.108.2 までは、1 行多かった) | |
+| SM2 | `PS5.UITests/UiTestBase.cs` を開き、Ctrl+A → `--selection` | `SELECTION_TEXT: 385 lines` (v2.108.2 までは 386)。`SELECTION_TRUNCATED: showing the first 100 of 385 lines` | |
+| SM3 | VS で、新しいテキスト ファイル (Ctrl+N) に、9000 文字ほどの 1 行を貼り、全選択 → `--selection` | `SELECTION_TEXT: 1 lines, 約 9000 chars`。本文の行は、370 文字のあとに ` ...(+N chars)`。`SELECTION_TRUNCATED: showing the first 1 of 1 lines (...); 1 line(s) cut at 370 chars` (v2.108.2 までは `first 0 of 1 lines`)。確認のあと、ファイルは保存せずに閉じる | |
+| SM4 | 400 文字を超える行を含む範囲 (SM3 のファイルでよい) → `--selection` | 行の終わりに ` ...(+N chars)` の印が付く (印なしで、黙って切られない) | |
+| SM5 | `--break` で止めたあと、エディターで `UiTestBase.cs` のタブを選び、100 行以上を選ぶ → `--selection --inspect` | 選択の本文のあとに、`STACK:` / `LOCALS:` / `STOPPED:` が、落ちずに出る。`... (N lines total` の行がない (v2.108.2 までは、落ちることがあった)。`--selection` なしの `--inspect` は、従来どおり | |

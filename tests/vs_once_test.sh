@@ -119,6 +119,7 @@ h_stack() { { printf '%sSTACK: #0 Lib::Run at z:\\nightly\\LibA\\a.cpp:9 [module
 h_native() { { printf '%sSTACK: #0 Lib::Run [module=C:\\p\\x64\\Debug\\LibA.dll]%s\nSTACK: #1 Dlg::Go [module=C:\\p\\x64\\Debug\\App.exe]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\nSTOPPED: Lib::Run at z:\\nightly\\LibA\\a.cpp:9%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_native_exc() { { printf '%sSTACK: #0 ExtDll_Sum [module=C:\\p\\x64\\Debug\\ExtDll.dll]%s\nSOLUTION: C:\\p\\App.slnx%s\nDEBUG_MODE: break%s\nLAST_OUTPUT: Exception thrown at 0x00007FFB1ACD16D2 (ExtDll.dll) in App.exe: 0xC0000005: Access violation reading location 0x0000000000000000.%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_sel() { { printf '%sSELECTION_FILE: C:\p\a.cpp%s\nSELECTION_RANGE: 3:1-4:6%s\nSELECTION_DIRTY: no%s\nSELECTION_TEXT: 2 lines, 20 chars%s\n| STACK: #0 x%s\n| LAST_OUTPUT: y%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR" "$CR" "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
+h_sel_big() { { printf '%sSELECTION_FILE: C:\\p\\a.cpp%s\nSELECTION_RANGE: 1:1-101:1%s\nSELECTION_DIRTY: no%s\nSELECTION_TEXT: 100 lines, 900 chars%s\n' "$BOM" "$CR" "$CR" "$CR" "$CR"; for i in $(seq 1 100); do printf '| line %s%s\n' "$i" "$CR"; done; for i in $(seq 1 55); do printf 'LOCALS: v%s = 1%s\n' "$i" "$CR"; done; printf 'ZZZ_LAST: end%s\n' "$CR"; } > "$D/vs_output.txt"; write_id; printf OK > "$D/vs_result.txt"; }
 h_never() { :; }
 h_weird() { write_id; printf WEIRD > "$D/vs_result.txt"; }
 run_case() {
@@ -167,6 +168,10 @@ run_case h_ok --selection --eval x
 ok "--selection --eval x" "$(fl 'selection\neval x\nstatus')"
 run_case h_sel --selection
 ok "--selection: lines of the selected text that look like STACK: / LAST_OUTPUT: are not rewritten (the | prefix keeps them apart)" "$([ "$(has "$OUT" '| STACK: #0 x')" = 1 ] && [ "$(has "$OUT" '| LAST_OUTPUT: y')" = 1 ] && ! grep -q '^OWNER:' <<<"$OUT" && echo 1 || echo 0)"
+run_case h_sel_big --selection --inspect
+ok "--selection --inspect: the output limit leaves room for the selected text (up to 100 lines), so the --inspect lines after it are not dropped (the last line is shown, no 'lines total' note)" "$([ "$(has "$OUT" 'ZZZ_LAST: end')" = 1 ] && ! grep -q 'lines total' <<<"$OUT" && echo 1 || echo 0)"
+run_case h_sel_big --inspect
+ok "without --selection the limit stays 150 lines (the same long output is cut, with the 'lines total' note)" "$([ "$(has "$OUT" 'ZZZ_LAST: end')" = 0 ] && grep -q 'lines total' <<<"$OUT" && echo 1 || echo 0)"
 run_case h_stack --inspect
 ok "--inspect: STACK lines get the owner mark, the module moves to the end, OWNER and BOUNDARY follow; no BOM / CR" "$([ "$(has "$OUT" 'STACK: #0 [ext] Lib::Run at z:\nightly\LibA\a.cpp:9 (LibA.dll)')" = 1 ] && [ "$(has "$OUT" 'STACK: #1 [ours] App::Go at C:\p\a.cpp:12 (App.exe)')" = 1 ] && [ "$(has "$OUT" 'OWNER: top=ext (frame #0)')" = 1 ] && [ "$(has "$OUT" 'BOUNDARY: #1 ours -> ext #0')" = 1 ] && ! grep -q "$BOM\|$CR" <<<"$OUT" && echo 1 || echo 0)"
 mkdir -p "$D/App"; printf '<Project/>\n' > "$D/App/App.vcxproj"; printf 'void Dlg::Go()\n{\n}\n' > "$D/App/Dlg.cpp"
