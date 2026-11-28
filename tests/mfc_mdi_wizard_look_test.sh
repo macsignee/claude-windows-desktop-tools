@@ -45,7 +45,7 @@ ok "MDI: ChildFrame derives from CMDIChildWndEx (DECLARE_DYNCREATE) with the wiz
 ok "MDI: ChildFrame.cpp: IMPLEMENT_DYNCREATE on CMDIChildWndEx, message map, style WS_CHILD | WS_VISIBLE ... WS_THICKFRAME" "$(all "$D/ChildFrame.cpp" 'IMPLEMENT_DYNCREATE(ChildFrame, CMDIChildWndEx)' 'BEGIN_MESSAGE_MAP(ChildFrame, CMDIChildWndEx)' 'cs.style = WS_CHILD | WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU' 'FWS_ADDTOTITLE | WS_THICKFRAME;')"
 
 # --- SampleDoc / SampleView (SDI と同じ) ---
-ok "MDI: SampleDoc has OnNewDocument and Serialize; SampleView has the right-click context menu (IDR_POPUP_EDIT) and OnDraw with the app name" "$([ "$(all "$D/SampleDoc.h" 'virtual BOOL OnNewDocument();' 'virtual void Serialize(CArchive& ar);')" = 1 ] && [ "$(all "$D/SampleView.cpp" 'ON_WM_RBUTTONUP()' 'ON_WM_CONTEXTMENU()' 'ShowPopupMenu' 'TextOut(10, 10, _T("app_mfc_mdi"))')" = 1 ] && echo 1 || echo 0)"
+ok "MDI: SampleDoc has OnNewDocument and Serialize; SampleView has the right-click context menu (IDR_POPUP_EDIT) and OnDraw draws nothing, like the wizard (no TextOut of the app name)" "$([ "$(all "$D/SampleDoc.h" 'virtual BOOL OnNewDocument();' 'virtual void Serialize(CArchive& ar);')" = 1 ] && [ "$(all "$D/SampleView.cpp" 'ON_WM_RBUTTONUP()' 'ON_WM_CONTEXTMENU()' 'ShowPopupMenu' 'void SampleView::OnDraw(CDC* pDC)')" = 1 ] && [ "$(has 'TextOut' "$D/SampleView.cpp")" = 0 ] && echo 1 || echo 0)"
 ok "MDI: no printing, no SHARED_HANDLERS" "$([ "$(has 'OnFilePrint' "$D/SampleView.cpp")" = 0 ] && [ "$(has 'OnPreparePrinting' "$D/SampleView.cpp")" = 0 ] && [ "$(has 'SHARED_HANDLERS' "$D/SampleDoc.cpp")" = 0 ] && echo 1 || echo 0)"
 
 # --- Resource.h ---

@@ -800,7 +800,6 @@ void SampleView::OnDraw(CDC* pDC)
         return;
 
     // TODO: この場所にネイティブ データ用の描画コードを追加する。
-    pDC->TextOut(10, 10, _T("@@NAME@@"));
 }
 
 void SampleView::OnRButtonUp(UINT /* nFlags */, CPoint point)
