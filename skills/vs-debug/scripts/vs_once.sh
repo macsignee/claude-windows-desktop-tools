@@ -170,6 +170,7 @@ if [ "$SELECTION" -eq 1 ]; then
     for r in "${RUNOPS[@]+"${RUNOPS[@]}"}"; do
         case "$r" in eval\ *) ;; *) bad "--selection cannot be combined with --step / --continue / --pause" ;; esac
     done
+    MAX_OUT=$((MAX_OUT + 110))   # 選択の本文 (最大 100 行) と見出しの分。足さないと、--inspect などの行が、後ろから落ちる
 fi
 case "$TIMEOUT" in ''|*[!0-9]*) bad "timeout must be a positive integer (seconds): $TIMEOUT" ;; esac
 if [ "$STATUS_ONLY" -eq 1 ] && [ $((RELOAD + CHANGES + CLEAR + DEBUG + INSPECT + OUTPUT + SELECTION + ${#GOTO} + ${#BREAKS[@]} + ${#RUNOPS[@]})) -gt 0 ]; then
